@@ -1,5 +1,9 @@
 """
 main.py — Scout entry point. Python 3.13 compatible async entry.
+
+CHANGES FROM PHASE 1:
+  - MemoryManager initialized first and injected into both Brain and Scheduler
+  - Memory is loaded at startup so Scout wakes up with full context
 """
 
 import asyncio
@@ -19,7 +23,10 @@ logger = logging.getLogger(__name__)
 
 
 async def main():
-    from agent.config import validate, MORNING_BRIEF_TIME, EOD_REPORT_TIME, TIMEZONE, CLAUDE_MODEL
+    from agent.config import (
+        validate, MORNING_BRIEF_TIME, EOD_REPORT_TIME,
+        TIMEZONE, CLAUDE_MODEL, CHECKIN_START_HOUR, CHECKIN_END_HOUR
+    )
     try:
         validate()
     except EnvironmentError as e:
@@ -30,9 +37,11 @@ async def main():
     logger.info("  SCOUT — CodeCombat Sales Agent")
     logger.info(f"  Model: {CLAUDE_MODEL}")
     logger.info(f"  Brief: {MORNING_BRIEF_TIME} | EOD: {EOD_REPORT_TIME} | TZ: {TIMEZONE}")
+    logger.info(f"  Check-ins: {CHECKIN_START_HOUR}:00–{CHECKIN_END_HOUR}:00 CST")
     logger.info("=" * 50)
 
     try:
+        from agent.memory_manager import MemoryManager
         from agent.claude_brain import ScoutBrain
         from agent.scheduler import ScoutScheduler
         from tools.telegram_bot import ScoutBot
@@ -40,18 +49,21 @@ async def main():
         logger.error(f"IMPORT ERROR: {e}")
         sys.exit(1)
 
-    brain = ScoutBrain()
-    logger.info("Claude brain ready.")
+    # Memory loads first — brain and scheduler both need it
+    memory = MemoryManager()
+    logger.info("[Main] Memory manager ready.")
 
-    scheduler = ScoutScheduler(brain)
+    brain = ScoutBrain(memory_manager=memory)
+    logger.info("[Main] Claude brain ready.")
+
+    scheduler = ScoutScheduler(brain=brain, memory_manager=memory)
     scheduler.run_in_background()
-    logger.info("Scheduler running.")
+    logger.info("[Main] Scheduler running.")
 
     async def handle_message(user_message: str) -> str:
         return await brain.chat(user_message)
 
-    # Run bot using async polling — no event loop conflict
-    logger.info("Starting bot. Message @coco_scout_bot to begin.")
+    logger.info("[Main] Starting bot. Message @coco_scout_bot to begin.")
     bot = ScoutBot(claude_handler=handle_message)
     await bot.run_async()
 
