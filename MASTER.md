@@ -1,6 +1,7 @@
-# MASTER.md — CodeCombat Sales Agent
+# MASTER.md — CodeCombat Sales Agent (firstcocoagent)
 **Last Updated:** 2026-02-25
-**Status:** Pre-build — architecture finalized, repo initialized
+**Status:** Phase 1 — In Progress
+**GitHub Repo:** https://github.com/[YOUR_USERNAME]/firstcocoagent (private)
 
 ---
 
@@ -101,7 +102,7 @@ Turn-key teacher resources: lesson plans, slides, quizzes, unplugged activities,
 
 | Phase | Title | Status | Cost Added |
 |-------|-------|--------|-----------|
-| 1 | Brain + Command Channel (Railway + Telegram + Claude API) | ⬜ Not started | $20–30/mo |
+| 1 | Brain + Command Channel (Railway + Telegram + Claude API) | ✅ Code Complete — Deploy Pending | $20–30/mo |
 | 2 | Lead Research + Google Sheets | ⬜ Not started | $0 |
 | 3 | Gmail Voice Training + Email Drafting | ⬜ Not started | $0 |
 | 4 | Email Sequences + Outreach.io | ⬜ Not started | $0 |
@@ -114,7 +115,7 @@ Turn-key teacher resources: lesson plans, slides, quizzes, unplugged activities,
 ## 7. REPO STRUCTURE
 
 ```
-codecombat-agent/
+firstcocoagent/
 │
 ├── MASTER.md                  ← This file. Always read first.
 │
@@ -208,7 +209,7 @@ When this chat hits its limit or you start a new session:
 ## 11. WHAT'S NEXT
 
 **Immediate next step:** Build Phase 1
-- [ ] Create GitHub repo and push this structure
+- [x] Create GitHub repo (named: firstcocoagent)
 - [ ] Set up Railway.app account
 - [ ] Create Telegram bot via @BotFather
 - [ ] Get Claude API key from console.anthropic.com
@@ -224,3 +225,18 @@ When this chat hits its limit or you start a new session:
 | Date | Change | Phase |
 |------|--------|-------|
 | 2026-02-25 | Repo initialized, MASTER.md created, architecture finalized | Pre-build |
+| 2026-02-25 | GitHub repo created: firstcocoagent. Phase 1 build started. | Phase 1 |
+
+## 13. PHASE 1 FILES WRITTEN
+
+- agent/main.py — Entry point. Run this to start Scout.
+- agent/config.py — All settings loaded from environment variables.
+- agent/claude_brain.py — All Claude API calls. Manages conversation history.
+- agent/scheduler.py — Morning brief + EOD report scheduling.
+- tools/telegram_bot.py — All Telegram send/receive logic.
+- prompts/system.md — Scout's full master system prompt.
+- prompts/morning_brief.md — Template for 7:30am brief.
+- prompts/eod_report.md — Template for 5:30pm report.
+
+NEXT STEP: Follow docs/SETUP.md to get API keys and deploy to Railway.
+Then come back and we build Phase 2 (Lead Research + Google Sheets).
