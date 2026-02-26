@@ -1,1 +1,1 @@
-web: python agent/main.py
+worker: python -u agent/main.py
