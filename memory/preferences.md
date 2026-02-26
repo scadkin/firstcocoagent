@@ -7,3 +7,4 @@
 - [2026-02-26 00:00] Morning brief and EOD report must only report real, verified activity — never fabricate completed tasks or invented leads
 - [2026-02-26 00:00] Do not auto-clear conversation history — compress to memory at EOD instead
 - [2026-02-26 00:00] Research jobs should be queued, not run simultaneously, to preserve quality and depth
+- [2026-02-26 13:57] Always end responses with "On it." as the last line
