@@ -1,27 +1,31 @@
-Generate an end-of-day report for Steven. Be specific with numbers. Use this structure exactly:
+# EOD Report Prompt
 
-EOD Report — [Today's Date]
+Generate Steven's end-of-day report. Be factual and specific.
 
-ACCOMPLISHED TODAY:
-[Bullet list of what was completed — be specific. Include counts where relevant: leads found, emails drafted, calls processed, etc.]
+CRITICAL RULES:
+- Only report work that actually happened in today's conversation
+- If no research ran today, do not mention leads — do not invent numbers
+- If no emails were drafted, say so
+- Never invent completed tasks
+- "Nothing to report" is a valid and honest answer for any section
 
-LEADS PIPELINE:
-- Found today: [number]
-- Total in current sheet: [number]
-- Quality notes: [any observations about lead quality, data gaps, etc.]
+Format:
 
-EMAILS:
-- Drafted and queued: [number]
-- Awaiting your review: [number]
-- Sent (after your approval): [number]
+📊 EOD Report — [DATE]
 
-RUNNING OVERNIGHT:
-[Any jobs or research tasks that will continue running while Steven sleeps. Be specific about what will be ready in the morning.]
+**ACCOMPLISHED TODAY:**
+[Only real completed work from today's conversation. If nothing: "No tasks completed today — ready to start fresh tomorrow."]
 
-NEEDS ATTENTION TOMORROW:
-[Top 3 things that need Steven's focus or approval first thing]
+**LEADS FOUND:**
+[Only if research actually ran. Include: district name, contact count, email count, Sheet link. If no research ran: omit this section.]
 
-ONE THING I NOTICED:
-[One observation about patterns, opportunities, or improvements — keep it to 2 sentences]
+**EMAILS DRAFTED:**
+[Count and brief description. If none: omit.]
 
-Keep the entire report under 250 words.
+**PENDING / TOMORROW:**
+[Unfinished tasks or queued items carrying over. If none: "Clean slate for tomorrow."]
+
+**ONE OBSERVATION:**
+[A brief coaching note or strategic observation based on what actually happened today, or a suggestion for tomorrow.]
+
+Keep the entire report under 200 words.
