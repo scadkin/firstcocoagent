@@ -10,7 +10,7 @@ load_dotenv()
 
 # ─── CLAUDE ──────────────────────────────────────────────────────────────────
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
-CLAUDE_MODEL = "claude-opus-4-5"  # Upgrade to opus for better reasoning if budget allows
+CLAUDE_MODEL = os.getenv("CLAUDE_MODEL", "claude-opus-4-5")
 CLAUDE_MAX_TOKENS = 2048
 
 # ─── TELEGRAM ────────────────────────────────────────────────────────────────
@@ -23,13 +23,25 @@ GMAIL_CLIENT_SECRET = os.getenv("GMAIL_CLIENT_SECRET")
 GMAIL_REFRESH_TOKEN = os.getenv("GMAIL_REFRESH_TOKEN")
 GOOGLE_SHEETS_ID = os.getenv("GOOGLE_SHEETS_ID")
 
+# ─── GITHUB (memory persistence) ─────────────────────────────────────────────
+# Fine-grained personal access token with contents:write on firstcocoagent
+GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
+GITHUB_REPO = os.getenv("GITHUB_REPO", "scadkin/firstcocoagent")
+
+# ─── RESEARCH (Phase 2) ───────────────────────────────────────────────────────
+SERPER_API_KEY = os.getenv("SERPER_API_KEY")
+
 # ─── FIREFLIES ────────────────────────────────────────────────────────────────
 FIREFLIES_API_KEY = os.getenv("FIREFLIES_API_KEY")
 
 # ─── SCHEDULE ────────────────────────────────────────────────────────────────
-MORNING_BRIEF_TIME = os.getenv("MORNING_BRIEF_TIME", "07:30")
-EOD_REPORT_TIME = os.getenv("EOD_REPORT_TIME", "17:30")
+MORNING_BRIEF_TIME = os.getenv("MORNING_BRIEF_TIME", "09:15")
+EOD_REPORT_TIME = os.getenv("EOD_REPORT_TIME", "16:30")
 TIMEZONE = os.getenv("TIMEZONE", "America/Chicago")
+
+# Hourly check-in window (CST). No check-ins outside these hours.
+CHECKIN_START_HOUR = int(os.getenv("CHECKIN_START_HOUR", "10"))   # 10am CST
+CHECKIN_END_HOUR = int(os.getenv("CHECKIN_END_HOUR", "16"))       # 4pm CST (last at 4:00pm)
 
 # ─── AGENT IDENTITY ──────────────────────────────────────────────────────────
 AGENT_NAME = os.getenv("AGENT_NAME", "Scout")
@@ -48,4 +60,15 @@ def validate():
             f"Missing required environment variables: {', '.join(missing)}\n"
             f"Copy .env.example to .env and fill in your values."
         )
+
+    # Warn about optional but important vars
+    warnings = []
+    if not GITHUB_TOKEN:
+        warnings.append("GITHUB_TOKEN not set — memory will not persist across Railway restarts")
+    if not SERPER_API_KEY:
+        warnings.append("SERPER_API_KEY not set — Phase 2 research will be limited")
+
+    for w in warnings:
+        print(f"[Config] WARNING: {w}")
+
     print(f"[Config] All required variables present. Agent: {AGENT_NAME}")
