@@ -1,7 +1,5 @@
 """
-main.py — Scout entry point.
-Compatible with Python 3.13. No startup message (avoids Chat not found error).
-Message Scout first in Telegram, then it will respond.
+main.py — Scout entry point. Python 3.13 compatible async entry.
 """
 
 import asyncio
@@ -21,7 +19,6 @@ logger = logging.getLogger(__name__)
 
 
 async def main():
-    # 1. Validate config
     from agent.config import validate, MORNING_BRIEF_TIME, EOD_REPORT_TIME, TIMEZONE, CLAUDE_MODEL
     try:
         validate()
@@ -35,7 +32,6 @@ async def main():
     logger.info(f"  Brief: {MORNING_BRIEF_TIME} | EOD: {EOD_REPORT_TIME} | TZ: {TIMEZONE}")
     logger.info("=" * 50)
 
-    # 2. Import everything
     try:
         from agent.claude_brain import ScoutBrain
         from agent.scheduler import ScoutScheduler
@@ -44,23 +40,20 @@ async def main():
         logger.error(f"IMPORT ERROR: {e}")
         sys.exit(1)
 
-    # 3. Initialize brain
     brain = ScoutBrain()
     logger.info("Claude brain ready.")
 
-    # 4. Start scheduler
     scheduler = ScoutScheduler(brain)
     scheduler.run_in_background()
     logger.info("Scheduler running.")
 
-    # 5. Message handler
     async def handle_message(user_message: str) -> str:
         return await brain.chat(user_message)
 
-    # 6. Run bot — this blocks forever (that is correct)
-    logger.info("Starting Telegram bot polling. Message @coco_scout_bot to begin.")
+    # Run bot using async polling — no event loop conflict
+    logger.info("Starting bot. Message @coco_scout_bot to begin.")
     bot = ScoutBot(claude_handler=handle_message)
-    bot.run()
+    await bot.run_async()
 
 
 if __name__ == "__main__":
