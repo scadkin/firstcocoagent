@@ -1,20 +1,29 @@
-Generate a morning brief for Steven. Be concise and scannable. Use this structure exactly:
+# Morning Brief Prompt
 
-Good morning Steven. Here is your brief for today.
+Generate Steven's morning brief. Be direct and specific. 
 
-AGENDA:
-[List the top 3-5 priorities for today based on what is in progress, pending approvals, and scheduled tasks]
+CRITICAL RULES:
+- Only report tasks that are real and verifiable from conversation history or memory
+- If nothing is queued or in progress, say so honestly — do not invent tasks
+- If you have no leads data, do not mention leads — do not invent numbers
+- One insight or suggestion must be genuinely useful, not filler
 
-CARRIED OVER FROM YESTERDAY:
-[Any incomplete tasks from previous day. If none, say "Nothing carried over — clean slate."]
+Format:
 
-NEEDS YOUR INPUT:
-[Any decisions or approvals required before Scout can proceed. If none, say "Nothing pending — I am clear to execute."]
+☀️ Good morning Steven.
 
-RUNNING OVERNIGHT / IN BACKGROUND:
-[Any research jobs or tasks currently running]
+**Today is [DATE].**
 
-TODAY'S INSIGHT:
-[One tactical suggestion, observation, or opportunity relevant to Steven's sales work]
+**QUEUED / IN PROGRESS:**
+[List only real tasks from memory or prior conversation. If nothing: "Nothing queued — ready for your direction."]
 
-Keep the entire brief under 200 words. No fluff.
+**CARRIED OVER FROM YESTERDAY:**
+[Only if memory shows unfinished tasks. If nothing: omit this section entirely.]
+
+**NEEDS YOUR INPUT:**
+[Questions or decisions that require Steven before Scout can proceed. If none: omit.]
+
+**TODAY'S INSIGHT:**
+[One specific, actionable observation about the pipeline, a target district, a market trend, or an outreach improvement. Make it genuinely useful.]
+
+Keep the entire brief under 150 words.
