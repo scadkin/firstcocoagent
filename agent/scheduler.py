@@ -1,6 +1,7 @@
 """
 scheduler.py — Runs Scout's scheduled daily jobs.
-Morning brief at 7:30am, EOD report at 5:30pm (configurable in .env).
+Morning brief at 9:15am, EOD report at 4:30pm, hourly check-in every hour.
+All times in America/Chicago (CST).
 """
 
 import asyncio
@@ -17,63 +18,72 @@ logger = logging.getLogger(__name__)
 
 
 class ScoutScheduler:
-    """Manages all timed/scheduled tasks for Scout."""
 
     def __init__(self, brain):
-        """
-        brain: ScoutBrain instance — used to generate scheduled reports.
-        """
         self.brain = brain
         self.timezone = pytz.timezone(config.TIMEZONE)
 
-    def _get_morning_brief_prompt(self) -> str:
-        """Load and return the morning brief prompt."""
+    def _load_prompt(self, filename: str) -> str:
         from pathlib import Path
-        prompt_path = Path(__file__).parent.parent / "prompts" / "morning_brief.md"
-        if prompt_path.exists():
-            return prompt_path.read_text(encoding="utf-8")
-        return "Generate a concise morning brief for Steven covering today's priorities, pending approvals, and one tactical insight."
-
-    def _get_eod_prompt(self) -> str:
-        """Load and return the EOD report prompt."""
-        from pathlib import Path
-        prompt_path = Path(__file__).parent.parent / "prompts" / "eod_report.md"
-        if prompt_path.exists():
-            return prompt_path.read_text(encoding="utf-8")
-        return "Generate a concise end-of-day report for Steven covering what was accomplished, pipeline stats, and priorities for tomorrow."
+        path = Path(__file__).parent.parent / "prompts" / filename
+        return path.read_text(encoding="utf-8") if path.exists() else ""
 
     async def _run_morning_brief(self):
-        """Generate and send the morning brief."""
         logger.info("[Scheduler] Running morning brief...")
         today = datetime.now(self.timezone).strftime("%A, %B %d")
-        context = f"Today is {today}."
+        prompt = self._load_prompt("morning_brief.md")
         try:
-            brief = await self.brain.one_shot(self._get_morning_brief_prompt(), context)
-            await send_message(f"☀️ *Good morning, Steven.*\n\n{brief}")
-            # Clear history at start of each day for a fresh session
+            brief = await self.brain.one_shot(prompt, f"Today is {today}.")
+            await send_message(f"☀️ Good morning Steven.\n\n{brief}")
             self.brain.clear_history()
             logger.info("[Scheduler] Morning brief sent.")
         except Exception as e:
             logger.error(f"[Scheduler] Morning brief failed: {e}")
-            await send_message(f"Morning brief failed to generate. Error: {str(e)}")
+            await send_message(f"Morning brief failed: {str(e)}")
 
     async def _run_eod_report(self):
-        """Generate and send the EOD report."""
         logger.info("[Scheduler] Running EOD report...")
         today = datetime.now(self.timezone).strftime("%A, %B %d")
-        context = f"Today is {today}. Generate the end-of-day report."
+        prompt = self._load_prompt("eod_report.md")
         try:
-            report = await self.brain.one_shot(self._get_eod_prompt(), context)
-            await send_message(f"📊 *EOD Report — {today}*\n\n{report}")
+            report = await self.brain.one_shot(prompt, f"Today is {today}.")
+            await send_message(f"📊 EOD Report — {today}\n\n{report}")
             logger.info("[Scheduler] EOD report sent.")
         except Exception as e:
             logger.error(f"[Scheduler] EOD report failed: {e}")
-            await send_message(f"EOD report failed to generate. Error: {str(e)}")
+            await send_message(f"EOD report failed: {str(e)}")
+
+    async def _run_hourly_checkin(self):
+        now = datetime.now(self.timezone)
+        hour = now.strftime("%I:%M %p").lstrip("0")
+        logger.info(f"[Scheduler] Running hourly check-in ({hour})...")
+
+        # Skip if it coincides with morning brief or EOD report windows
+        hour_24 = now.strftime("%H:%M")
+        if hour_24 in ("09:15", "16:30"):
+            logger.info("[Scheduler] Skipping check-in — brief/report time.")
+            return
+
+        prompt = (
+            f"It is {hour} CST. Send Steven a brief hourly check-in. "
+            f"Format:\n"
+            f"🕐 {hour} check-in\n\n"
+            f"WORKING ON: [1-2 sentences on what you've been doing or are ready to do — "
+            f"be specific, not generic. If nothing has been assigned yet, say so honestly.]\n\n"
+            f"ANY TASKS FOR ME? Reply with anything you want me to work on right now, "
+            f"or reply SKIP to skip this hour.\n\n"
+            f"Keep it under 60 words total."
+        )
+        try:
+            checkin = await self.brain.one_shot(prompt)
+            await send_message(checkin)
+            logger.info("[Scheduler] Hourly check-in sent.")
+        except Exception as e:
+            logger.error(f"[Scheduler] Hourly check-in failed: {e}")
 
     def _schedule_jobs(self):
-        """Set up all scheduled jobs."""
-        morning_time = config.MORNING_BRIEF_TIME  # e.g. "07:30"
-        eod_time = config.EOD_REPORT_TIME          # e.g. "17:30"
+        morning_time = config.MORNING_BRIEF_TIME   # e.g. "09:15"
+        eod_time = config.EOD_REPORT_TIME           # e.g. "16:30"
 
         schedule.every().day.at(morning_time).do(
             lambda: asyncio.run(self._run_morning_brief())
@@ -81,18 +91,21 @@ class ScoutScheduler:
         schedule.every().day.at(eod_time).do(
             lambda: asyncio.run(self._run_eod_report())
         )
+        schedule.every().hour.at(":00").do(
+            lambda: asyncio.run(self._run_hourly_checkin())
+        )
 
-        logger.info(f"[Scheduler] Morning brief scheduled at {morning_time} {config.TIMEZONE}")
-        logger.info(f"[Scheduler] EOD report scheduled at {eod_time} {config.TIMEZONE}")
+        logger.info(f"[Scheduler] Morning brief: {morning_time} CT")
+        logger.info(f"[Scheduler] EOD report: {eod_time} CT")
+        logger.info(f"[Scheduler] Hourly check-in: every hour at :00")
 
     def run_in_background(self):
-        """Start the scheduler in a background thread so it does not block the bot."""
         self._schedule_jobs()
 
         def loop():
             while True:
                 schedule.run_pending()
-                time.sleep(30)  # Check every 30 seconds
+                time.sleep(30)
 
         thread = threading.Thread(target=loop, daemon=True)
         thread.start()
