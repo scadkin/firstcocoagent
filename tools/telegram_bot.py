@@ -1,60 +1,100 @@
 """
-main.py — Scout entry point. Python 3.13 compatible async entry.
+telegram_bot.py — All Telegram send/receive logic for Scout.
+Uses async polling compatible with asyncio.run() in main.py.
 """
 
-import asyncio
 import logging
-import sys
-from pathlib import Path
+from telegram import Update, Bot
+from telegram.ext import Application, MessageHandler, CommandHandler, filters, ContextTypes
+from agent import config
 
-ROOT = Path(__file__).parent.parent
-sys.path.insert(0, str(ROOT))
-
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-    handlers=[logging.StreamHandler(sys.stdout)]
-)
 logger = logging.getLogger(__name__)
 
 
-async def main():
-    from agent.config import validate, MORNING_BRIEF_TIME, EOD_REPORT_TIME, TIMEZONE, CLAUDE_MODEL
-    try:
-        validate()
-    except EnvironmentError as e:
-        logger.error(f"CONFIG ERROR: {e}")
-        sys.exit(1)
-
-    logger.info("=" * 50)
-    logger.info("  SCOUT — CodeCombat Sales Agent")
-    logger.info(f"  Model: {CLAUDE_MODEL}")
-    logger.info(f"  Brief: {MORNING_BRIEF_TIME} | EOD: {EOD_REPORT_TIME} | TZ: {TIMEZONE}")
-    logger.info("=" * 50)
-
-    try:
-        from agent.claude_brain import ScoutBrain
-        from agent.scheduler import ScoutScheduler
-        from tools.telegram_bot import ScoutBot
-    except ImportError as e:
-        logger.error(f"IMPORT ERROR: {e}")
-        sys.exit(1)
-
-    brain = ScoutBrain()
-    logger.info("Claude brain ready.")
-
-    scheduler = ScoutScheduler(brain)
-    scheduler.run_in_background()
-    logger.info("Scheduler running.")
-
-    async def handle_message(user_message: str) -> str:
-        return await brain.chat(user_message)
-
-    # Run bot using async polling — no event loop conflict
-    logger.info("Starting bot. Message @coco_scout_bot to begin.")
-    bot = ScoutBot(claude_handler=handle_message)
-    await bot.run_async()
+async def send_message(text: str) -> None:
+    """Send a message to Steven's Telegram chat."""
+    bot = Bot(token=config.TELEGRAM_BOT_TOKEN)
+    async with bot:
+        chunks = [text[i:i+4000] for i in range(0, len(text), 4000)]
+        for chunk in chunks:
+            await bot.send_message(chat_id=config.TELEGRAM_CHAT_ID, text=chunk)
 
 
-if __name__ == "__main__":
-    asyncio.run(main())
+class ScoutBot:
+    def __init__(self, claude_handler):
+        self.claude_handler = claude_handler
+        self.app = (
+            Application.builder()
+            .token(config.TELEGRAM_BOT_TOKEN)
+            .build()
+        )
+        self._register_handlers()
+
+    def _register_handlers(self):
+        steven_filter = filters.Chat(chat_id=config.TELEGRAM_CHAT_ID)
+        self.app.add_handler(CommandHandler("start", self._start, filters=steven_filter))
+        self.app.add_handler(CommandHandler("status", self._status, filters=steven_filter))
+        self.app.add_handler(CommandHandler("help", self._help, filters=steven_filter))
+        self.app.add_handler(MessageHandler(
+            filters.TEXT & ~filters.COMMAND & steven_filter,
+            self._message
+        ))
+
+    async def _start(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        await update.message.reply_text(
+            "Scout online. Send me a task or type /help to see what I can do."
+        )
+
+    async def _status(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        await update.message.reply_text(
+            f"All systems running.\n"
+            f"Morning brief: {config.MORNING_BRIEF_TIME}\n"
+            f"EOD report: {config.EOD_REPORT_TIME}\n"
+            f"Timezone: {config.TIMEZONE}"
+        )
+
+    async def _help(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        await update.message.reply_text(
+            "Scout — What I Can Do\n\n"
+            "Research:\n"
+            "  Find CS leads in [state or district]\n"
+            "  Research [district name] for contacts\n\n"
+            "Email:\n"
+            "  Draft a cold email to [role]\n"
+            "  Write a follow-up for [scenario]\n\n"
+            "Commands:\n"
+            "  /start  /status  /help\n\n"
+            "Or just talk to me naturally."
+        )
+
+    async def _message(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        user_message = update.message.text
+        logger.info(f"[Telegram] Received: {user_message[:80]}")
+        await context.bot.send_chat_action(
+            chat_id=config.TELEGRAM_CHAT_ID, action="typing"
+        )
+        try:
+            response = await self.claude_handler(user_message)
+            await update.message.reply_text(response)
+        except Exception as e:
+            logger.error(f"[Telegram] Handler error: {e}")
+            await update.message.reply_text(
+                "Something went wrong. Check Railway logs. Still running — try again."
+            )
+
+    async def run_async(self):
+        """Run the bot using async polling — compatible with asyncio.run()."""
+        logger.info("[Telegram] Bot starting in async polling mode...")
+        async with self.app:
+            await self.app.initialize()
+            await self.app.start()
+            await self.app.updater.start_polling(drop_pending_updates=True)
+            logger.info("[Telegram] Bot polling. Waiting for messages...")
+            # Keep running forever
+            await self.app.updater.idle()
+            await self.app.stop()
+
+    def run(self):
+        """Legacy sync entry — not used when called from asyncio.run()."""
+        import asyncio
+        asyncio.run(self.run_async())
