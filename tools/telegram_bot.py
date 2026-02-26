@@ -1,8 +1,9 @@
 """
 telegram_bot.py — All Telegram send/receive logic for Scout.
-Uses async polling compatible with asyncio.run() in main.py.
+Uses asyncio.Event to keep alive instead of updater.idle() which doesn't exist.
 """
 
+import asyncio
 import logging
 from telegram import Update, Bot
 from telegram.ext import Application, MessageHandler, CommandHandler, filters, ContextTypes
@@ -23,11 +24,7 @@ async def send_message(text: str) -> None:
 class ScoutBot:
     def __init__(self, claude_handler):
         self.claude_handler = claude_handler
-        self.app = (
-            Application.builder()
-            .token(config.TELEGRAM_BOT_TOKEN)
-            .build()
-        )
+        self.app = Application.builder().token(config.TELEGRAM_BOT_TOKEN).build()
         self._register_handlers()
 
     def _register_handlers(self):
@@ -62,39 +59,28 @@ class ScoutBot:
             "Email:\n"
             "  Draft a cold email to [role]\n"
             "  Write a follow-up for [scenario]\n\n"
-            "Commands:\n"
-            "  /start  /status  /help\n\n"
+            "Commands: /start  /status  /help\n\n"
             "Or just talk to me naturally."
         )
 
     async def _message(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         user_message = update.message.text
         logger.info(f"[Telegram] Received: {user_message[:80]}")
-        await context.bot.send_chat_action(
-            chat_id=config.TELEGRAM_CHAT_ID, action="typing"
-        )
+        await context.bot.send_chat_action(chat_id=config.TELEGRAM_CHAT_ID, action="typing")
         try:
             response = await self.claude_handler(user_message)
             await update.message.reply_text(response)
         except Exception as e:
             logger.error(f"[Telegram] Handler error: {e}")
-            await update.message.reply_text(
-                "Something went wrong. Check Railway logs. Still running — try again."
-            )
+            await update.message.reply_text("Something went wrong. Check Railway logs.")
 
     async def run_async(self):
-        """Run the bot using async polling — compatible with asyncio.run()."""
+        """Run the bot using low-level async — no event loop conflicts."""
         logger.info("[Telegram] Bot starting in async polling mode...")
-        async with self.app:
-            await self.app.initialize()
-            await self.app.start()
-            await self.app.updater.start_polling(drop_pending_updates=True)
-            logger.info("[Telegram] Bot polling. Waiting for messages...")
-            # Keep running forever
-            await self.app.updater.idle()
-            await self.app.stop()
-
-    def run(self):
-        """Legacy sync entry — not used when called from asyncio.run()."""
-        import asyncio
-        asyncio.run(self.run_async())
+        await self.app.initialize()
+        await self.app.start()
+        await self.app.updater.start_polling(drop_pending_updates=True)
+        logger.info("[Telegram] Bot polling. Waiting for messages...")
+        # Keep running forever using an asyncio Event (never set = runs until killed)
+        stop_event = asyncio.Event()
+        await stop_event.wait()
