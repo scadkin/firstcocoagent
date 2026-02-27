@@ -19,7 +19,7 @@ from agent.claude_brain import process_message, build_draft_prompt, draft_email_
 from agent.memory_manager import MemoryManager
 from agent.scheduler import Scheduler
 from agent.voice_trainer import VoiceTrainer
-from tools.research_engine import ResearchEngine, ResearchQueue
+from tools.research_engine import research_queue   # singleton queue from Phase 2
 from tools.sheets_writer import SheetsWriter
 from tools.telegram_bot import send_message
 
@@ -30,7 +30,6 @@ logging.basicConfig(level=logging.INFO)
 
 memory = MemoryManager()
 conversation_history = []
-research_queue = ResearchQueue()
 
 # Pending draft — stores last unconfirmed draft
 _pending_draft = None
@@ -52,6 +51,38 @@ def get_voice_trainer():
     return VoiceTrainer(gas_bridge=gas, memory_manager=memory)
 
 
+# ── Research callbacks (async, matches ResearchQueue.enqueue signature) ───────
+
+async def _on_research_progress(message: str):
+    await send_message(message)
+
+
+async def _on_research_complete(result: dict):
+    """Called by ResearchQueue when a job finishes. Writes to sheets + notifies."""
+    try:
+        sheets = SheetsWriter(
+            service_account_json=os.environ.get("GOOGLE_SERVICE_ACCOUNT_JSON", ""),
+            sheet_id=os.environ.get("GOOGLE_SHEETS_ID", ""),
+        )
+        contacts = result.get("contacts", [])
+        sheets.write_contacts(contacts)
+
+        with_email = result.get("with_email", 0)
+        no_email = result.get("no_email", 0)
+        total = result.get("total", 0)
+        district = result.get("district_name", "")
+        sheet_url = f"https://docs.google.com/spreadsheets/d/{os.environ.get('GOOGLE_SHEETS_ID', '')}"
+
+        await send_message(
+            f"✅ *Research complete: {district}*\n"
+            f"{total} contacts — {with_email} with emails, {no_email} name-only.\n"
+            f"[View sheet]({sheet_url})"
+        )
+    except Exception as e:
+        logger.error(f"Research completion handler failed: {e}")
+        await send_message(f"❌ Research finished but sheet write failed: {e}")
+
+
 # ── Tool execution ─────────────────────────────────────────────────────────────
 
 async def execute_tool(tool_name: str, tool_input: dict) -> str:
@@ -67,16 +98,12 @@ async def execute_tool(tool_name: str, tool_input: dict) -> str:
 
         await send_message(f"🔍 Starting research on *{district}*{' (' + state + ')' if state else ''}...")
 
-        engine = ResearchEngine(
-            serper_api_key=os.environ.get("SERPER_API_KEY", ""),
-            anthropic_api_key=os.environ.get("ANTHROPIC_API_KEY", ""),
+        await research_queue.enqueue(
+            district_name=district,
+            state=state,
+            progress_callback=_on_research_progress,
+            completion_callback=_on_research_complete,
         )
-        sheets = SheetsWriter(
-            service_account_json=os.environ.get("GOOGLE_SERVICE_ACCOUNT_JSON", ""),
-            sheet_id=os.environ.get("GOOGLE_SHEETS_ID", ""),
-        )
-        job = research_queue.add(district, state)
-        asyncio.create_task(run_research_job(job, engine, sheets))
         return f"📋 Research queued for *{district}*. I'll update you when done."
 
     elif tool_name == "get_sheet_status":
@@ -92,8 +119,8 @@ async def execute_tool(tool_name: str, tool_input: dict) -> str:
             return f"❌ Could not read sheet: {e}"
 
     elif tool_name == "get_research_queue_status":
-        current = research_queue.current_job()
-        depth = research_queue.depth()
+        current = research_queue.current_job   # property, not method
+        depth = research_queue.queue_size       # property, not method
         if not current:
             return "✅ No research running. Queue empty."
         return f"🔍 Currently researching: *{current}*\nJobs queued: {depth}"
@@ -145,8 +172,6 @@ async def execute_tool(tool_name: str, tool_input: dict) -> str:
     # ── Phase 3: Email drafting ────────────────────────────────────────────────
 
     elif tool_name == "draft_email":
-
-
         trainer = get_voice_trainer()
         voice_profile = trainer.load_profile() if trainer else None
 
@@ -193,8 +218,6 @@ async def execute_tool(tool_name: str, tool_input: dict) -> str:
         )
 
     elif tool_name == "save_draft_to_gmail":
-
-
         gas = get_gas_bridge()
         if not gas:
             return "❌ GAS bridge not configured. Follow `docs/SETUP_PHASE3.md` to set it up."
@@ -225,12 +248,10 @@ async def execute_tool(tool_name: str, tool_input: dict) -> str:
             return "❌ GAS bridge not configured. Follow `docs/SETUP_PHASE3.md`."
 
         days_ahead = tool_input.get("days_ahead", 7)
-
         try:
             events = gas.get_calendar_events(days_ahead=days_ahead)
             if not events:
                 return f"📅 No events in the next {days_ahead} days."
-
             lines = [f"📅 *Next {days_ahead} days ({len(events)} events):*\n"]
             for ev in events:
                 lines.append(f"• *{ev.get('title', '?')}*")
@@ -245,7 +266,6 @@ async def execute_tool(tool_name: str, tool_input: dict) -> str:
         gas = get_gas_bridge()
         if not gas:
             return "❌ GAS bridge not configured. Follow `docs/SETUP_PHASE3.md`."
-
         try:
             result = gas.log_call(
                 contact_name=tool_input.get("contact_name", ""),
@@ -296,31 +316,6 @@ async def execute_tool(tool_name: str, tool_input: dict) -> str:
     return f"❓ Unknown tool: {tool_name}"
 
 
-async def run_research_job(job, engine, sheets):
-    try:
-        def on_progress(msg):
-            asyncio.create_task(send_message(msg))
-
-        contacts = await asyncio.get_event_loop().run_in_executor(
-            None,
-            lambda: engine.research(job["district"], job.get("state", ""), on_progress),
-        )
-        sheets.write_contacts(contacts)
-        with_email = sum(1 for c in contacts if c.get("email"))
-        no_email = len(contacts) - with_email
-        sheet_url = f"https://docs.google.com/spreadsheets/d/{os.environ.get('GOOGLE_SHEETS_ID', '')}"
-        await send_message(
-            f"✅ *Research complete: {job['district']}*\n"
-            f"{len(contacts)} contacts — {with_email} with emails, {no_email} name-only.\n"
-            f"[View sheet]({sheet_url})"
-        )
-    except Exception as e:
-        logger.error(f"Research job failed: {e}")
-        await send_message(f"❌ Research failed for {job['district']}: {e}")
-    finally:
-        research_queue.complete(job)
-
-
 # ── Draft parsing ──────────────────────────────────────────────────────────────
 
 def _parse_draft(draft_text: str) -> tuple:
@@ -347,7 +342,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Shorthand commands
     if user_text.lower() in ["/ping_gas", "/test_google", "test gas", "ping gas"]:
         user_text = "ping the GAS bridge"
-
     elif user_text.lower() in ["/train_voice", "train voice", "train my voice", "learn my style"]:
         user_text = "train your voice model from my Gmail history"
 
@@ -438,8 +432,8 @@ async def main():
     await app.start()
     await app.updater.start_polling()
 
-    gas_status = "✅ GAS bridge configured" if gas_bridge_configured() else "⚠️ GAS bridge not yet configured"
-    await send_message(f"🤖 *{AGENT_NAME} is online.* Phase 3 loaded.\n{gas_status}")
+    gas_status = "✅ GAS bridge configured" if gas_bridge_configured() else "⚠️ GAS bridge not yet configured (see SETUP_PHASE3.md)"
+    await send_message(f"🤖 *{AGENT_NAME} is online.*\n{gas_status}")
 
     stop_event = asyncio.Event()
     try:
