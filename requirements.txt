@@ -1,13 +1,24 @@
-anthropic>=0.25.0
+# Scout — requirements.txt
+# Phase 2 adds: google-auth, google-api-python-client, httpx, beautifulsoup4, requests
+
+# Core
+anthropic>=0.40.0
 python-telegram-bot>=20.0
-google-auth>=2.0.0
-google-auth-oauthlib>=1.0.0
-google-api-python-client>=2.0.0
-gspread>=5.0.0
-requests>=2.31.0
-python-dotenv>=1.0.0
-schedule>=1.2.0
 pytz>=2024.1
-aiohttp>=3.9.0
+
+# Phase 2: Research engine
+httpx>=0.27.0
+requests>=2.32.0
 beautifulsoup4>=4.12.0
 lxml>=5.0.0
+
+# Phase 2: Google Sheets
+google-auth>=2.30.0
+google-auth-oauthlib>=1.2.0
+google-api-python-client>=2.130.0
+
+# Memory / GitHub
+PyGithub>=2.3.0
+
+# Utilities
+python-dotenv>=1.0.0
