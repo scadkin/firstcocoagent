@@ -55,6 +55,7 @@ def get_voice_trainer():
 # ── Tool execution ─────────────────────────────────────────────────────────────
 
 async def execute_tool(tool_name: str, tool_input: dict) -> str:
+    global _pending_draft  # declared once at top of function
 
     # ── Phase 2: Research ──────────────────────────────────────────────────────
 
@@ -144,7 +145,7 @@ async def execute_tool(tool_name: str, tool_input: dict) -> str:
     # ── Phase 3: Email drafting ────────────────────────────────────────────────
 
     elif tool_name == "draft_email":
-        global _pending_draft
+
 
         trainer = get_voice_trainer()
         voice_profile = trainer.load_profile() if trainer else None
@@ -192,7 +193,7 @@ async def execute_tool(tool_name: str, tool_input: dict) -> str:
         )
 
     elif tool_name == "save_draft_to_gmail":
-        global _pending_draft
+
 
         gas = get_gas_bridge()
         if not gas:
