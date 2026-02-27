@@ -20,7 +20,7 @@ from agent.memory_manager import MemoryManager
 from agent.scheduler import Scheduler
 from agent.voice_trainer import VoiceTrainer
 from tools.research_engine import research_queue   # singleton queue from Phase 2
-from tools.sheets_writer import SheetsWriter
+import tools.sheets_writer as sheets_writer
 from tools.telegram_bot import send_message
 
 logger = logging.getLogger(__name__)
@@ -60,12 +60,8 @@ async def _on_research_progress(message: str):
 async def _on_research_complete(result: dict):
     """Called by ResearchQueue when a job finishes. Writes to sheets + notifies."""
     try:
-        sheets = SheetsWriter(
-            service_account_json=os.environ.get("GOOGLE_SERVICE_ACCOUNT_JSON", ""),
-            sheet_id=os.environ.get("GOOGLE_SHEETS_ID", ""),
-        )
         contacts = result.get("contacts", [])
-        sheets.write_contacts(contacts)
+        sheets_writer.write_contacts(contacts, state=result.get("state", ""))
 
         with_email = result.get("with_email", 0)
         no_email = result.get("no_email", 0)
@@ -108,13 +104,15 @@ async def execute_tool(tool_name: str, tool_input: dict) -> str:
 
     elif tool_name == "get_sheet_status":
         try:
-            sheets = SheetsWriter(
-                service_account_json=os.environ.get("GOOGLE_SERVICE_ACCOUNT_JSON", ""),
-                sheet_id=os.environ.get("GOOGLE_SHEETS_ID", ""),
+            counts = sheets_writer.count_leads()
+            sheet_url = sheets_writer.get_master_sheet_url()
+            return (
+                f"📊 *Sheet status:*\n"
+                f"✅ {counts['leads']} contacts with emails\n"
+                f"📋 {counts['no_email']} name-only (no email)\n"
+                f"📈 {counts['total']} total\n"
+                f"[Open sheet]({sheet_url})"
             )
-            lead_count = sheets.count_leads()
-            sheet_url = f"https://docs.google.com/spreadsheets/d/{os.environ.get('GOOGLE_SHEETS_ID', '')}"
-            return f"📊 *Sheet status:*\n✅ {lead_count} contacts with emails\n[Open sheet]({sheet_url})"
         except Exception as e:
             return f"❌ Could not read sheet: {e}"
 
