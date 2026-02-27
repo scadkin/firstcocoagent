@@ -1,129 +1,139 @@
-# SETUP.md — Step-by-Step Setup Guide
+# SETUP_PHASE3.md — Gmail + Calendar + Slides via Google Apps Script Bridge
 
-Follow these steps in order. Each section is one tool.
-Estimated total setup time: 2–3 hours (mostly waiting for APIs to provision).
+## Why GAS Bridge?
 
----
+Scout connects to your work Google account (steven@codecombat.com) through a
+Google Apps Script Web App rather than direct OAuth2. This approach:
 
-## STEP 1: GitHub Repo
+- Requires ZERO IT approval — GAS runs inside Google, not as a third-party app
+- Accesses Gmail, Calendar, and Slides with your full permissions
+- Protected by a secret token only you and Scout know
+- Free, no extra accounts or services needed
 
-1. Go to github.com and create a new repo named `codecombat-agent`
-2. Set it to **Private**
-3. Clone it locally: `git clone https://github.com/YOUR_USERNAME/codecombat-agent.git`
-4. Copy all files from this repo into it
-5. Commit and push: `git add . && git commit -m "Initial structure" && git push`
-
----
-
-## STEP 2: Claude API Key
-
-1. Go to console.anthropic.com
-2. Create an account or log in
-3. Go to **API Keys** → **Create Key**
-4. Copy the key and save it — you only see it once
-5. Add to `.env`: `ANTHROPIC_API_KEY=sk-ant-...`
-
-**Estimated cost:** $15–25/mo at your usage level
+Architecture:
+  Scout (Railway) → HTTPS POST → Google Apps Script Web App → Gmail / Calendar / Slides
 
 ---
 
-## STEP 3: Telegram Bot
+## Step 1: Create the Apps Script Project
 
-1. Open Telegram on your phone
-2. Search for **@BotFather** and start a chat
-3. Send: `/newbot`
-4. Name it: `Scout` (or whatever you prefer)
-5. Username: `codecombat_scout_bot` (must be unique, add numbers if taken)
-6. BotFather will give you a **token** — copy it
-7. Add to `.env`: `TELEGRAM_BOT_TOKEN=...`
-
-**Get your personal Chat ID:**
-1. Search for **@userinfobot** on Telegram
-2. Start it — it will reply with your Chat ID
-3. Add to `.env`: `TELEGRAM_CHAT_ID=...`
+1. Go to script.google.com
+2. Make sure you're logged in as steven@codecombat.com
+3. Click + New project
+4. Name it "Scout Bridge"
+5. Delete all existing code in the editor
+6. Paste the entire contents of gas/Code.gs from this repo
 
 ---
 
-## STEP 4: Railway.app (Always-On Server)
+## Step 2: Set Your Secret Token
 
-1. Go to railway.app and sign up with your GitHub account
-2. Click **New Project** → **Deploy from GitHub repo**
-3. Select your `codecombat-agent` repo
-4. Railway will auto-detect it as a Python app
-5. Go to **Variables** and add all your `.env` values here
-6. Railway will deploy automatically — your agent is now live 24/7
+In the pasted code, find this line near the top:
 
-**To redeploy after changes:** `git push` — Railway auto-deploys on every push
+  var SECRET_TOKEN = "REPLACE_WITH_YOUR_SECRET_TOKEN_HERE";
 
-**Cost:** ~$5/mo (first $5 is free credit)
+Replace the placeholder with any long random string you make up.
+Example: scout_k12_2026_xK9mP3qR7vN2
+
+Write this token down — you'll need it for Railway.
 
 ---
 
-## STEP 5: Gmail API
+## Step 3: Deploy as a Web App
 
-1. Go to console.cloud.google.com
-2. Create a new project: `codecombat-agent`
-3. Go to **APIs & Services** → **Enable APIs**
-4. Enable: **Gmail API** and **Google Sheets API**
-5. Go to **Credentials** → **Create Credentials** → **OAuth 2.0 Client ID**
-6. Application type: **Desktop App**
-7. Download the credentials JSON
-8. Run the auth script once locally to get your refresh token:
-   ```
-   python tools/gmail_auth.py
-   ```
-9. Add the resulting tokens to `.env`
+1. Click Deploy (top right) → New deployment
+2. Click the gear icon next to "Type" → select Web app
+3. Configure:
+   - Execute as: Me (steven@codecombat.com)
+   - Who has access: Anyone
+4. Click Deploy
+5. If prompted to authorize, click Authorize access → select your work account → Allow
+6. Copy the Web App URL (looks like: https://script.google.com/macros/s/AKfycb.../exec)
 
 ---
 
-## STEP 6: Google Sheets
+## Step 4: Set Railway Environment Variables
 
-1. Go to sheets.google.com
-2. Create a new sheet: `CodeCombat Leads Master`
-3. Copy the Sheet ID from the URL (the long string between /d/ and /edit)
-4. Add to `.env`: `GOOGLE_SHEETS_ID=...`
-5. Share the sheet with your Gmail address (already have access)
+In your Railway project → Variables, add:
 
----
+  GAS_WEBHOOK_URL  =  (the Web App URL from Step 3)
+  GAS_SECRET_TOKEN =  (the token you set in Step 2)
 
-## STEP 7: Fireflies.ai (Zoom Transcription)
-
-1. Go to fireflies.ai and sign up with your Google account
-2. Go to **Integrations** → connect your Zoom account
-3. Go to **Settings** → rename the bot to `Notes`
-4. Go to **API** → copy your API key
-5. Add to `.env`: `FIREFLIES_API_KEY=...`
-6. In Make.com, create a webhook that triggers when Fireflies sends a transcript complete notification
-
-**Free tier:** 800 minutes/month transcription
+Railway will auto-redeploy.
 
 ---
 
-## STEP 8: Make.com (Automation Glue)
+## Step 5: Test the Connection
 
-1. Go to make.com and create a free account
-2. You will create scenarios here to connect tools — detailed instructions in each phase's build doc
-3. The free tier gives 1,000 operations/month which is enough to start
+In Telegram, send:
+  /ping_gas
 
----
-
-## VERIFICATION CHECKLIST
-
-After setup, confirm each of these works:
-
-- [ ] Send a message to your Telegram bot and get a response
-- [ ] Agent sends a test morning brief
-- [ ] Agent can write to your Google Sheet
-- [ ] Agent can create a Gmail draft
-- [ ] Railway shows the app as active with no errors
-- [ ] Fireflies joins a test Zoom call and sends a transcript
+Expected response:
+  GAS Bridge connected! Running as: steven@codecombat.com
 
 ---
 
-## TROUBLESHOOTING
+## Step 6: Train Voice Profile
 
-**Agent not responding on Telegram:** Check Railway logs for errors. Most common issue is a missing or wrong API key in Railway variables.
+In Telegram, send:
+  /train_voice
 
-**Gmail auth failing:** OAuth tokens expire. Re-run `python tools/gmail_auth.py` to refresh.
+Scout fetches 6 months of sent emails, selects 40 representative ones,
+sends them to Claude for analysis, and saves your voice profile.
+Takes 2-3 minutes with progress updates.
 
-**Railway deploy failing:** Check that `requirements.txt` is complete and `Procfile` points to the right file.
+---
+
+## Step 7: Test Each Feature
+
+Email draft:
+  Draft a cold email to the CS Director at Austin ISD
+
+Calendar:
+  What's on my calendar this week?
+
+Log a call:
+  Log a call with Maria Rodriguez, CTE Director at Denver Public Schools,
+  30 minutes, discussed AI HackStack, she wants a demo next week
+
+Create a deck:
+  Make a pitch deck for Houston ISD — contact is James Park, Director of CS
+
+---
+
+## New Railway Variables
+
+  GAS_WEBHOOK_URL    — GAS Web App URL (required)
+  GAS_SECRET_TOKEN   — Auth token, must match Code.gs (required)
+
+No other new variables needed.
+
+---
+
+## New Telegram Commands
+
+  /ping_gas                          — Test GAS bridge connection
+  /train_voice                       — Build voice profile from sent emails
+  draft a [type] email to [person]   — Draft email in your voice
+  looks good                         — Save pending draft to Gmail Drafts
+  add email: addr@district.org       — Set recipient on pending draft
+  what's on my calendar              — Show upcoming calendar events
+  log a call with [name]             — Log call as structured calendar event
+  make a deck for [district]         — Create Google Slides pitch deck
+
+---
+
+## Troubleshooting
+
+  "GAS bridge not configured"  →  Set GAS_WEBHOOK_URL and GAS_SECRET_TOKEN in Railway
+  "Unauthorized"               →  Token mismatch — check Railway var matches Code.gs exactly
+  Ping timeout                 →  GAS cold-starts slowly — wait 10 seconds and try again
+  "No sent emails found"       →  Verify GAS is deployed as steven@codecombat.com
+  Calendar shows wrong account →  Verify GAS deployed as work account, not personal
+
+## Updating the GAS Script Later
+
+1. Go to script.google.com → open Scout Bridge
+2. Edit Code.gs
+3. Deploy → Manage deployments → pencil icon → New version → Deploy
+The URL stays the same, no Railway changes needed.
