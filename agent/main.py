@@ -420,11 +420,7 @@ async def main():
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     app.add_handler(MessageHandler(filters.COMMAND, handle_message))
 
-    scheduler = Scheduler(
-        morning_brief_fn=send_morning_brief,
-        eod_report_fn=send_eod_report,
-        checkin_fn=send_checkin,
-    )
+    scheduler = Scheduler()
 
     await app.initialize()
     await app.start()
@@ -435,7 +431,19 @@ async def main():
 
     stop_event = asyncio.Event()
     try:
-        await scheduler.run(stop_event)
+        # Poll scheduler every 30 seconds and dispatch scheduled events
+        while not stop_event.is_set():
+            event = scheduler.check()
+            if event == "morning_brief":
+                asyncio.create_task(send_morning_brief())
+            elif event == "eod_report":
+                asyncio.create_task(send_eod_report())
+            elif event == "checkin":
+                asyncio.create_task(send_checkin())
+            try:
+                await asyncio.wait_for(stop_event.wait(), timeout=30)
+            except asyncio.TimeoutError:
+                pass
     finally:
         await app.updater.stop()
         await app.stop()
