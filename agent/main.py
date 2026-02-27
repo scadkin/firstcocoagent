@@ -400,7 +400,7 @@ async def send_eod_report():
             prompt = f.read()
         text, _, _ = process_message(prompt, conversation_history, memory)
         await send_message(f"🌙 *EOD Report*\n\n{text}")
-        memory.compress_history(conversation_history)
+        memory.append_to_summary(text)   # persist today's summary to context_summary.md + GitHub
         conversation_history.clear()
     except Exception as e:
         logger.error(f"EOD report failed: {e}")
@@ -414,7 +414,7 @@ async def send_checkin():
 
 async def main():
     logger.info(f"Starting {AGENT_NAME}...")
-    memory.load()
+    # MemoryManager.__init__ already calls _ensure_files_exist() — no .load() needed
 
     app = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
