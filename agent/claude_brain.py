@@ -85,7 +85,7 @@ class ClaudeBrain:
 
         # Inject memory
         preferences = self.memory.load_preferences()
-        context = self.memory.load_context_summary()
+        context = self.memory.load_recent_summary()
 
         memory_section = ""
         if preferences.strip():
