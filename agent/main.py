@@ -1,326 +1,448 @@
 """
-main.py — Scout's entry point.
-Wires: memory → brain → scheduler → telegram bot → research queue
-
-Phase 2 additions:
-  - ResearchQueue initialized and passed to brain
-  - Tool call handling: research_district, get_sheet_status, get_research_queue_status
-  - Progress messages and completion callbacks fire to Telegram
+agent/main.py
+Scout's entry point. Phase 3: Gmail + Calendar + Slides via GAS bridge.
 """
 
 import asyncio
 import logging
 import os
+import re
+
 from telegram import Update
 from telegram.ext import Application, MessageHandler, filters, ContextTypes
 
 from agent.config import (
-    TELEGRAM_BOT_TOKEN,
-    TELEGRAM_CHAT_ID,
-    MORNING_BRIEF_TIME,
-    EOD_REPORT_TIME,
-    TIMEZONE,
-    CHECKIN_START_HOUR,
-    CHECKIN_END_HOUR,
-    AGENT_NAME,
+    TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID, AGENT_NAME,
+    GAS_WEBHOOK_URL, GAS_SECRET_TOKEN, gas_bridge_configured,
 )
+from agent.claude_brain import process_message, build_draft_prompt, draft_email_with_claude
 from agent.memory_manager import MemoryManager
-from agent.claude_brain import ClaudeBrain
 from agent.scheduler import Scheduler
-from tools.research_engine import research_queue, ResearchQueue
-from tools.sheets_writer import write_contacts, log_research_job, get_master_sheet_url, count_leads, ensure_sheet_tabs_exist
+from agent.voice_trainer import VoiceTrainer
+from tools.research_engine import ResearchEngine, ResearchQueue
+from tools.sheets_writer import SheetsWriter
+from tools.telegram_bot import send_message
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s"
-)
 logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO)
 
-# ─────────────────────────────────────────────
-# GLOBALS
-# ─────────────────────────────────────────────
+# ── Global state ──────────────────────────────────────────────────────────────
 
 memory = MemoryManager()
-brain = ClaudeBrain(memory_manager=memory, research_queue=research_queue)
-scheduler = Scheduler()
-app: Application = None  # set during startup
+conversation_history = []
+research_queue = ResearchQueue()
+
+# Pending draft — stores last unconfirmed draft
+_pending_draft = None
 
 
-# ─────────────────────────────────────────────
-# TELEGRAM SEND HELPER
-# ─────────────────────────────────────────────
+def get_gas_bridge():
+    """Lazy-init GAS bridge. Returns None if not configured."""
+    if not gas_bridge_configured():
+        return None
+    from tools.gas_bridge import GASBridge
+    return GASBridge(webhook_url=GAS_WEBHOOK_URL, secret_token=GAS_SECRET_TOKEN)
 
-async def send_message(text: str):
-    """Send a message to Steven's Telegram chat."""
-    if app is None:
-        logger.error("App not initialized, can't send message")
-        return
-    try:
-        await app.bot.send_message(
-            chat_id=TELEGRAM_CHAT_ID,
-            text=text,
-            parse_mode="Markdown"
+
+def get_voice_trainer():
+    """Lazy-init voice trainer. Returns None if GAS not configured."""
+    gas = get_gas_bridge()
+    if not gas:
+        return None
+    return VoiceTrainer(gas_bridge=gas, memory_manager=memory)
+
+
+# ── Tool execution ─────────────────────────────────────────────────────────────
+
+async def execute_tool(tool_name: str, tool_input: dict) -> str:
+
+    # ── Phase 2: Research ──────────────────────────────────────────────────────
+
+    if tool_name == "research_district":
+        district = tool_input.get("district_name", "")
+        state = tool_input.get("state", "")
+        if not district:
+            return "❌ No district name provided."
+
+        await send_message(f"🔍 Starting research on *{district}*{' (' + state + ')' if state else ''}...")
+
+        engine = ResearchEngine(
+            serper_api_key=os.environ.get("SERPER_API_KEY", ""),
+            anthropic_api_key=os.environ.get("ANTHROPIC_API_KEY", ""),
         )
-    except Exception as e:
-        logger.error(f"Failed to send Telegram message: {e}")
-
-
-# ─────────────────────────────────────────────
-# TOOL EXECUTION (Phase 2)
-# ─────────────────────────────────────────────
-
-async def execute_tool(tool_call: dict, tool_use_id: str) -> str:
-    """
-    Execute a tool call returned by Claude.
-    Returns a result string to inject back into Claude.
-    """
-    name = tool_call["name"]
-    inp = tool_call.get("input", {})
-
-    if name == "research_district":
-        district = inp.get("district_name", "Unknown District")
-        state = inp.get("state", "")
-
-        queue_size = research_queue.queue_size
-        is_busy = research_queue.is_busy
-
-        if is_busy:
-            current = research_queue.current_job
-            eta_min = 5 + (queue_size * 5)  # rough estimate
-            return (
-                f"Research job queued. Currently researching: {current}. "
-                f"Your job ({district}) is #{queue_size + 1} in queue. "
-                f"Estimated wait: ~{eta_min} minutes."
-            )
-
-        # Start the job
-        async def progress_callback(msg: str):
-            await send_message(msg)
-
-        async def completion_callback(result: dict):
-            await _handle_research_complete(result)
-
-        await research_queue.enqueue(
-            district_name=district,
-            state=state,
-            progress_callback=progress_callback,
-            completion_callback=completion_callback,
+        sheets = SheetsWriter(
+            service_account_json=os.environ.get("GOOGLE_SERVICE_ACCOUNT_JSON", ""),
+            sheet_id=os.environ.get("GOOGLE_SHEETS_ID", ""),
         )
+        job = research_queue.add(district, state)
+        asyncio.create_task(run_research_job(job, engine, sheets))
+        return f"📋 Research queued for *{district}*. I'll update you when done."
 
-        return f"Research job started for {district} ({state}). I'll update you as it progresses."
-
-    elif name == "get_sheet_status":
+    elif tool_name == "get_sheet_status":
         try:
-            counts = count_leads()
-            url = get_master_sheet_url()
+            sheets = SheetsWriter(
+                service_account_json=os.environ.get("GOOGLE_SERVICE_ACCOUNT_JSON", ""),
+                sheet_id=os.environ.get("GOOGLE_SHEETS_ID", ""),
+            )
+            lead_count = sheets.count_leads()
+            sheet_url = f"https://docs.google.com/spreadsheets/d/{os.environ.get('GOOGLE_SHEETS_ID', '')}"
+            return f"📊 *Sheet status:*\n✅ {lead_count} contacts with emails\n[Open sheet]({sheet_url})"
+        except Exception as e:
+            return f"❌ Could not read sheet: {e}"
+
+    elif tool_name == "get_research_queue_status":
+        current = research_queue.current_job()
+        depth = research_queue.depth()
+        if not current:
+            return "✅ No research running. Queue empty."
+        return f"🔍 Currently researching: *{current}*\nJobs queued: {depth}"
+
+    # ── Phase 3: GAS bridge connection test ───────────────────────────────────
+
+    elif tool_name == "ping_gas_bridge":
+        gas = get_gas_bridge()
+        if not gas:
             return (
-                f"Master Sheet has {counts['leads']} leads with email, "
-                f"{counts['no_email']} contacts without email, "
-                f"{counts['total']} total. URL: {url}"
+                "❌ GAS bridge not configured.\n"
+                "Set `GAS_WEBHOOK_URL` and `GAS_SECRET_TOKEN` in Railway.\n"
+                "See `docs/SETUP_PHASE3.md` for setup instructions."
+            )
+        try:
+            result = gas.ping()
+            return f"✅ *GAS Bridge connected!*\nRunning as: `{result.get('user', 'unknown')}`"
+        except Exception as e:
+            return f"❌ GAS bridge ping failed: {e}"
+
+    # ── Phase 3: Voice training ────────────────────────────────────────────────
+
+    elif tool_name == "train_voice":
+        trainer = get_voice_trainer()
+        if not trainer:
+            return (
+                "❌ GAS bridge not configured yet.\n"
+                "Follow `docs/SETUP_PHASE3.md` to set up the Google Apps Script bridge first."
+            )
+        months_back = tool_input.get("months_back", 6)
+
+        def on_progress(msg):
+            asyncio.create_task(send_message(msg))
+
+        try:
+            profile = trainer.train(months_back=months_back, progress_callback=on_progress)
+            if profile.startswith("❌"):
+                return profile
+            return (
+                "✅ *Voice profile built!*\n\n"
+                "I've analyzed your sent emails and learned your writing style. "
+                "Every draft from now on will sound like you.\n\n"
+                "Try: `Draft a cold email to the CS Director at Austin ISD`"
             )
         except Exception as e:
-            return f"Could not fetch sheet status: {e}"
+            logger.error(f"Voice training error: {e}")
+            return f"❌ Voice training failed: {e}"
 
-    elif name == "get_research_queue_status":
-        if research_queue.is_busy:
-            return (
-                f"Currently researching: {research_queue.current_job}. "
-                f"{research_queue.queue_size} job(s) waiting in queue."
-            )
-        else:
-            return "No research job currently running. Queue is empty."
+    # ── Phase 3: Email drafting ────────────────────────────────────────────────
 
-    else:
-        return f"Unknown tool: {name}"
+    elif tool_name == "draft_email":
+        global _pending_draft
 
+        trainer = get_voice_trainer()
+        voice_profile = trainer.load_profile() if trainer else None
 
-async def _handle_research_complete(result: dict):
-    """Handle completion of a research job — write to sheets and notify Steven."""
-    district = result["district_name"]
-    state = result["state"]
-    contacts = result["contacts"]
-    total = result["total"]
-    with_email = result["with_email"]
-    no_email = result["no_email"]
-    layers = result["layers_used"]
+        recipient_name = tool_input.get("recipient_name", "")
+        recipient_title = tool_input.get("recipient_title", "")
+        district = tool_input.get("district", "")
+        state = tool_input.get("state", "")
+        email_type = tool_input.get("email_type", "cold outreach")
+        additional_context = tool_input.get("additional_context", "")
 
-    # Write to Google Sheets
-    try:
-        write_result = write_contacts(contacts, state=state)
-        log_research_job(
+        await send_message(f"✍️ Drafting {email_type} email for *{recipient_title or 'contact'}* at *{district}*...")
+
+        prompt = build_draft_prompt(
+            voice_profile=voice_profile,
+            recipient_name=recipient_name,
+            recipient_title=recipient_title,
             district=district,
             state=state,
-            layers_used=layers,
-            total_found=total,
-            with_email=with_email,
-            no_email=no_email,
-            notes=f"Added {write_result['leads_added']} leads, {write_result['duplicates_skipped']} dupes skipped"
+            email_type=email_type,
+            additional_context=additional_context,
         )
-        sheet_url = get_master_sheet_url()
 
-        msg = (
-            f"✅ Research complete: **{district}**\n"
-            f"📊 {total} contacts found — {with_email} with email, {no_email} name-only\n"
-            f"📥 Added to sheet: {write_result['leads_added']} leads | {write_result['no_email_added']} no-email | {write_result['duplicates_skipped']} dupes skipped\n"
-            f"🔗 [Open Master Sheet]({sheet_url})"
+        draft_text = draft_email_with_claude(prompt)
+
+        if draft_text.startswith("❌"):
+            return draft_text
+
+        subject, body = _parse_draft(draft_text)
+
+        _pending_draft = {
+            "to": "",
+            "subject": subject,
+            "body": body,
+            "raw": draft_text,
+        }
+
+        return (
+            f"📧 *Draft ready:*\n\n"
+            f"{draft_text}\n\n"
+            "---\n"
+            "• *looks good* → save to Gmail Drafts\n"
+            "• *edit: [what to change]* → I'll revise\n"
+            "• *add email: name@district.org* → set recipient"
+        )
+
+    elif tool_name == "save_draft_to_gmail":
+        global _pending_draft
+
+        gas = get_gas_bridge()
+        if not gas:
+            return "❌ GAS bridge not configured. Follow `docs/SETUP_PHASE3.md` to set it up."
+
+        to = tool_input.get("to", "") or (_pending_draft or {}).get("to", "")
+        subject = tool_input.get("subject", "") or (_pending_draft or {}).get("subject", "")
+        body = tool_input.get("body", "") or (_pending_draft or {}).get("body", "")
+
+        if not subject or not body:
+            return "❌ No draft to save. Draft an email first."
+
+        try:
+            result = gas.create_draft(to=to, subject=subject, body=body)
+            _pending_draft = None
+            return (
+                f"✅ *Saved to Gmail Drafts!*\n"
+                f"Subject: _{subject}_\n"
+                f"[Open Gmail Drafts]({result.get('link', 'https://mail.google.com/mail/u/0/#drafts')})"
+            )
+        except Exception as e:
+            return f"❌ Could not save draft: {e}"
+
+    # ── Phase 3: Calendar ──────────────────────────────────────────────────────
+
+    elif tool_name == "get_calendar":
+        gas = get_gas_bridge()
+        if not gas:
+            return "❌ GAS bridge not configured. Follow `docs/SETUP_PHASE3.md`."
+
+        days_ahead = tool_input.get("days_ahead", 7)
+
+        try:
+            events = gas.get_calendar_events(days_ahead=days_ahead)
+            if not events:
+                return f"📅 No events in the next {days_ahead} days."
+
+            lines = [f"📅 *Next {days_ahead} days ({len(events)} events):*\n"]
+            for ev in events:
+                lines.append(f"• *{ev.get('title', '?')}*")
+                lines.append(f"  {ev.get('start', '')}")
+                if ev.get("location"):
+                    lines.append(f"  📍 {ev['location']}")
+            return "\n".join(lines)
+        except Exception as e:
+            return f"❌ Could not fetch calendar: {e}"
+
+    elif tool_name == "log_call":
+        gas = get_gas_bridge()
+        if not gas:
+            return "❌ GAS bridge not configured. Follow `docs/SETUP_PHASE3.md`."
+
+        try:
+            result = gas.log_call(
+                contact_name=tool_input.get("contact_name", ""),
+                title=tool_input.get("title", ""),
+                district=tool_input.get("district", ""),
+                date_iso=tool_input.get("date_iso"),
+                duration_minutes=tool_input.get("duration_minutes", 30),
+                notes=tool_input.get("notes", ""),
+                outcome=tool_input.get("outcome", ""),
+                next_steps=tool_input.get("next_steps", ""),
+            )
+            return (
+                f"✅ *Call logged!*\n"
+                f"_{result.get('title', 'Call')}_\n"
+                f"[View in Calendar]({result.get('link', 'https://calendar.google.com/calendar/r')})"
+            )
+        except Exception as e:
+            return f"❌ Could not log call: {e}"
+
+    # ── Phase 3: Slides ────────────────────────────────────────────────────────
+
+    elif tool_name == "create_district_deck":
+        gas = get_gas_bridge()
+        if not gas:
+            return "❌ GAS bridge not configured. Follow `docs/SETUP_PHASE3.md`."
+
+        district = tool_input.get("district_name", "")
+        await send_message(f"📊 Building pitch deck for *{district}*...")
+
+        try:
+            result = gas.create_district_deck(
+                district_name=district,
+                state=tool_input.get("state", ""),
+                contact_name=tool_input.get("contact_name", ""),
+                contact_title=tool_input.get("contact_title", ""),
+                key_pain_points=tool_input.get("key_pain_points", []),
+                products_to_highlight=tool_input.get("products_to_highlight", []),
+                case_study=tool_input.get("case_study", ""),
+            )
+            return (
+                f"✅ *Pitch deck created!*\n"
+                f"_{result.get('title', district)}_ — {result.get('slide_count', '?')} slides\n"
+                f"[Open in Google Slides]({result.get('url', '')})"
+            )
+        except Exception as e:
+            return f"❌ Could not create deck: {e}"
+
+    return f"❓ Unknown tool: {tool_name}"
+
+
+async def run_research_job(job, engine, sheets):
+    try:
+        def on_progress(msg):
+            asyncio.create_task(send_message(msg))
+
+        contacts = await asyncio.get_event_loop().run_in_executor(
+            None,
+            lambda: engine.research(job["district"], job.get("state", ""), on_progress),
+        )
+        sheets.write_contacts(contacts)
+        with_email = sum(1 for c in contacts if c.get("email"))
+        no_email = len(contacts) - with_email
+        sheet_url = f"https://docs.google.com/spreadsheets/d/{os.environ.get('GOOGLE_SHEETS_ID', '')}"
+        await send_message(
+            f"✅ *Research complete: {job['district']}*\n"
+            f"{len(contacts)} contacts — {with_email} with emails, {no_email} name-only.\n"
+            f"[View sheet]({sheet_url})"
         )
     except Exception as e:
-        logger.error(f"Sheet write failed for {district}: {e}")
-        msg = (
-            f"✅ Research complete: **{district}**\n"
-            f"📊 {total} contacts found — {with_email} with email, {no_email} name-only\n"
-            f"⚠️ Sheet write failed: {e}"
-        )
-
-    await send_message(msg)
+        logger.error(f"Research job failed: {e}")
+        await send_message(f"❌ Research failed for {job['district']}: {e}")
+    finally:
+        research_queue.complete(job)
 
 
-# ─────────────────────────────────────────────
-# MESSAGE HANDLER
-# ─────────────────────────────────────────────
+# ── Draft parsing ──────────────────────────────────────────────────────────────
+
+def _parse_draft(draft_text: str) -> tuple:
+    subject = ""
+    body = draft_text
+    match = re.search(r"\*{0,2}Subject:\*{0,2}\s*(.+)", draft_text, re.IGNORECASE)
+    if match:
+        subject = match.group(1).strip()
+        body = draft_text[match.end():].strip()
+    return subject, body
+
+
+# ── Telegram message handler ───────────────────────────────────────────────────
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handle incoming Telegram messages from Steven."""
-    if str(update.effective_chat.id) != str(TELEGRAM_CHAT_ID):
-        return  # ignore unknown chats
+    global conversation_history, _pending_draft
 
-    user_text = update.message.text.strip()
-    if not user_text:
+    if str(update.effective_chat.id) != str(TELEGRAM_CHAT_ID):
         return
 
-    logger.info(f"Message from Steven: {user_text[:100]}")
+    user_text = update.message.text.strip()
+    logger.info(f"Received: {user_text}")
 
-    # Get Claude's response (may include tool call)
-    response_text, tool_call = await brain.process_message(user_text)
+    # Shorthand commands
+    if user_text.lower() in ["/ping_gas", "/test_google", "test gas", "ping gas"]:
+        user_text = "ping the GAS bridge"
 
-    # If Claude wants to use a tool
-    if tool_call:
-        # Send any pre-tool text (e.g., "Sure, let me look that up...")
-        if response_text.strip():
-            await send_message(response_text)
+    elif user_text.lower() in ["/train_voice", "train voice", "train my voice", "learn my style"]:
+        user_text = "train your voice model from my Gmail history"
 
-        # Execute the tool
-        tool_result = await execute_tool(tool_call, tool_call["tool_use_id"])
+    # Pending draft approvals
+    elif _pending_draft and any(
+        user_text.lower().startswith(t) for t in ["looks good", "save it", "save to gmail", "approved", "use this"]
+    ):
+        result = await execute_tool("save_draft_to_gmail", {
+            "to": _pending_draft.get("to", ""),
+            "subject": _pending_draft.get("subject", ""),
+            "body": _pending_draft.get("body", ""),
+        })
+        await send_message(result)
+        return
 
-        # Send result back to Claude for natural follow-up
-        follow_up = await brain.inject_tool_result(
-            tool_use_id=tool_call["tool_use_id"],
-            tool_name=tool_call["name"],
-            result=tool_result
-        )
+    elif _pending_draft and user_text.lower().startswith("add email:"):
+        email_addr = user_text[len("add email:"):].strip()
+        _pending_draft["to"] = email_addr
+        await send_message(f"✅ Recipient set to `{email_addr}`. Say *looks good* to save.")
+        return
 
-        if follow_up.strip():
-            await send_message(follow_up)
+    # Normal processing
+    text_response, conversation_history, tool_calls = process_message(
+        user_message=user_text,
+        history=conversation_history,
+        memory=memory,
+    )
+
+    tool_results = []
+    for tc in tool_calls:
+        result = await execute_tool(tc["tool_name"], tc["tool_input"])
+        tool_results.append(result)
+
+    if text_response:
+        await send_message(text_response)
+    elif tool_results:
+        for r in tool_results:
+            await send_message(r)
     else:
-        if response_text.strip():
-            await send_message(response_text)
+        await send_message("👍")
 
 
-# ─────────────────────────────────────────────
-# SCHEDULED MESSAGES
-# ─────────────────────────────────────────────
+# ── Scheduled messages ─────────────────────────────────────────────────────────
 
 async def send_morning_brief():
-    """Send the morning brief at 9:15am CST."""
     try:
         with open("prompts/morning_brief.md", "r") as f:
             prompt = f.read()
-    except FileNotFoundError:
-        prompt = "Send Steven a short, honest morning brief. Only mention real data you have."
-
-    _, _ = await brain.process_message(f"[SYSTEM: MORNING BRIEF]\n{prompt}")
-    history = brain.get_history_for_compression()
-    if history:
-        last = history[-1]
-        text = last.get("content", "")
-        if isinstance(text, str) and text.strip():
-            await send_message(text)
+        text, _, _ = process_message(prompt, [], memory)
+        await send_message(f"☀️ *Good morning, Steven!*\n\n{text}")
+    except Exception as e:
+        logger.error(f"Morning brief failed: {e}")
 
 
 async def send_eod_report():
-    """Send EOD report at 4:30pm CST, then compress history to memory."""
     try:
         with open("prompts/eod_report.md", "r") as f:
             prompt = f.read()
-    except FileNotFoundError:
-        prompt = "Send Steven an honest EOD report. Only mention real things that happened today."
-
-    _, _ = await brain.process_message(f"[SYSTEM: EOD REPORT]\n{prompt}")
-    history = brain.get_history_for_compression()
-    if history:
-        last = history[-1]
-        text = last.get("content", "")
-        if isinstance(text, str) and text.strip():
-            await send_message(text)
-
-    # Compress to memory
-    await brain.compress_to_memory()
+        text, _, _ = process_message(prompt, conversation_history, memory)
+        await send_message(f"🌙 *EOD Report*\n\n{text}")
+        memory.compress_history(conversation_history)
+        conversation_history.clear()
+    except Exception as e:
+        logger.error(f"EOD report failed: {e}")
 
 
 async def send_checkin():
-    """Send hourly check-in (10am–4pm CST only)."""
-    _, _ = await brain.process_message(
-        "[SYSTEM: HOURLY CHECK-IN] Send a brief, practical check-in. "
-        "Only mention real activity. No hallucination. Keep it short."
-    )
-    history = brain.get_history_for_compression()
-    if history:
-        last = history[-1]
-        text = last.get("content", "")
-        if isinstance(text, str) and text.strip():
-            await send_message(text)
+    await send_message("📊 Hourly check-in — anything you need, Steven?")
 
 
-# ─────────────────────────────────────────────
-# SCHEDULER TICK
-# ─────────────────────────────────────────────
-
-async def tick():
-    """Called every minute by scheduler. Fires scheduled messages at the right time."""
-    action = scheduler.check()
-    if action == "morning_brief":
-        await send_morning_brief()
-    elif action == "eod_report":
-        await send_eod_report()
-    elif action == "checkin":
-        await send_checkin()
-
-
-# ─────────────────────────────────────────────
-# STARTUP
-# ─────────────────────────────────────────────
+# ── Entry point ────────────────────────────────────────────────────────────────
 
 async def main():
-    global app
+    logger.info(f"Starting {AGENT_NAME}...")
+    memory.load()
 
-    logger.info(f"Starting Scout (Phase 2)...")
-
-    # Initialize Google Sheets tabs on startup (non-blocking)
-    try:
-        ensure_sheet_tabs_exist()
-        logger.info("Google Sheets tabs verified/created")
-    except Exception as e:
-        logger.warning(f"Sheet init failed (will retry on first use): {e}")
-
-    # Build Telegram app
     app = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+    app.add_handler(MessageHandler(filters.COMMAND, handle_message))
+
+    scheduler = Scheduler(
+        morning_brief_fn=send_morning_brief,
+        eod_report_fn=send_eod_report,
+        checkin_fn=send_checkin,
+    )
 
     await app.initialize()
     await app.start()
     await app.updater.start_polling()
 
-    logger.info(f"Scout is live. Listening on Telegram chat {TELEGRAM_CHAT_ID}")
-    await send_message(f"🤖 **Scout online.** Phase 2 active — lead research ready. Say *'Research [district name]'* to start.")
+    gas_status = "✅ GAS bridge configured" if gas_bridge_configured() else "⚠️ GAS bridge not yet configured"
+    await send_message(f"🤖 *{AGENT_NAME} is online.* Phase 3 loaded.\n{gas_status}")
 
-    # Tick loop
     stop_event = asyncio.Event()
     try:
-        while not stop_event.is_set():
-            await tick()
-            await asyncio.sleep(60)
-    except (KeyboardInterrupt, SystemExit):
-        logger.info("Shutting down Scout...")
+        await scheduler.run(stop_event)
     finally:
         await app.updater.stop()
         await app.stop()
