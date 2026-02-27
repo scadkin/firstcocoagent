@@ -1,74 +1,38 @@
 """
-config.py — Central configuration for Scout.
-All values load from environment variables. Never hardcode keys here.
+agent/config.py
+Centralized environment variable access for Scout.
 """
 
 import os
-from dotenv import load_dotenv
 
-load_dotenv()
+# Core
+ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
+TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
+TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID", "")
+AGENT_NAME = os.environ.get("AGENT_NAME", "Scout")
+TIMEZONE = os.environ.get("TIMEZONE", "America/Chicago")
 
-# ─── CLAUDE ──────────────────────────────────────────────────────────────────
-ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
-CLAUDE_MODEL = os.getenv("CLAUDE_MODEL", "claude-opus-4-5")
-CLAUDE_MAX_TOKENS = 2048
+# Schedule times (HH:MM in CST)
+MORNING_BRIEF_TIME = os.environ.get("MORNING_BRIEF_TIME", "09:15")
+EOD_REPORT_TIME = os.environ.get("EOD_REPORT_TIME", "16:30")
+CHECKIN_START_HOUR = int(os.environ.get("CHECKIN_START_HOUR", 10))
+CHECKIN_END_HOUR = int(os.environ.get("CHECKIN_END_HOUR", 16))
 
-# ─── TELEGRAM ────────────────────────────────────────────────────────────────
-TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
-TELEGRAM_CHAT_ID = int(os.getenv("TELEGRAM_CHAT_ID", "0"))
+# Memory / GitHub
+GITHUB_TOKEN = os.environ.get("GITHUB_TOKEN", "")
+GITHUB_REPO = os.environ.get("GITHUB_REPO", "")
 
-# ─── GOOGLE ──────────────────────────────────────────────────────────────────
-GMAIL_CLIENT_ID = os.getenv("GMAIL_CLIENT_ID")
-GMAIL_CLIENT_SECRET = os.getenv("GMAIL_CLIENT_SECRET")
-GMAIL_REFRESH_TOKEN = os.getenv("GMAIL_REFRESH_TOKEN")
-GOOGLE_SHEETS_ID = os.getenv("GOOGLE_SHEETS_ID")
+# Research (Phase 2)
+SERPER_API_KEY = os.environ.get("SERPER_API_KEY", "")
+GOOGLE_SHEETS_ID = os.environ.get("GOOGLE_SHEETS_ID", "")
+GOOGLE_SERVICE_ACCOUNT_JSON = os.environ.get("GOOGLE_SERVICE_ACCOUNT_JSON", "")
 
-# ─── GITHUB (memory persistence) ─────────────────────────────────────────────
-# Fine-grained personal access token with contents:write on firstcocoagent
-GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
-GITHUB_REPO = os.getenv("GITHUB_REPO", "scadkin/firstcocoagent")
+# Google Apps Script Bridge (Phase 3)
+# GAS_WEBHOOK_URL: the Web App URL from your Apps Script deployment
+# GAS_SECRET_TOKEN: the token you set in Code.gs (must match exactly)
+GAS_WEBHOOK_URL = os.environ.get("GAS_WEBHOOK_URL", "")
+GAS_SECRET_TOKEN = os.environ.get("GAS_SECRET_TOKEN", "")
 
-# ─── RESEARCH (Phase 2) ───────────────────────────────────────────────────────
-SERPER_API_KEY = os.getenv("SERPER_API_KEY")
-
-# ─── FIREFLIES ────────────────────────────────────────────────────────────────
-FIREFLIES_API_KEY = os.getenv("FIREFLIES_API_KEY")
-
-# ─── SCHEDULE ────────────────────────────────────────────────────────────────
-MORNING_BRIEF_TIME = os.getenv("MORNING_BRIEF_TIME", "09:15")
-EOD_REPORT_TIME = os.getenv("EOD_REPORT_TIME", "16:30")
-TIMEZONE = os.getenv("TIMEZONE", "America/Chicago")
-
-# Hourly check-in window (CST). No check-ins outside these hours.
-CHECKIN_START_HOUR = int(os.getenv("CHECKIN_START_HOUR", "10"))   # 10am CST
-CHECKIN_END_HOUR = int(os.getenv("CHECKIN_END_HOUR", "16"))       # 4pm CST (last at 4:00pm)
-
-# ─── AGENT IDENTITY ──────────────────────────────────────────────────────────
-AGENT_NAME = os.getenv("AGENT_NAME", "Scout")
-
-# ─── VALIDATION ──────────────────────────────────────────────────────────────
-def validate():
-    """Call at startup to catch missing config early."""
-    required = {
-        "ANTHROPIC_API_KEY": ANTHROPIC_API_KEY,
-        "TELEGRAM_BOT_TOKEN": TELEGRAM_BOT_TOKEN,
-        "TELEGRAM_CHAT_ID": TELEGRAM_CHAT_ID,
-    }
-    missing = [k for k, v in required.items() if not v]
-    if missing:
-        raise EnvironmentError(
-            f"Missing required environment variables: {', '.join(missing)}\n"
-            f"Copy .env.example to .env and fill in your values."
-        )
-
-    # Warn about optional but important vars
-    warnings = []
-    if not GITHUB_TOKEN:
-        warnings.append("GITHUB_TOKEN not set — memory will not persist across Railway restarts")
-    if not SERPER_API_KEY:
-        warnings.append("SERPER_API_KEY not set — Phase 2 research will be limited")
-
-    for w in warnings:
-        print(f"[Config] WARNING: {w}")
-
-    print(f"[Config] All required variables present. Agent: {AGENT_NAME}")
+def gas_bridge_configured() -> bool:
+    """Returns True if GAS bridge variables are set."""
+    return bool(GAS_WEBHOOK_URL and GAS_SECRET_TOKEN)
