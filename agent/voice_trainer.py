@@ -107,10 +107,10 @@ class VoiceTrainer:
         self._save_profile(profile)
 
         try:
-            self.memory.commit_file(
+            self.memory._commit_to_github(
                 VOICE_PROFILE_PATH,
                 profile,
-                commit_message="[Phase 3] Voice profile updated from Gmail analysis",
+                "[Phase 3] Voice profile updated from Gmail analysis",
             )
         except Exception as e:
             logger.warning(f"GitHub commit failed (file still saved locally): {e}")
@@ -192,10 +192,10 @@ Date: {email.get('date', '')}
         self._save_profile(updated)
 
         try:
-            self.memory.commit_file(
+            self.memory._commit_to_github(
                 VOICE_PROFILE_PATH,
                 updated,
-                commit_message="[Phase 3] Voice profile: style correction",
+                "[Phase 3] Voice profile: style correction",
             )
         except Exception as e:
             logger.warning(f"GitHub commit of voice update failed: {e}")
