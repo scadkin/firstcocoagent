@@ -132,6 +132,85 @@ TOOLS = [
             "required": ["district_name"],
         },
     },
+    # Phase 4: GitHub Code Push
+    {
+        "name": "push_code",
+        "description": (
+            "Push a file to GitHub. Use when Steven says '/push_code', 'push this to GitHub', "
+            "'commit this', 'deploy this fix', or when Steven pastes code and asks Scout to save it. "
+            "Also use when Scout itself generates a code fix and should commit it."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "filepath": {
+                    "type": "string",
+                    "description": "Repo-relative path, e.g. 'agent/main.py' or 'tools/github_pusher.py'",
+                },
+                "content": {
+                    "type": "string",
+                    "description": "Full file content to write. Must be the complete file, not a diff.",
+                },
+                "commit_message": {
+                    "type": "string",
+                    "description": "Git commit message. Optional — auto-generated if omitted.",
+                },
+            },
+            "required": ["filepath", "content"],
+        },
+    },
+    {
+        "name": "list_repo_files",
+        "description": (
+            "List files in the GitHub repo. Use when Steven asks 'what files are in the repo', "
+            "'show me the repo structure', or before pushing code to verify a filepath."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "path": {
+                    "type": "string",
+                    "description": "Subdirectory to list, e.g. 'agent' or 'tools'. Empty string = root.",
+                },
+            },
+            "required": [],
+        },
+    },
+    # Phase 4: Email Sequences
+    {
+        "name": "build_sequence",
+        "description": (
+            "Build a multi-step cold email sequence in Steven's voice for Outreach.io. "
+            "Use when Steven says 'build a sequence', 'create a campaign', 'write a sequence for [role/district]', "
+            "or 'make outreach emails for [audience]'."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "campaign_name": {
+                    "type": "string",
+                    "description": "Name for this sequence, e.g. 'CS Directors - California Spring 2026'",
+                },
+                "target_role": {
+                    "type": "string",
+                    "description": "Job title/role being targeted, e.g. 'CS Director', 'CTE Coordinator', 'Superintendent'",
+                },
+                "focus_product": {
+                    "type": "string",
+                    "description": "CodeCombat product to highlight. Defaults to 'CodeCombat AI Suite'.",
+                },
+                "num_steps": {
+                    "type": "integer",
+                    "description": "Number of sequence steps (default 4: cold + 3 follow-ups)",
+                },
+                "additional_context": {
+                    "type": "string",
+                    "description": "Any extra context: state, budget season, specific pain points, etc.",
+                },
+            },
+            "required": ["campaign_name", "target_role"],
+        },
+    },
     # Utility
     {
         "name": "ping_gas_bridge",
