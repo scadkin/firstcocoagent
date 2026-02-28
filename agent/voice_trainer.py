@@ -37,12 +37,12 @@ The rep is Steven — Senior Sales Rep at CodeCombat, selling K-12 CS curriculum
 
 Below are {count} emails. They come in two formats:
 
-REPLY emails (marked [REPLY]) show you both:
+**REPLY emails** (marked [REPLY]) show you both:
   1. The email Steven RECEIVED
   2. The email Steven SENT back
   This is the richest data — it shows how his tone adapts to what he's responding to.
 
-COLD / STANDALONE emails (marked [COLD]) are outbound emails with no incoming context.
+**COLD / STANDALONE emails** (marked [COLD]) are outbound emails with no incoming context.
 
 Study both carefully. Produce a detailed, actionable voice profile:
 
@@ -227,3 +227,118 @@ class VoiceTrainer:
             batch = data.get("emails", [])
             if not batch:
                 break
+
+            all_emails.extend(batch)
+
+            if progress_callback and len(all_emails) % 400 == 0:
+                progress_callback(f"  ↳ {len(all_emails)} emails fetched so far...")
+
+            if not data.get("has_more", False):
+                break  # GAS says we've hit the end
+
+            page_start += PAGE_SIZE
+
+        logger.info(f"Total emails fetched: {len(all_emails)}")
+        return all_emails
+
+    def _select_sample(self, emails: list, count: int) -> list:
+        """
+        Filters noise, then selects a representative sample that:
+        - Prioritizes reply emails (they carry paired context — richer signal)
+        - Fills remaining slots with cold emails
+        - Spreads temporally across the full dataset
+        """
+        skip_keywords = [
+            "unsubscribe", "calendar invite", "zoom.us/j/",
+            "auto-reply", "out of office", "notification",
+            "noreply", "no-reply", "donotreply",
+        ]
+
+        replies = []
+        cold    = []
+
+        for email in emails:
+            combined = (email.get("body", "") + email.get("subject", "")).lower()
+            if any(kw in combined for kw in skip_keywords):
+                continue
+            if len(email.get("body", "")) < 80:
+                continue
+
+            if email.get("is_reply") and email.get("incoming_context", "").strip():
+                replies.append(email)
+            else:
+                cold.append(email)
+
+        # Target: 60% replies (richer signal), 40% cold
+        reply_quota = min(int(count * 0.6), len(replies))
+        cold_quota  = min(count - reply_quota, len(cold))
+
+        # Spread evenly across each pool
+        def spread_sample(pool, n):
+            if len(pool) <= n:
+                return pool
+            step = len(pool) / n
+            return [pool[int(i * step)] for i in range(n)]
+
+        sampled = spread_sample(replies, reply_quota) + spread_sample(cold, cold_quota)
+        logger.info(
+            f"Sample: {len(sampled)} total "
+            f"({reply_quota} replies, {cold_quota} cold) "
+            f"from {len(replies)} replies + {len(cold)} cold available"
+        )
+        return sampled
+
+    def _analyze_with_claude(self, emails: list) -> Optional[str]:
+        """Builds the prompt and calls Claude for voice analysis."""
+        email_blocks = []
+
+        for i, email in enumerate(emails, 1):
+            is_reply        = email.get("is_reply", False)
+            incoming_context = email.get("incoming_context", "").strip()
+
+            if is_reply and incoming_context:
+                block = f"""--- EMAIL {i} [REPLY] ---
+Subject: {email.get('subject', '(no subject)')}
+To:      {email.get('to', 'unknown')}
+Date:    {email.get('date', '')}
+
+▶ INCOMING MESSAGE (what Steven received):
+{incoming_context}
+
+▶ STEVEN'S REPLY:
+{email.get('body', '')}
+"""
+            else:
+                block = f"""--- EMAIL {i} [COLD] ---
+Subject: {email.get('subject', '(no subject)')}
+To:      {email.get('to', 'unknown')}
+Date:    {email.get('date', '')}
+
+{email.get('body', '')}
+"""
+            email_blocks.append(block)
+
+        emails_text = "\n\n".join(email_blocks)
+
+        # Truncate if over limit (keep the most informative front portion)
+        if len(emails_text) > PROMPT_CHAR_LIMIT:
+            emails_text = emails_text[:PROMPT_CHAR_LIMIT] + "\n\n[... truncated to fit context window ...]"
+
+        prompt = VOICE_ANALYSIS_PROMPT.format(count=len(emails), emails=emails_text)
+
+        try:
+            response = self.client.messages.create(
+                model="claude-opus-4-5",
+                max_tokens=4096,
+                messages=[{"role": "user", "content": prompt}],
+            )
+            return response.content[0].text
+        except Exception as e:
+            logger.error(f"Claude voice analysis failed: {e}")
+            return None
+
+    def _save_profile(self, profile: str):
+        os.makedirs("memory", exist_ok=True)
+        with open(VOICE_PROFILE_PATH, "w", encoding="utf-8") as f:
+            f.write(profile)
+        logger.info(f"Voice profile saved to {VOICE_PROFILE_PATH}")
