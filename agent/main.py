@@ -22,8 +22,7 @@ from agent.voice_trainer import VoiceTrainer
 from tools.research_engine import research_queue   # singleton queue from Phase 2
 import tools.sheets_writer as sheets_writer
 from tools.telegram_bot import send_message
-import tools.github_pusher as github_pusher         # Phase 4: /push_code
-import tools.sequence_builder as sequence_builder   # Phase 4: build_sequence
+# Phase 4 modules imported lazily inside execute_tool() — safe to boot without them
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
@@ -316,6 +315,11 @@ async def execute_tool(tool_name: str, tool_input: dict) -> str:
     # ── Phase 4: GitHub code push ─────────────────────────────────────────────
 
     elif tool_name == "push_code":
+        try:
+            import tools.github_pusher as github_pusher
+        except ImportError:
+            return "❌ `tools/github_pusher.py` not found in repo. Upload it to GitHub first."
+
         filepath = tool_input.get("filepath", "").strip()
         content = tool_input.get("content", "")
         commit_msg = tool_input.get("commit_message", "")
@@ -339,6 +343,11 @@ async def execute_tool(tool_name: str, tool_input: dict) -> str:
             return result["message"]
 
     elif tool_name == "list_repo_files":
+        try:
+            import tools.github_pusher as github_pusher
+        except ImportError:
+            return "❌ `tools/github_pusher.py` not found in repo. Upload it to GitHub first."
+
         path = tool_input.get("path", "")
         files = github_pusher.list_repo_files(path)
         if not files:
@@ -350,6 +359,11 @@ async def execute_tool(tool_name: str, tool_input: dict) -> str:
     # ── Phase 4: Email sequences ───────────────────────────────────────────────
 
     elif tool_name == "build_sequence":
+        try:
+            import tools.sequence_builder as sequence_builder
+        except ImportError:
+            return "❌ `tools/sequence_builder.py` not found in repo. Upload it to GitHub first."
+
         campaign_name = tool_input.get("campaign_name", "")
         target_role = tool_input.get("target_role", "")
         focus_product = tool_input.get("focus_product", "CodeCombat AI Suite")
@@ -394,6 +408,7 @@ async def execute_tool(tool_name: str, tool_input: dict) -> str:
         tg_text = sequence_builder.format_for_telegram(campaign_name, steps)
 
         return f"{tg_text}{sheets_note}\n\n📋 Paste each step into Outreach.io sequence editor."
+
 
     return f"❓ Unknown tool: {tool_name}"
 
