@@ -1,71 +1,58 @@
 # Steven's Email Voice Profile
 
 ## Tone & Personality
-Steven comes across as **friendly, helpful, and no-nonsense**. He's warm but efficient—not overly formal, yet professional enough for B2B education sales. There's a genuine helpfulness in his tone ("Here to help however I can") balanced with directness when needed. He's empathetic when educators face budget constraints ("Ah, so sorry to hear it, I know that must be disappointing. 😞") but doesn't dwell—he pivots quickly to solutions. He occasionally uses casual touches like tildes ("No worries Anson~") and emojis (👇, 👈, 💸, 😞, 😉) that soften the sales feel. Overall vibe: approachable educator-ally who respects your time.
+Steven comes across as **helpful, casual, and direct** — like a friendly colleague rather than a polished corporate salesperson. He's warm without being saccharine, efficient without being cold. There's a genuine "I'm here to help you get this done" energy throughout his emails. He's comfortable being informal (using tildes, emojis, casual phrases) but can shift to more professional tones when dealing with procurement or administrative contacts. He doesn't take himself too seriously — acknowledging his own mistakes ("Sorry I missed this email") and being self-deprecating about the sales process ("No pushy salespeople here! 😉"). He's patient with educators who are navigating bureaucracy and budget constraints, often expressing genuine empathy ("I know that must be disappointing 😞").
 
 ## Tone Matching in Replies
-Steven **mirrors and slightly elevates**. When he receives terse, transactional messages, he stays brief:
-- Incoming: "one more question, has your company been approved..."  
-- Steven: "Yes and we have tons of usage in LAUSD"
+Steven **mirrors the sender's energy** closely:
+- **Ultra-brief incoming → Ultra-brief reply**: "Yes and we have tons of usage in LAUSD" (responding to a one-line question)
+- **Casual/apologetic incoming → Warm and reassuring**: "No worries Anson~ I actually got pulled away myself."
+- **Formal/bureaucratic incoming → More structured but still accessible**: When responding to procurement analysts, he provides thorough information but maintains his accessible voice
+- **Frustrated or disappointed incoming → Empathetic + solution-oriented**: "Ah, so sorry to hear it, Chad, I know that must be disappointing. 😞" followed by actionable resources
 
-When educators are apologetic or casual, he matches warmth:
-- Incoming: "I double booked today..."  
-- Steven: "No worries Anson~ I actually got pulled away myself."
-
-When someone expresses frustration or disappointment, he acknowledges it genuinely before pivoting:
-- "Ah, so sorry to hear it, Chad, I know that must be disappointing. 😞"
-
-He doesn't over-formalize when the other party is casual, and he doesn't get overly casual when they're formal. He leads slightly toward warmth regardless.
+He leads with warmth but doesn't overcorrect — if someone is brief, he stays brief. He doesn't force formality where it doesn't exist.
 
 ## Sentence Structure
-**Short to medium sentences dominate.** Steven favors punchy, scannable writing. He uses:
-- Fragments freely: "Sent." / "Sounds good." / "Got it."
-- Short declaratives: "Yes, It all comes together" / "I will shoot you all the info shortly"
-- Mix of simple and compound sentences, rarely complex
+Steven uses a **mix of short punchy sentences and medium-length explanatory ones**. He favors:
+- **Short confirmations**: "Yes, It all comes together" / "Got it." / "Sounds good!" / "Sent"
+- **Direct statements**: "I will shoot you all the info shortly"
+- **Conversational fragments**: "Sorry, not sure what you're referring to."
+- **Lists over paragraphs** when conveying multiple points
 
-Pacing feels **quick and action-oriented**—he doesn't linger. Paragraphs are typically 1-3 sentences max before a break or bullet list.
+His pacing feels conversational — like talking, not writing. He doesn't over-explain or pad sentences. When he needs to provide detailed information (pricing, features), he uses bullet points and tables rather than dense paragraphs.
 
 ## Opening Style
-**Replies:** Often starts with the recipient's name, then dives in. Rarely uses "Dear" or formal salutations.
-- "Hi Elaine,"
-- "Hey Daphne,"
-- "Hi all,"
-- "Joyce"
-- "Anielka,"
+**Replies typically open with:**
+- Name + casual greeting: "Hey Kent," / "Hi Elaine," / "Hi Louise,"
+- Acknowledgment or response to their message: "Thanks for letting me know, David." / "Got it." / "That sounds great."
+- Casual variations: "Hey Daphne," / "Hi all,"
 
-**After the name, he typically:**
-1. Acknowledges what they said briefly: "That sounds great." / "Got it." / "Thank you for the update."
-2. Or jumps straight to the answer/action
+**Cold/outbound emails open with:**
+- Name alone on a line: "Joyce," / "Armando," / "Destiny,"
+- Or a soft re-engagement: "Checking back with you" / "I wanted to check if you've been able to connect..."
+- Context-setting: "I wanted to provide a summarized, clear overview of our licensing options"
 
-**Cold/Follow-ups:** Uses first name, then a hook or question:
-- "Armando, I wanted to provide a summarized, clear overview..."
-- "Tanner, Hope you had a great winter break!"
-- "Carmen, Our back-to-school promotion ends September 30th at midnight."
-
-He almost never opens with filler like "I hope this email finds you well."
+He almost never uses "I hope this email finds you well" or other filler openers.
 
 ## Closing / CTA Style
-**Soft but clear CTAs.** Steven suggests rather than demands:
+Steven's CTAs are **soft but clear** — he offers options rather than demands:
 - "Let me know if you think giving the teachers some free licenses to try it out would be helpful later."
-- "Want to set up a time to connect and go over the options and pricing?"
 - "Let me know what makes sense. I'm here to help however I can."
-- "Would you like me to get you an updated quote so you can start having those conversations with your team?"
+- "Want to set up a time to connect and go over the options and pricing?"
 - "Pick any day or time that works for you here [link]"
+- "Let me know if you still need help!"
+- "Feel free to call me at 415 854 9198"
 
-He frequently embeds scheduling links with phrases like:
-- "Select a time here: [link]"
-- "👉 Here's my scheduling link"
-
-**Assertiveness level:** Medium-soft. He makes the next step clear but frames it as helpful, not pushy.
+He frequently provides scheduling links as a low-friction next step. His CTAs are invitations, not pressure.
 
 ## Sign-off
-Steven's sign-offs vary but lean casual-professional:
-- **Most common:** "Best," followed by full signature block
-- **Casual:** "-Steven" (with hyphen)
-- "All the best!"
-- Sometimes no sign-off at all for quick replies—just ends with content
+Steven uses varied sign-offs depending on context:
+- **Most common**: No sign-off at all (just ends the email)
+- **Semi-formal**: "Best," / "Best, Steven"
+- **Casual**: "-Steven" / "All the best!"
+- **Abbreviated**: Just his signature block
 
-**Full signature block used frequently:**
+His email signature includes:
 ```
 STEVEN ADKINS | O: 415.854.9198
 CodeCombat x Ozaria Senior Partnership Manager
@@ -74,91 +61,112 @@ CodeCombat x Ozaria Senior Partnership Manager
 ```
 
 ## Punctuation & Formatting Habits
-- **Bullet points:** Used extensively for lists of features, free content, pricing tiers, grant resources
-- **Bold:** Liberal use for emphasis—product names, key phrases (*free content*, *pre-made templates*, *hand-picked*)
-- **Emojis:** Strategic use of 👇, 👈, 💸, 😞, 😉, 👉 to draw attention or add warmth
-- **Em dashes:** Occasional ("Teachers don't need prior coding experience - over 2/3rds...")
-- **Links:** Frequently hyperlinked text rather than raw URLs
-- **Numbered lists:** For questions, options, or steps
-- **White space:** Generous—rarely writes dense paragraphs
+- **Heavy use of bullet points**: For pricing, features, free content lists, grant resources
+- **Bold text** for emphasis: "*free content*", "*pre-made templates*", "*hand-picked*"
+- **Emojis**: Used sparingly but consistently — 😞 (empathy), 👉 (pointing to resources), 💸 (grants), 👇 (lists below), 😉 (lightening tone)
+- **Tilde (~)** for casual warmth: "No worries Anson~"
+- **Tables** for pricing information
+- **Links formatted with descriptive text**: "Select a time here" / "digital quote for [School Name]"
+- **Minimal exclamation points** — uses them naturally, not excessively
+- **Em dashes** occasionally for asides
+- **No ellipses** in professional context
 
 ## Subject Line Style
-Steven typically replies within existing threads (Re: format). For outreach:
-- Descriptive and benefit-focused: "CodeCombat Licensing and Pricing Guide"
-- Action-oriented: "Spring semester question"
-- Direct: "Tried reaching you!"
-- Event/promo-focused: "Last Call: CodeCombat's Back-2-School Promo Ends Soon!"
-- "Limited Pilot run of Ozaria and CodeCombat"
-- "Free PD Account for your teachers (CodeCombat)"
+Steven typically:
+- **Keeps original subject lines** in reply threads (standard Re: format)
+- Uses descriptive, action-oriented subjects for cold emails:
+  - "CodeCombat Licensing and Pricing Guide"
+  - "Your CodeCombat License Request!"
+  - "Spring semester question"
+  - "Limited Pilot run of Ozaria and CodeCombat"
+  - "Free PD Account for your teachers (CodeCombat)"
+  - "Tried reaching you!"
 
-**Pattern:** Clear, not clever. States the purpose or value.
+His cold subject lines are clear about the content — no clickbait, no gimmicks.
 
 ## What He Avoids
-- **Jargon overload:** Explains simply, doesn't assume familiarity
-- **Walls of text:** Always breaks up content with bullets, spacing, formatting
-- **Overly formal language:** No "Dear Sir/Madam," no "Please do not hesitate to..."
-- **Excessive apologies:** Brief acknowledgment then moves on
-- **Aggressive sales pressure:** Pushes gently, offers value, doesn't guilt
-- **Filler phrases:** No "I hope this email finds you well," no "Just circling back"
-- **Long wind-ups:** Gets to the point quickly
+- **No corporate jargon**: No "synergy," "leverage," "circle back," "touch base"
+- **No walls of text**: Even detailed emails are broken up with bullets/whitespace
+- **No excessive formality**: No "Dear Mr./Ms." or stiff language
+- **No pressure tactics**: No "limited time only!" urgency (except when genuinely applicable)
+- **No apologies for following up** (though he apologizes for delays)
+- **No fluff intros**: Skips "I hope this finds you well"
+- **No passive-aggressive tones** when dealing with bureaucracy or delays
+- **No over-promising**: Realistic about what he can do
 
 ## Key Phrases He Uses
-1. "Let me know if you need anything else"
-2. "Here to help however I can"
-3. "Want to set up a time to connect..."
-4. "Sounds good."
-5. "Got it."
-6. "So sorry to hear it, [Name], I know that must be disappointing. 😞"
-7. "Here's all the *free content* we have baked in..."
-8. "Select a time here: [link]"
-9. "I will shoot you all the info shortly"
-10. "Let me know what makes sense"
-11. "No worries at all"
-12. "👇 *All of this comes together* 👇"
-13. "CHECK THESE OUT:"
+1. **"Let me know if you need anything else"** / "Let me know what makes sense"
+2. **"Happy to help"** / "I'm here to help however I can"
+3. **"Want to [action]?"** — soft CTA structure
+4. **"Sorry for the delay"** / "Sorry I missed this email"
+5. **"Here's all the free content we have baked in"**
+6. **"I will shoot you all the info shortly"**
+7. **"Sounds good"** — simple acknowledgment
+8. **"No worries"** / "No problem at all"
+9. **"Check these out:"** — introducing resource lists
+10. **"Ah, so sorry to hear it, [Name], I know that must be disappointing. 😞"**
 
 ## Length & Structure
-**Cold emails:** Medium length (150-400 words typically), heavily formatted with bullets, bold, and clear sections. Often includes:
-- Brief personal hook
-- Value proposition with bullet list
-- Clear CTA with scheduling link
+**Cold emails**: Medium-length, well-structured with:
+- Brief personal opener
+- Clear value proposition or reason for reaching out
+- Bullet-pointed details/features
+- Soft CTA with scheduling link
 
-**Replies:** Range from **extremely brief** (1-2 sentences for simple confirmations) to **medium** (for complex questions requiring resources). Examples:
-- Brief: "Yes and we have tons of usage in LAUSD"
-- Brief: "Sorry I missed this email. Sent"
-- Medium: Full grant resources + free content list when budget is an issue
+**Reply emails**: Highly variable based on context:
+- Can be as short as 3-4 words: "Yes and we have tons of usage in LAUSD"
+- Or detailed with tables and bullet points when answering pricing/feature questions
+- Matches the complexity of the incoming question
 
-**Follow-ups:** Usually short with a clear ask or value reminder.
-
-**Structure preferences:**
-- Name greeting
-- 1-2 sentence acknowledgment
-- Bullets/lists for any multi-part info
-- CTA
-- Sign-off
+**Formatting patterns**:
+- Heavy use of white space
+- Section headers in bold when covering multiple topics
+- Tables for pricing (not buried in prose)
+- Numbered lists for action items or questions
 
 ## Cold vs. Reply vs. Follow-up Differences
 
-**Cold emails:**
-- Opens with name + context hook ("I thought this option we're running might make sense?")
-- Leads with value proposition
-- Extensive formatting (bullets, bold, emojis)
-- Clear scheduling CTA
-- Example: "Hey Elaine, I thought this option we're running might make sense? We are offering discounted spring semester Pilots..."
+**Cold emails** are more structured:
+- Lead with context/reason for outreach
+- Provide comprehensive info upfront
+- Include multiple resources/links
+- Clear but soft CTA
 
-**Replies:**
-- Much shorter, more conversational
-- Directly addresses their question/concern first
-- Adds resources only if relevant
-- Example: "Yes, It all comes together" / "No worries Anson~ I actually got pulled away myself."
+Example structure:
+> "Hey Elaine,
+> 
+> I thought this option we're running might make sense?
+> 
+> We are offering discounted spring semester Pilots..."
+> [bullet points with details]
+> "Happy to..."
 
-**Follow-ups:**
-- Brief re-engagement hook
-- Often references previous conversation or value
-- Softer CTA
-- Example: "Checking back with you - I wanted to see if you heard about this."
+**Reply emails** are adaptive:
+- Match the sender's length and formality
+- Often just a few lines when confirming/acknowledging
+- Expand when answering questions
 
-**When budget is the blocker:** Steven has a templated but genuine response pattern:
-1. Empathy: "Ah, so sorry to hear it, [Name], I know that must be disappointing. 😞"
-2. Pivot to grants: "Here are the things we offer for programs needing funding..."
-3. Resource dump: Grant website, templates, webinar, free content list
+Short reply example:
+> "Yes, It all comes together"
+
+Detailed reply example (to a question):
+> "Hi Sharon,
+> 
+> Our minimum purchase order is 10 annual licenses for $70 each ($700).
+> 
+> *License Features:*
+> [detailed bullets and tables]"
+
+**Follow-up emails** are:
+- Brief and non-pushy
+- Reference previous communication
+- Offer new value/angle
+
+Example:
+> "Checking back with you -I wanted to see if you heard about this.
+> 
+> *Through the end of September*, we will be offering a promo..."
+
+---
+
+**Summary**: Steven writes like a helpful human, not a sales robot. He's efficient, empathetic, and adapts fluidly to each recipient's communication style. His emails prioritize clarity and actionability over polish, and he's comfortable being brief when brevity serves the conversation.
