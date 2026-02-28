@@ -583,18 +583,22 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         user_text = "list all files in the repo root"
     elif user_text.lower().startswith("/push_code"):
         # /push_code filepath — fetch-first workflow.
-        # Scout MUST call get_file_content tool first, then ask for changes, then push.
+        # 1. Immediately ack so Steven knows Scout heard him
+        # 2. Claude MUST call get_file_content, summarize, then ask for changes
+        # 3. Steven describes changes in plain English, Claude edits + pushes
         args = user_text[len("/push_code"):].strip()
         if args:
+            await send_message(f"On it — fetching `{args}` from GitHub now...")
             user_text = (
-                f"Use the get_file_content tool to fetch '{args}' from GitHub right now. "
-                "Do not ask me any questions first — call the tool immediately. "
-                "After you have the file content, give me a 2-3 sentence summary of what the file does, "
-                "then ask me what changes I want to make. "
-                "Once I tell you the changes, make them to the file content you fetched and push with push_code."
+                f"PUSH_CODE WORKFLOW for '{args}':\n"
+                f"Step 1: Call the get_file_content tool immediately to fetch '{args}' from GitHub. Do NOT skip this.\n"
+                f"Step 2: Once you have the file, write a 2-3 sentence summary of what it does.\n"
+                f"Step 3: Ask Steven exactly this: 'What changes would you like me to make?'\n"
+                f"Step 4: Wait for Steven's answer, then make those specific changes to the fetched content and push with push_code.\n"
+                f"Do not deviate from these steps. Do not ask any clarifying questions before fetching."
             )
         else:
-            user_text = "Which file do you want to update? Once you tell me, I will use get_file_content to fetch it, then ask what changes you want."
+            user_text = "Ask Steven which file he wants to update. Once he answers, immediately call get_file_content to fetch it, summarize it, then ask what changes he wants."
     elif user_text.lower() in ["/grade_draft", "grade draft", "grade that draft", "rate that draft"]:
         user_text = (
             "I want to give you feedback on the last email draft you wrote. "
@@ -664,6 +668,18 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await send_message(f"✅ Recipient set to `{email_addr}`. Say *looks good* to save.")
         return
 
+    # If message sounds like a behavioral correction, prime Claude to save it
+    correction_signals = [
+        "stop ", "don't ", "do not ", "always ", "never ", "remember to ",
+        "please don't", "i want you to", "from now on", "every time",
+        "too long", "too short", "too formal", "too casual",
+    ]
+    if any(sig in user_text.lower() for sig in correction_signals):
+        user_text = (
+            user_text
+            + "\n\n[If this is a behavioral correction or preference, append [MEMORY_UPDATE: one sentence summary] to your response so it gets saved permanently.]"
+        )
+
     # Normal processing
     text_response, conversation_history, tool_calls = process_message(
         user_message=user_text,
@@ -694,11 +710,20 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "content": tool_result_content,
         })
 
+    # Strip filler closing phrases Scout tends to add
+    def _clean(msg: str) -> str:
+        import re
+        # Remove standalone "On it." / "On it!" variants at end of message
+        msg = re.sub(r"\s*\bOn it[.!]*\s*$", "", msg, flags=re.IGNORECASE).strip()
+        # Remove "Let me know if..." filler at end
+        msg = re.sub(r"\s*Let me know if (you need|there's|you have).*$", "", msg, flags=re.IGNORECASE | re.DOTALL).strip()
+        return msg
+
     if text_response:
-        await send_message(text_response)
+        await send_message(_clean(text_response))
     elif tool_results:
         for r in tool_results:
-            await send_message(r)
+            await send_message(_clean(r))
     else:
         await send_message("👍")
 
