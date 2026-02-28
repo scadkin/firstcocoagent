@@ -1,6 +1,6 @@
 # MASTER.md — CodeCombat Sales Agent (firstcocoagent)
 **Last Updated:** 2026-02-27
-**Status:** Phase 1 ✅ | Phase 1.5 ✅ | Phase 2 ✅ | Phase 3 ⚠️ Code written, deployment not yet verified | Phase 4 ⬜ Next
+**Status:** Phase 1 ✅ | Phase 1.5 ✅ | Phase 2 ✅ | Phase 3 ✅ | Phase 4 ⬜ Next
 
 ---
 
@@ -383,6 +383,12 @@ AP CSP, APCSP, AP CompSci, AP CompSci A, APCSA, AP CSA
 | Google Sheets 403 PERMISSION_DENIED | Sheets API not enabled in Google Cloud project | Enabled via Cloud Console URL in logs | ✅ Fixed |
 | SyntaxError: global _pending_draft | global declaration appeared after assignment in same function scope (even across elif branches) | Moved global declaration to top of execute_tool() | ✅ Fixed |
 | ImportError: ResearchEngine | Class doesn't exist — Claude hallucinated the name. Actual classes: ResearchJob, ResearchQueue | Rewrote research block to use research_queue singleton with correct enqueue() API | ✅ Fixed |
+| ImportError: SheetsWriter | SheetsWriter class never existed — sheets_writer.py is a module of functions | Changed to `import tools.sheets_writer as sheets_writer`, replaced all class instantiations with direct function calls | ✅ Fixed |
+| AttributeError: memory.load() | MemoryManager has no load() — __init__ handles setup automatically | Removed the call | ✅ Fixed |
+| AttributeError: memory.compress_history() | Method doesn't exist — real method is append_to_summary(text) | Replaced with memory.append_to_summary(text) | ✅ Fixed |
+| TypeError: Scheduler.__init__() unexpected keyword args | Scheduler() takes no arguments | Changed to Scheduler() | ✅ Fixed |
+| AttributeError: scheduler.run() | Scheduler has no run() method, only check() | Rewrote run loop to poll scheduler.check() every 30s via asyncio | ✅ Fixed |
+| AttributeError: memory.commit_file() | Method doesn't exist — real method is _commit_to_github(path, content, msg) | Fixed both calls in voice_trainer.py | ✅ Fixed |
 
 ---
 
