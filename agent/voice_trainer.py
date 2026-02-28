@@ -269,9 +269,25 @@ class VoiceTrainer:
             else:
                 cold.append(email)
 
+        total_available = len(replies) + len(cold)
+
+        # If we have fewer emails than the sample target, just use everything — no sampling needed
+        if total_available <= count:
+            logger.info(
+                f"Pool ({total_available}) ≤ sample target ({count}) — using all emails. "
+                f"({len(replies)} replies, {len(cold)} cold)"
+            )
+            return replies + cold
+
         # Target: 60% replies (richer signal), 40% cold
         reply_quota = min(int(count * 0.6), len(replies))
         cold_quota  = min(count - reply_quota, len(cold))
+
+        # If we don't have enough of one type, fill from the other
+        if reply_quota < int(count * 0.6):
+            cold_quota = min(count - reply_quota, len(cold))
+        if cold_quota < count - reply_quota:
+            reply_quota = min(count - cold_quota, len(replies))
 
         # Spread evenly across each pool
         def spread_sample(pool, n):
