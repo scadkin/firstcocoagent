@@ -71,7 +71,11 @@ function doPost(e) {
 
       // ── Health check ───────────────────────────────────────────
       case "ping":
-        return jsonResponse({ success: true, message: "Scout Bridge is live", user: Session.getActiveUser().getEmail() });
+        return jsonResponse({ success: true, message: "Scout Bridge is live", user: "steven@codecombat.com" });
+
+      // ── Phase 5: Google Docs ────────────────────────────────────
+      case "createGoogleDoc":
+        return jsonResponse(createGoogleDoc(params));
 
       default:
         return jsonResponse({ success: false, error: "Unknown action: " + action });
@@ -403,4 +407,47 @@ function jsonResponse(data, statusCode) {
   return ContentService
     .createTextOutput(JSON.stringify(data))
     .setMimeType(ContentService.MimeType.JSON);
+}
+
+// ════════════════════════════════════════════════════════════
+// GOOGLE DOCS (Phase 5)
+// ════════════════════════════════════════════════════════════
+
+/**
+ * Creates a new Google Doc in a specified Drive folder.
+ * Phase 5: Used for pre-call briefs saved to "Scout Pre-Call Briefs" folder.
+ *
+ * params: { title (str), content (str), folder_id (str, optional) }
+ * Returns: { success, doc_id, url, title }
+ */
+function createGoogleDoc(params) {
+  var title   = params.title   || "Scout Doc";
+  var content = params.content || "";
+  var folderId = params.folder_id || "";
+
+  // Create the document
+  var doc = DocumentApp.create(title);
+  var docId = doc.getId();
+
+  // Write content to the body
+  var body = doc.getBody();
+  body.setText(content);
+  doc.saveAndClose();
+
+  // Move to specified folder if folder_id is provided
+  if (folderId) {
+    try {
+      var file   = DriveApp.getFileById(docId);
+      var folder = DriveApp.getFolderById(folderId);
+      folder.addFile(file);
+      // Remove from root (My Drive) to keep things tidy
+      DriveApp.getRootFolder().removeFile(file);
+    } catch (e) {
+      // Non-fatal: Doc was created, just couldn't move it
+      Logger.log("createGoogleDoc: could not move to folder " + folderId + " — " + e.toString());
+    }
+  }
+
+  var url = "https://docs.google.com/document/d/" + docId + "/edit";
+  return { success: true, doc_id: docId, url: url, title: title };
 }
