@@ -256,11 +256,26 @@ class GASBridge:
         logger.info(f"District deck created via GAS bridge: {district_name}")
         return result
 
-    # ── Docs ──────────────────────────────────────────────────────
 
-    def create_google_doc(self, title: str, content: str, folder_id: str = "") -> dict:
-        """Creates a new Google Doc in the specified Drive folder. Phase 5: pre-call briefs."""
-        result = self._call("createGoogleDoc", {"title": title, "content": content, "folder_id": folder_id})
+    # ── Docs ──────────────────────────────────────────────────────────────────
+
+    def create_google_doc(
+        self,
+        title: str,
+        content: str,
+        folder_id: str = "",
+    ) -> dict:
+        """
+        Creates a new Google Doc in the specified Drive folder.
+        Phase 5: Used for pre-call briefs saved to "Scout Pre-Call Briefs" folder.
+
+        Returns {success, doc_id, url, title}
+        """
+        result = self._call("createGoogleDoc", {
+            "title":     title,
+            "content":   content,
+            "folder_id": folder_id,
+        })
         logger.info(f"Google Doc created via GAS bridge: {title}")
         return result
 
