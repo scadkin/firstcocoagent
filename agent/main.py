@@ -4,6 +4,7 @@ Scout's entry point. Phase 3: Gmail + Calendar + Slides via GAS bridge.
 """
 
 import asyncio
+from datetime import datetime
 import logging
 import os
 import re
@@ -14,6 +15,7 @@ from telegram.ext import Application, MessageHandler, filters, ContextTypes
 from agent.config import (
     TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID, AGENT_NAME,
     GAS_WEBHOOK_URL, GAS_SECRET_TOKEN, gas_bridge_configured,
+    FIREFLIES_API_KEY, FIREFLIES_WEBHOOK_SECRET,
 )
 from agent.claude_brain import process_message, build_draft_prompt, draft_email_with_claude
 from agent.memory_manager import MemoryManager
@@ -22,7 +24,7 @@ from agent.voice_trainer import VoiceTrainer
 from tools.research_engine import research_queue   # singleton queue from Phase 2
 import tools.sheets_writer as sheets_writer
 from tools.telegram_bot import send_message
-# Phase 4 modules imported lazily inside execute_tool() — safe to boot without them
+# Phase 4/5 modules imported lazily inside execute_tool() — safe to boot without them
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
@@ -34,6 +36,10 @@ conversation_history = []
 
 # Pending draft — stores last unconfirmed draft
 _pending_draft = None
+
+# Phase 5: Track which calendar event IDs have had pre-call briefs sent
+# (prevents duplicate briefs if scheduler fires multiple times in the 9-11 minute window)
+_precall_briefs_sent: set = set()
 
 
 def get_gas_bridge():
@@ -417,6 +423,124 @@ async def execute_tool(tool_name: str, tool_input: dict) -> str:
         return f"{tg_text}{sheets_note}\n\n📋 Paste each step into Outreach.io sequence editor."
 
 
+    # ── Phase 5: Call Intelligence ───────────────────────────────────────────
+
+    elif tool_name == "process_call_transcript":
+        try:
+            from tools.fireflies import FirefliesClient, FirefliesError
+            from agent.call_processor import CallProcessor
+        except ImportError as e:
+            return f"❌ Phase 5 module not found: {e}. Upload tools/fireflies.py and agent/call_processor.py to GitHub first."
+
+        transcript_id = tool_input.get("transcript_id", "").strip()
+        if not transcript_id:
+            return "❌ Need a transcript ID. Use /recent_calls to find one, then /call [id]."
+
+        gas = get_gas_bridge()
+        if not gas:
+            return "❌ GAS bridge not configured. Follow docs/SETUP_PHASE3.md."
+        if not FIREFLIES_API_KEY:
+            return "❌ FIREFLIES_API_KEY not set in Railway. See docs/SETUP_PHASE5.md."
+
+        fireflies = FirefliesClient(api_key=FIREFLIES_API_KEY)
+        processor = CallProcessor(gas_bridge=gas, memory_manager=memory, fireflies_client=fireflies)
+
+        await send_message(
+            f"📞 Processing transcript `{transcript_id}`...\nThis takes 30-60 seconds."
+        )
+
+        async def on_progress(msg: str):
+            await send_message(msg)
+
+        result = await processor.process_transcript(
+            transcript_id=transcript_id,
+            progress_callback=on_progress,
+        )
+
+        if result.get("error"):
+            return f"❌ Processing failed: {result['error']}"
+
+        # Send Telegram summary
+        await send_message(result["telegram_summary"])
+
+        # Send Salesforce block separately so it's easy to long-press/copy
+        await send_message(result["salesforce_block"])
+
+        return ""  # already sent everything via send_message
+
+    elif tool_name == "get_pre_call_brief":
+        try:
+            from agent.call_processor import CallProcessor
+        except ImportError as e:
+            return f"❌ agent/call_processor.py not found: {e}. Upload it to GitHub first."
+
+        gas = get_gas_bridge()
+        if not gas:
+            return "❌ GAS bridge not configured. Follow docs/SETUP_PHASE3.md."
+
+        meeting_title = tool_input.get("meeting_title", "")
+        attendee_emails = tool_input.get("attendee_emails", [])
+
+        # Fetch calendar to find the meeting
+        try:
+            events = gas.get_calendar_events(days_ahead=14)
+        except Exception as e:
+            return f"❌ Could not fetch calendar: {e}"
+
+        # Find matching event
+        target_event = None
+        if meeting_title:
+            title_lower = meeting_title.lower()
+            for ev in events:
+                if title_lower in ev.get("title", "").lower():
+                    target_event = ev
+                    break
+        else:
+            # Use next upcoming Zoom meeting
+            for ev in events:
+                loc = (ev.get("location") or "") + (ev.get("description") or "")
+                if "zoom.us" in loc.lower():
+                    target_event = ev
+                    break
+
+        if not target_event and not attendee_emails:
+            if events:
+                titles = ", ".join(f"'{e.get('title', '?')}'" for e in events[:5])
+                return f"❌ Could not find that meeting. Upcoming: {titles}"
+            return "❌ No upcoming calendar events found."
+
+        # Build attendees list
+        if attendee_emails:
+            attendees = [{"email": e, "name": e.split("@")[0]} for e in attendee_emails]
+        else:
+            raw_guests = (target_event or {}).get("guests", [])
+            attendees = [
+                g for g in raw_guests
+                if "@codecombat.com" not in g.get("email", "").lower()
+            ]
+            if not attendees and target_event:
+                attendees = [{"name": "Prospect", "email": ""}]
+
+        processor = CallProcessor(gas_bridge=gas, memory_manager=memory)
+
+        mtitle = (target_event or {}).get("title", meeting_title or "your meeting")
+        mtitle = (target_event or {}).get("title", meeting_title or "your meeting")
+        await send_message(
+            f"🔍 Building pre-call brief for *{mtitle}*...\n"
+            "Researching attendees. Give me 30-60 seconds."
+        )
+        async def on_brief_progress(msg: str):
+            await send_message(msg)
+
+        brief = await processor.build_pre_call_brief(
+            event=target_event or {"title": meeting_title, "start": ""},
+            attendees=attendees,
+            progress_callback=on_brief_progress,
+        )
+
+        await send_message(brief)
+        return ""  # already sent via send_message
+
     return f"❓ Unknown tool: {tool_name}"
 
 
@@ -451,19 +575,20 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif user_text.lower() in ["/list_files", "/ls", "list files", "show repo files"]:
         user_text = "list all files in the repo root"
     elif user_text.lower().startswith("/push_code"):
-        # /push_code filepath
-        # Fetch-first: Scout reads the current file from GitHub, Steven describes changes,
-        # Scout edits and pushes. Steven never has to paste large files through Telegram.
+        # /push_code filepath — fetch-first workflow.
+        # Scout MUST call get_file_content tool first, then ask for changes, then push.
+        # Steven never pastes file content through Telegram.
         args = user_text[len("/push_code"):].strip()
         if args:
             user_text = (
-                f"I want to update `{args}` in GitHub. "
-                f"First use list_repo_files or get_file_content to fetch the current content of `{args}`. "
-                f"Show me a brief summary of what's in it, then ask me what changes I want to make. "
-                f"Once I describe the changes, make them yourself and push the updated file."
+                f"Use the get_file_content tool to fetch `{args}` from GitHub right now. "
+                f"Do not ask me any questions first — just call the tool immediately. "
+                f"After you have the file content, give me a 2-3 sentence summary of what the file does, "
+                f"then ask me what changes I want to make. "
+                f"Once I tell you the changes, make them to the file content you fetched and push the updated version using push_code."
             )
         else:
-            user_text = "I want to update a file in GitHub. Ask me which file, then fetch its current content and ask what changes I want to make."
+            user_text = "I want to update a file in GitHub. Which file? Once I tell you, use get_file_content to fetch it immediately, then ask what changes I want."
     elif user_text.lower() in ["/grade_draft", "grade draft", "grade that draft", "rate that draft"]:
         user_text = (
             "I want to give you feedback on the last email draft you wrote. "
@@ -484,6 +609,39 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif user_text.lower().startswith("/build_sequence") or user_text.lower().startswith("/sequence"):
         args = user_text.split(" ", 1)[1].strip() if " " in user_text else ""
         user_text = f"Build an email sequence{' for ' + args if args else ''}. Ask me for any details you need."
+
+    # Phase 5: Call Intelligence commands
+    elif user_text.lower().startswith("/brief"):
+        args = user_text[len("/brief"):].strip()
+        user_text = (
+            f"Generate a pre-call brief{' for the meeting: ' + args if args else ' for my next upcoming Zoom meeting'}. "
+            "Use the get_pre_call_brief tool."
+        )
+
+    elif user_text.lower() in ["/recent_calls", "recent calls", "list calls", "show calls"]:
+        # Directly fetch and display recent Fireflies transcripts
+        if not FIREFLIES_API_KEY:
+            await send_message("❌ FIREFLIES_API_KEY not set in Railway. See docs/SETUP_PHASE5.md.")
+            return
+        try:
+            from tools.fireflies import FirefliesClient
+            client = FirefliesClient(api_key=FIREFLIES_API_KEY)
+            transcripts = client.get_recent_transcripts(limit=5)
+            msg = client.format_recent_for_telegram(transcripts)
+        except Exception as e:
+            msg = f"❌ Could not fetch Fireflies transcripts: {e}"
+        await send_message(msg)
+        return
+
+    elif user_text.lower().startswith("/call"):
+        args = user_text[len("/call"):].strip()
+        # Extract transcript ID from URL if user pasted a Fireflies link
+        if "fireflies.ai" in args and "/transcript/" in args:
+            args = args.split("/transcript/")[-1].split("/")[0].split("?")[0]
+        if args:
+            user_text = f"Process Fireflies call transcript with ID: {args}. Use the process_call_transcript tool."
+        else:
+            user_text = "What is the transcript ID I should process? Ask me for it or I can show recent calls."
 
     # Pending draft approvals
     elif _pending_draft and any(
@@ -570,48 +728,191 @@ async def send_checkin():
     await send_message("📊 Hourly check-in — anything you need, Steven?")
 
 
+# ── Phase 5: Webhook transcript callback ──────────────────────────────────────
+
+async def _on_transcript_received(transcript_id: str):
+    """
+    Called by the aiohttp webhook server when Fireflies sends a post-call notification.
+    Runs full process_transcript() pipeline and sends results to Telegram.
+    """
+    logger.info(f"[Webhook] Transcript received: {transcript_id}")
+    await send_message(f"📞 *Call transcript received!*\nProcessing `{transcript_id}`...")
+
+    gas = get_gas_bridge()
+    if not gas or not FIREFLIES_API_KEY:
+        await send_message("❌ GAS bridge or FIREFLIES_API_KEY not configured — cannot process.")
+        return
+
+    try:
+        from tools.fireflies import FirefliesClient
+        from agent.call_processor import CallProcessor
+
+        fireflies = FirefliesClient(api_key=FIREFLIES_API_KEY)
+        processor = CallProcessor(gas_bridge=gas, memory_manager=memory, fireflies_client=fireflies)
+
+        async def on_progress(msg: str):
+            await send_message(msg)
+
+        result = await processor.process_transcript(
+            transcript_id=transcript_id,
+            progress_callback=on_progress,
+        )
+
+        if result.get("error"):
+            await send_message(f"❌ Processing failed: {result['error']}")
+            return
+
+        await send_message(result["telegram_summary"])
+        await send_message(result["salesforce_block"])
+
+    except Exception as e:
+        logger.error(f"[Webhook] Transcript processing error: {e}")
+        await send_message(f"❌ Error processing transcript `{transcript_id}`: {e}")
+
+
+# ── Phase 5: Pre-call brief auto-trigger ───────────────────────────────────────
+
+async def _check_precall_briefs(gas):
+    """
+    Checks for Zoom meetings starting in 9-11 minutes and fires pre-call briefs.
+    Called every 30 seconds from the scheduler loop.
+    Skips events tracked in _precall_briefs_sent to prevent duplicate briefs.
+    """
+    global _precall_briefs_sent
+
+    try:
+        from agent.call_processor import CallProcessor
+
+        events = gas.get_calendar_events(days_ahead=1)
+        now = datetime.now(CST)
+
+        for event in events:
+            # Build a stable event ID from title + start time
+            event_id = (event.get("id") or "") or (event.get("title", "") + "|" + event.get("start", ""))
+            if event_id in _precall_briefs_sent:
+                continue
+
+            # Only fire for Zoom meetings
+            loc = (event.get("location") or "").lower()
+            desc = (event.get("description") or "").lower()
+            if "zoom.us" not in loc and "zoom.us" not in desc:
+                continue
+
+            # Parse start time and calculate minutes until meeting
+            start_str = event.get("start", "")
+            if not start_str:
+                continue
+            try:
+                start_dt = datetime.fromisoformat(start_str.replace("Z", "+00:00"))
+                start_cst = start_dt.astimezone(CST)
+                minutes_until = (start_cst - now).total_seconds() / 60
+            except Exception:
+                continue
+
+            # Fire brief in the 9-11 minute window
+            if 9 <= minutes_until <= 11:
+                _precall_briefs_sent.add(event_id)
+                logger.info(f"[PreCallBrief] Auto-triggering brief for: {event.get('title')}")
+
+                # Filter attendees — exclude CodeCombat team
+                all_guests = event.get("guests") or []
+                attendees = [
+                    g for g in all_guests
+                    if "@codecombat.com" not in g.get("email", "").lower()
+                ]
+                if not attendees:
+                    attendees = [{"name": "Prospect", "email": ""}]
+
+                await send_message(
+                    f"⏰ *10-minute warning: {event.get('title', 'Zoom call')}*\n"
+                    f"Building your pre-call brief now..."
+                )
+
+                try:
+                    processor = CallProcessor(gas_bridge=gas, memory_manager=memory)
+
+                    async def on_brief_progress(msg: str):
+                        await send_message(msg)
+
+                    brief = await processor.build_pre_call_brief(
+                        event=event,
+                        attendees=attendees,
+                        progress_callback=on_brief_progress,
+                    )
+                    await send_message(brief)
+                except Exception as e:
+                    logger.error(f"[PreCallBrief] Auto-trigger error: {e}")
+                    await send_message(f"❌ Pre-call brief error: {e}")
+
+    except Exception as e:
+        logger.warning(f"[PreCallBrief] Calendar check failed: {e}")
+
+
 # ── Entry point ────────────────────────────────────────────────────────────────
 
-async def main():
-    logger.info(f"Starting {AGENT_NAME}...")
-    # MemoryManager.__init__ already calls _ensure_files_exist() — no .load() needed
-
+async def _run_telegram_and_scheduler():
+    """Telegram polling + scheduler loop. Runs alongside aiohttp webhook server."""
     app = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     app.add_handler(MessageHandler(filters.COMMAND, handle_message))
 
     scheduler = Scheduler()
+    gas = get_gas_bridge() if gas_bridge_configured() else None
 
     await app.initialize()
     await app.start()
     await app.updater.start_polling()
 
-    gas_status = "✅ GAS bridge configured" if gas_bridge_configured() else "⚠️ GAS bridge not yet configured (see SETUP_PHASE3.md)"
+    gas_status = "✅ GAS bridge" if gas_bridge_configured() else "⚠️ GAS bridge not set"
+    ff_status = "✅ Fireflies" if FIREFLIES_API_KEY else "⚠️ FIREFLIES_API_KEY not set (see SETUP_PHASE5.md)"
     await send_message(
-        f"🤖 *{AGENT_NAME} is online — Phase 4 active.*\n"
-        f"{gas_status}\n"
-        f"New: `/push_code` • `/build_sequence` • `/list_files`"
+        f"🤖 *{AGENT_NAME} is online — Phase 5 active.*\n"
+        f"{gas_status} · {ff_status}\n"
+        f"New: `/brief` · `/recent_calls` · `/call [id]`"
     )
 
-    stop_event = asyncio.Event()
     try:
-        # Poll scheduler every 30 seconds and dispatch scheduled events
-        while not stop_event.is_set():
-            event = scheduler.check()
-            if event == "morning_brief":
+        while True:
+            sched_event = scheduler.check()
+            if sched_event == "morning_brief":
                 asyncio.create_task(send_morning_brief())
-            elif event == "eod_report":
+            elif sched_event == "eod_report":
                 asyncio.create_task(send_eod_report())
-            elif event == "checkin":
+            elif sched_event == "checkin":
                 asyncio.create_task(send_checkin())
-            try:
-                await asyncio.wait_for(stop_event.wait(), timeout=30)
-            except asyncio.TimeoutError:
-                pass
+
+            # Phase 5: auto-trigger pre-call brief 10 min before Zoom meetings
+            if gas and FIREFLIES_API_KEY:
+                asyncio.create_task(_check_precall_briefs(gas))
+
+            await asyncio.sleep(30)
     finally:
         await app.updater.stop()
         await app.stop()
         await app.shutdown()
+
+
+async def main():
+    logger.info(f"Starting {AGENT_NAME} — Phase 5...")
+
+    port = int(os.environ.get("PORT", 8080))
+
+    # Phase 5: Run webhook server alongside Telegram if PORT is set (Railway always sets PORT)
+    if os.environ.get("PORT"):
+        from agent.webhook_server import start_webhook_server
+        logger.info(f"[Main] Webhook server starting on port {port}")
+        await asyncio.gather(
+            _run_telegram_and_scheduler(),
+            start_webhook_server(
+                port=port,
+                process_callback=_on_transcript_received,
+                webhook_secret=FIREFLIES_WEBHOOK_SECRET,
+            ),
+        )
+    else:
+        # Local dev fallback — no PORT set, run Telegram only
+        logger.info("[Main] No PORT env var — running Telegram only (local dev mode)")
+        await _run_telegram_and_scheduler()
 
 
 if __name__ == "__main__":
