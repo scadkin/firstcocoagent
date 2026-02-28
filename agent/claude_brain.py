@@ -240,13 +240,44 @@ TOOLS = [
     # Phase 5: Call Intelligence
     {
         "name": "process_call_transcript",
-        "description": "Process a Fireflies call transcript into structured sales intelligence. Use when Steven sends /call [transcript_id] or says 'process my call'.",
-        "input_schema": {"type": "object", "properties": {"transcript_id": {"type": "string"}}, "required": ["transcript_id"]},
+        "description": (
+            "Process a Fireflies call transcript into structured sales intelligence. "
+            "Use when Steven sends /call [transcript_id], pastes a Fireflies URL, "
+            "or says 'process my call', 'analyze that call', 'post-call summary'."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "transcript_id": {
+                    "type": "string",
+                    "description": "Fireflies transcript ID (from Fireflies URL or /recent_calls list)",
+                },
+            },
+            "required": ["transcript_id"],
+        },
     },
     {
         "name": "get_pre_call_brief",
-        "description": "Generate a pre-call research brief for an upcoming meeting. Use when Steven sends /brief or asks for pre-call research.",
-        "input_schema": {"type": "object", "properties": {"meeting_title": {"type": "string"}, "attendee_emails": {"type": "array", "items": {"type": "string"}}}, "required": []},
+        "description": (
+            "Generate a pre-call research brief for an upcoming meeting. "
+            "Use when Steven sends /brief, mentions a meeting name, or asks for "
+            "pre-call research. Searches calendar, researches attendees, saves as Google Doc."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "meeting_title": {
+                    "type": "string",
+                    "description": "Meeting name to search for in calendar. Optional.",
+                },
+                "attendee_emails": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Attendee emails if Steven specifies them directly. Optional.",
+                },
+            },
+            "required": [],
+        },
     },
 ]
 
