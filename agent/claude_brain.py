@@ -176,6 +176,26 @@ TOOLS = [
             "required": [],
         },
     },
+    {
+        "name": "get_file_content",
+        "description": (
+            "Fetch the full content of a file from GitHub. ALWAYS use this as the first step "
+            "of the /push_code workflow before making any edits. Use when Steven says "
+            "'/push_code filepath', 'edit this file', 'update X in GitHub', or any request "
+            "to modify an existing file. Read the file first, summarize it, ask Steven what "
+            "changes he wants, then make edits and push with push_code."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "filepath": {
+                    "type": "string",
+                    "description": "Repo-relative path to the file, e.g. 'agent/main.py' or 'tools/gas_bridge.py'",
+                },
+            },
+            "required": ["filepath"],
+        },
+    },
     # Phase 4: Email Sequences
     {
         "name": "build_sequence",
@@ -216,6 +236,48 @@ TOOLS = [
         "name": "ping_gas_bridge",
         "description": "Test the Google Apps Script bridge connection. Use when Steven asks if Google is connected or sends /ping_gas.",
         "input_schema": {"type": "object", "properties": {}, "required": []},
+    },
+    # Phase 5: Call Intelligence
+    {
+        "name": "process_call_transcript",
+        "description": (
+            "Process a Fireflies call transcript into structured sales intelligence. "
+            "Use when Steven sends /call [transcript_id], pastes a Fireflies URL, "
+            "or says 'process my call', 'analyze that call', 'post-call summary'."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "transcript_id": {
+                    "type": "string",
+                    "description": "Fireflies transcript ID (from Fireflies URL or /recent_calls list)",
+                },
+            },
+            "required": ["transcript_id"],
+        },
+    },
+    {
+        "name": "get_pre_call_brief",
+        "description": (
+            "Generate a pre-call research brief for an upcoming meeting. "
+            "Use when Steven sends /brief, mentions a meeting name, or asks for "
+            "pre-call research. Searches calendar, researches attendees, saves as Google Doc."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "meeting_title": {
+                    "type": "string",
+                    "description": "Meeting name to search for in calendar. Optional.",
+                },
+                "attendee_emails": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Attendee emails if Steven specifies them directly. Optional.",
+                },
+            },
+            "required": [],
+        },
     },
 ]
 
