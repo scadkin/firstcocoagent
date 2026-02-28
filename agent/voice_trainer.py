@@ -111,3 +111,119 @@ class VoiceTrainer:
         self.client = Anthropic(api_key=ANTHROPIC_API_KEY)
 
     # ── Public API ────────────────────────────────────────────────
+
+    def train(self, months_back: int = MONTHS_BACK, progress_callback=None) -> str:
+        """
+        Full training run. Returns the voice profile text on success,
+        or an error string starting with "❌" on failure.
+        """
+        if progress_callback:
+            progress_callback(
+                f"📬 Fetching up to {MAX_EMAILS_TO_FETCH} sent emails "
+                f"from the last {months_back} months..."
+            )
+
+        all_emails = self._fetch_all_emails(months_back, progress_callback)
+
+        if not all_emails:
+            return (
+                "❌ No sent emails found. "
+                "Make sure the GAS bridge is connected and you have sent emails "
+                f"in the last {months_back} months."
+            )
+
+        reply_count = sum(1 for e in all_emails if e.get("is_reply"))
+        cold_count  = len(all_emails) - reply_count
+
+        if progress_callback:
+            progress_callback(
+                f"📊 Fetched {len(all_emails)} emails "
+                f"({reply_count} replies with context, {cold_count} cold/standalone). "
+                f"Selecting {SAMPLE_SIZE}-email sample..."
+            )
+
+        sample = self._select_sample(all_emails, count=SAMPLE_SIZE)
+
+        if progress_callback:
+            sample_replies = sum(1 for e in sample if e.get("is_reply"))
+            progress_callback(
+                f"🧠 Analyzing {len(sample)} emails "
+                f"({sample_replies} paired reply+context) with Claude..."
+            )
+
+        profile = self._analyze_with_claude(sample)
+
+        if not profile:
+            return "❌ Claude analysis failed. Check logs."
+
+        self._save_profile(profile)
+
+        try:
+            self.memory._commit_to_github(
+                VOICE_PROFILE_PATH,
+                profile,
+                "[Phase 4.5] Voice profile updated — paginated fetch with thread context",
+            )
+        except Exception as e:
+            logger.warning(f"GitHub commit failed (file still saved locally): {e}")
+
+        sample_replies = sum(1 for e in sample if e.get("is_reply"))
+        if progress_callback:
+            progress_callback(
+                f"✅ Voice profile built from {len(sample)} emails "
+                f"({sample_replies} with reply context) and saved!"
+            )
+
+        return profile
+
+    def load_profile(self) -> Optional[str]:
+        if not os.path.exists(VOICE_PROFILE_PATH):
+            return None
+        with open(VOICE_PROFILE_PATH, "r", encoding="utf-8") as f:
+            return f.read()
+
+    def update_profile_from_feedback(self, feedback: str) -> bool:
+        profile = self.load_profile()
+        if not profile:
+            return False
+
+        import datetime
+        timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
+        updated   = profile + f"\n\n---\n## Style Correction ({timestamp})\n{feedback}\n"
+        self._save_profile(updated)
+
+        try:
+            self.memory._commit_to_github(
+                VOICE_PROFILE_PATH,
+                updated,
+                "[Phase 4.5] Voice profile: style correction",
+            )
+        except Exception as e:
+            logger.warning(f"GitHub commit of voice update failed: {e}")
+
+        return True
+
+    # ── Internal helpers ─────────────────────────────────────────
+
+    def _fetch_all_emails(self, months_back: int, progress_callback=None) -> list[dict]:
+        """
+        Paginates through GAS get_sent_emails until MAX_EMAILS_TO_FETCH is reached
+        or GAS says has_more=False.
+        """
+        all_emails = []
+        page_start = 0
+
+        while len(all_emails) < MAX_EMAILS_TO_FETCH:
+            try:
+                data = self.gas.get_sent_emails_page(
+                    months_back=months_back,
+                    page_size=PAGE_SIZE,
+                    page_start=page_start,
+                )
+            except Exception as e:
+                logger.error(f"GAS fetch failed at page_start={page_start}: {e}")
+                break
+
+            batch = data.get("emails", [])
+            if not batch:
+                break
