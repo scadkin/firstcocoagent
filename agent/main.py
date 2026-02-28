@@ -22,6 +22,8 @@ from agent.voice_trainer import VoiceTrainer
 from tools.research_engine import research_queue   # singleton queue from Phase 2
 import tools.sheets_writer as sheets_writer
 from tools.telegram_bot import send_message
+import tools.github_pusher as github_pusher         # Phase 4: /push_code
+import tools.sequence_builder as sequence_builder   # Phase 4: build_sequence
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
@@ -311,6 +313,88 @@ async def execute_tool(tool_name: str, tool_input: dict) -> str:
         except Exception as e:
             return f"❌ Could not create deck: {e}"
 
+    # ── Phase 4: GitHub code push ─────────────────────────────────────────────
+
+    elif tool_name == "push_code":
+        filepath = tool_input.get("filepath", "").strip()
+        content = tool_input.get("content", "")
+        commit_msg = tool_input.get("commit_message", "")
+
+        if not filepath or not content:
+            return "❌ Need both `filepath` and `content` to push."
+
+        await send_message(f"📤 Pushing `{filepath}` to GitHub...")
+
+        result = github_pusher.push_file(
+            filepath=filepath,
+            content=content,
+            commit_message=commit_msg or f"Scout: update {filepath}",
+        )
+
+        if result["success"]:
+            url = result.get("url", "")
+            link = f"\n[View on GitHub]({url})" if url else ""
+            return f"{result['message']}{link}\n\n⚡️ Railway will auto-deploy in ~30 seconds."
+        else:
+            return result["message"]
+
+    elif tool_name == "list_repo_files":
+        path = tool_input.get("path", "")
+        files = github_pusher.list_repo_files(path)
+        if not files:
+            return f"❌ Could not list files in `{path or 'repo root'}` — check GITHUB_TOKEN and GITHUB_REPO."
+        label = f"`{path}/`" if path else "repo root"
+        lines = [f"📁 *Files in {label}:*\n"] + [f"• `{f}`" for f in files]
+        return "\n".join(lines)
+
+    # ── Phase 4: Email sequences ───────────────────────────────────────────────
+
+    elif tool_name == "build_sequence":
+        campaign_name = tool_input.get("campaign_name", "")
+        target_role = tool_input.get("target_role", "")
+        focus_product = tool_input.get("focus_product", "CodeCombat AI Suite")
+        num_steps = int(tool_input.get("num_steps", 4))
+        additional_context = tool_input.get("additional_context", "")
+
+        if not campaign_name or not target_role:
+            return "❌ Need at least `campaign_name` and `target_role` to build a sequence."
+
+        await send_message(
+            f"✍️ Building {num_steps}-step sequence for *{target_role}s*...\n"
+            f"Campaign: _{campaign_name}_"
+        )
+
+        # Load voice profile if available
+        voice_profile = None
+        try:
+            with open("memory/voice_profile.md", "r", encoding="utf-8") as f:
+                voice_profile = f.read()
+        except FileNotFoundError:
+            pass
+
+        result = sequence_builder.build_sequence(
+            campaign_name=campaign_name,
+            target_role=target_role,
+            focus_product=focus_product,
+            num_steps=num_steps,
+            voice_profile=voice_profile,
+            additional_context=additional_context,
+        )
+
+        if not result["success"]:
+            return f"❌ Sequence generation failed: {result['error']}"
+
+        steps = result["steps"]
+
+        # Write to Google Sheets Sequences tab
+        saved_to_sheets = sequence_builder.write_sequence_to_sheets(campaign_name, steps)
+        sheets_note = "\n✅ Saved to *Sequences* tab in your sheet." if saved_to_sheets else ""
+
+        # Format for Telegram
+        tg_text = sequence_builder.format_for_telegram(campaign_name, steps)
+
+        return f"{tg_text}{sheets_note}\n\n📋 Paste each step into Outreach.io sequence editor."
+
     return f"❓ Unknown tool: {tool_name}"
 
 
@@ -342,6 +426,16 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         user_text = "ping the GAS bridge"
     elif user_text.lower() in ["/train_voice", "train voice", "train my voice", "learn my style"]:
         user_text = "train your voice model from my Gmail history"
+    elif user_text.lower() in ["/list_files", "/ls", "list files", "show repo files"]:
+        user_text = "list all files in the repo root"
+    elif user_text.lower().startswith("/push_code"):
+        # /push_code filepath
+        # The actual file content will come in Claude's next turn — just set context
+        args = user_text[len("/push_code"):].strip()
+        user_text = f"I want to push code to GitHub. File path: {args}. Ask me for the file content." if args else "I want to push a file to GitHub. Ask me which file and what the content should be."
+    elif user_text.lower().startswith("/build_sequence") or user_text.lower().startswith("/sequence"):
+        args = user_text.split(" ", 1)[1].strip() if " " in user_text else ""
+        user_text = f"Build an email sequence{' for ' + args if args else ''}. Ask me for any details you need."
 
     # Pending draft approvals
     elif _pending_draft and any(
@@ -372,6 +466,24 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     for tc in tool_calls:
         result = await execute_tool(tc["tool_name"], tc["tool_input"])
         tool_results.append(result)
+
+    # CRITICAL: Append tool_result blocks back into history.
+    # The Claude API requires every tool_use block to be immediately followed
+    # by a tool_result block in the next user message. Without this, the next
+    # API call fails with a 400 "tool_use ids found without tool_result" error.
+    if tool_calls and tool_results:
+        tool_result_content = [
+            {
+                "type": "tool_result",
+                "tool_use_id": tc["tool_use_id"],
+                "content": str(result),
+            }
+            for tc, result in zip(tool_calls, tool_results)
+        ]
+        conversation_history.append({
+            "role": "user",
+            "content": tool_result_content,
+        })
 
     if text_response:
         await send_message(text_response)
@@ -427,7 +539,11 @@ async def main():
     await app.updater.start_polling()
 
     gas_status = "✅ GAS bridge configured" if gas_bridge_configured() else "⚠️ GAS bridge not yet configured (see SETUP_PHASE3.md)"
-    await send_message(f"🤖 *{AGENT_NAME} is online.*\n{gas_status}")
+    await send_message(
+        f"🤖 *{AGENT_NAME} is online — Phase 4 active.*\n"
+        f"{gas_status}\n"
+        f"New: `/push_code` • `/build_sequence` • `/list_files`"
+    )
 
     stop_event = asyncio.Event()
     try:
