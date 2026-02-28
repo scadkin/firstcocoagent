@@ -149,7 +149,14 @@ async def execute_tool(tool_name: str, tool_input: dict) -> str:
                 "❌ GAS bridge not configured yet.\n"
                 "Follow `docs/SETUP_PHASE3.md` to set up the Google Apps Script bridge first."
             )
-        months_back = tool_input.get("months_back", 6)
+        months_back = tool_input.get("months_back", 24)
+
+        # Immediate acknowledgment so Steven knows it's working (takes 3-5 min)
+        await send_message(
+            "🔄 *Starting voice training...*\n"
+            f"Fetching up to 2,000 sent emails from the last {months_back} months. "
+            "This takes 3–5 minutes — I'll send updates as I go."
+        )
 
         def on_progress(msg):
             asyncio.create_task(send_message(msg))
@@ -445,9 +452,35 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         user_text = "list all files in the repo root"
     elif user_text.lower().startswith("/push_code"):
         # /push_code filepath
-        # The actual file content will come in Claude's next turn — just set context
+        # Fetch-first: Scout reads the current file from GitHub, Steven describes changes,
+        # Scout edits and pushes. Steven never has to paste large files through Telegram.
         args = user_text[len("/push_code"):].strip()
-        user_text = f"I want to push code to GitHub. File path: {args}. Ask me for the file content." if args else "I want to push a file to GitHub. Ask me which file and what the content should be."
+        if args:
+            user_text = (
+                f"I want to update `{args}` in GitHub. "
+                f"First use list_repo_files or get_file_content to fetch the current content of `{args}`. "
+                f"Show me a brief summary of what's in it, then ask me what changes I want to make. "
+                f"Once I describe the changes, make them yourself and push the updated file."
+            )
+        else:
+            user_text = "I want to update a file in GitHub. Ask me which file, then fetch its current content and ask what changes I want to make."
+    elif user_text.lower() in ["/grade_draft", "grade draft", "grade that draft", "rate that draft"]:
+        user_text = (
+            "I want to give you feedback on the last email draft you wrote. "
+            "Ask me to rate it 1-5 and describe specifically what was off — "
+            "tone, length, word choice, CTA, anything. "
+            "Then update my voice profile permanently with what you learn."
+        )
+
+    elif user_text.lower().startswith("/add_template"):
+        args = user_text[len("/add_template"):].strip()
+        user_text = (
+            f"I'm going to give you one of my actual email templates or snippets that I use regularly. "
+            f"{'Here it is: ' + args if args else 'Ask me to paste it.'} "
+            f"Analyze the writing style, structure, and tone. "
+            f"Then permanently add it to my voice profile under a Templates section so you can reference it when drafting."
+        )
+
     elif user_text.lower().startswith("/build_sequence") or user_text.lower().startswith("/sequence"):
         args = user_text.split(" ", 1)[1].strip() if " " in user_text else ""
         user_text = f"Build an email sequence{' for ' + args if args else ''}. Ask me for any details you need."
