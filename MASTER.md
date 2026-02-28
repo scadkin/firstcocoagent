@@ -1,35 +1,45 @@
 # MASTER.md — CodeCombat Sales Agent (firstcocoagent)
-**Last Updated:** 2026-02-27
-**Status:** Phase 1 ✅ | Phase 1.5 ✅ | Phase 2 ✅ | Phase 3 ✅ | Phase 4 ⬜ Next
+**Last Updated:** 2026-02-28
+**Status:** Phase 1 ✅ | Phase 1.5 ✅ | Phase 2 ✅ | Phase 3 ✅ | Phase 4 ✅ | Phase 4.5 ⬜ Next
 
 ---
 
 ## HOW TO RESUME IN A NEW CLAUDE CHAT
 
 Open a new chat in this Claude Project and say:
-**"Read MASTER.md and all project files. Phase 3 is verified working — Scout is live. Start Phase 4."**
+**"Read MASTER.md and all project files. Phase 4 is verified working — Scout is live. Start Phase 4.5."**
 
 ---
 
 ## CURRENT STATUS — WHERE WE LEFT OFF
 
-**Phase 3 is complete and verified.** Scout is running cleanly on Railway. It came online and sent Steven a Telegram message confirming it was live.
+**Phase 4 is complete and verified.** Scout is running on Railway with all Phase 4 files uploaded:
+- `agent/main.py` — updated (tool_result history bug fixed, lazy imports, Phase 4 handlers)
+- `agent/claude_brain.py` — updated (3 new Phase 4 tools: push_code, list_repo_files, build_sequence)
+- `tools/github_pusher.py` — new (GitHub Contents API wrapper)
+- `tools/sequence_builder.py` — new (multi-step Outreach.io sequence generator)
 
-### Phase 4 is next — first task: `/push_code`
-Give Scout the ability to commit files directly to GitHub using the `GITHUB_TOKEN` already in Railway env vars. This eliminates the manual GitHub upload step that caused so much friction during Phase 3 debugging. Steven has approved this approach.
+**Phase 3 GAS bridge is NOW fully live:**
+- `GAS_WEBHOOK_URL` — ✅ Set (new deployment URL after redeploy)
+- `GAS_SECRET_TOKEN` — ✅ Set
+- `/ping_gas` → `✅ GAS Bridge connected! Running as: steven@codecombat.com`
+- `/train_voice` → ✅ Ran successfully — voice profile built from 40 emails
 
-### Phase 3 GAS bridge setup status
-- `GAS_WEBHOOK_URL` — ⬜ Not yet set (Steven still needs to deploy Code.gs first)
-- `GAS_SECRET_TOKEN` — ⬜ Not yet set
-- GAS features (voice training, email drafting, calendar, slides) will not work until GAS is deployed
-- See `docs/SETUP_PHASE3.md` for step-by-step instructions
-- All other Phase 3 code is deployed and running
+### Phase 4.5 is next — Voice Trainer Upgrade
+The `/train_voice` command currently pulls 173 emails but only analyzes 40 (hard cap in `voice_trainer.py`). Steven wants **1,000–2,000 emails with full thread context** (the incoming email + Steven's reply together). This is the most impactful quality improvement available — the richer the voice profile, the better every future email draft.
+
+See Section 12 for full Phase 4.5 spec.
 
 ### CRITICAL RULE FOR ALL FUTURE CODING SESSIONS
 **Before writing any code that calls an existing module, read that module first.**
-Every Phase 3 crash was caused by calling methods that don't exist — hallucinated class names, wrong argument signatures, missing methods. The fix: always upload and read the actual source file before writing calls to it. This is non-negotiable going forward.
+Every crash in this project has been caused by hallucinated class names, wrong argument signatures, or missing methods. The fix: always upload and read the actual source file before writing calls to it.
 
-Specifically: if `main.py` will call `memory.something()`, read `memory_manager.py` first. If new code calls `research_queue.something()`, read `research_engine.py` first. Etc.
+Specifically:
+- If code calls `memory.something()` → read `memory_manager.py` first
+- If code calls `research_queue.something()` → read `research_engine.py` first
+- If code calls `gas.something()` → read `gas_bridge.py` first
+- If code calls `trainer.something()` → read `voice_trainer.py` first
+- If code touches `main.py` → upload and read it before writing
 
 ---
 
@@ -55,8 +65,10 @@ Always-on AI sales assistant named **Scout** that:
 - Sends **hourly check-in** 10am–4pm CST only
 - Has **persistent memory** — learns from corrections, commits to GitHub, never forgets
 - **Researches K-12 leads at scale** (Phase 2 ✅)
-- **Drafts emails in Steven's voice via GAS bridge** (Phase 3 ✅ — pending GAS deploy)
-- **Logs calls + creates pitch decks** (Phase 3 ✅ — pending GAS deploy)
+- **Drafts emails in Steven's voice via GAS bridge** (Phase 3 ✅)
+- **Logs calls + creates pitch decks** (Phase 3 ✅)
+- **Pushes code to GitHub directly** (Phase 4 ✅)
+- **Builds multi-step Outreach.io sequences** (Phase 4 ✅)
 - Processes Zoom call transcripts (Phase 5 ⬜)
 
 ---
@@ -100,16 +112,17 @@ After-school centers, public libraries, homeschool co-ops, community education, 
 | Claude API (claude-opus-4-5) | Agent brain | ~$15-25/mo | ✅ Active |
 | Railway.app | Always-on server | ~$5/mo | ✅ Active |
 | Telegram (@coco_scout_bot) | Command channel | Free | ✅ Active |
-| GitHub (memory persistence) | Persistent memory storage | Free | ✅ Active |
+| GitHub (memory persistence) | Persistent memory + code storage | Free | ✅ Active |
 | Serper API | Google search for lead research | ~$10/mo | ✅ Active |
 | Google Sheets API | Lead list storage (personal account, service account) | Free | ✅ Active |
-| Google Apps Script | Bridge to work Gmail/Calendar/Slides — no IT approval needed | Free | ⬜ Code deployed, Railway vars not yet set |
+| Google Apps Script ("Scout Bridge") | Bridge to work Gmail/Calendar/Slides — no IT approval needed | Free | ✅ Live |
 | Fireflies.ai | Zoom transcription | Free (800 min/mo) | ⬜ Phase 5 |
 | Outreach.io | Email sequences | Existing plan | ✅ Active |
 | Salesforce | CRM | Existing plan | ✅ Active |
 
 **Telegram Chat ID:** 8677984089
 **Bot username:** @coco_scout_bot
+**GAS Project Name:** "Scout Bridge" (at script.google.com, logged in as steven@codecombat.com)
 
 ---
 
@@ -121,7 +134,8 @@ After-school centers, public libraries, homeschool co-ops, community education, 
 | 1.5 | Bug Fixes + Persistent Memory System | ✅ Complete |
 | 2 | Lead Research + Google Sheets | ✅ Complete |
 | 3 | Gmail Voice Training + Email Drafting + Calendar + Slides (GAS bridge) | ✅ Complete |
-| 4 | Scout Pushes Code to GitHub + Email Sequences | ⬜ Next |
+| 4 | Scout Pushes Code to GitHub + Email Sequences | ✅ Complete |
+| 4.5 | Voice Trainer Upgrade (1000-2000 emails with thread context) | ⬜ Next |
 | 5 | Zoom Call Intelligence (Fireflies) | ⬜ Not started |
 | 6 | At-Scale Research + Campaign Engine | ⬜ Not started |
 | 7 | Video Clips + Social Content (Descript) | ⬜ Optional |
@@ -139,7 +153,7 @@ firstcocoagent/
 │   ├── __init__.py
 │   ├── main.py                      ← Entry point. Scheduler poll loop. All tool dispatch.
 │   ├── config.py                    ← All env vars. Includes GAS_WEBHOOK_URL, GAS_SECRET_TOKEN.
-│   ├── claude_brain.py              ← Claude API + tool use + memory injection. 10 tools total.
+│   ├── claude_brain.py              ← Claude API + tool use + memory injection. 13 tools total.
 │   ├── memory_manager.py            ← Persistent memory: read/write/GitHub commit
 │   ├── scheduler.py                 ← CST-aware Scheduler class with check() method
 │   ├── keywords.py                  ← Full title/keyword/role list (Phase 2)
@@ -150,9 +164,11 @@ firstcocoagent/
 │   ├── research_engine.py           ← Classes: ResearchJob, ResearchQueue. Singleton: research_queue.
 │   ├── contact_extractor.py         ← Claude-powered contact extraction (Phase 2)
 │   ├── sheets_writer.py             ← Module of functions (no class). write_contacts(), count_leads(), etc.
-│   └── gas_bridge.py                ← GASBridge class: Gmail/Calendar/Slides (Phase 3)
+│   ├── gas_bridge.py                ← GASBridge class: Gmail/Calendar/Slides (Phase 3)
+│   ├── github_pusher.py             ← push_file(), list_repo_files(), get_file_content() (Phase 4)
+│   └── sequence_builder.py          ← build_sequence(), write_sequence_to_sheets(), format_for_telegram() (Phase 4)
 ├── gas/
-│   └── Code.gs                      ← Google Apps Script — paste into script.google.com, deploy as Web App
+│   └── Code.gs                      ← Google Apps Script — deployed at script.google.com as "Scout Bridge"
 ├── prompts/
 │   ├── system.md
 │   ├── morning_brief.md
@@ -190,8 +206,8 @@ firstcocoagent/
 | SERPER_API_KEY | (from serper.dev) | ✅ Set |
 | GOOGLE_SHEETS_ID | (from Sheet URL) | ✅ Set |
 | GOOGLE_SERVICE_ACCOUNT_JSON | (full JSON string, personal account) | ✅ Set |
-| GAS_WEBHOOK_URL | Web App URL from script.google.com deployment | ⬜ Set after GAS deploy |
-| GAS_SECRET_TOKEN | Token you choose — must match Code.gs | ⬜ Set after GAS deploy |
+| GAS_WEBHOOK_URL | ✅ Set (new URL from latest Scout Bridge deployment) | ✅ Set |
+| GAS_SECRET_TOKEN | ✅ Set (matches Code.gs) | ✅ Set |
 
 ---
 
@@ -259,10 +275,11 @@ from tools.sheets_writer import SheetsWriter        # ← will crash
 - `Leads` tab — contacts with email (Outreach.io import format)
 - `No Email` tab — contacts found but missing email
 - `Research Log` tab — every job with date and counts
+- `Sequences` tab — email sequence steps (added Phase 4)
 
 ---
 
-## 11. PHASE 3 — GMAIL + EMAIL DRAFTING + CALENDAR + SLIDES (✅ Complete)
+## 11. PHASE 3 — GMAIL + EMAIL DRAFTING + CALENDAR + SLIDES (✅ Verified Live)
 
 ### Why GAS bridge (not OAuth2)
 Steven's work Google account (`steven@codecombat.com`) is on company-managed Google Workspace. IT would need to approve any third-party OAuth app — so Scout connects through a **Google Apps Script Web App** that runs inside Google as Steven, no IT approval required.
@@ -272,6 +289,19 @@ Personal account (Google Sheets) continues using the existing service account.
 ### Architecture
 ```
 Scout (Railway) → HTTPS POST + secret token → GAS Web App → Gmail / Calendar / Slides
+```
+
+### GAS deployment notes (hard-won)
+- Project name: **"Scout Bridge"** at script.google.com
+- Must deploy as: Execute as **Me**, Who has access **Anyone**
+- Every code change requires a **New deployment** (not editing existing) → new URL → update `GAS_WEBHOOK_URL` in Railway
+- `Session.getActiveUser().getEmail()` returns empty string for anonymous callers → use hardcoded `"steven@codecombat.com"` in ping handler
+- `Session.getEffectiveUser().getEmail()` throws permission error — don't use it
+
+### ping handler in Code.gs (correct version)
+```javascript
+case "ping":
+  return jsonResponse({ success: true, message: "Scout Bridge is live", user: "steven@codecombat.com" });
 ```
 
 ### How email drafting works end-to-end
@@ -299,22 +329,6 @@ Scheduler(morning_brief_fn=..., eod_report_fn=..., checkin_fn=...)  # ← will c
 scheduler.run(stop_event)  # ← will crash
 ```
 
-The correct run loop (already in main.py) polls `check()` every 30 seconds:
-```python
-while not stop_event.is_set():
-    event = scheduler.check()
-    if event == "morning_brief":
-        asyncio.create_task(send_morning_brief())
-    elif event == "eod_report":
-        asyncio.create_task(send_eod_report())
-    elif event == "checkin":
-        asyncio.create_task(send_checkin())
-    try:
-        await asyncio.wait_for(stop_event.wait(), timeout=30)
-    except asyncio.TimeoutError:
-        pass
-```
-
 ### GASBridge — actual method signatures
 ```python
 gas = GASBridge(webhook_url=GAS_WEBHOOK_URL, secret_token=GAS_SECRET_TOKEN)
@@ -334,7 +348,7 @@ trainer.load_profile() -> Optional[str]
 trainer.update_profile_from_feedback(feedback: str) -> bool
 ```
 
-### New Claude tools (Phase 3)
+### Phase 3 tools (all in claude_brain.py TOOLS list)
 | Tool | Trigger |
 |------|---------|
 | `ping_gas_bridge` | `/ping_gas` — test connection |
@@ -345,38 +359,209 @@ trainer.update_profile_from_feedback(feedback: str) -> bool
 | `log_call` | "log a call with [name] at [district]" |
 | `create_district_deck` | "make a deck for [district]" |
 
-### GAS setup (still needed)
-1. Go to script.google.com logged in as steven@codecombat.com
-2. New project → paste `gas/Code.gs` → set SECRET_TOKEN to a string you make up
-3. Deploy → New deployment → Web app → Execute as: Me → Anyone → Deploy → authorize → copy URL
-4. Set `GAS_WEBHOOK_URL` + `GAS_SECRET_TOKEN` in Railway
-5. In Telegram: `/ping_gas` → should return "GAS Bridge connected!"
-6. `/train_voice` → 2-3 min → voice profile built
-7. Test: "Draft a cold email to the CS Director at Austin ISD"
+---
+
+## 12. PHASE 4 — SCOUT PUSHES CODE + EMAIL SEQUENCES (✅ Complete)
+
+### github_pusher.py — method signatures
+```python
+import tools.github_pusher as github_pusher
+
+github_pusher.push_file(filepath: str, content: str, commit_message: str = None) -> dict
+# Returns: {success: bool, url: str, message: str}
+# - Creates file if new, updates if exists (handles SHA automatically)
+# - filepath is repo-relative: e.g. "agent/main.py", "tools/github_pusher.py"
+
+github_pusher.list_repo_files(path: str = "") -> list[str]
+# Returns sorted list of file paths in repo directory
+
+github_pusher.get_file_content(filepath: str) -> str | None
+# Returns decoded file content, or None if not found
+```
+
+### sequence_builder.py — method signatures
+```python
+import tools.sequence_builder as sequence_builder
+
+sequence_builder.build_sequence(
+    campaign_name: str,
+    target_role: str,
+    focus_product: str = "CodeCombat AI Suite",
+    num_steps: int = 4,
+    voice_profile: Optional[str] = None,
+    additional_context: str = "",
+) -> dict
+# Returns: {success: bool, steps: list[dict], raw: str, error: str}
+# Each step dict: {step, day, label, subject, body}
+# Default day offsets: [0, 3, 7, 14]
+
+sequence_builder.write_sequence_to_sheets(campaign_name: str, steps: list[dict]) -> bool
+# Appends to "Sequences" tab in Google Sheet. Returns True on success.
+
+sequence_builder.format_for_telegram(campaign_name: str, steps: list[dict]) -> str
+# Returns formatted string for Telegram display
+```
+
+### Phase 4 tools
+| Tool | Trigger |
+|------|---------|
+| `push_code` | "push this to GitHub", "commit this fix", `/push_code filepath` |
+| `list_repo_files` | "list files in the repo", "show me what's in tools/", `/list_files` |
+| `build_sequence` | "build a sequence for [role]", "create a campaign for [audience]", `/build_sequence` |
+
+### IMPORTANT: Lazy imports
+Phase 4 modules (`github_pusher`, `sequence_builder`) are imported **inside** `execute_tool()`, not at the top of `main.py`. This means Scout boots cleanly even if these files are temporarily missing from the repo. Don't move them to top-level imports.
 
 ---
 
-## 12. PHASE 4 — SCOUT PUSHES CODE TO GITHUB (⬜ Next)
+## 13. PHASE 4.5 — VOICE TRAINER UPGRADE (⬜ Next)
+
+### Problem
+Current `voice_trainer.py`:
+- GAS bridge fetches up to 200 sent emails (`max_results=200`)
+- `voice_trainer.py` hard-caps analysis at 40 emails
+- Emails are analyzed in isolation — no context of the incoming message that Steven was replying to
+- Result: voice profile built from 40 one-sided emails = shallow style capture
 
 ### Goal
-Give Scout a `/push_code` command (or natural language equivalent) so it can commit updated files directly to GitHub. This eliminates the manual upload step for every code change — the biggest workflow bottleneck in Phase 3 debugging.
+- Fetch **1,000–2,000 sent emails** (may require pagination in Code.gs)
+- For each sent email that is a **reply**, fetch the **thread** (incoming message + Steven's reply together)
+- Feed Claude **paired context**: "Here is the email Steven received, here is how he replied"
+- This teaches tone matching, not just writing style — the single biggest quality improvement available
 
-### How it will work
-- `GITHUB_TOKEN` is already in Railway env vars with `contents:write` scope
-- New `push_code` Claude tool: accepts `filepath` + `content` + optional `commit_message`
-- Calls GitHub Contents API (same approach already used by `memory_manager._commit_to_github()`)
-- Claude can then write a fix and immediately commit it without Steven touching GitHub
+### What to upload at start of Phase 4.5
+Before writing any code, upload and read:
+- `agent/voice_trainer.py` (current version)
+- `tools/gas_bridge.py` (current version — specifically `get_sent_emails` signature)
+- `gas/Code.gs` (current version — need to see what GAS already fetches)
 
-### What to upload at the start of Phase 4
-Before writing Phase 4 code, upload and read:
-- `agent/main.py` (current version)
-- `agent/config.py`
-- `agent/claude_brain.py`
-- `tools/` — any files Phase 4 will touch
+### Changes needed
+1. **`gas/Code.gs`** — add `get_email_thread(threadId)` action + pagination support to `get_sent_emails`
+2. **`tools/gas_bridge.py`** — add `get_email_thread(thread_id)` method + update `get_sent_emails` to accept `page_token`
+3. **`agent/voice_trainer.py`** — rewrite training loop: fetch in batches, resolve threads for replies, build richer prompt
+4. **No changes needed** to `main.py`, `claude_brain.py`, or `config.py`
 
 ---
 
-## 13. FULL TARGET TITLE & KEYWORD LIST
+## 14. ALL CLAUDE TOOLS (13 total in claude_brain.py)
+
+| Tool | Phase | Handler in main.py |
+|------|-------|-------------------|
+| `research_district` | 2 | ✅ |
+| `get_sheet_status` | 2 | ✅ |
+| `get_research_queue_status` | 2 | ✅ |
+| `train_voice` | 3 | ✅ |
+| `draft_email` | 3 | ✅ |
+| `save_draft_to_gmail` | 3 | ✅ |
+| `get_calendar` | 3 | ✅ |
+| `log_call` | 3 | ✅ |
+| `create_district_deck` | 3 | ✅ |
+| `push_code` | 4 | ✅ |
+| `list_repo_files` | 4 | ✅ |
+| `build_sequence` | 4 | ✅ |
+| `ping_gas_bridge` | 3 | ✅ |
+
+---
+
+## 15. SHORTHAND COMMANDS (handle_message in main.py)
+
+| Command | Expands to |
+|---------|-----------|
+| `/ping_gas`, `ping gas`, `test gas` | ping the GAS bridge |
+| `/train_voice`, `train voice`, `learn my style` | train your voice model from my Gmail history |
+| `/list_files`, `/ls`, `list files` | list all files in the repo root |
+| `/push_code [filepath]` | I want to push code to GitHub. File path: [filepath]. Ask me for the file content. |
+| `/build_sequence [args]` | Build an email sequence for [args]. Ask me for any details you need. |
+| `looks good`, `save it`, `approved`, `use this` | (when pending draft exists) → triggers save_draft_to_gmail |
+| `add email: addr@district.org` | (when pending draft exists) → sets recipient |
+
+---
+
+## 16. KEY DECISIONS
+
+| Decision | Why |
+|----------|-----|
+| Telegram | Free, rich formatting, iPhone + laptop |
+| Railway.app | $5/mo, git push deploys, persistent 24/7 |
+| Python | Best library support for all planned tools |
+| GitHub for memory | Free, survives Railway restarts, version-controlled |
+| Queue research jobs | Better quality/depth vs. simultaneous |
+| CST-aware tick scheduler | Railway runs UTC — tick-based avoids timezone bugs |
+| Memory compression not deletion | Steven wants permanent learning and iteration |
+| `[MEMORY_UPDATE]` tag | Clean, no extra API calls, reliable extraction |
+| Claude tool use for research | Claude detects intent — no fragile keyword matching |
+| Gmail Drafts only | Nothing sends without Steven's review |
+| GAS bridge over OAuth2 | Work Google Workspace IT blocks third-party OAuth; GAS runs inside Google, no approval needed |
+| Personal account for Sheets | Service account works fine for Sheets, no IT involvement |
+| Work account for Gmail/Cal/Slides | GAS bridge runs as steven@codecombat.com with full access |
+| `python -m agent.main` in Railway | Fixes ModuleNotFoundError for agent/tools packages |
+| `research_queue` singleton | ResearchJob/Queue are tightly coupled; queue manages job lifecycle internally |
+| `/train_voice` separate from boot | Expensive Claude API call — only run on demand |
+| Voice profile in memory/ | GitHub-persisted, survives restarts, loaded into every draft prompt |
+| Pending draft state in main.py | Enables approve/edit loop without re-drafting from scratch |
+| Scout pushes code in Phase 4 | Eliminates manual GitHub uploads after every code change |
+| Lazy imports for Phase 4 modules | Scout boots cleanly even if new tool files not yet uploaded |
+| tool_result appended to history | Claude API 400 error if tool_use has no matching tool_result in next message |
+| Hardcode user email in GAS ping | Session.getActiveUser() returns empty for anonymous callers; getEffectiveUser() throws permission error |
+| Read modules before writing code | All crashes were hallucinated method names — prevention requires reading source first |
+| 1000-2000 emails with thread context | 40 isolated emails produces shallow voice profile; paired incoming+reply context teaches tone matching |
+
+---
+
+## 17. BUG FIX LOG
+
+| Bug | Root Cause | Fix | Status |
+|-----|-----------|-----|--------|
+| Check-ins all night | No time window | CHECKIN_START/END_HOUR guards | ✅ Fixed |
+| Morning brief at 3:15am | Railway UTC ≠ CST | CST-aware tick loop | ✅ Fixed |
+| Hallucinated activity | Prompts requested summary without real data | Rewrote prompts with honesty rules | ✅ Fixed |
+| History wiped daily | clear_history() on schedule | EOD compression to memory instead | ✅ Fixed |
+| updater.idle() crash | Method doesn't exist in PTB version | asyncio.Event() | ✅ Fixed |
+| ModuleNotFoundError: agent | Railway ran python agent/main.py from wrong dir | Changed to python -m agent.main | ✅ Fixed |
+| ImportError: Scheduler | Phase 1 scheduler.py had no Scheduler class | Rewrote scheduler.py with Scheduler class | ✅ Fixed |
+| AttributeError: load_context_summary | Method named load_recent_summary in memory_manager | Updated claude_brain.py to match | ✅ Fixed |
+| Google Sheets 403 PERMISSION_DENIED | Sheets API not enabled in Google Cloud project | Enabled via Cloud Console | ✅ Fixed |
+| SyntaxError: global _pending_draft | global declaration appeared after assignment | Moved global declaration to top of execute_tool() | ✅ Fixed |
+| ImportError: ResearchEngine | Hallucinated class name. Actual: ResearchJob, ResearchQueue | Rewrote to use research_queue singleton | ✅ Fixed |
+| ImportError: SheetsWriter | SheetsWriter class never existed — sheets_writer.py is functions | Changed to module import, replaced all instantiations | ✅ Fixed |
+| AttributeError: memory.load() | MemoryManager has no load() | Removed the call | ✅ Fixed |
+| AttributeError: memory.compress_history() | Method doesn't exist — real method is append_to_summary(text) | Replaced with correct method | ✅ Fixed |
+| TypeError: Scheduler.__init__() unexpected kwargs | Scheduler() takes no arguments | Changed to Scheduler() | ✅ Fixed |
+| AttributeError: scheduler.run() | Scheduler has no run() method, only check() | Rewrote run loop to poll check() every 30s | ✅ Fixed |
+| AttributeError: memory.commit_file() in voice_trainer | Method doesn't exist — real method is _commit_to_github() | Fixed both calls in voice_trainer.py | ✅ Fixed |
+| GAS bridge 403 on /ping_gas | Existing GAS deployment access settings not updating | Created new deployment (Deploy → New deployment) | ✅ Fixed |
+| Claude API 400: tool_use ids without tool_result | Tool results not appended to conversation_history | Append tool_result content block after each tool execution | ✅ Fixed |
+| Scout crash on boot: ModuleNotFoundError: tools.github_pusher | Phase 4 files imported at top-level before being uploaded | Moved Phase 4 imports inside execute_tool() as lazy imports | ✅ Fixed |
+| GAS ping returns empty user string | Session.getActiveUser().getEmail() returns "" for anonymous | Hardcoded "steven@codecombat.com" in ping handler | ✅ Fixed |
+| getEffectiveUser() permission error | Requires OAuth scope not available for anonymous web apps | Don't use getEffectiveUser() — hardcode email instead | ✅ Fixed |
+
+---
+
+## 18. CHANGELOG
+
+| Date | Change | Phase |
+|------|--------|-------|
+| 2026-02-25 | Repo initialized, architecture finalized | Pre-build |
+| 2026-02-26 | Phase 1 built and deployed — Scout live on Telegram | Phase 1 |
+| 2026-02-26 | Bug fixes: timezone, check-in window, hallucination prevention | Phase 1.5 |
+| 2026-02-26 | Persistent memory system + GitHub commit loop built and verified | Phase 1.5 |
+| 2026-02-27 | Phase 2 built: research_engine, contact_extractor, sheets_writer, keywords | Phase 2 |
+| 2026-02-27 | Phase 2 verified working — research fires, contacts in sheet | Phase 2 ✅ |
+| 2026-02-27 | Phase 3 designed — GAS bridge approach chosen over OAuth2 (IT restriction) | Phase 3 |
+| 2026-02-27 | Phase 3 built: Code.gs, gas_bridge.py, voice_trainer.py, email_draft.md | Phase 3 |
+| 2026-02-27 | 6 Phase 3 deployment crashes debugged and fixed | Phase 3 |
+| 2026-02-27 | Phase 3 verified — Scout online, Telegram message received | Phase 3 ✅ |
+| 2026-02-28 | Phase 4 built: github_pusher.py, sequence_builder.py, updated main.py + claude_brain.py | Phase 4 |
+| 2026-02-28 | Bug fix: Claude API 400 — tool_result blocks not appended to conversation history | Phase 4 |
+| 2026-02-28 | Bug fix: Scout boot crash — Phase 4 top-level imports before files uploaded → lazy imports | Phase 4 |
+| 2026-02-28 | GAS bridge fully live: new deployment, fixed ping handler, /ping_gas working | Phase 3 ✅ |
+| 2026-02-28 | /train_voice ran successfully — voice profile built from 40 emails | Phase 3 ✅ |
+| 2026-02-28 | Phase 4 verified — Scout online, all tools registered | Phase 4 ✅ |
+| 2026-02-28 | Phase 4.5 planned: voice trainer upgrade to 1000-2000 emails with thread context | Phase 4.5 ⬜ |
+
+---
+
+## 19. FULL TARGET TITLE & KEYWORD LIST
 
 ### Key Titles (all variations)
 Superintendent, Assistant Superintendent, Principal, Assistant Principal,
@@ -405,75 +590,4 @@ Makerspace Coordinator/Facilitator, STEM Lab Coordinator, After-School Program D
 Girls Who Code, Makerspace, Maker Space, STEAM Lab, STEM Lab,
 Cybersecurity, Networking, Technology, Tech, Digital Media, Digital Literacy, Esports,
 Python, Java, JavaScript, C++, CSS, Lua, CoffeeScript, HTML,
-AP CSP, APCSP, AP CompSci, AP CompSci A, APCSA, AP CSA
-
----
-
-## 14. KEY DECISIONS
-
-| Decision | Why |
-|----------|-----|
-| Telegram | Free, rich formatting, iPhone + laptop |
-| Railway.app | $5/mo, git push deploys, persistent 24/7 |
-| Python | Best library support for all planned tools |
-| GitHub for memory | Free, survives Railway restarts, version-controlled |
-| Queue research jobs | Better quality/depth vs. simultaneous |
-| CST-aware tick scheduler | Railway runs UTC — tick-based avoids timezone bugs |
-| Memory compression not deletion | Steven wants permanent learning and iteration |
-| `[MEMORY_UPDATE]` tag | Clean, no extra API calls, reliable extraction |
-| Claude tool use for research | Claude detects intent — no fragile keyword matching |
-| Gmail Drafts only | Nothing sends without Steven's review |
-| GAS bridge over OAuth2 | Work Google Workspace IT blocks third-party OAuth; GAS runs inside Google, no approval needed |
-| Personal account for Sheets | Service account works fine for Sheets, no IT involvement |
-| Work account for Gmail/Cal/Slides | GAS bridge runs as steven@codecombat.com with full access |
-| `python -m agent.main` in Railway | Fixes ModuleNotFoundError for agent/tools packages |
-| `research_queue` singleton | ResearchJob/Queue are tightly coupled; queue manages job lifecycle internally |
-| `/train_voice` separate from boot | Expensive Claude API call — only run on demand |
-| Voice profile in memory/ | GitHub-persisted, survives restarts, loaded into every draft prompt |
-| Pending draft state in main.py | Enables approve/edit loop without re-drafting from scratch |
-| Scout pushes code in Phase 4 | Eliminates manual GitHub uploads after every code change |
-| Read modules before writing code | All Phase 3 crashes were hallucinated method names — prevention requires reading source first |
-
----
-
-## 15. BUG FIX LOG
-
-| Bug | Root Cause | Fix | Status |
-|-----|-----------|-----|--------|
-| Check-ins all night | No time window | CHECKIN_START/END_HOUR guards | ✅ Fixed |
-| Morning brief at 3:15am | Railway UTC ≠ CST | CST-aware tick loop | ✅ Fixed |
-| Hallucinated activity | Prompts requested summary without real data | Rewrote prompts with honesty rules | ✅ Fixed |
-| History wiped daily | clear_history() on schedule | EOD compression to memory instead | ✅ Fixed |
-| updater.idle() crash | Method doesn't exist in PTB version | asyncio.Event() | ✅ Fixed |
-| ModuleNotFoundError: agent | Railway ran python agent/main.py from wrong dir | Changed to python -m agent.main | ✅ Fixed |
-| ImportError: Scheduler | Phase 1 scheduler.py had no Scheduler class | Rewrote scheduler.py with Scheduler class | ✅ Fixed |
-| AttributeError: load_context_summary | Method named load_recent_summary in memory_manager | Updated claude_brain.py to match | ✅ Fixed |
-| Google Sheets 403 PERMISSION_DENIED | Sheets API not enabled in Google Cloud project | Enabled via Cloud Console URL in logs | ✅ Fixed |
-| SyntaxError: global _pending_draft | global declaration appeared after assignment in same function scope | Moved global declaration to top of execute_tool() | ✅ Fixed |
-| ImportError: ResearchEngine | Class doesn't exist — hallucinated name. Actual: ResearchJob, ResearchQueue | Rewrote to use research_queue singleton with correct enqueue() API | ✅ Fixed |
-| ImportError: SheetsWriter | SheetsWriter class never existed — sheets_writer.py is a module of functions | Changed to `import tools.sheets_writer as sheets_writer`, replaced all class instantiations | ✅ Fixed |
-| AttributeError: memory.load() | MemoryManager has no load() — __init__ handles setup automatically | Removed the call | ✅ Fixed |
-| AttributeError: memory.compress_history() | Method doesn't exist — real method is append_to_summary(text) | Replaced with memory.append_to_summary(text) | ✅ Fixed |
-| TypeError: Scheduler.__init__() unexpected kwargs | Scheduler() takes no arguments | Changed to Scheduler() | ✅ Fixed |
-| AttributeError: scheduler.run() | Scheduler has no run() method, only check() | Rewrote run loop to poll scheduler.check() every 30s | ✅ Fixed |
-| AttributeError: memory.commit_file() in voice_trainer | Method doesn't exist — real method is _commit_to_github(path, content, msg) | Fixed both calls in voice_trainer.py | ✅ Fixed |
-
----
-
-## 16. CHANGELOG
-
-| Date | Change | Phase |
-|------|--------|-------|
-| 2026-02-25 | Repo initialized, architecture finalized | Pre-build |
-| 2026-02-26 | Phase 1 built and deployed — Scout live on Telegram | Phase 1 |
-| 2026-02-26 | Bug fixes: timezone, check-in window, hallucination prevention | Phase 1.5 |
-| 2026-02-26 | Persistent memory system + GitHub commit loop built and verified | Phase 1.5 |
-| 2026-02-27 | Phase 2 built: research_engine, contact_extractor, sheets_writer, keywords | Phase 2 |
-| 2026-02-27 | Phase 2 verified working — research fires, contacts in sheet | Phase 2 ✅ |
-| 2026-02-27 | Phase 3 designed — GAS bridge approach chosen over OAuth2 (IT restriction) | Phase 3 |
-| 2026-02-27 | Phase 3 built: Code.gs, gas_bridge.py, voice_trainer.py, email_draft.md, voice_profile.md | Phase 3 |
-| 2026-02-27 | claude_brain.py: 7 new Phase 3 tools added | Phase 3 |
-| 2026-02-27 | config.py: GAS_WEBHOOK_URL + GAS_SECRET_TOKEN added | Phase 3 |
-| 2026-02-27 | SETUP_PHASE3.md written | Phase 3 |
-| 2026-02-27 | 6 Phase 3 deployment crashes debugged and fixed (SheetsWriter, memory.load, compress_history, Scheduler args, scheduler.run, voice_trainer.commit_file) | Phase 3 |
-| 2026-02-27 | Phase 3 verified — Scout online, Telegram message received | Phase 3 ✅ |
+AP CSP, APCSP, AP CompSci, AP CompSci A, APCSP, AP CSA
