@@ -15,8 +15,12 @@ from telegram.ext import Application, MessageHandler, filters, ContextTypes
 from agent.config import (
     TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID, AGENT_NAME,
     GAS_WEBHOOK_URL, GAS_SECRET_TOKEN, gas_bridge_configured,
-    FIREFLIES_API_KEY, FIREFLIES_WEBHOOK_SECRET,
 )
+
+# Phase 5 vars — read from env directly so config.py doesn't need updating
+FIREFLIES_API_KEY = os.environ.get("FIREFLIES_API_KEY", "")
+FIREFLIES_WEBHOOK_SECRET = os.environ.get("FIREFLIES_WEBHOOK_SECRET", "")
+PRECALL_BRIEF_FOLDER_ID = os.environ.get("PRECALL_BRIEF_FOLDER_ID", "")
 from agent.claude_brain import process_message, build_draft_prompt, draft_email_with_claude
 from agent.memory_manager import MemoryManager
 from agent.scheduler import Scheduler
