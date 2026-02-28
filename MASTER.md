@@ -7,31 +7,29 @@
 ## HOW TO RESUME IN A NEW CLAUDE CHAT
 
 Open a new chat in this Claude Project and say:
-**"Read MASTER.md and all project files. Phase 3 code is written but not yet verified working — Scout may still be crashing on Railway. Continue debugging and get Phase 3 stable, then we'll move to Phase 4."**
+**"Read MASTER.md and all project files. Phase 3 is verified working — Scout is live. Start Phase 4."**
 
 ---
 
 ## CURRENT STATUS — WHERE WE LEFT OFF
 
-Phase 3 code is fully written and committed to GitHub. Scout was crashing on Railway with two sequential bugs, both fixed. The latest `agent/main.py` has been uploaded to GitHub. We are waiting to see if Railway deploys cleanly.
+**Phase 3 is complete and verified.** Scout is running cleanly on Railway. It came online and sent Steven a Telegram message confirming it was live.
 
-### Phase 3 bugs fixed so far
-| Bug | Root Cause | Fix | Status |
-|-----|-----------|-----|--------|
-| SyntaxError: global _pending_draft | `global` declaration appeared after assignment in same function — Python disallows this even across elif branches | Moved `global _pending_draft` to top of `execute_tool()` function | ✅ Fixed |
-| ImportError: ResearchEngine | My new main.py invented a class name that doesn't exist. Actual classes are `ResearchJob` and `ResearchQueue`. The queue is used via its singleton `research_queue` and `enqueue()` method | Rewrote research tool block to import and use `research_queue` singleton with correct `enqueue()` / `current_job` / `queue_size` API | ✅ Fixed |
-
-### What to do first in the new chat
-1. Check if Scout is running on Railway (no crash loop in logs)
-2. If still crashing — paste the new logs and debug
-3. If running — test `/ping_gas` to verify GAS bridge connection
-4. If GAS bridge works — run `/train_voice`
-5. If everything passes — mark Phase 3 verified ✅ and update MASTER.md
+### Phase 4 is next — first task: `/push_code`
+Give Scout the ability to commit files directly to GitHub using the `GITHUB_TOKEN` already in Railway env vars. This eliminates the manual GitHub upload step that caused so much friction during Phase 3 debugging. Steven has approved this approach.
 
 ### Phase 3 GAS bridge setup status
-- `GAS_WEBHOOK_URL` — ⬜ Not yet set in Railway (Steven needs to deploy Code.gs first)
-- `GAS_SECRET_TOKEN` — ⬜ Not yet set in Railway
-- See `docs/SETUP_PHASE3.md` for the full step-by-step
+- `GAS_WEBHOOK_URL` — ⬜ Not yet set (Steven still needs to deploy Code.gs first)
+- `GAS_SECRET_TOKEN` — ⬜ Not yet set
+- GAS features (voice training, email drafting, calendar, slides) will not work until GAS is deployed
+- See `docs/SETUP_PHASE3.md` for step-by-step instructions
+- All other Phase 3 code is deployed and running
+
+### CRITICAL RULE FOR ALL FUTURE CODING SESSIONS
+**Before writing any code that calls an existing module, read that module first.**
+Every Phase 3 crash was caused by calling methods that don't exist — hallucinated class names, wrong argument signatures, missing methods. The fix: always upload and read the actual source file before writing calls to it. This is non-negotiable going forward.
+
+Specifically: if `main.py` will call `memory.something()`, read `memory_manager.py` first. If new code calls `research_queue.something()`, read `research_engine.py` first. Etc.
 
 ---
 
@@ -57,8 +55,8 @@ Always-on AI sales assistant named **Scout** that:
 - Sends **hourly check-in** 10am–4pm CST only
 - Has **persistent memory** — learns from corrections, commits to GitHub, never forgets
 - **Researches K-12 leads at scale** (Phase 2 ✅)
-- **Drafts emails in Steven's voice via GAS bridge** (Phase 3 ⚠️ written, not yet verified)
-- **Logs calls + creates pitch decks** (Phase 3 ⚠️ written, not yet verified)
+- **Drafts emails in Steven's voice via GAS bridge** (Phase 3 ✅ — pending GAS deploy)
+- **Logs calls + creates pitch decks** (Phase 3 ✅ — pending GAS deploy)
 - Processes Zoom call transcripts (Phase 5 ⬜)
 
 ---
@@ -105,7 +103,7 @@ After-school centers, public libraries, homeschool co-ops, community education, 
 | GitHub (memory persistence) | Persistent memory storage | Free | ✅ Active |
 | Serper API | Google search for lead research | ~$10/mo | ✅ Active |
 | Google Sheets API | Lead list storage (personal account, service account) | Free | ✅ Active |
-| Google Apps Script | Bridge to work Gmail/Calendar/Slides — no IT approval needed | Free | ⚠️ Code written, not yet deployed |
+| Google Apps Script | Bridge to work Gmail/Calendar/Slides — no IT approval needed | Free | ⬜ Code deployed, Railway vars not yet set |
 | Fireflies.ai | Zoom transcription | Free (800 min/mo) | ⬜ Phase 5 |
 | Outreach.io | Email sequences | Existing plan | ✅ Active |
 | Salesforce | CRM | Existing plan | ✅ Active |
@@ -122,7 +120,7 @@ After-school centers, public libraries, homeschool co-ops, community education, 
 | 1 | Brain + Command Channel (Railway + Telegram + Claude API) | ✅ Complete |
 | 1.5 | Bug Fixes + Persistent Memory System | ✅ Complete |
 | 2 | Lead Research + Google Sheets | ✅ Complete |
-| 3 | Gmail Voice Training + Email Drafting + Calendar + Slides (GAS bridge) | ⚠️ Written, debugging |
+| 3 | Gmail Voice Training + Email Drafting + Calendar + Slides (GAS bridge) | ✅ Complete |
 | 4 | Scout Pushes Code to GitHub + Email Sequences | ⬜ Next |
 | 5 | Zoom Call Intelligence (Fireflies) | ⬜ Not started |
 | 6 | At-Scale Research + Campaign Engine | ⬜ Not started |
@@ -139,35 +137,35 @@ firstcocoagent/
 ├── requirements.txt
 ├── agent/
 │   ├── __init__.py
-│   ├── main.py                      ← Entry point. Phase 3 updated — uses research_queue singleton + GAS bridge tools.
-│   ├── config.py                    ← All env vars. Phase 3 adds GAS_WEBHOOK_URL, GAS_SECRET_TOKEN.
-│   ├── claude_brain.py              ← Claude API + tool use + memory injection. Phase 3 adds 7 new tools.
+│   ├── main.py                      ← Entry point. Scheduler poll loop. All tool dispatch.
+│   ├── config.py                    ← All env vars. Includes GAS_WEBHOOK_URL, GAS_SECRET_TOKEN.
+│   ├── claude_brain.py              ← Claude API + tool use + memory injection. 10 tools total.
 │   ├── memory_manager.py            ← Persistent memory: read/write/GitHub commit
-│   ├── scheduler.py                 ← CST-aware tick loop (Scheduler class)
+│   ├── scheduler.py                 ← CST-aware Scheduler class with check() method
 │   ├── keywords.py                  ← Full title/keyword/role list (Phase 2)
 │   └── voice_trainer.py             ← Analyzes sent emails via GAS → builds voice profile (Phase 3)
 ├── tools/
 │   ├── __init__.py
 │   ├── telegram_bot.py
-│   ├── research_engine.py           ← Classes: ResearchJob, ResearchQueue. Singleton: research_queue. (Phase 2)
+│   ├── research_engine.py           ← Classes: ResearchJob, ResearchQueue. Singleton: research_queue.
 │   ├── contact_extractor.py         ← Claude-powered contact extraction (Phase 2)
-│   ├── sheets_writer.py             ← Google Sheets read/write/dedup (Phase 2)
-│   └── gas_bridge.py                ← GAS bridge HTTP client: Gmail/Calendar/Slides (Phase 3)
+│   ├── sheets_writer.py             ← Module of functions (no class). write_contacts(), count_leads(), etc.
+│   └── gas_bridge.py                ← GASBridge class: Gmail/Calendar/Slides (Phase 3)
 ├── gas/
-│   └── Code.gs                      ← Google Apps Script — paste into script.google.com, deploy as Web App (Phase 3)
+│   └── Code.gs                      ← Google Apps Script — paste into script.google.com, deploy as Web App
 ├── prompts/
-│   ├── system.md                    ← Scout identity + research capabilities
+│   ├── system.md
 │   ├── morning_brief.md
 │   ├── eod_report.md
-│   └── email_draft.md               ← Email drafting prompt with voice profile injection (Phase 3)
+│   └── email_draft.md               ← Email drafting prompt with voice profile injection
 ├── memory/
 │   ├── preferences.md               ← Learned preferences. GitHub-committed on every write.
 │   ├── context_summary.md           ← Daily compressed summaries. Never deleted.
-│   └── voice_profile.md             ← Steven's writing style — populated by /train_voice (Phase 3)
+│   └── voice_profile.md             ← Steven's writing style (populated by /train_voice)
 └── docs/
     ├── SETUP.md
     ├── SETUP_PHASE2.md
-    ├── SETUP_PHASE3.md              ← GAS bridge setup: script.google.com → deploy → Railway vars → /ping_gas → /train_voice
+    ├── SETUP_PHASE3.md
     ├── CHANGELOG.md
     └── DECISIONS.md
 ```
@@ -192,8 +190,8 @@ firstcocoagent/
 | SERPER_API_KEY | (from serper.dev) | ✅ Set |
 | GOOGLE_SHEETS_ID | (from Sheet URL) | ✅ Set |
 | GOOGLE_SERVICE_ACCOUNT_JSON | (full JSON string, personal account) | ✅ Set |
-| GAS_WEBHOOK_URL | Web App URL from script.google.com deployment | ⬜ Set after GAS setup |
-| GAS_SECRET_TOKEN | Token you choose — must match Code.gs | ⬜ Set after GAS setup |
+| GAS_WEBHOOK_URL | Web App URL from script.google.com deployment | ⬜ Set after GAS deploy |
+| GAS_SECRET_TOKEN | Token you choose — must match Code.gs | ⬜ Set after GAS deploy |
 
 ---
 
@@ -210,7 +208,18 @@ firstcocoagent/
 4. Entry appended to `preferences.md` with timestamp, committed to GitHub
 5. Next session, loaded into every API call automatically
 
-**Method name note:** `memory_manager.py` uses `load_recent_summary()` (not `load_context_summary()`).
+### MemoryManager — actual method signatures
+```python
+memory_manager.load_preferences() -> str
+memory_manager.load_recent_summary() -> str
+memory_manager.build_memory_context() -> str
+memory_manager.save_preference(entry: str)
+memory_manager.append_to_summary(text: str)      # called at EOD with the report text
+memory_manager.clear_preferences()
+memory_manager._commit_to_github(filepath: str, content: str, message: str)
+memory_manager.extract_memory_update(response: str) -> tuple  # static method
+```
+**No `.load()` method. No `.compress_history()` method.**
 
 ---
 
@@ -225,41 +234,47 @@ Steven: "Research CS contacts in Denver Public Schools"
 → Scout: "✅ Done. 14 contacts — 9 with emails, 5 name-only. [Sheet link]"
 ```
 
-### Critical API notes (learned from bugs)
-- `research_engine.py` has two classes: `ResearchJob` (the engine) and `ResearchQueue` (the manager)
-- `ResearchQueue` creates `ResearchJob` instances internally — never instantiate `ResearchJob` directly from main.py
+### Critical API notes
+- `research_engine.py` has two classes: `ResearchJob` and `ResearchQueue`
+- Never instantiate `ResearchJob` directly — `ResearchQueue` manages it internally
 - Use the **singleton**: `from tools.research_engine import research_queue`
-- Queue methods: `await research_queue.enqueue(district_name, state, progress_callback, completion_callback)`
-- Queue properties (not methods — no parentheses): `research_queue.current_job`, `research_queue.queue_size`
+- `await research_queue.enqueue(district_name, state, progress_callback, completion_callback)`
+- Properties (no parentheses): `research_queue.current_job`, `research_queue.queue_size`
+
+### sheets_writer.py — it's a MODULE, not a class
+```python
+# CORRECT:
+import tools.sheets_writer as sheets_writer
+sheets_writer.write_contacts(contacts, state="")    # returns {leads_added, no_email_added, duplicates_skipped}
+sheets_writer.count_leads()                          # returns {leads, no_email, total}
+sheets_writer.get_master_sheet_url()                 # returns string URL
+sheets_writer.log_research_job(district, state, layers_used, total_found, with_email, no_email, notes)
+sheets_writer.ensure_sheet_tabs_exist()
+
+# WRONG (class doesn't exist):
+from tools.sheets_writer import SheetsWriter        # ← will crash
+```
 
 ### Google Sheets structure
 - `Leads` tab — contacts with email (Outreach.io import format)
 - `No Email` tab — contacts found but missing email
 - `Research Log` tab — every job with date and counts
 
-### Column headers (exact Outreach.io import format)
-`First Name` | `Last Name` | `Title` | `Email` | `State` | `Account` | `Work Phone` | `District Name` | `Source URL` | `Email Confidence` | `Date Found`
-
-### Available Scout commands
-- `"Research [district name] [state]"` → triggers research job
-- `"Check sheet status"` → lead counts + sheet link
-- `"What's in the queue?"` → current job + queue depth
-
 ---
 
-## 11. PHASE 3 — GMAIL VOICE TRAINING + EMAIL DRAFTING + CALENDAR + SLIDES (⚠️ Written, Not Yet Verified)
+## 11. PHASE 3 — GMAIL + EMAIL DRAFTING + CALENDAR + SLIDES (✅ Complete)
 
 ### Why GAS bridge (not OAuth2)
-Steven's work Google account (`steven@codecombat.com`) is on a company-managed Google Workspace. IT would need to approve any third-party OAuth app — so instead, Scout connects through a **Google Apps Script Web App** that runs inside Google as Steven, with no IT approval required.
+Steven's work Google account (`steven@codecombat.com`) is on company-managed Google Workspace. IT would need to approve any third-party OAuth app — so Scout connects through a **Google Apps Script Web App** that runs inside Google as Steven, no IT approval required.
 
-Personal account (Google Sheets) continues using the existing service account — that's unaffected.
+Personal account (Google Sheets) continues using the existing service account.
 
 ### Architecture
 ```
 Scout (Railway) → HTTPS POST + secret token → GAS Web App → Gmail / Calendar / Slides
 ```
 
-### How it works end-to-end
+### How email drafting works end-to-end
 ```
 Steven: "Draft a cold email to the CS Director at Austin ISD"
 → Claude fires draft_email tool
@@ -271,13 +286,53 @@ Steven: "Draft a cold email to the CS Director at Austin ISD"
 → Steven opens Gmail, adds recipient email if needed, sends manually
 ```
 
-### New files (Phase 3)
-- `gas/Code.gs` — the GAS script, paste into script.google.com and deploy as Web App
-- `tools/gas_bridge.py` — HTTP client that calls the GAS Web App
-- `agent/voice_trainer.py` — fetches sent emails via GAS, analyzes with Claude, saves voice profile
-- `memory/voice_profile.md` — Steven's writing style (populated by /train_voice)
-- `prompts/email_draft.md` — drafting prompt with voice profile injected at runtime
-- `docs/SETUP_PHASE3.md` — full setup walkthrough
+### Scheduler — actual API
+```python
+# Scheduler takes NO arguments
+scheduler = Scheduler()
+
+# Only method: check() — returns a string event name or None
+event = scheduler.check()  # returns "morning_brief", "eod_report", "checkin", or None
+
+# WRONG — these don't exist:
+Scheduler(morning_brief_fn=..., eod_report_fn=..., checkin_fn=...)  # ← will crash
+scheduler.run(stop_event)  # ← will crash
+```
+
+The correct run loop (already in main.py) polls `check()` every 30 seconds:
+```python
+while not stop_event.is_set():
+    event = scheduler.check()
+    if event == "morning_brief":
+        asyncio.create_task(send_morning_brief())
+    elif event == "eod_report":
+        asyncio.create_task(send_eod_report())
+    elif event == "checkin":
+        asyncio.create_task(send_checkin())
+    try:
+        await asyncio.wait_for(stop_event.wait(), timeout=30)
+    except asyncio.TimeoutError:
+        pass
+```
+
+### GASBridge — actual method signatures
+```python
+gas = GASBridge(webhook_url=GAS_WEBHOOK_URL, secret_token=GAS_SECRET_TOKEN)
+gas.ping() -> dict
+gas.get_sent_emails(months_back=6, max_results=200) -> list[dict]
+gas.create_draft(to, subject, body) -> dict
+gas.get_calendar_events(days_ahead=7) -> list[dict]
+gas.log_call(contact_name, title, district, date_iso, duration_minutes, notes, outcome, next_steps) -> dict
+gas.create_district_deck(district_name, state, contact_name, contact_title, student_count, key_pain_points, products_to_highlight, case_study) -> dict
+```
+
+### VoiceTrainer — actual method signatures
+```python
+trainer = VoiceTrainer(gas_bridge=gas, memory_manager=memory)
+trainer.train(months_back=6, progress_callback=None) -> str
+trainer.load_profile() -> Optional[str]
+trainer.update_profile_from_feedback(feedback: str) -> bool
+```
 
 ### New Claude tools (Phase 3)
 | Tool | Trigger |
@@ -290,7 +345,7 @@ Steven: "Draft a cold email to the CS Director at Austin ISD"
 | `log_call` | "log a call with [name] at [district]" |
 | `create_district_deck` | "make a deck for [district]" |
 
-### GAS setup order (not yet done)
+### GAS setup (still needed)
 1. Go to script.google.com logged in as steven@codecombat.com
 2. New project → paste `gas/Code.gs` → set SECRET_TOKEN to a string you make up
 3. Deploy → New deployment → Web app → Execute as: Me → Anyone → Deploy → authorize → copy URL
@@ -299,13 +354,25 @@ Steven: "Draft a cold email to the CS Director at Austin ISD"
 6. `/train_voice` → 2-3 min → voice profile built
 7. Test: "Draft a cold email to the CS Director at Austin ISD"
 
-Full instructions: `docs/SETUP_PHASE3.md`
-
 ---
 
-## 12. PHASE 4 PREVIEW — SCOUT PUSHES CODE TO GITHUB
+## 12. PHASE 4 — SCOUT PUSHES CODE TO GITHUB (⬜ Next)
 
-The first item in Phase 4 is giving Scout a `/push_code` command so it can commit updated files directly to GitHub using the `GITHUB_TOKEN` already in Railway. This eliminates the manual GitHub upload step for every code change. Steven approved this approach in the current chat.
+### Goal
+Give Scout a `/push_code` command (or natural language equivalent) so it can commit updated files directly to GitHub. This eliminates the manual upload step for every code change — the biggest workflow bottleneck in Phase 3 debugging.
+
+### How it will work
+- `GITHUB_TOKEN` is already in Railway env vars with `contents:write` scope
+- New `push_code` Claude tool: accepts `filepath` + `content` + optional `commit_message`
+- Calls GitHub Contents API (same approach already used by `memory_manager._commit_to_github()`)
+- Claude can then write a fix and immediately commit it without Steven touching GitHub
+
+### What to upload at the start of Phase 4
+Before writing Phase 4 code, upload and read:
+- `agent/main.py` (current version)
+- `agent/config.py`
+- `agent/claude_brain.py`
+- `tools/` — any files Phase 4 will touch
 
 ---
 
@@ -364,7 +431,8 @@ AP CSP, APCSP, AP CompSci, AP CompSci A, APCSA, AP CSA
 | `/train_voice` separate from boot | Expensive Claude API call — only run on demand |
 | Voice profile in memory/ | GitHub-persisted, survives restarts, loaded into every draft prompt |
 | Pending draft state in main.py | Enables approve/edit loop without re-drafting from scratch |
-| Option B (Scout pushes code) planned for Phase 4 | Eliminates manual GitHub uploads after every code change |
+| Scout pushes code in Phase 4 | Eliminates manual GitHub uploads after every code change |
+| Read modules before writing code | All Phase 3 crashes were hallucinated method names — prevention requires reading source first |
 
 ---
 
@@ -381,14 +449,14 @@ AP CSP, APCSP, AP CompSci, AP CompSci A, APCSA, AP CSA
 | ImportError: Scheduler | Phase 1 scheduler.py had no Scheduler class | Rewrote scheduler.py with Scheduler class | ✅ Fixed |
 | AttributeError: load_context_summary | Method named load_recent_summary in memory_manager | Updated claude_brain.py to match | ✅ Fixed |
 | Google Sheets 403 PERMISSION_DENIED | Sheets API not enabled in Google Cloud project | Enabled via Cloud Console URL in logs | ✅ Fixed |
-| SyntaxError: global _pending_draft | global declaration appeared after assignment in same function scope (even across elif branches) | Moved global declaration to top of execute_tool() | ✅ Fixed |
-| ImportError: ResearchEngine | Class doesn't exist — Claude hallucinated the name. Actual classes: ResearchJob, ResearchQueue | Rewrote research block to use research_queue singleton with correct enqueue() API | ✅ Fixed |
-| ImportError: SheetsWriter | SheetsWriter class never existed — sheets_writer.py is a module of functions | Changed to `import tools.sheets_writer as sheets_writer`, replaced all class instantiations with direct function calls | ✅ Fixed |
+| SyntaxError: global _pending_draft | global declaration appeared after assignment in same function scope | Moved global declaration to top of execute_tool() | ✅ Fixed |
+| ImportError: ResearchEngine | Class doesn't exist — hallucinated name. Actual: ResearchJob, ResearchQueue | Rewrote to use research_queue singleton with correct enqueue() API | ✅ Fixed |
+| ImportError: SheetsWriter | SheetsWriter class never existed — sheets_writer.py is a module of functions | Changed to `import tools.sheets_writer as sheets_writer`, replaced all class instantiations | ✅ Fixed |
 | AttributeError: memory.load() | MemoryManager has no load() — __init__ handles setup automatically | Removed the call | ✅ Fixed |
 | AttributeError: memory.compress_history() | Method doesn't exist — real method is append_to_summary(text) | Replaced with memory.append_to_summary(text) | ✅ Fixed |
-| TypeError: Scheduler.__init__() unexpected keyword args | Scheduler() takes no arguments | Changed to Scheduler() | ✅ Fixed |
-| AttributeError: scheduler.run() | Scheduler has no run() method, only check() | Rewrote run loop to poll scheduler.check() every 30s via asyncio | ✅ Fixed |
-| AttributeError: memory.commit_file() | Method doesn't exist — real method is _commit_to_github(path, content, msg) | Fixed both calls in voice_trainer.py | ✅ Fixed |
+| TypeError: Scheduler.__init__() unexpected kwargs | Scheduler() takes no arguments | Changed to Scheduler() | ✅ Fixed |
+| AttributeError: scheduler.run() | Scheduler has no run() method, only check() | Rewrote run loop to poll scheduler.check() every 30s | ✅ Fixed |
+| AttributeError: memory.commit_file() in voice_trainer | Method doesn't exist — real method is _commit_to_github(path, content, msg) | Fixed both calls in voice_trainer.py | ✅ Fixed |
 
 ---
 
@@ -406,7 +474,6 @@ AP CSP, APCSP, AP CompSci, AP CompSci A, APCSA, AP CSA
 | 2026-02-27 | Phase 3 built: Code.gs, gas_bridge.py, voice_trainer.py, email_draft.md, voice_profile.md | Phase 3 |
 | 2026-02-27 | claude_brain.py: 7 new Phase 3 tools added | Phase 3 |
 | 2026-02-27 | config.py: GAS_WEBHOOK_URL + GAS_SECRET_TOKEN added | Phase 3 |
-| 2026-02-27 | SETUP_PHASE3.md written for GAS bridge approach | Phase 3 |
-| 2026-02-27 | Fixed: SyntaxError — global _pending_draft moved to top of execute_tool() | Phase 3 |
-| 2026-02-27 | Fixed: ImportError ResearchEngine — rewrote to use research_queue singleton correctly | Phase 3 |
-| 2026-02-27 | main.py uploaded to GitHub — awaiting clean Railway deploy | Phase 3 ⚠️ |
+| 2026-02-27 | SETUP_PHASE3.md written | Phase 3 |
+| 2026-02-27 | 6 Phase 3 deployment crashes debugged and fixed (SheetsWriter, memory.load, compress_history, Scheduler args, scheduler.run, voice_trainer.commit_file) | Phase 3 |
+| 2026-02-27 | Phase 3 verified — Scout online, Telegram message received | Phase 3 ✅ |
