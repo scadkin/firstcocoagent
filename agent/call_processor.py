@@ -41,11 +41,12 @@ class CallProcessor:
         self.memory = memory_manager
         self.fireflies = fireflies_client
 
-        # Lazy imports to follow Phase 5 module pattern
-        from agent.config import ANTHROPIC_API_KEY, SERPER_API_KEY, PRECALL_BRIEF_FOLDER_ID
+# Lazy imports — PRECALL_BRIEF_FOLDER_ID read from env directly (not in config.py)
+        import os
+        from agent.config import ANTHROPIC_API_KEY, SERPER_API_KEY
         self._claude = Anthropic(api_key=ANTHROPIC_API_KEY)
         self._serper_key = SERPER_API_KEY
-        self._brief_folder_id = PRECALL_BRIEF_FOLDER_ID
+        self._brief_folder_id = os.environ.get("PRECALL_BRIEF_FOLDER_ID", "")
 
     # ── Pre-Call Brief ────────────────────────────────────────────────────────
 
