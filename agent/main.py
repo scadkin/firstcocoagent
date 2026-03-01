@@ -63,24 +63,21 @@ def get_voice_trainer():
     return VoiceTrainer(gas_bridge=gas, memory_manager=memory)
 
 
-# ── Research callbacks (async, matches ResearchQueue.enqueue signature) ───────
+# ── Research callbacks ────────────────────────────────────────────────────────
 
 async def _on_research_progress(message: str):
     await send_message(message)
 
 
 async def _on_research_complete(result: dict):
-    """Called by ResearchQueue when a job finishes. Writes to sheets + notifies."""
     try:
         contacts = result.get("contacts", [])
         sheets_writer.write_contacts(contacts, state=result.get("state", ""))
-
         with_email = result.get("with_email", 0)
         no_email = result.get("no_email", 0)
         total = result.get("total", 0)
         district = result.get("district_name", "")
         sheet_url = f"https://docs.google.com/spreadsheets/d/{os.environ.get('GOOGLE_SHEETS_ID', '')}"
-
         await send_message(
             f"✅ *Research complete: {district}*\n"
             f"{total} contacts — {with_email} with emails, {no_email} name-only.\n"
@@ -94,18 +91,14 @@ async def _on_research_complete(result: dict):
 # ── Tool execution ─────────────────────────────────────────────────────────────
 
 async def execute_tool(tool_name: str, tool_input: dict) -> str:
-    global _pending_draft  # declared once at top of function
-
-    # ── Phase 2: Research ──────────────────────────────────────────────────────
+    global _pending_draft
 
     if tool_name == "research_district":
         district = tool_input.get("district_name", "")
         state = tool_input.get("state", "")
         if not district:
             return "❌ No district name provided."
-
         await send_message(f"🔍 Starting research on *{district}*{' (' + state + ')' if state else ''}...")
-
         await research_queue.enqueue(
             district_name=district,
             state=state,
@@ -129,49 +122,34 @@ async def execute_tool(tool_name: str, tool_input: dict) -> str:
             return f"❌ Could not read sheet: {e}"
 
     elif tool_name == "get_research_queue_status":
-        current = research_queue.current_job   # property, not method
-        depth = research_queue.queue_size       # property, not method
+        current = research_queue.current_job
+        depth = research_queue.queue_size
         if not current:
             return "✅ No research running. Queue empty."
         return f"🔍 Currently researching: *{current}*\nJobs queued: {depth}"
 
-    # ── Phase 3: GAS bridge connection test ───────────────────────────────────
-
     elif tool_name == "ping_gas_bridge":
         gas = get_gas_bridge()
         if not gas:
-            return (
-                "❌ GAS bridge not configured.\n"
-                "Set `GAS_WEBHOOK_URL` and `GAS_SECRET_TOKEN` in Railway.\n"
-                "See `docs/SETUP_PHASE3.md` for setup instructions."
-            )
+            return "❌ GAS bridge not configured. Set `GAS_WEBHOOK_URL` and `GAS_SECRET_TOKEN` in Railway."
         try:
             result = gas.ping()
             return f"✅ *GAS Bridge connected!*\nRunning as: `{result.get('user', 'unknown')}`"
         except Exception as e:
             return f"❌ GAS bridge ping failed: {e}"
 
-    # ── Phase 3: Voice training ────────────────────────────────────────────────
-
     elif tool_name == "train_voice":
         trainer = get_voice_trainer()
         if not trainer:
-            return (
-                "❌ GAS bridge not configured yet.\n"
-                "Follow `docs/SETUP_PHASE3.md` to set up the Google Apps Script bridge first."
-            )
+            return "❌ GAS bridge not configured yet. Follow `docs/SETUP_PHASE3.md` first."
         months_back = tool_input.get("months_back", 24)
-
-        # Immediate acknowledgment so Steven knows it's working (takes 3-5 min)
         await send_message(
             "🔄 *Starting voice training...*\n"
             f"Fetching up to 2,000 sent emails from the last {months_back} months. "
             "This takes 3–5 minutes — I'll send updates as I go."
         )
-
         def on_progress(msg):
             asyncio.create_task(send_message(msg))
-
         try:
             profile = trainer.train(months_back=months_back, progress_callback=on_progress)
             if profile.startswith("❌"):
@@ -186,21 +164,16 @@ async def execute_tool(tool_name: str, tool_input: dict) -> str:
             logger.error(f"Voice training error: {e}")
             return f"❌ Voice training failed: {e}"
 
-    # ── Phase 3: Email drafting ────────────────────────────────────────────────
-
     elif tool_name == "draft_email":
         trainer = get_voice_trainer()
         voice_profile = trainer.load_profile() if trainer else None
-
         recipient_name = tool_input.get("recipient_name", "")
         recipient_title = tool_input.get("recipient_title", "")
         district = tool_input.get("district", "")
         state = tool_input.get("state", "")
         email_type = tool_input.get("email_type", "cold outreach")
         additional_context = tool_input.get("additional_context", "")
-
         await send_message(f"✍️ Drafting {email_type} email for *{recipient_title or 'contact'}* at *{district}*...")
-
         prompt = build_draft_prompt(
             voice_profile=voice_profile,
             recipient_name=recipient_name,
@@ -210,21 +183,11 @@ async def execute_tool(tool_name: str, tool_input: dict) -> str:
             email_type=email_type,
             additional_context=additional_context,
         )
-
         draft_text = draft_email_with_claude(prompt)
-
         if draft_text.startswith("❌"):
             return draft_text
-
         subject, body = _parse_draft(draft_text)
-
-        _pending_draft = {
-            "to": "",
-            "subject": subject,
-            "body": body,
-            "raw": draft_text,
-        }
-
+        _pending_draft = {"to": "", "subject": subject, "body": body, "raw": draft_text}
         return (
             f"📧 *Draft ready:*\n\n"
             f"{draft_text}\n\n"
@@ -237,15 +200,12 @@ async def execute_tool(tool_name: str, tool_input: dict) -> str:
     elif tool_name == "save_draft_to_gmail":
         gas = get_gas_bridge()
         if not gas:
-            return "❌ GAS bridge not configured. Follow `docs/SETUP_PHASE3.md` to set it up."
-
+            return "❌ GAS bridge not configured."
         to = tool_input.get("to", "") or (_pending_draft or {}).get("to", "")
         subject = tool_input.get("subject", "") or (_pending_draft or {}).get("subject", "")
         body = tool_input.get("body", "") or (_pending_draft or {}).get("body", "")
-
         if not subject or not body:
             return "❌ No draft to save. Draft an email first."
-
         try:
             result = gas.create_draft(to=to, subject=subject, body=body)
             _pending_draft = None
@@ -257,13 +217,10 @@ async def execute_tool(tool_name: str, tool_input: dict) -> str:
         except Exception as e:
             return f"❌ Could not save draft: {e}"
 
-    # ── Phase 3: Calendar ──────────────────────────────────────────────────────
-
     elif tool_name == "get_calendar":
         gas = get_gas_bridge()
         if not gas:
-            return "❌ GAS bridge not configured. Follow `docs/SETUP_PHASE3.md`."
-
+            return "❌ GAS bridge not configured."
         days_ahead = tool_input.get("days_ahead", 7)
         try:
             events = gas.get_calendar_events(days_ahead=days_ahead)
@@ -282,7 +239,7 @@ async def execute_tool(tool_name: str, tool_input: dict) -> str:
     elif tool_name == "log_call":
         gas = get_gas_bridge()
         if not gas:
-            return "❌ GAS bridge not configured. Follow `docs/SETUP_PHASE3.md`."
+            return "❌ GAS bridge not configured."
         try:
             result = gas.log_call(
                 contact_name=tool_input.get("contact_name", ""),
@@ -302,16 +259,12 @@ async def execute_tool(tool_name: str, tool_input: dict) -> str:
         except Exception as e:
             return f"❌ Could not log call: {e}"
 
-    # ── Phase 3: Slides ────────────────────────────────────────────────────────
-
     elif tool_name == "create_district_deck":
         gas = get_gas_bridge()
         if not gas:
-            return "❌ GAS bridge not configured. Follow `docs/SETUP_PHASE3.md`."
-
+            return "❌ GAS bridge not configured."
         district = tool_input.get("district_name", "")
         await send_message(f"📊 Building pitch deck for *{district}*...")
-
         try:
             result = gas.create_district_deck(
                 district_name=district,
@@ -330,29 +283,22 @@ async def execute_tool(tool_name: str, tool_input: dict) -> str:
         except Exception as e:
             return f"❌ Could not create deck: {e}"
 
-    # ── Phase 4: GitHub code push ─────────────────────────────────────────────
-
     elif tool_name == "push_code":
         try:
             import tools.github_pusher as github_pusher
         except ImportError:
-            return "❌ `tools/github_pusher.py` not found in repo. Upload it to GitHub first."
-
+            return "❌ `tools/github_pusher.py` not found in repo."
         filepath = tool_input.get("filepath", "").strip()
         content = tool_input.get("content", "")
         commit_msg = tool_input.get("commit_message", "")
-
         if not filepath or not content:
             return "❌ Need both `filepath` and `content` to push."
-
         await send_message(f"📤 Pushing `{filepath}` to GitHub...")
-
         result = github_pusher.push_file(
             filepath=filepath,
             content=content,
             commit_message=commit_msg or f"Scout: update {filepath}",
         )
-
         if result["success"]:
             url = result.get("url", "")
             link = f"\n[View on GitHub]({url})" if url else ""
@@ -364,12 +310,11 @@ async def execute_tool(tool_name: str, tool_input: dict) -> str:
         try:
             import tools.github_pusher as github_pusher
         except ImportError:
-            return "❌ `tools/github_pusher.py` not found in repo. Upload it to GitHub first."
-
+            return "❌ `tools/github_pusher.py` not found in repo."
         path = tool_input.get("path", "")
         files = github_pusher.list_repo_files(path)
         if not files:
-            return f"❌ Could not list files in `{path or 'repo root'}` — check GITHUB_TOKEN and GITHUB_REPO."
+            return f"❌ Could not list files in `{path or 'repo root'}`."
         label = f"`{path}/`" if path else "repo root"
         lines = [f"📁 *Files in {label}:*\n"] + [f"• `{f}`" for f in files]
         return "\n".join(lines)
@@ -379,55 +324,41 @@ async def execute_tool(tool_name: str, tool_input: dict) -> str:
             import tools.github_pusher as github_pusher
         except ImportError:
             return "github_pusher.py not found — upload tools/github_pusher.py to GitHub first."
-
         filepath = tool_input.get("filepath", "").strip()
         if not filepath:
             return "Need a filepath. Example: agent/main.py"
-
         content_str = github_pusher.get_file_content(filepath)
         if content_str is None:
-            return (
-                "Could not fetch " + filepath + " — file may not exist in repo. "
-                "Use list_repo_files to check available paths."
-            )
-
+            return f"Could not fetch {filepath} — use list_repo_files to check available paths."
         line_count = len(content_str.splitlines())
         char_count = len(content_str)
         return (
-            "FILE: " + filepath + " | " + str(line_count) + " lines, " + str(char_count) + " chars"
-            + "\n\n```\n" + content_str + "\n```"
+            f"FILE: {filepath} | {line_count} lines, {char_count} chars"
+            f"\n\n```\n{content_str}\n```"
         )
-
-    # ── Phase 4: Email sequences ───────────────────────────────────────────────
 
     elif tool_name == "build_sequence":
         try:
             import tools.sequence_builder as sequence_builder
         except ImportError:
-            return "❌ `tools/sequence_builder.py` not found in repo. Upload it to GitHub first."
-
+            return "❌ `tools/sequence_builder.py` not found in repo."
         campaign_name = tool_input.get("campaign_name", "")
         target_role = tool_input.get("target_role", "")
         focus_product = tool_input.get("focus_product", "CodeCombat AI Suite")
         num_steps = int(tool_input.get("num_steps", 4))
         additional_context = tool_input.get("additional_context", "")
-
         if not campaign_name or not target_role:
             return "❌ Need at least `campaign_name` and `target_role` to build a sequence."
-
         await send_message(
             f"✍️ Building {num_steps}-step sequence for *{target_role}s*...\n"
             f"Campaign: _{campaign_name}_"
         )
-
-        # Load voice profile if available
         voice_profile = None
         try:
             with open("memory/voice_profile.md", "r", encoding="utf-8") as f:
                 voice_profile = f.read()
         except FileNotFoundError:
             pass
-
         result = sequence_builder.build_sequence(
             campaign_name=campaign_name,
             target_role=target_role,
@@ -436,58 +367,39 @@ async def execute_tool(tool_name: str, tool_input: dict) -> str:
             voice_profile=voice_profile,
             additional_context=additional_context,
         )
-
         if not result["success"]:
             return f"❌ Sequence generation failed: {result['error']}"
-
         steps = result["steps"]
-
-        # Write to Google Sheets Sequences tab
         saved_to_sheets = sequence_builder.write_sequence_to_sheets(campaign_name, steps)
         sheets_note = "\n✅ Saved to *Sequences* tab in your sheet." if saved_to_sheets else ""
-
-        # Format for Telegram
         tg_text = sequence_builder.format_for_telegram(campaign_name, steps)
-
         return f"{tg_text}{sheets_note}\n\n📋 Paste each step into Outreach.io sequence editor."
-
-
-    # ── Phase 5: Call Intelligence ────────────────────────────────────────────
 
     elif tool_name == "process_call_transcript":
         try:
             from tools.fireflies import FirefliesClient
             from agent.call_processor import CallProcessor
         except ImportError as e:
-            return "Phase 5 module not found: " + str(e) + ". Upload tools/fireflies.py and agent/call_processor.py first."
-
+            return f"Phase 5 module not found: {e}"
         transcript_id = tool_input.get("transcript_id", "").strip()
         if not transcript_id:
             return "Need a transcript ID. Use /recent_calls to find one."
-
         gas = get_gas_bridge()
         if not gas:
-            return "GAS bridge not configured. Follow docs/SETUP_PHASE3.md."
+            return "GAS bridge not configured."
         if not FIREFLIES_API_KEY:
-            return "FIREFLIES_API_KEY not set in Railway. See docs/SETUP_PHASE5.md."
-
+            return "FIREFLIES_API_KEY not set in Railway."
         fireflies = FirefliesClient(api_key=FIREFLIES_API_KEY)
-
         try:
             processor = CallProcessor(gas_bridge=gas, memory_manager=memory, fireflies_client=fireflies)
         except Exception as e:
             return f"❌ Could not initialize call processor: {e}"
-
-        await send_message("Processing transcript " + transcript_id + "... This takes 30-60 seconds.")
-
+        await send_message(f"📞 Processing transcript `{transcript_id}`... This takes 30-60 seconds.")
         async def on_progress(msg):
             await send_message(msg)
-
         result = await processor.process_transcript(transcript_id=transcript_id, progress_callback=on_progress)
-
         if result.get("error"):
             return "Processing failed: " + result["error"]
-
         await send_message(result["telegram_summary"])
         await send_message(result["salesforce_block"])
         return ""
@@ -496,20 +408,16 @@ async def execute_tool(tool_name: str, tool_input: dict) -> str:
         try:
             from agent.call_processor import CallProcessor
         except ImportError as e:
-            return "agent/call_processor.py not found: " + str(e) + ". Upload it to GitHub first."
-
+            return f"agent/call_processor.py not found: {e}"
         gas = get_gas_bridge()
         if not gas:
-            return "GAS bridge not configured. Follow docs/SETUP_PHASE3.md."
-
+            return "GAS bridge not configured."
         meeting_title = tool_input.get("meeting_title", "")
         attendee_emails = tool_input.get("attendee_emails", [])
-
         try:
             events = gas.get_calendar_events(days_ahead=14)
         except Exception as e:
-            return "Could not fetch calendar: " + str(e)
-
+            return f"❌ Could not fetch calendar: {e}"
         target_event = None
         if meeting_title:
             for ev in events:
@@ -522,11 +430,9 @@ async def execute_tool(tool_name: str, tool_input: dict) -> str:
                 if "zoom.us" in loc.lower():
                     target_event = ev
                     break
-
         if not target_event and not attendee_emails:
             titles = ", ".join("'" + e.get("title","?") + "'" for e in events[:5]) if events else "none"
-            return "Could not find that meeting. Upcoming events: " + titles
-
+            return f"Could not find a Zoom meeting. Upcoming events: {titles}"
         if attendee_emails:
             attendees = [{"email": e, "name": e.split("@")[0]} for e in attendee_emails]
         else:
@@ -534,19 +440,13 @@ async def execute_tool(tool_name: str, tool_input: dict) -> str:
             attendees = [g for g in raw_guests if "@codecombat.com" not in g.get("email","").lower()]
             if not attendees:
                 attendees = [{"name": "Prospect", "email": ""}]
-
         mtitle = (target_event or {}).get("title", meeting_title or "your meeting")
-
         try:
             processor = CallProcessor(gas_bridge=gas, memory_manager=memory)
         except Exception as e:
             return f"❌ Could not initialize call processor: {e}"
-
-        await send_message("Building pre-call brief for " + mtitle + "... Give me 30-60 seconds.")
-
         async def on_brief_progress(msg):
             await send_message(msg)
-
         brief = await processor.build_pre_call_brief(
             event=target_event or {"title": meeting_title, "start": ""},
             attendees=attendees,
@@ -555,8 +455,7 @@ async def execute_tool(tool_name: str, tool_input: dict) -> str:
         await send_message(brief)
         return ""
 
-
-    return f"Unknown tool: {tool_name}"
+    return f"❓ Unknown tool: {tool_name}"
 
 
 # ── Draft parsing ──────────────────────────────────────────────────────────────
@@ -582,11 +481,11 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_text = update.message.text.strip()
     logger.info(f"Received: {user_text}")
 
+    # _ack_sent tracks whether we already sent an immediate acknowledgment.
+    # Prevents duplicate "⏳ Working on it..." when a command branch already sent its own ack.
+    _ack_sent = False
+
     # ── Command routing ────────────────────────────────────────────────────────
-    # Each branch either:
-    #   A) Handles the command directly and returns (fast path)
-    #   B) Rewrites user_text and falls through to Claude processing (slow path)
-    # ALL slow-path commands send an immediate ack before Claude is called.
 
     if user_text.lower() in ["/ping_gas", "/test_google", "test gas", "ping gas"]:
         user_text = "ping the GAS bridge"
@@ -601,13 +500,14 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         args = user_text[len("/push_code"):].strip()
         if args:
             await send_message(f"On it — fetching `{args}` from GitHub now...")
+            _ack_sent = True
             user_text = (
                 f"PUSH_CODE WORKFLOW for '{args}':\n"
                 f"Step 1: Call the get_file_content tool immediately to fetch '{args}' from GitHub. Do NOT skip this.\n"
                 f"Step 2: Once you have the file, write a 2-3 sentence summary of what it does.\n"
                 f"Step 3: Ask Steven exactly this: 'What changes would you like me to make?'\n"
                 f"Step 4: Wait for Steven's answer, then make those specific changes to the fetched content and push with push_code.\n"
-                f"Do not deviate from these steps. Do not ask any clarifying questions before fetching."
+                f"Do not deviate from these steps."
             )
         else:
             user_text = "Ask Steven which file he wants to update. Once he answers, immediately call get_file_content to fetch it, summarize it, then ask what changes he wants."
@@ -634,26 +534,26 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         user_text = f"Build an email sequence{' for ' + args if args else ''}. Ask me for any details you need."
 
     elif user_text.lower().startswith("/brief"):
-        # Immediate ack BEFORE Claude processes — /brief takes 30-60 seconds
         args = user_text[len("/brief"):].strip()
         await send_message(
             "🔍 *On it!* Looking up your calendar and researching attendees...\n"
-            "This takes about 30-60 seconds."
+            "This takes about 30-60 seconds. I'll send progress updates."
         )
+        _ack_sent = True
         user_text = (
             "Use the get_pre_call_brief tool to generate a pre-call brief"
             + (" for the meeting: " + args if args else " for my next upcoming Zoom meeting") + "."
         )
 
     elif user_text.lower().startswith("/recent_calls") or user_text.lower() in ["recent calls", "list calls", "show calls"]:
-        # Parse optional number argument: /recent_calls 10
-        num = 5  # default
+        # Parse optional number: /recent_calls 10
+        num = 5
         raw = user_text.lower().replace("/recent_calls", "").strip()
         if raw.isdigit():
-            num = max(1, min(int(raw), 20))  # clamp between 1 and 20
+            num = max(1, min(int(raw), 20))
 
         if not FIREFLIES_API_KEY:
-            await send_message("❌ FIREFLIES_API_KEY not set in Railway. See docs/SETUP_PHASE5.md.")
+            await send_message("❌ FIREFLIES_API_KEY not set in Railway.")
             return
 
         await send_message(f"📞 Fetching your {num} most recent external calls from Fireflies...")
@@ -664,7 +564,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             transcripts = ff_client.get_recent_transcripts(limit=num, filter_internal=True)
             msg = ff_client.format_recent_for_telegram(transcripts)
         except Exception as e:
-            msg = "❌ Could not fetch Fireflies transcripts: " + str(e)
+            msg = f"❌ Could not fetch Fireflies transcripts: {e}"
 
         await send_message(msg)
         return
@@ -674,13 +574,12 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if "fireflies.ai" in args and "/transcript/" in args:
             args = args.split("/transcript/")[-1].split("/")[0].split("?")[0]
         if args:
-            # Immediate ack — transcript processing takes 30-60 seconds
-            await send_message(f"📞 Fetching transcript `{args}` from Fireflies...")
+            await send_message(f"📞 Got it — fetching transcript `{args}` from Fireflies...")
+            _ack_sent = True
             user_text = "Use the process_call_transcript tool with transcript_id: " + args
         else:
             user_text = "Ask me for the transcript ID, or use /recent_calls to find one."
 
-    # Pending draft approvals
     elif _pending_draft and any(
         user_text.lower().startswith(t) for t in ["looks good", "save it", "save to gmail", "approved", "use this"]
     ):
@@ -698,7 +597,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await send_message(f"✅ Recipient set to `{email_addr}`. Say *looks good* to save.")
         return
 
-    # If message sounds like a behavioral correction, prime Claude to save it
+    # Behavioral correction detection
     correction_signals = [
         "stop ", "don't ", "do not ", "always ", "never ", "remember to ",
         "please don't", "i want you to", "from now on", "every time",
@@ -710,16 +609,17 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             + "\n\n[If this is a behavioral correction or preference, append [MEMORY_UPDATE: one sentence summary] to your response so it gets saved permanently.]"
         )
 
-    # Normal processing — goes through Claude
-    # Send a quick ack if this looks like a command or a long task request
-    _is_command = user_text.startswith("/") or any(
+    # General ack for task-style messages (only if we haven't already acked)
+    if not _ack_sent and any(
         kw in user_text.lower() for kw in [
             "draft", "research", "sequence", "deck", "train", "brief", "build",
             "create", "generate", "write", "log", "push", "fetch",
         ]
-    )
-    if _is_command:
+    ):
         await send_message("⏳ Working on it...")
+        _ack_sent = True
+
+    # ── Claude processing ──────────────────────────────────────────────────────
 
     text_response, conversation_history, tool_calls = process_message(
         user_message=user_text,
@@ -727,15 +627,31 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         memory=memory,
     )
 
+    # Detect and recover from corrupted conversation history (tool_use without tool_result)
+    if "tool_use" in text_response and "tool_result" in text_response.lower():
+        logger.warning("Detected history corruption — clearing conversation history.")
+        conversation_history.clear()
+
+    if text_response.startswith("❌ Claude API error"):
+        # If Claude 400'd due to corrupted history, clear it so next message works
+        if "tool_use" in text_response and "tool_result" in text_response:
+            logger.warning("400 tool_use error — clearing conversation history to recover.")
+            conversation_history.clear()
+        await send_message(text_response)
+        return
+
+    # ── Tool execution — ALWAYS append result even if tool throws ─────────────
     tool_results = []
     for tc in tool_calls:
-        result = await execute_tool(tc["tool_name"], tc["tool_input"])
+        try:
+            result = await execute_tool(tc["tool_name"], tc["tool_input"])
+        except Exception as e:
+            logger.error(f"Tool '{tc['tool_name']}' raised exception: {e}")
+            result = f"❌ Tool error in {tc['tool_name']}: {e}"
         tool_results.append(result)
 
-    # CRITICAL: Append tool_result blocks back into history.
-    # The Claude API requires every tool_use block to be immediately followed
-    # by a tool_result block in the next user message. Without this, the next
-    # API call fails with a 400 "tool_use ids found without tool_result" error.
+    # CRITICAL: Every tool_use block MUST have a matching tool_result in the next message.
+    # Without this, the next API call will 400.
     if tool_calls and tool_results:
         tool_result_content = [
             {
@@ -750,12 +666,9 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "content": tool_result_content,
         })
 
-    # Strip filler closing phrases Scout tends to add
+    # Strip filler phrases
     def _clean(msg: str) -> str:
-        import re
-        # Remove standalone "On it." / "On it!" variants at end of message
         msg = re.sub(r"\s*\bOn it[.!]*\s*$", "", msg, flags=re.IGNORECASE).strip()
-        # Remove "Let me know if..." filler at end
         msg = re.sub(r"\s*Let me know if (you need|there's|you have).*$", "", msg, flags=re.IGNORECASE | re.DOTALL).strip()
         return msg
 
@@ -763,7 +676,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await send_message(_clean(text_response))
     elif tool_results:
         for r in tool_results:
-            if r:  # skip empty strings (tool already sent messages directly)
+            if r:  # skip empty strings — tool already sent messages directly
                 await send_message(_clean(r))
     else:
         await send_message("👍")
@@ -787,7 +700,7 @@ async def send_eod_report():
             prompt = f.read()
         text, _, _ = process_message(prompt, conversation_history, memory)
         await send_message(f"🌙 *EOD Report*\n\n{text}")
-        memory.append_to_summary(text)   # persist today's summary to context_summary.md + GitHub
+        memory.append_to_summary(text)
         conversation_history.clear()
     except Exception as e:
         logger.error(f"EOD report failed: {e}")
@@ -800,41 +713,36 @@ async def send_checkin():
 # ── Phase 5: Webhook transcript callback ──────────────────────────────────────
 
 async def _on_transcript_received(transcript_id: str):
-    """Called by aiohttp webhook when Fireflies sends post-call notification."""
-    await send_message("Call transcript received! Processing " + transcript_id + "...")
+    await send_message(f"📞 Call transcript received — processing `{transcript_id}`...")
     gas = get_gas_bridge()
     if not gas or not FIREFLIES_API_KEY:
-        await send_message("GAS bridge or FIREFLIES_API_KEY not configured.")
+        await send_message("❌ GAS bridge or FIREFLIES_API_KEY not configured.")
         return
     try:
         from tools.fireflies import FirefliesClient
         from agent.call_processor import CallProcessor
         fireflies = FirefliesClient(api_key=FIREFLIES_API_KEY)
-
         try:
             processor = CallProcessor(gas_bridge=gas, memory_manager=memory, fireflies_client=fireflies)
         except Exception as e:
             await send_message(f"❌ Could not initialize call processor: {e}")
             return
-
         async def on_progress(msg):
             await send_message(msg)
-
         result = await processor.process_transcript(transcript_id=transcript_id, progress_callback=on_progress)
         if result.get("error"):
-            await send_message("Processing failed: " + result["error"])
+            await send_message(f"❌ Processing failed: {result['error']}")
             return
         await send_message(result["telegram_summary"])
         await send_message(result["salesforce_block"])
     except Exception as e:
         logger.error(f"Webhook processing error: {e}")
-        await send_message("Error processing transcript " + transcript_id + ": " + str(e))
+        await send_message(f"❌ Error processing transcript {transcript_id}: {e}")
 
 
 # ── Phase 5: Pre-call brief auto-trigger ───────────────────────────────────────
 
 async def _check_precall_briefs(gas):
-    """Checks for Zoom meetings starting in 9-11 minutes. Called every 30s."""
     global _precall_briefs_sent
     try:
         from agent.call_processor import CallProcessor
@@ -863,16 +771,18 @@ async def _check_precall_briefs(gas):
                 attendees = [g for g in all_guests if "@codecombat.com" not in g.get("email","").lower()]
                 if not attendees:
                     attendees = [{"name": "Prospect", "email": ""}]
-                await send_message("10-minute warning: " + event.get("title","Zoom call") + "\nBuilding pre-call brief now...")
+                await send_message(f"⏰ 10-minute warning: *{event.get('title','Zoom call')}*\nBuilding pre-call brief now...")
                 try:
                     processor = CallProcessor(gas_bridge=gas, memory_manager=memory)
                     async def on_brief_progress(msg):
                         await send_message(msg)
-                    brief = await processor.build_pre_call_brief(event=event, attendees=attendees, progress_callback=on_brief_progress)
+                    brief = await processor.build_pre_call_brief(
+                        event=event, attendees=attendees, progress_callback=on_brief_progress
+                    )
                     await send_message(brief)
                 except Exception as e:
                     logger.error(f"Pre-call brief auto-trigger error: {e}")
-                    await send_message("Pre-call brief error: " + str(e))
+                    await send_message(f"❌ Pre-call brief error: {e}")
     except Exception as e:
         logger.warning(f"Calendar check failed: {e}")
 
@@ -880,7 +790,6 @@ async def _check_precall_briefs(gas):
 # ── Entry point ────────────────────────────────────────────────────────────────
 
 async def _run_telegram_and_scheduler():
-    """Telegram polling + scheduler loop. Runs alongside aiohttp webhook server."""
     app = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     app.add_handler(MessageHandler(filters.COMMAND, handle_message))
@@ -893,7 +802,7 @@ async def _run_telegram_and_scheduler():
     await app.updater.start_polling()
 
     gas_status = "GAS bridge ready" if gas_bridge_configured() else "GAS bridge not configured"
-    ff_status = "Fireflies ready" if FIREFLIES_API_KEY else "FIREFLIES_API_KEY not set (see SETUP_PHASE5.md)"
+    ff_status = "Fireflies ready" if FIREFLIES_API_KEY else "FIREFLIES_API_KEY not set"
     await send_message(
         f"Scout is online — Phase 5 active.\n"
         f"{gas_status} | {ff_status}\n"
