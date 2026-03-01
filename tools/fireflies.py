@@ -5,6 +5,12 @@ Phase 5: Call Intelligence Suite
 
 FirefliesClient fetches transcripts and recent call history.
 Used by call_processor.py and the webhook flow in main.py.
+
+Phase 5 fix: Updated field names to match Fireflies actual GraphQL schema.
+  - date → dateString
+  - attendees { name email } → participants (flat string list)
+  - speaker_name → speakerName
+  - Inlined variables directly into queries to avoid type errors
 """
 
 import logging
@@ -66,18 +72,15 @@ class FirefliesClient:
         }
         """
         query = """
-        query GetTranscript($id: String!) {
-            transcript(id: $id) {
+        query {
+            transcript(id: "%s") {
                 id
                 title
-                date
+                dateString
                 duration
-                attendees {
-                    name
-                    email
-                }
+                participants
                 sentences {
-                    speaker_name
+                    speakerName
                     text
                 }
                 summary {
@@ -87,8 +90,9 @@ class FirefliesClient:
                 }
             }
         }
-        """
-        data = self._query(query, {"id": transcript_id})
+        """ % transcript_id
+
+        data = self._query(query)
         t = data.get("transcript")
         if not t:
             raise FirefliesError(f"Transcript '{transcript_id}' not found or not yet ready.")
@@ -96,19 +100,23 @@ class FirefliesClient:
         # Flatten sentences into a single readable transcript string
         sentences = t.get("sentences") or []
         transcript_text = "\n".join(
-            f"{s.get('speaker_name', 'Speaker')}: {s.get('text', '')}"
+            f"{s.get('speakerName', 'Speaker')}: {s.get('text', '')}"
             for s in sentences
             if s.get("text", "").strip()
         )
 
         summary = t.get("summary") or {}
 
+        # participants is a flat list of strings — convert to dicts for compatibility
+        participants = t.get("participants") or []
+        attendees = [{"name": p, "email": ""} for p in participants]
+
         return {
             "id": t.get("id", transcript_id),
             "title": t.get("title", ""),
-            "date": t.get("date", ""),
+            "date": t.get("dateString", ""),
             "duration": t.get("duration", 0),
-            "attendees": t.get("attendees") or [],
+            "attendees": attendees,
             "transcript": transcript_text,
             "summary": summary.get("overview", ""),
             "action_items": summary.get("action_items", ""),
@@ -118,23 +126,21 @@ class FirefliesClient:
     def get_recent_transcripts(self, limit: int = 5) -> list[dict]:
         """
         Fetch the most recent call transcripts.
-        Returns list of {id, title, date, duration, attendees}.
+        Returns list of {id, title, date, duration, participants}.
         """
         query = """
-        query GetRecent($limit: Int) {
-            transcripts(limit: $limit) {
+        query {
+            transcripts(limit: %d) {
                 id
                 title
-                date
+                dateString
                 duration
-                attendees {
-                    name
-                    email
-                }
+                participants
             }
         }
-        """
-        data = self._query(query, {"limit": limit})
+        """ % limit
+
+        data = self._query(query)
         return data.get("transcripts") or []
 
     def format_recent_for_telegram(self, transcripts: list[dict]) -> str:
@@ -144,13 +150,14 @@ class FirefliesClient:
 
         lines = [f"📞 *Recent calls ({len(transcripts)}):*\n"]
         for t in transcripts:
-            attendees = [a.get("name", a.get("email", "?")) for a in (t.get("attendees") or [])]
-            attendee_str = ", ".join(attendees[:3]) or "unknown attendees"
+            # participants is a flat list of name strings
+            participants = t.get("participants") or []
+            participant_str = ", ".join(participants[:3]) or "unknown attendees"
             duration_min = round((t.get("duration") or 0) / 60)
             lines.append(
                 f"• *{t.get('title', 'Untitled')}*\n"
                 f"  `{t.get('id', '?')}`\n"
-                f"  {t.get('date', '')[:10]} · {duration_min}min · {attendee_str}"
+                f"  {t.get('dateString', '')[:10]} · {duration_min}min · {participant_str}"
             )
         lines.append("\nUse `/call [id]` to process any of these.")
         return "\n".join(lines)
