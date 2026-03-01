@@ -43,7 +43,6 @@ class CallProcessor:
         self.fireflies = fireflies_client
 
         # Phase 5 fix: PRECALL_BRIEF_FOLDER_ID is a Railway env var, not in config.py
-        # ANTHROPIC_API_KEY and SERPER_API_KEY ARE in config.py so import those normally
         from agent.config import ANTHROPIC_API_KEY, SERPER_API_KEY
         self._claude = Anthropic(api_key=ANTHROPIC_API_KEY)
         self._serper_key = SERPER_API_KEY
@@ -59,12 +58,6 @@ class CallProcessor:
     ) -> str:
         """
         Builds a comprehensive pre-call brief for an upcoming Zoom meeting.
-
-        event:     calendar event dict from GASBridge.get_calendar_events()
-        attendees: non-CodeCombat attendees [{name, email}]
-        progress_callback: async callable that takes a str message
-
-        Returns: formatted brief text (Google Doc also created if folder ID is set)
         """
         async def progress(msg: str):
             if progress_callback:
@@ -75,7 +68,6 @@ class CallProcessor:
         names = [a.get("name") or a.get("email", "?") for a in attendees]
         await progress(f"🔍 *Pre-call brief: {meeting_title}*\nResearching {', '.join(names)}...")
 
-        # Run all research in thread pool (blocking HTTP calls)
         attendee_profiles = await asyncio.to_thread(
             self._research_all_attendees, attendees
         )
@@ -91,21 +83,24 @@ class CallProcessor:
             event, attendees, attendee_profiles, org_profile, email_history,
         )
 
-        # Create Google Doc
         await progress("📄 Creating Google Doc...")
-        doc_url = await asyncio.to_thread(
+        doc_result = await asyncio.to_thread(
             self._create_brief_doc, event, attendees, brief_text
         )
 
-        if doc_url:
-            brief_text += f"\n\n📄 [Open Google Doc]({doc_url})"
+        if doc_result and not doc_result.startswith("ERROR:"):
+            # Success — append clickable link
+            brief_text += f"\n\n📄 [Open Google Doc]({doc_result})"
+        elif doc_result and doc_result.startswith("ERROR:"):
+            # Surface the actual error so we can debug it
+            brief_text += f"\n\n⚠️ *Google Doc creation failed:* {doc_result[6:]}"
         else:
-            brief_text += "\n\n_(Google Doc skipped — set PRECALL_BRIEF_FOLDER_ID in Railway to enable)_"
+            # Empty string means folder ID wasn't set
+            brief_text += "\n\n_(Google Doc skipped — PRECALL_BRIEF_FOLDER_ID not set in Railway)_"
 
         return brief_text
 
     def _research_all_attendees(self, attendees: list[dict]) -> list[dict]:
-        """Serper research for each attendee. Runs in thread."""
         profiles = []
         for a in attendees:
             name = a.get("name", "")
@@ -115,7 +110,6 @@ class CallProcessor:
         return profiles
 
     def _research_attendee(self, name: str, email: str) -> dict:
-        """Serper search for a single attendee."""
         if not name and not email:
             return {"name": email, "bio": "", "linkedin": ""}
 
@@ -133,7 +127,6 @@ class CallProcessor:
         }
 
     def _research_org(self, org: str) -> dict:
-        """Serper searches for the org/district. Runs in thread."""
         if not org:
             return {"org": "", "info": "", "news": ""}
 
@@ -154,7 +147,6 @@ class CallProcessor:
         }
 
     def _get_email_history(self, attendees: list[dict]) -> str:
-        """Search Gmail for prior email threads with attendees. Runs in thread."""
         from tools.gas_bridge import GASBridgeError
 
         parts = []
@@ -186,7 +178,6 @@ class CallProcessor:
         org_profile: dict,
         email_history: str,
     ) -> str:
-        """Claude call to synthesize all research into a formatted brief. Runs in thread."""
         meeting_title = event.get("title", "Meeting")
         meeting_start = event.get("start", "")
         meeting_location = event.get("location", "")
@@ -261,11 +252,16 @@ Rules: Be direct. Use bullets. Skip filler. Give Steven only what matters."""
         attendees: list[dict],
         content: str,
     ) -> str:
-        """Create a Google Doc for the brief. Returns URL or ''."""
+        """
+        Create a Google Doc for the brief.
+        Returns:
+          - URL string on success
+          - "ERROR:<message>" string if GAS bridge call fails
+          - "" if folder ID not configured
+        """
         if not self._brief_folder_id:
             return ""
 
-        # Build title: [Last Name(s)] - [Meeting Title] - [MM-DD-YYYY]
         last_names = []
         for a in attendees:
             name = a.get("name", "")
@@ -293,8 +289,9 @@ Rules: Be direct. Use bullets. Skip filler. Give Steven only what matters."""
             logger.info(f"[CallProcessor] Google Doc created: {result.get('url', '')}")
             return result.get("url", "")
         except Exception as e:
+            # Return error string instead of swallowing it silently
             logger.warning(f"[CallProcessor] Google Doc creation failed: {e}")
-            return ""
+            return f"ERROR:{e}"
 
     # ── Post-Call Processing ──────────────────────────────────────────────────
 
@@ -305,15 +302,6 @@ Rules: Be direct. Use bullets. Skip filler. Give Steven only what matters."""
     ) -> dict:
         """
         Full post-call processing pipeline triggered by Fireflies webhook or /call command.
-
-        Returns: {
-            telegram_summary: str,
-            recap_email: {subject, body},
-            salesforce_block: str,
-            outreach_row: dict,
-            draft_url: str,
-            error: str | None,
-        }
         """
         async def progress(msg: str):
             if progress_callback:
@@ -326,7 +314,6 @@ Rules: Be direct. Use bullets. Skip filler. Give Steven only what matters."""
         await progress(f"📥 Fetching Fireflies transcript `{transcript_id}`...")
 
         try:
-            from tools.fireflies import FirefliesError
             transcript_data = await asyncio.to_thread(
                 self.fireflies.get_transcript, transcript_id
             )
@@ -352,7 +339,6 @@ Rules: Be direct. Use bullets. Skip filler. Give Steven only what matters."""
         await progress("✍️ Drafting recap email in your voice...")
         recap_email = await asyncio.to_thread(self._draft_recap_email, extracted)
 
-        # Save recap email to Gmail Drafts
         draft_url = ""
         try:
             prospect_email = self._find_prospect_email(attendees)
@@ -363,14 +349,12 @@ Rules: Be direct. Use bullets. Skip filler. Give Steven only what matters."""
                     body=recap_email["body"],
                 )
                 draft_url = result.get("link", "https://mail.google.com/mail/u/0/#drafts")
-                await progress(f"✉️ Recap email saved to Gmail Drafts")
+                await progress("✉️ Recap email saved to Gmail Drafts")
         except Exception as e:
             logger.warning(f"[PostCall] Gmail draft failed: {e}")
 
-        # Build Salesforce copy-paste block
         salesforce_block = self._build_salesforce_block(extracted)
 
-        # Add contact to Outreach sheet
         outreach_row = self._build_outreach_row(extracted, attendees)
         if outreach_row and outreach_row.get("Email"):
             try:
@@ -398,13 +382,11 @@ Rules: Be direct. Use bullets. Skip filler. Give Steven only what matters."""
         attendees: list[dict],
         call_date: str,
     ) -> dict:
-        """Claude extracts structured sales intelligence from transcript. Runs in thread."""
         attendee_list = ", ".join(
             f"{a.get('name', '')} <{a.get('email', '')}>"
             for a in attendees
         )
 
-        # Cap transcript at 8000 chars to control token cost
         transcript_sample = transcript[:8000]
         if len(transcript) > 8000:
             transcript_sample += "\n...[truncated]"
@@ -454,7 +436,6 @@ Return ONLY valid JSON. No preamble, no explanation, no markdown fences."""
                 messages=[{"role": "user", "content": prompt}],
             )
             raw = response.content[0].text.strip()
-            # Strip accidental code fences
             raw = re.sub(r"^```(?:json)?\s*", "", raw)
             raw = re.sub(r"\s*```$", "", raw)
             return json.loads(raw)
@@ -466,8 +447,6 @@ Return ONLY valid JSON. No preamble, no explanation, no markdown fences."""
             return {"district": title, "_error": str(e)}
 
     def _draft_recap_email(self, data: dict) -> dict:
-        """Draft recap email in Steven's voice. Runs in thread."""
-        # Load voice profile
         voice_profile = ""
         try:
             with open("memory/voice_profile.md", "r", encoding="utf-8") as f:
@@ -534,7 +513,6 @@ Body:
             }
 
     def _build_salesforce_block(self, data: dict) -> str:
-        """Build a copy-paste ready Salesforce activity log block."""
         now = datetime.now(CST).strftime("%Y-%m-%d %H:%M CST")
 
         def val(key: str) -> str:
@@ -544,7 +522,7 @@ Body:
         ns = data.get("next_steps") or []
         next_steps_str = "\n".join(f"  - {s}" for s in ns) if ns else "  - N/A"
 
-        block = (
+        return (
             f"*━━━ Salesforce Activity Log ━━━*\n"
             f"```\n"
             f"Date: {now}\n"
@@ -568,17 +546,14 @@ Body:
             f"Reasoning: {val('temperature_reason')}\n"
             f"```"
         )
-        return block
 
     def _build_outreach_row(self, data: dict, attendees: list[dict]) -> dict:
-        """Build a contact row for the Google Sheet → Outreach.io bulk import."""
         prospect_email = data.get("contact_email") or self._find_prospect_email(attendees)
         contact_name = data.get("contact_name") or ""
 
         if not prospect_email and not contact_name:
             return {}
 
-        # Get name from attendees list if not in extracted data
         if not contact_name:
             for a in attendees:
                 if a.get("email") == prospect_email:
@@ -603,13 +578,10 @@ Body:
         }
 
     def _format_telegram_summary(self, data: dict, draft_url: str) -> str:
-        """Format the full post-call summary for Telegram."""
-
         def val(key: str) -> str:
             v = data.get(key)
             return str(v) if v and v not in (None, "not mentioned", "N/A") else "Not mentioned"
 
-        # Error fallback
         if data.get("_parse_error") or data.get("_error"):
             return (
                 f"⚠️ *Post-call summary extracted with issues*\n"
@@ -673,7 +645,6 @@ Body:
     # ── Utilities ─────────────────────────────────────────────────────────────
 
     def _serper_search(self, query: str, num: int = 5) -> list[dict]:
-        """Serper.dev search. Returns list of result dicts. Runs in thread."""
         if not self._serper_key:
             return []
         try:
@@ -690,13 +661,9 @@ Body:
             return []
 
     def _extract_org(self, attendees: list[dict], event: dict) -> str:
-        """Extract org/district name — prefer meeting title, fall back to email domain."""
-        # Meeting title often contains district name
         title = event.get("title", "")
         if title:
             return title
-
-        # Try email domain as hint
         for a in attendees:
             email = a.get("email", "")
             if email and "@codecombat.com" not in email:
@@ -706,7 +673,6 @@ Body:
         return ""
 
     def _find_prospect_email(self, attendees: list[dict]) -> str:
-        """Find the primary prospect (non-CodeCombat) email."""
         for a in attendees:
             email = a.get("email", "")
             if email and "@codecombat.com" not in email.lower():
