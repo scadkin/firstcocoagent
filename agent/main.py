@@ -1,6 +1,6 @@
 """
 agent/main.py
-Scout's entry point. Phase 3: Gmail + Calendar + Slides via GAS bridge.
+Scout's entry point. Phase 5: Full Call Intelligence Suite.
 """
 
 import asyncio
@@ -472,7 +472,11 @@ async def execute_tool(tool_name: str, tool_input: dict) -> str:
             return "FIREFLIES_API_KEY not set in Railway. See docs/SETUP_PHASE5.md."
 
         fireflies = FirefliesClient(api_key=FIREFLIES_API_KEY)
-        processor = CallProcessor(gas_bridge=gas, memory_manager=memory, fireflies_client=fireflies)
+
+        try:
+            processor = CallProcessor(gas_bridge=gas, memory_manager=memory, fireflies_client=fireflies)
+        except Exception as e:
+            return f"❌ Could not initialize call processor: {e}"
 
         await send_message("Processing transcript " + transcript_id + "... This takes 30-60 seconds.")
 
@@ -531,8 +535,12 @@ async def execute_tool(tool_name: str, tool_input: dict) -> str:
             if not attendees:
                 attendees = [{"name": "Prospect", "email": ""}]
 
-        processor = CallProcessor(gas_bridge=gas, memory_manager=memory)
         mtitle = (target_event or {}).get("title", meeting_title or "your meeting")
+
+        try:
+            processor = CallProcessor(gas_bridge=gas, memory_manager=memory)
+        except Exception as e:
+            return f"❌ Could not initialize call processor: {e}"
 
         await send_message("Building pre-call brief for " + mtitle + "... Give me 30-60 seconds.")
 
@@ -574,18 +582,22 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_text = update.message.text.strip()
     logger.info(f"Received: {user_text}")
 
-    # Shorthand commands
+    # ── Command routing ────────────────────────────────────────────────────────
+    # Each branch either:
+    #   A) Handles the command directly and returns (fast path)
+    #   B) Rewrites user_text and falls through to Claude processing (slow path)
+    # ALL slow-path commands send an immediate ack before Claude is called.
+
     if user_text.lower() in ["/ping_gas", "/test_google", "test gas", "ping gas"]:
         user_text = "ping the GAS bridge"
+
     elif user_text.lower() in ["/train_voice", "train voice", "train my voice", "learn my style"]:
         user_text = "train your voice model from my Gmail history"
+
     elif user_text.lower() in ["/list_files", "/ls", "list files", "show repo files"]:
         user_text = "list all files in the repo root"
+
     elif user_text.lower().startswith("/push_code"):
-        # /push_code filepath — fetch-first workflow.
-        # 1. Immediately ack so Steven knows Scout heard him
-        # 2. Claude MUST call get_file_content, summarize, then ask for changes
-        # 3. Steven describes changes in plain English, Claude edits + pushes
         args = user_text[len("/push_code"):].strip()
         if args:
             await send_message(f"On it — fetching `{args}` from GitHub now...")
@@ -599,6 +611,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
         else:
             user_text = "Ask Steven which file he wants to update. Once he answers, immediately call get_file_content to fetch it, summarize it, then ask what changes he wants."
+
     elif user_text.lower() in ["/grade_draft", "grade draft", "grade that draft", "rate that draft"]:
         user_text = (
             "I want to give you feedback on the last email draft you wrote. "
@@ -621,23 +634,38 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         user_text = f"Build an email sequence{' for ' + args if args else ''}. Ask me for any details you need."
 
     elif user_text.lower().startswith("/brief"):
+        # Immediate ack BEFORE Claude processes — /brief takes 30-60 seconds
         args = user_text[len("/brief"):].strip()
+        await send_message(
+            "🔍 *On it!* Looking up your calendar and researching attendees...\n"
+            "This takes about 30-60 seconds."
+        )
         user_text = (
             "Use the get_pre_call_brief tool to generate a pre-call brief"
             + (" for the meeting: " + args if args else " for my next upcoming Zoom meeting") + "."
         )
 
-    elif user_text.lower() in ["/recent_calls", "recent calls", "list calls", "show calls"]:
+    elif user_text.lower().startswith("/recent_calls") or user_text.lower() in ["recent calls", "list calls", "show calls"]:
+        # Parse optional number argument: /recent_calls 10
+        num = 5  # default
+        raw = user_text.lower().replace("/recent_calls", "").strip()
+        if raw.isdigit():
+            num = max(1, min(int(raw), 20))  # clamp between 1 and 20
+
         if not FIREFLIES_API_KEY:
-            await send_message("FIREFLIES_API_KEY not set in Railway. See docs/SETUP_PHASE5.md.")
+            await send_message("❌ FIREFLIES_API_KEY not set in Railway. See docs/SETUP_PHASE5.md.")
             return
+
+        await send_message(f"📞 Fetching your {num} most recent external calls from Fireflies...")
+
         try:
             from tools.fireflies import FirefliesClient
-            client = FirefliesClient(api_key=FIREFLIES_API_KEY)
-            transcripts = client.get_recent_transcripts(limit=5)
-            msg = client.format_recent_for_telegram(transcripts)
+            ff_client = FirefliesClient(api_key=FIREFLIES_API_KEY)
+            transcripts = ff_client.get_recent_transcripts(limit=num, filter_internal=True)
+            msg = ff_client.format_recent_for_telegram(transcripts)
         except Exception as e:
-            msg = "Could not fetch Fireflies transcripts: " + str(e)
+            msg = "❌ Could not fetch Fireflies transcripts: " + str(e)
+
         await send_message(msg)
         return
 
@@ -646,6 +674,8 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if "fireflies.ai" in args and "/transcript/" in args:
             args = args.split("/transcript/")[-1].split("/")[0].split("?")[0]
         if args:
+            # Immediate ack — transcript processing takes 30-60 seconds
+            await send_message(f"📞 Fetching transcript `{args}` from Fireflies...")
             user_text = "Use the process_call_transcript tool with transcript_id: " + args
         else:
             user_text = "Ask me for the transcript ID, or use /recent_calls to find one."
@@ -680,7 +710,17 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             + "\n\n[If this is a behavioral correction or preference, append [MEMORY_UPDATE: one sentence summary] to your response so it gets saved permanently.]"
         )
 
-    # Normal processing
+    # Normal processing — goes through Claude
+    # Send a quick ack if this looks like a command or a long task request
+    _is_command = user_text.startswith("/") or any(
+        kw in user_text.lower() for kw in [
+            "draft", "research", "sequence", "deck", "train", "brief", "build",
+            "create", "generate", "write", "log", "push", "fetch",
+        ]
+    )
+    if _is_command:
+        await send_message("⏳ Working on it...")
+
     text_response, conversation_history, tool_calls = process_message(
         user_message=user_text,
         history=conversation_history,
@@ -723,7 +763,8 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await send_message(_clean(text_response))
     elif tool_results:
         for r in tool_results:
-            await send_message(_clean(r))
+            if r:  # skip empty strings (tool already sent messages directly)
+                await send_message(_clean(r))
     else:
         await send_message("👍")
 
@@ -756,7 +797,6 @@ async def send_checkin():
     await send_message("📊 Hourly check-in — anything you need, Steven?")
 
 
-
 # ── Phase 5: Webhook transcript callback ──────────────────────────────────────
 
 async def _on_transcript_received(transcript_id: str):
@@ -770,7 +810,12 @@ async def _on_transcript_received(transcript_id: str):
         from tools.fireflies import FirefliesClient
         from agent.call_processor import CallProcessor
         fireflies = FirefliesClient(api_key=FIREFLIES_API_KEY)
-        processor = CallProcessor(gas_bridge=gas, memory_manager=memory, fireflies_client=fireflies)
+
+        try:
+            processor = CallProcessor(gas_bridge=gas, memory_manager=memory, fireflies_client=fireflies)
+        except Exception as e:
+            await send_message(f"❌ Could not initialize call processor: {e}")
+            return
 
         async def on_progress(msg):
             await send_message(msg)
@@ -852,7 +897,7 @@ async def _run_telegram_and_scheduler():
     await send_message(
         f"Scout is online — Phase 5 active.\n"
         f"{gas_status} | {ff_status}\n"
-        f"New: /brief | /recent_calls | /call [id] | /push_code works now"
+        f"Commands: /brief | /recent_calls [num] | /call [id] | /push_code [file]"
     )
 
     try:
@@ -893,4 +938,3 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
-
