@@ -1,98 +1,64 @@
-# MASTER.md — CodeCombat Sales Agent (firstcocoagent)
-**Last Updated:** 2026-02-28 (Phase 5 code complete — Fireflies setup pending)
-**Status:** Phase 1 ✅ | Phase 1.5 ✅ | Phase 2 ✅ | Phase 3 ✅ | Phase 4 ✅ | Phase 4.5 ✅ | Phase 5 ✅ | Phase 6 ⬜ Next
+# SCOUT — MASTER REFERENCE DOCUMENT
+*Last updated: 2026-03-01 — End of Phase 5 debugging session*
 
 ---
 
-## HOW TO RESUME IN A NEW CLAUDE CHAT
+## ⚡ RESUME POINT — START HERE IN NEXT CHAT
 
-Open a new chat in this Claude Project and say:
-**"Read MASTER.md and all project files. Phase 5 code is deployed. Continue with Fireflies setup and verification."**
+**Where we left off:** Phase 5 is live and mostly working. One outstanding issue remains.
 
-**Files to upload at the start of the new chat (fetch from GitHub repo):**
-- `MASTER.md` (this file)
-- `agent/main.py`
-- `agent/claude_brain.py`
-- `tools/gas_bridge.py`
-- `agent/call_processor.py`
-- `tools/fireflies.py`
-- `agent/memory_manager.py`
-- `agent/scheduler.py`
+### What's working ✅
+- `/recent_calls` — fetches most recent external calls (filters internal @codecombat.com meetings), one clean message, supports `/recent_calls 10` for custom count
+- `/brief` — generates pre-call brief, sends to Telegram. Content works. **Google Doc creation is failing silently.**
+- `/call [id]` — manual post-call transcript processing
+- Immediate ack system — Scout responds within 5 seconds for all commands
 
-Uploading these ensures Claude reads actual method signatures before writing any code that calls them. This is mandatory — see CRITICAL RULE below.
+### One outstanding fix — upload this file before continuing
+**File to upload:** `agent/call_processor.py` (already generated, ready to download from this chat)
+**Upload to:** GitHub → `agent/call_processor.py`
+**What it fixes:** Google Doc creation was silently failing and showing a misleading "PRECALL_BRIEF_FOLDER_ID not set" message even though the variable IS set. The fix surfaces the real error from GAS bridge so we can see exactly what's wrong.
+
+**After uploading and Railway redeploys:** Run `/brief` again. The bottom of the message will now show either:
+- `📄 [Open Google Doc](url)` → it's working, we're done
+- `⚠️ Google Doc creation failed: [actual error message]` → bring that error message into the new chat
+
+### Most likely cause of Google Doc failure
+The `createGoogleDoc` action in `Code.gs` either:
+1. Was never saved/deployed after being added, OR
+2. Was added but a **new deployment** was not created after saving (every Code.gs change needs a new deployment + Railway URL update)
+
+Check script.google.com → Scout Bridge → Code.gs and confirm the `createGoogleDoc` case exists. If it does, create a new deployment and update `GAS_WEBHOOK_URL` in Railway.
+
+### Files to share with new chat
+Yes — upload these files at the start of the new chat so Claude can read them before writing anything:
+1. `agent/main.py`
+2. `agent/call_processor.py`
+3. `tools/fireflies.py`
+4. `gas/Code.gs`
+
+These are the four files most likely to be touched next. Claude will read them before writing any code.
 
 ---
 
-## CURRENT STATUS — WHERE WE LEFT OFF
+## 0. CRITICAL RULES FOR CLAUDE
 
-**Phase 5 code is fully deployed.** Fireflies account setup and end-to-end verification still needed.
+**Before writing any code that calls an existing module:**
+Read that module first using the file tools. Every crash in this project has been caused by hallucinated method names or wrong signatures. There are no exceptions to this rule.
 
-### What was built and deployed in Phase 5 (this session):
-- `tools/fireflies.py` — Fireflies GraphQL API client (FirefliesClient class)
-- `agent/call_processor.py` — Pre-call brief research + post-call transcript processing engine
-- `agent/webhook_server.py` — aiohttp server for Fireflies webhook (POST /fireflies-webhook, GET /health)
-- `tools/gas_bridge.py` — Added `create_google_doc()` method
-- `agent/claude_brain.py` — Added 3 new tools: `get_file_content`, `process_call_transcript`, `get_pre_call_brief`
-- `agent/main.py` — Full Phase 5 rewrite: asyncio.gather, webhook + Telegram loop, all Phase 5 handlers
-- `gas/Code.gs` — Added `createGoogleDoc` action + function
+**Always produce complete replacement files.**
+Steven is a beginner — never give partial snippets or "find line X and replace" instructions. Always generate the full file so he can upload it directly.
 
-### Bug fixes deployed this session:
-- `ImportError: FIREFLIES_API_KEY from agent.config` → Read from `os.environ` directly in `main.py`
-- `ModuleNotFoundError: aiohttp` → Added `aiohttp` to `requirements.txt`
-- `❓ Unknown tool: get_file_content` → Handler was missing from `execute_tool()` in `main.py`
-- `/push_code` didn't ack or summarize → Added immediate ack message + step-by-step Claude prompt
-- Scout ending messages with "On it." → Added `_clean()` stripper before every `send_message()` call
-- Behavioral corrections not saving to memory → Added correction signal detection that prompts Claude to append `[MEMORY_UPDATE]`
-- `main.py` corrupted by repeated patch attempts → Rebuilt cleanly from original with all changes in one pass
+**Lazy imports only for Phase 4+ modules.**
+`github_pusher`, `sequence_builder`, `fireflies`, `call_processor` are imported INSIDE `execute_tool()`, never at the top of `main.py`. Scout must boot cleanly even if those files are temporarily missing.
 
-### What still needs to happen to fully complete Phase 5:
-1. **Fireflies account setup** — per `docs/SETUP_PHASE5.md`:
-   - Create free account at app.fireflies.ai
-   - Connect Zoom (Settings → Integrations → Zoom)
-   - Get API key (Account → API Key) → add as `FIREFLIES_API_KEY` in Railway
-   - Set up webhook pointing to `https://[railway-url]/fireflies-webhook` with a secret → add as `FIREFLIES_WEBHOOK_SECRET` in Railway
-2. **Create "Scout Pre-Call Briefs" folder** in Google Drive (work account) → copy folder ID → add as `PRECALL_BRIEF_FOLDER_ID` in Railway
-3. **Update Code.gs in Google Apps Script** — paste new Code.gs content into script.google.com → New deployment → update `GAS_WEBHOOK_URL` in Railway
-4. **Verify webhook health** — `curl https://[railway-url]/health` → should return "Scout is alive"
-5. **Test /recent_calls** — confirms Fireflies API key is working
-6. **Test /brief** — manually trigger pre-call brief for a calendar event
-7. **Test /call [id]** — manually process a transcript
-8. **Test auto-trigger** — verify Scout fires brief 10 min before a Zoom meeting
+**Tool results MUST always be appended to conversation history.**
+Every `tool_use` block must be immediately followed by a `tool_result` block in the next user message. Wrap every `execute_tool()` call in try/except so a result is always appended even if the tool throws. Without this, the next Claude API call will 400.
 
-### /push_code is now working correctly:
-- Scout immediately acks: "On it — fetching [file] from GitHub now..."
-- Scout calls `get_file_content` tool, fetches file, summarizes it
-- Scout asks "What changes would you like me to make?"
-- Steven describes changes in plain English
-- Scout edits and pushes — no pasting required
-- Tested and verified working this session
+**GAS bridge — every Code.gs edit needs a new deployment.**
+Editing Code.gs and saving is not enough. Must: Deploy → Manage deployments → Edit → New version → Deploy → Copy new URL → Update `GAS_WEBHOOK_URL` in Railway.
 
-### What was built in Phase 4.5:
-- `gas/Code.gs` — rewritten: `getSentEmails` now paginates (`page_start`, `page_size`), each email returns `is_reply` (bool) + `incoming_context` (the message Steven received, stripped/capped at 1500 chars). Thread context bundled inline — no extra round-trips. `ping` handler now hardcodes `"steven@codecombat.com"`.
-- `tools/gas_bridge.py` — added `get_sent_emails_page()` method for paginated batch fetching (returns full dict including `has_more`). Original `get_sent_emails()` preserved for backward compatibility.
-- `agent/voice_trainer.py` — full rewrite: fetches up to 2,000 emails in batches of 200, prioritizes reply+context pairs (60% of sample), formats prompt with `[REPLY]` / `[COLD]` labels. Sample size 40→80, token budget 80K→120K chars, months_back default 6→24.
-- `agent/main.py` — `/push_code` fetch-first workflow, immediate train_voice ack, `/grade_draft`, `/add_template` commands.
-
-### Voice training results:
-- `/train_voice` ran successfully: fetched 273 emails (242 replies with context, 31 cold), voice profile built and saved to `memory/voice_profile.md`
-- GAS bridge is live: `/ping_gas` → `✅ GAS Bridge connected! Running as: steven@codecombat.com`
-
-### CRITICAL RULE FOR ALL FUTURE CODING SESSIONS
-**Before writing any code that calls an existing module, read that module first.**
-Every crash in this project has been caused by hallucinated class names, wrong argument signatures, or missing methods.
-
-Specifically:
-- If code calls `memory.something()` → read `memory_manager.py` first
-- If code calls `research_queue.something()` → read `research_engine.py` first
-- If code calls `gas.something()` → read `gas_bridge.py` first
-- If code calls `trainer.something()` → read `voice_trainer.py` first
-- If code touches `main.py` → upload and read it before writing
-
-### GAS deployment reminder (hard-won)
-Every time Code.gs is edited, you MUST:
-1. Replace the `SECRET_TOKEN` placeholder with the actual token from Railway
-2. **New deployment** (Deploy → New deployment — NOT editing existing) → new URL
-3. Update `GAS_WEBHOOK_URL` in Railway env vars with the new URL
+**Telegram character limit awareness.**
+Never design workflows that require Steven to paste large amounts of text through Telegram. Use fetch-first patterns (Scout reads from GitHub, asks for changes in plain English).
 
 ### Telegram character limit — solved
 `/push_code filepath` tells Scout to fetch the file from GitHub itself, ask Steven what changes to make in plain English, then make and push the edits. Steven never pastes file content through Telegram.
@@ -127,7 +93,7 @@ Always-on AI sales assistant named **Scout** that:
 - **Pushes code to GitHub directly** (Phase 4 ✅)
 - **Builds multi-step Outreach.io sequences** (Phase 4 ✅)
 - **Voice profile from 273 paired emails with correction loop** (Phase 4.5 ✅)
-- **Call Intelligence Suite** (Phase 5 ⬜ — fully designed, ready to build)
+- **Call Intelligence Suite** (Phase 5 ✅ — live, Google Doc creation pending fix)
 
 ---
 
@@ -174,7 +140,7 @@ After-school centers, public libraries, homeschool co-ops, community education, 
 | Serper API | Google search for lead research | ~$10/mo | ✅ Active |
 | Google Sheets API | Lead list storage (personal account, service account) | Free | ✅ Active |
 | Google Apps Script ("Scout Bridge") | Bridge to work Gmail/Calendar/Slides/Docs — no IT approval needed | Free | ✅ Live |
-| Fireflies.ai | Zoom transcription + webhook | Free (800 min/mo) | ✅ Phase 5 — set up per SETUP_PHASE5.md |
+| Fireflies.ai | Zoom transcription + webhook | Free (800 min/mo) | ✅ Live — notetaker joins via Google Calendar sync |
 | Outreach.io | Email sequences | Existing plan — no API access | ✅ Active (CSV import only) |
 | Salesforce | CRM | Existing plan — no API access | ✅ Active (manual only) |
 | PandaDoc | Quote generation | Existing plan — no API access | ✅ Active (manual only) |
@@ -195,7 +161,7 @@ After-school centers, public libraries, homeschool co-ops, community education, 
 | 3 | Gmail Voice Training + Email Drafting + Calendar + Slides (GAS bridge) | ✅ Complete |
 | 4 | Scout Pushes Code to GitHub + Email Sequences | ✅ Complete |
 | 4.5 | Voice Trainer Upgrade (pagination, paired context, correction loop) | ✅ Complete |
-| 5 | Call Intelligence Suite (Fireflies + Pre-call Brief + Post-call Summary + Recap Email) | ✅ Complete |
+| 5 | Call Intelligence Suite (Fireflies + Pre-call Brief + Post-call Summary + Recap Email) | ✅ Live — Google Doc pending fix |
 | 6 | At-Scale Research + Campaign Engine | ⬜ Next |
 | 7 | Video Clips + Social Content (Descript) | ⬜ Optional |
 
@@ -212,20 +178,23 @@ firstcocoagent/
 │   ├── __init__.py
 │   ├── main.py                      ← Entry point. Scheduler poll loop. All tool dispatch.
 │   ├── config.py                    ← All env vars. Includes GAS_WEBHOOK_URL, GAS_SECRET_TOKEN.
-│   ├── claude_brain.py              ← Claude API + tool use + memory injection. 15 tools total.
+│   ├── claude_brain.py              ← Claude API + tool use + memory injection. 17 tools total.
 │   ├── memory_manager.py            ← Persistent memory: read/write/GitHub commit
 │   ├── scheduler.py                 ← CST-aware Scheduler class with check() method
 │   ├── keywords.py                  ← Full title/keyword/role list (Phase 2)
-│   └── voice_trainer.py             ← Paginated email fetch + paired context analysis (Phase 4.5)
+│   ├── voice_trainer.py             ← Paginated email fetch + paired context analysis (Phase 4.5)
+│   ├── call_processor.py            ← Phase 5: transcript → structured notes → summary → outputs
+│   └── webhook_server.py            ← Phase 5: aiohttp server to receive Fireflies webhook POST
 ├── tools/
 │   ├── __init__.py
 │   ├── telegram_bot.py
 │   ├── research_engine.py           ← Classes: ResearchJob, ResearchQueue. Singleton: research_queue.
 │   ├── contact_extractor.py         ← Claude-powered contact extraction (Phase 2)
 │   ├── sheets_writer.py             ← Module of functions (no class). write_contacts(), count_leads(), etc.
-│   ├── gas_bridge.py                ← GASBridge class: Gmail/Calendar/Slides (Phase 4.5 updated)
+│   ├── gas_bridge.py                ← GASBridge class: Gmail/Calendar/Slides/Docs (Phase 5 updated)
 │   ├── github_pusher.py             ← push_file(), list_repo_files(), get_file_content() (Phase 4)
-│   └── sequence_builder.py          ← build_sequence(), write_sequence_to_sheets(), format_for_telegram() (Phase 4)
+│   ├── sequence_builder.py          ← build_sequence(), write_sequence_to_sheets(), format_for_telegram() (Phase 4)
+│   └── fireflies.py                 ← Phase 5: Fireflies GraphQL API client
 ├── gas/
 │   └── Code.gs                      ← Google Apps Script — deployed at script.google.com as "Scout Bridge"
 ├── prompts/
@@ -241,19 +210,9 @@ firstcocoagent/
     ├── SETUP.md
     ├── SETUP_PHASE2.md
     ├── SETUP_PHASE3.md
+    ├── SETUP_PHASE5.md
     ├── CHANGELOG.md
     └── DECISIONS.md
-```
-
-**Phase 5 added (✅ all deployed):**
-```
-├── agent/
-│   ├── call_processor.py            ← Phase 5: transcript → structured notes → summary → outputs
-│   └── webhook_server.py            ← Phase 5: aiohttp server to receive Fireflies webhook POST
-├── tools/
-│   └── fireflies.py                 ← Phase 5: Fireflies GraphQL API client
-└── docs/
-    └── SETUP_PHASE5.md              ← Fireflies setup guide
 ```
 
 ---
@@ -276,11 +235,11 @@ firstcocoagent/
 | SERPER_API_KEY | (from serper.dev) | ✅ Set |
 | GOOGLE_SHEETS_ID | (from Sheet URL) | ✅ Set |
 | GOOGLE_SERVICE_ACCOUNT_JSON | (full JSON string, personal account) | ✅ Set |
-| GAS_WEBHOOK_URL | ✅ Set (update every time Code.gs is redeployed) | ✅ Set |
-| GAS_SECRET_TOKEN | ✅ Set (matches Code.gs) | ✅ Set |
-| FIREFLIES_API_KEY | (from app.fireflies.ai → Account → API) | ✅ Set per SETUP_PHASE5.md |
-| FIREFLIES_WEBHOOK_SECRET | (set in Fireflies webhook config, match in Railway) | ✅ Set per SETUP_PHASE5.md |
-| PRECALL_BRIEF_FOLDER_ID | (Google Drive folder ID for pre-call brief docs) | ✅ Set per SETUP_PHASE5.md |
+| GAS_WEBHOOK_URL | (update every time Code.gs is redeployed) | ✅ Set |
+| GAS_SECRET_TOKEN | (matches Code.gs) | ✅ Set |
+| FIREFLIES_API_KEY | (from app.fireflies.ai → Account → API) | ✅ Set |
+| FIREFLIES_WEBHOOK_SECRET | (set in Fireflies webhook config, must match Railway) | ✅ Set |
+| PRECALL_BRIEF_FOLDER_ID | (Google Drive folder ID — confirmed set correctly) | ✅ Set |
 
 ---
 
@@ -414,16 +373,11 @@ gas.search_inbox(query, max_results=10) -> list[dict]
 gas.get_calendar_events(days_ahead=7) -> list[dict]
 gas.log_call(contact_name, title, district, date_iso, duration_minutes, notes, outcome, next_steps) -> dict
 gas.create_district_deck(district_name, state, contact_name, contact_title, student_count, key_pain_points, products_to_highlight, case_study) -> dict
+gas.create_google_doc(title, content, folder_id) -> dict   # Phase 5 — returns {success, doc_id, url, title}
 ```
 
-**Phase 5 added to GASBridge:**
-```python
-gas.create_google_doc(title, content, folder_id) -> dict   # returns {success, doc_id, url, title}
-gas.search_inbox(query, max_results=10) -> list[dict]       # already existed — used for pre-call Gmail history
-```
-
-**Phase 5 will add to Code.gs:**
-- `createGoogleDoc` action — creates a new Google Doc in a specified Drive folder
+**Important: GAS bridge returns calendar event `guests` as plain email strings, NOT dicts.**
+Use `_parse_guests()` helper in `main.py` to normalize to `[{name, email}]` before using.
 
 ### VoiceTrainer — actual method signatures
 ```python
@@ -471,10 +425,10 @@ sequence_builder.format_for_telegram(campaign_name: str, steps: list[dict]) -> s
 ```
 
 ### IMPORTANT: Lazy imports
-Phase 4 modules (`github_pusher`, `sequence_builder`) are imported **inside** `execute_tool()`, not at the top of `main.py`. Scout boots cleanly even if files are temporarily missing. Don't move them to top-level imports. Phase 5 modules (`fireflies`, `call_processor`) must follow the same pattern.
+Phase 4+ modules (`github_pusher`, `sequence_builder`, `fireflies`, `call_processor`) are imported **inside** `execute_tool()`, not at the top of `main.py`. Scout boots cleanly even if files are temporarily missing. Never move them to top-level imports.
 
 ### IMPORTANT: /push_code fetch-first workflow
-`/push_code filepath` → Scout fetches file from GitHub, summarizes it, asks what changes Steven wants, makes edits, pushes. Steven never pastes file content through Telegram.
+`/push_code filepath` → Scout fetches file from GitHub, summarizes it, asks what changes Steven wants, makes edits, pushes. Steven never pastes file content through Telegram. Note: `/push_code` has never worked reliably — always generate full replacement files for Steven to upload manually instead.
 
 ---
 
@@ -499,212 +453,81 @@ Correction loop > raw email volume. Priority order:
 
 ---
 
-## 14. PHASE 5 — CALL INTELLIGENCE SUITE (⬜ Next — Fully Designed)
+## 14. PHASE 5 — CALL INTELLIGENCE SUITE (✅ Live — Google Doc pending fix)
 
-### Overview
-Phase 5 adds three integrated capabilities triggered around every Zoom call:
-1. **Pre-call brief** — 10 min before the call, sent to Telegram + saved as Google Doc
-2. **Post-call summary** — triggered by Fireflies webhook when call ends, sent to Telegram
-3. **Recap email draft** — auto-drafted to Gmail Drafts after every call
+### Status
+- `tools/fireflies.py` — deployed, working
+- `agent/call_processor.py` — deployed. **New version ready to upload** (surfaces Google Doc errors)
+- `agent/webhook_server.py` — deployed
+- `/recent_calls` — working ✅
+- `/brief` — working ✅ (Google Doc creation failing silently — fix pending)
+- `/call [id]` — working ✅
+- Auto-trigger (10-min pre-call brief) — code live, not yet tested
 
-### What Phase 5 does NOT include
-- No Salesforce API integration (no access) — Salesforce updates remain manual
-- No Outreach.io API integration (no access) — sequence adds remain manual via CSV
-- No PandaDoc API integration (no access) — quote generation remains manual
-- No general info email draft (not needed)
-- No grants/funding email draft (not needed)
-- No calendar event logging (the call is already on the calendar — no point logging it again)
+### Fireflies notes (hard-won)
+- Steven's Zoom integration was blocked by IT — using **Google Calendar sync** instead (Fireflies notetaker joins via calendar)
+- Fireflies GraphQL schema uses camelCase: `dateString` not `date`, `speakerName` not `speaker_name`
+- `participants` field = flat list of name strings (no emails)
+- `meeting_attendees` field = list of `{displayName, email}` objects — use this for email-based filtering
+- Internal meeting filter: if ALL `meeting_attendees` emails are @codecombat.com → skip
+- If even ONE external email present → keep the call
+- Fireflies only transcribes calls where the notetaker bot was present — recent calls missing from `/recent_calls` means the bot wasn't connected yet for those calls
 
-### Pre-Call Brief — Trigger and Delivery
-- **Trigger:** Scheduler checks Google Calendar every 30 seconds (already polling). When a Zoom meeting is found starting in 10 minutes, Scout fires the brief.
-- **Zoom detection:** Look for "zoom.us" in calendar event location or description
-- **Attendee filtering:** Exclude Steven (steven@codecombat.com) and anyone else with @codecombat.com email
-- **Delivery:** Telegram message + new Google Doc created in a dedicated Drive folder
-
-### Pre-Call Brief — Google Doc
-- Created fresh for every call (never overwritten)
-- Naming convention: `[Attendee Last Name(s)] - [Meeting Title] - [Date MM-DD-YYYY]`
-- Saved to a dedicated Google Drive folder: "Scout Pre-Call Briefs" (create folder first, hardcode folder ID in config or env var)
-- Created via new `createGoogleDoc` action in Code.gs → called via GASBridge
-
-### Pre-Call Brief — What Scout Researches
-For each non-CodeCombat attendee:
-- Serper search: name + title + org + LinkedIn profile
-- School/org website scrape: role confirmation, bio, background
-- Any recent press mentions or social presence
-
-For the district/org/company:
-- Enrollment size, grade levels, district budget indicators
-- Recent news (past 12 months): CS/STEM initiatives, grants received, technology purchases
-- State DOE: relevant CS/STEM funding initiatives, requirements
-- Any CodeCombat-relevant context (coding programs, makerspaces, esports, robotics)
-
-From Gmail (via GAS bridge search_inbox):
-- All email threads with attendee email addresses (past 12 months)
-- Any Salesforce notification emails mentioning the contact or district
-
-Selling potential estimate (Claude assessment):
-- Based on district enrollment → estimated license count and deal size
-- Based on budget signals found in research
-- Based on email history: have they requested a quote? demo? pricing?
-- Overall rating: Hot / Warm / Cold with reasoning
-
-### Post-Call Summary — Trigger
-- **Fireflies webhook** fires to Scout's Railway URL 2-3 minutes after call ends
-- Scout receives the webhook POST, validates the secret, pulls full transcript via Fireflies API
-- No manual trigger needed — fully automatic
-
-### Webhook Server Architecture
-Scout currently has no HTTP server — it's a Telegram polling loop. Phase 5 adds a lightweight **aiohttp web server** running in the same asyncio event loop alongside Telegram. Railway exposes a public port via the `PORT` environment variable.
-
+### FirefliesClient — actual method signatures
 ```python
-# webhook_server.py — listens on Railway's PORT
-# POST /fireflies-webhook → validates secret → queues transcript processing
-# GET /health → returns 200 (Railway health check)
+from tools.fireflies import FirefliesClient, FirefliesError
+
+client = FirefliesClient(api_key=FIREFLIES_API_KEY)
+client.get_transcript(transcript_id: str) -> dict
+# Returns: {id, title, date, duration, attendees: [{name, email}], transcript: str, summary: str, action_items: str, keywords: list}
+
+client.get_recent_transcripts(limit: int = 5, filter_internal: bool = True) -> list[dict]
+# Fetches 4x limit then filters, sorts most-recent-first
+
+client.format_recent_for_telegram(transcripts: list[dict]) -> str
 ```
 
-The aiohttp server and Telegram polling both run under `asyncio.gather()` in `main()`.
-
-### Post-Call Summary — What Claude Extracts from Transcript
-**About the prospect/call:**
-- School name(s), organization, district
-- License count wanted/needed (any number mentioned)
-- Grade levels they plan to use CodeCombat with
-- Student devices (Chromebook, iPad, Windows, etc.)
-- Implementation timeline (when they want to start)
-- Budget (any number or signal, even vague)
-- CodeCombat familiarity level (never heard of it / heard of it / used it / currently using it)
-- Teacher coding comfort level
-- Class setup (how many sections, students per class, how often they'd use it)
-- Their vision for what they want to do with it
-- Decision makers identified (who approves the purchase)
-- Who is in charge of CS for the district
-
-**Action items:**
-- Unanswered questions (things raised but not resolved during the call)
-- Clear next steps with owners and any dates mentioned
-- Task list for Steven — prioritized and actionable
-- Scout's suggestions — based on call content, what to emphasize next time, what to follow up on, any red flags or opportunities
-
-### Post-Call Outputs
-1. **Telegram message** — structured summary with all extracted info
-2. **Recap email draft** — saved to Gmail Drafts via GAS bridge
-   - Thanks them for their time
-   - Brief recap of what was discussed
-   - Clear next steps with expectations
-   - Written in Steven's voice using voice profile
-   - Subject: `Following up on our call — [District/Org Name]`
-3. **Salesforce Update Block** — formatted text block sent to Telegram, ready to paste into Salesforce opportunity description/activity log (manual paste, but pre-written)
-4. **Outreach.io row** — contact formatted and appended to Google Sheet (Leads or No Email tab) for bulk CSV import to Outreach.io sequences
-
-### New Files to Build (Phase 5)
-
-**`tools/fireflies.py`**
+### CallProcessor — actual method signatures
 ```python
-# Fireflies GraphQL API client
-class FirefliesClient:
-    def __init__(self, api_key: str)
-    def get_transcript(self, transcript_id: str) -> dict
-    # Returns: {id, title, date, duration, attendees: [{name, email}], transcript: str, summary: str}
-    def get_recent_transcripts(self, limit: int = 5) -> list[dict]
+from agent.call_processor import CallProcessor
+
+processor = CallProcessor(gas_bridge=gas, memory_manager=memory, fireflies_client=None)
+# IMPORTANT: reads PRECALL_BRIEF_FOLDER_ID from os.environ directly (not config.py)
+
+await processor.build_pre_call_brief(event: dict, attendees: list[dict], progress_callback=None) -> str
+await processor.process_transcript(transcript_id: str, progress_callback=None) -> dict
+# Returns: {telegram_summary, recap_email, salesforce_block, outreach_row, draft_url, error}
 ```
 
-**`agent/call_processor.py`**
+### _create_brief_doc return values (updated)
 ```python
-# Transcript → structured notes → all outputs
-class CallProcessor:
-    def __init__(self, gas_bridge, memory_manager, fireflies_client)
-    async def process_transcript(self, transcript_id: str, progress_callback=None) -> dict
-    async def build_pre_call_brief(self, event: dict, attendees: list[dict]) -> str
-    # event: calendar event dict from GASBridge.get_calendar_events()
-    # attendees: filtered list (no @codecombat.com)
-    # Returns: formatted brief text (also triggers Google Doc creation)
+# Returns one of:
+"https://docs.google.com/..."   # success — use as link
+"ERROR:<message>"               # GAS bridge failed — surface the message
+""                              # folder ID not configured
 ```
 
-**`agent/webhook_server.py`**
+### _parse_guests() helper in main.py
 ```python
-# aiohttp server for Fireflies webhook
-async def handle_fireflies_webhook(request) -> web.Response
-async def handle_health(request) -> web.Response
-async def start_webhook_server(port: int, process_callback) -> None
+# GAS bridge returns guests as plain email strings OR dicts — this normalises both
+def _parse_guests(raw_guests: list) -> list:
+    # Returns [{name, email}] with @codecombat.com filtered out
 ```
 
-### Updated Files (Phase 5)
+### What /brief does (use case)
+Manual command: send `/brief` 30-60 minutes before a prospect call to get a research brief.
+Auto-trigger: Scout watches calendar every 30s and fires automatically 10 minutes before any Zoom with external attendees. The auto-trigger is the main value — you don't have to remember to ask.
 
-**`agent/config.py`** — add:
-```python
-FIREFLIES_API_KEY = os.environ.get("FIREFLIES_API_KEY", "")
-FIREFLIES_WEBHOOK_SECRET = os.environ.get("FIREFLIES_WEBHOOK_SECRET", "")
-PRECALL_BRIEF_FOLDER_ID = os.environ.get("PRECALL_BRIEF_FOLDER_ID", "")  # Google Drive folder ID
-```
-
-**`gas/Code.gs`** — add `createGoogleDoc` action:
-```javascript
-case "createGoogleDoc":
-  // Creates a new Google Doc in specified folder
-  // params: {title, content, folder_id}
-  // Returns: {success, doc_id, url, title}
-```
-
-**`agent/scheduler.py`** — add pre-call brief timing:
-- On each `check()` call, also scan next 7 days of calendar events
-- If a Zoom event starts in 9–11 minutes and brief hasn't been sent yet, return `"precall_brief"` event
-- Track which event IDs have already had briefs sent (avoid duplicate fires)
-
-**`agent/main.py`** — add:
-- `asyncio.gather()` to run webhook server + Telegram loop together
-- Handler for `"precall_brief"` scheduler event
-- Execute tool handlers for `process_call_transcript` and `get_pre_call_brief`
-- Lazy imports: `from tools.fireflies import FirefliesClient` and `from agent.call_processor import CallProcessor` inside execute_tool()
-- `/brief [zoom_url or meeting_title]` command — manually trigger pre-call brief for a specific meeting
-- `/recent_calls` command — list recent Fireflies transcripts
-
-**`agent/claude_brain.py`** — add tools:
-```python
-{
-    "name": "process_call_transcript",
-    "description": "Process a Fireflies call transcript. Use when webhook fires or Steven sends /call.",
-    "input_schema": {
-        "transcript_id": str,  # Fireflies transcript ID
-    }
-}
-{
-    "name": "get_pre_call_brief",
-    "description": "Generate a pre-call brief for an upcoming meeting. Use when Steven sends /brief.",
-    "input_schema": {
-        "meeting_title": str,   # optional — searches calendar if provided
-        "attendee_emails": list  # optional — if Steven specifies
-    }
-}
-```
-
-### New Shorthand Commands (Phase 5)
-| Command | What it does |
-|---------|-------------|
-| `/brief [meeting name]` | Manually trigger pre-call brief for a specific meeting |
-| `/recent_calls` | List 5 most recent Fireflies transcripts |
-| `/call [transcript_id or fireflies_url]` | Manually trigger post-call processing for a specific transcript |
-
-### Fireflies Setup (Steven's steps — documented in SETUP_PHASE5.md)
-**Status: ⬜ Pending — code deployed, account not yet configured**
-1. Create free account at app.fireflies.ai
-2. Connect Zoom (Settings → Integrations → Zoom)
-3. Get API key: Account → API Key
-4. Set up webhook: Settings → Webhooks → add Railway URL → `https://[your-railway-url]/fireflies-webhook`
-5. Set webhook secret (any random string — must match `FIREFLIES_WEBHOOK_SECRET` in Railway)
-6. Add `FIREFLIES_API_KEY` and `FIREFLIES_WEBHOOK_SECRET` to Railway env vars
-7. Create "Scout Pre-Call Briefs" folder in Google Drive → copy folder ID → add as `PRECALL_BRIEF_FOLDER_ID` in Railway
-
-### Railway env vars to add (Phase 5)
-| Variable | Source |
-|----------|--------|
-| `FIREFLIES_API_KEY` | app.fireflies.ai → Account → API Key |
-| `FIREFLIES_WEBHOOK_SECRET` | Your choice — set same value in Fireflies webhook config |
-| `PRECALL_BRIEF_FOLDER_ID` | Google Drive folder ID from URL of "Scout Pre-Call Briefs" folder |
+### /recent_calls command
+- `/recent_calls` — fetch 5 most recent external calls
+- `/recent_calls 10` — fetch 10 (any number 1-20)
+- Filters out internal meetings (all-codecombat.com attendees)
+- Sorted most-recent-first
+- Note: only shows calls where Fireflies notetaker was present
 
 ---
 
-## 15. ALL CLAUDE TOOLS (15 current + 2 planned in Phase 5)
+## 15. ALL CLAUDE TOOLS (17 total)
 
 | Tool | Phase | Handler in main.py |
 |------|-------|-------------------|
@@ -719,6 +542,7 @@ case "createGoogleDoc":
 | `create_district_deck` | 3 | ✅ |
 | `push_code` | 4 | ✅ |
 | `list_repo_files` | 4 | ✅ |
+| `get_file_content` | 4 | ✅ |
 | `build_sequence` | 4 | ✅ |
 | `ping_gas_bridge` | 3 | ✅ |
 | `grade_draft` | 4.5 | ✅ (via /grade_draft shorthand) |
@@ -742,7 +566,7 @@ case "createGoogleDoc":
 | `looks good`, `save it`, `approved`, `use this` | (when pending draft exists) → save to Gmail |
 | `add email: addr@district.org` | (when pending draft exists) → set recipient |
 | `/brief [meeting name]` | manually trigger pre-call brief (Phase 5) |
-| `/recent_calls` | list recent Fireflies transcripts (Phase 5) |
+| `/recent_calls [num]` | list recent external Fireflies transcripts, optional count 1-20 |
 | `/call [transcript_id or url]` | manually trigger post-call processing (Phase 5) |
 
 ---
@@ -768,10 +592,11 @@ case "createGoogleDoc":
 | aiohttp alongside Telegram loop | Scout has no HTTP server — aiohttp runs in same asyncio event loop |
 | Pre-call brief as Google Doc | Steven can pull it up on second screen during the call |
 | Fresh Google Doc per call | Archive of all briefs; naming = attendee(s) + date |
-| No calendar event logging in Phase 5 | Call is already on the calendar — redundant and not asked for |
-| Outreach.io contacts via Google Sheet | CSV row appended to existing sheet; Steven does periodic bulk import |
-| Salesforce update as copy-paste block | No API, but Scout writes it pre-formatted so paste is instant |
-| Lazy imports for Phase 5 modules | Same pattern as Phase 4 — Scout boots cleanly before files exist |
+| Google Calendar sync for Fireflies | IT blocked Zoom integration; calendar sync achieves same result |
+| Always generate full replacement files | Steven is a beginner — never give partial snippets or line-by-line instructions |
+| Immediate ack within 5 seconds | Steven needs signal that Scout heard the command before long tasks run |
+| _parse_guests() normalises GAS guests | GAS returns guests as plain strings, not dicts — normalize at entry point |
+| tool_use always gets tool_result | Wrap every execute_tool() in try/except — history corruption causes 400 on next message |
 
 ---
 
@@ -813,6 +638,15 @@ case "createGoogleDoc":
 | Scout ending messages with "On it." | Claude's default response pattern — memory can't override hardcoded behavior | Added _clean() function that strips "On it." and "Let me know if..." before every send_message | ✅ Fixed |
 | Behavioral corrections not saving to memory | Claude didn't always tag corrections with [MEMORY_UPDATE] | Added correction_signals detector that appends memory save hint to user message | ✅ Fixed |
 | main.py corrupted from repeated patch attempts | Multiple incremental sed/replace operations left stray quote chars and broken f-strings | Rebuilt from original uploaded file with all changes in single clean pass | ✅ Fixed |
+| Fireflies 400 Bad Request on /recent_calls | Field name mismatches: date→dateString, attendees→participants, speaker_name→speakerName | Rewrote fireflies.py GraphQL queries with correct schema | ✅ Fixed |
+| /recent_calls sent two messages | Old container briefly responded during Railway redeploy | Moved to direct send_message flow with single return path | ✅ Fixed |
+| /recent_calls showing random old dates | Fireflies returns calls in arbitrary order | Added sort by dateString descending before returning | ✅ Fixed |
+| /brief completely silent after tool error | CallProcessor crash uncaught — tool_result never appended to history | Wrapped all execute_tool() calls in try/except; always append result | ✅ Fixed |
+| /brief 400 on follow-up message | tool_use block in history had no matching tool_result (history corrupted) | try/except guarantees tool_result always written; history auto-clears on 400 | ✅ Fixed |
+| /brief "str object has no attribute get" | GAS bridge returns guests as plain email strings, not dicts | Added _parse_guests() helper that handles both string and dict formats | ✅ Fixed |
+| ImportError: PRECALL_BRIEF_FOLDER_ID in call_processor | Imported from config.py which didn't have it | Changed to os.environ.get() directly | ✅ Fixed |
+| Google Doc silently skipped despite PRECALL_BRIEF_FOLDER_ID being set | Exception swallowed silently, fallback message blamed missing env var | _create_brief_doc now returns "ERROR:<msg>" string; build_pre_call_brief surfaces it | ⏳ Fix ready — upload call_processor.py |
+| internal meeting filter used hostEmail | hostEmail = codecombat.com on all calls; need to check if ANY attendee is external | Changed to check meeting_attendees[].email — skip only if ALL emails are @codecombat.com | ✅ Fixed |
 
 ---
 
@@ -840,18 +674,22 @@ case "createGoogleDoc":
 | 2026-02-28 | Bug fixes: GAS SECRET_TOKEN placeholder, /push_code Telegram truncation, /train_voice no ack, sample cap logic | Phase 4.5 |
 | 2026-02-28 | Phase 4.5 verified — /train_voice fetched 273 emails with paired context, voice profile rebuilt | Phase 4.5 ✅ |
 | 2026-02-28 | main.py: fetch-first /push_code, immediate train_voice ack, /grade_draft, /add_template | Phase 4.5 ✅ |
-| 2026-02-28 | Phase 5 fully designed: Call Intelligence Suite architecture, all decisions documented in MASTER.md | Phase 5 design ✅ |
+| 2026-02-28 | Phase 5 fully designed: Call Intelligence Suite architecture, all decisions documented | Phase 5 design ✅ |
 | 2026-02-28 | Phase 5 built: tools/fireflies.py, agent/call_processor.py, agent/webhook_server.py | Phase 5 |
 | 2026-02-28 | Phase 5: Code.gs updated with createGoogleDoc action | Phase 5 |
 | 2026-02-28 | Phase 5: gas_bridge.py create_google_doc(), claude_brain.py 2 new tools, main.py asyncio.gather | Phase 5 |
 | 2026-02-28 | Phase 5: SETUP_PHASE5.md written, MASTER.md updated | Phase 5 |
 | 2026-02-28 | Bug fixes: aiohttp missing, FIREFLIES_API_KEY ImportError, get_file_content handler missing | Phase 5 |
-| 2026-02-28 | /push_code fixed: immediate ack + step-by-step prompt forces correct fetch-first flow | Phase 5 |
-| 2026-02-28 | "On it." stripped from all outgoing messages via _clean() in handle_message | Phase 5 |
-| 2026-02-28 | Correction signal detection added — behavioral feedback now reliably triggers [MEMORY_UPDATE] | Phase 5 |
-| 2026-02-28 | get_file_content added as Claude tool in claude_brain.py (was only in github_pusher.py before) | Phase 5 |
-| 2026-02-28 | main.py rebuilt cleanly from source after corruption from multiple patch attempts | Phase 5 |
 | 2026-02-28 | Phase 5 code fully deployed — Fireflies account setup + verification pending | Phase 5 |
+| 2026-03-01 | Phase 5 debugging: Fireflies GraphQL schema fixed (dateString, participants, meeting_attendees) | Phase 5 |
+| 2026-03-01 | /recent_calls: single clean message, sort by date, internal meeting filter by attendee email | Phase 5 |
+| 2026-03-01 | /recent_calls: optional count argument (/recent_calls 10), capped 1-20 | Phase 5 |
+| 2026-03-01 | /brief: immediate ack within 5 seconds for all long-running commands | Phase 5 |
+| 2026-03-01 | /brief: fixed silent crash — PRECALL_BRIEF_FOLDER_ID read from os.environ not config.py | Phase 5 |
+| 2026-03-01 | /brief: fixed 400 on follow-up — try/except wraps all tool calls, tool_result always appended | Phase 5 |
+| 2026-03-01 | /brief: fixed "str has no attribute get" — _parse_guests() handles string and dict guest formats | Phase 5 |
+| 2026-03-01 | /brief working end-to-end — Google Doc creation still failing silently (fix generated, pending upload) | Phase 5 |
+| 2026-03-01 | call_processor.py updated: _create_brief_doc surfaces real error instead of generic fallback message | Phase 5 ⏳ |
 
 ---
 
