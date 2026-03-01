@@ -6,11 +6,12 @@ Phase 5: Call Intelligence Suite
 FirefliesClient fetches transcripts and recent call history.
 Used by call_processor.py and the webhook flow in main.py.
 
-Phase 5 fix: Updated field names to match Fireflies actual GraphQL schema.
+Phase 5 fixes:
   - date → dateString
-  - attendees { name email } → participants (flat string list)
+  - attendees { name email } → participants (flat name strings) + meeting_attendees (has emails)
   - speaker_name → speakerName
-  - Inlined variables directly into queries to avoid type errors
+  - Internal meeting filter: skips calls where ALL attendee emails are @codecombat.com
+  - Results sorted by dateString descending (most recent first)
 """
 
 import logging
@@ -19,6 +20,9 @@ import requests
 logger = logging.getLogger(__name__)
 
 FIREFLIES_API_URL = "https://api.fireflies.ai/graphql"
+
+# Any call where every attendee email matches one of these domains = internal, skip it
+INTERNAL_DOMAINS = ["codecombat.com"]
 
 
 class FirefliesClient:
@@ -56,6 +60,29 @@ class FirefliesClient:
 
         return data.get("data", {})
 
+    # ── Helpers ───────────────────────────────────────────────────────────────
+
+    def _is_internal(self, meeting_attendees: list) -> bool:
+        """
+        Returns True if every attendee with a known email is @codecombat.com.
+        A call with even ONE external email is considered external (keep it).
+        If no emails are available at all, assume external (keep it).
+        """
+        emails = [
+            (a.get("email") or "").lower().strip()
+            for a in (meeting_attendees or [])
+            if a.get("email")
+        ]
+
+        if not emails:
+            # No email data — can't determine, so keep it
+            return False
+
+        return all(
+            any(domain in email for domain in INTERNAL_DOMAINS)
+            for email in emails
+        )
+
     # ── Public methods ────────────────────────────────────────────────────────
 
     def get_transcript(self, transcript_id: str) -> dict:
@@ -78,6 +105,10 @@ class FirefliesClient:
                 dateString
                 duration
                 participants
+                meeting_attendees {
+                    displayName
+                    email
+                }
                 sentences {
                     speakerName
                     text
@@ -106,9 +137,18 @@ class FirefliesClient:
 
         summary = t.get("summary") or {}
 
-        # participants is a flat list of strings — convert to dicts for compatibility
-        participants = t.get("participants") or []
-        attendees = [{"name": p, "email": ""} for p in participants]
+        # Prefer meeting_attendees (has emails) — fall back to participants (names only)
+        meeting_attendees = t.get("meeting_attendees") or []
+        if meeting_attendees:
+            attendees = [
+                {
+                    "name": a.get("displayName") or a.get("email", ""),
+                    "email": a.get("email", ""),
+                }
+                for a in meeting_attendees
+            ]
+        else:
+            attendees = [{"name": p, "email": ""} for p in (t.get("participants") or [])]
 
         return {
             "id": t.get("id", transcript_id),
@@ -122,11 +162,19 @@ class FirefliesClient:
             "keywords": summary.get("keywords") or [],
         }
 
-    def get_recent_transcripts(self, limit: int = 5) -> list[dict]:
+    def get_recent_transcripts(self, limit: int = 5, filter_internal: bool = True) -> list[dict]:
         """
-        Fetch the most recent call transcripts.
-        Returns list of {id, title, dateString, duration, participants}.
+        Fetch the most recent external call transcripts.
+
+        limit:           How many results to return after filtering.
+        filter_internal: If True, skips calls where every attendee email is @codecombat.com.
+                         A call with even one external email is kept.
+
+        Fetches 4x the requested limit first so filtering doesn't leave us short,
+        then sorts by dateString descending (most recent first).
         """
+        fetch_limit = limit * 4 if filter_internal else limit
+
         query = """
         query {
             transcripts(limit: %d) {
@@ -135,31 +183,59 @@ class FirefliesClient:
                 dateString
                 duration
                 participants
+                meeting_attendees {
+                    displayName
+                    email
+                }
             }
         }
-        """ % limit
+        """ % fetch_limit
 
         data = self._query(query)
-        return data.get("transcripts") or []
+        transcripts = data.get("transcripts") or []
+
+        # Sort most recent first
+        transcripts.sort(key=lambda t: t.get("dateString") or "", reverse=True)
+
+        # Filter out internal-only calls
+        if filter_internal:
+            transcripts = [
+                t for t in transcripts
+                if not self._is_internal(t.get("meeting_attendees") or [])
+            ]
+
+        return transcripts[:limit]
 
     def format_recent_for_telegram(self, transcripts: list[dict]) -> str:
         """Format recent transcript list as a clean, readable Telegram message."""
         if not transcripts:
-            return "📞 No recent Fireflies transcripts found."
+            return (
+                "📞 No recent external calls found in Fireflies.\n\n"
+                "If you expected results, make sure the Fireflies notetaker joined your Zoom calls."
+            )
 
-        lines = [f"📞 *Recent Calls — Last {len(transcripts)}*\n"]
+        lines = [f"📞 *Recent External Calls — {len(transcripts)} most recent*\n"]
 
         for i, t in enumerate(transcripts, 1):
             title = t.get("title") or "Untitled"
             transcript_id = t.get("id") or "?"
-            date_str = (t.get("dateString") or "")[:10]  # YYYY-MM-DD only
-            duration_sec = t.get("duration") or 0
-            duration_min = round(duration_sec / 60)
+            date_str = (t.get("dateString") or "")[:10]
+            duration_min = round((t.get("duration") or 0) / 60)
 
-            participants = t.get("participants") or []
-            # Filter out empty strings, cap at 3 names
-            names = [p for p in participants if p and p.strip()][:3]
-            people = ", ".join(names) if names else "No participants listed"
+            # Prefer meeting_attendees emails, fall back to participants names
+            meeting_attendees = t.get("meeting_attendees") or []
+            if meeting_attendees:
+                # Show external attendee names/emails only
+                external = [
+                    a.get("displayName") or a.get("email", "")
+                    for a in meeting_attendees
+                    if not any(d in (a.get("email") or "").lower() for d in INTERNAL_DOMAINS)
+                ]
+                people = ", ".join(external[:3]) if external else "External attendee"
+            else:
+                # Fall back to raw participant names
+                names = [p for p in (t.get("participants") or []) if p and p.strip()][:3]
+                people = ", ".join(names) if names else "No participants listed"
 
             lines.append(
                 f"*{i}. {title}*\n"
