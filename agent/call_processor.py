@@ -15,6 +15,7 @@ All heavy HTTP work is run in asyncio.to_thread() so the event loop stays respon
 import asyncio
 import json
 import logging
+import os
 import re
 from datetime import datetime
 from typing import Optional, Callable
@@ -41,8 +42,8 @@ class CallProcessor:
         self.memory = memory_manager
         self.fireflies = fireflies_client
 
-# Lazy imports — PRECALL_BRIEF_FOLDER_ID read from env directly (not in config.py)
-        import os
+        # Phase 5 fix: PRECALL_BRIEF_FOLDER_ID is a Railway env var, not in config.py
+        # ANTHROPIC_API_KEY and SERPER_API_KEY ARE in config.py so import those normally
         from agent.config import ANTHROPIC_API_KEY, SERPER_API_KEY
         self._claude = Anthropic(api_key=ANTHROPIC_API_KEY)
         self._serper_key = SERPER_API_KEY
