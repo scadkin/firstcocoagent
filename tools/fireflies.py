@@ -14,7 +14,6 @@ Phase 5 fix: Updated field names to match Fireflies actual GraphQL schema.
 """
 
 import logging
-import re
 import requests
 
 logger = logging.getLogger(__name__)
@@ -126,7 +125,7 @@ class FirefliesClient:
     def get_recent_transcripts(self, limit: int = 5) -> list[dict]:
         """
         Fetch the most recent call transcripts.
-        Returns list of {id, title, date, duration, participants}.
+        Returns list of {id, title, dateString, duration, participants}.
         """
         query = """
         query {
@@ -144,22 +143,32 @@ class FirefliesClient:
         return data.get("transcripts") or []
 
     def format_recent_for_telegram(self, transcripts: list[dict]) -> str:
-        """Format recent transcript list for a Telegram message."""
+        """Format recent transcript list as a clean, readable Telegram message."""
         if not transcripts:
             return "📞 No recent Fireflies transcripts found."
 
-        lines = [f"📞 *Recent calls ({len(transcripts)}):*\n"]
-        for t in transcripts:
-            # participants is a flat list of name strings
+        lines = [f"📞 *Recent Calls — Last {len(transcripts)}*\n"]
+
+        for i, t in enumerate(transcripts, 1):
+            title = t.get("title") or "Untitled"
+            transcript_id = t.get("id") or "?"
+            date_str = (t.get("dateString") or "")[:10]  # YYYY-MM-DD only
+            duration_sec = t.get("duration") or 0
+            duration_min = round(duration_sec / 60)
+
             participants = t.get("participants") or []
-            participant_str = ", ".join(participants[:3]) or "unknown attendees"
-            duration_min = round((t.get("duration") or 0) / 60)
+            # Filter out empty strings, cap at 3 names
+            names = [p for p in participants if p and p.strip()][:3]
+            people = ", ".join(names) if names else "No participants listed"
+
             lines.append(
-                f"• *{t.get('title', 'Untitled')}*\n"
-                f"  `{t.get('id', '?')}`\n"
-                f"  {t.get('dateString', '')[:10]} · {duration_min}min · {participant_str}"
+                f"*{i}. {title}*\n"
+                f"📅 {date_str}  🕐 {duration_min} min\n"
+                f"👥 {people}\n"
+                f"ID: `{transcript_id}`\n"
             )
-        lines.append("\nUse `/call [id]` to process any of these.")
+
+        lines.append("To process a call: `/call [ID]`")
         return "\n".join(lines)
 
 
