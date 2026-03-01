@@ -63,6 +63,26 @@ def get_voice_trainer():
     return VoiceTrainer(gas_bridge=gas, memory_manager=memory)
 
 
+def _parse_guests(raw_guests: list) -> list:
+    """
+    GAS bridge returns guests as either plain email strings OR dicts with {name, email}.
+    This helper normalises both formats into [{name, email}] dicts.
+    Filters out @codecombat.com addresses.
+    """
+    attendees = []
+    for g in (raw_guests or []):
+        if isinstance(g, dict):
+            email = g.get("email", "")
+            name = g.get("name", "") or email.split("@")[0]
+        else:
+            # Plain email string
+            email = str(g)
+            name = email.split("@")[0]
+        if email and "@codecombat.com" not in email.lower():
+            attendees.append({"email": email, "name": name})
+    return attendees
+
+
 # ── Research callbacks ────────────────────────────────────────────────────────
 
 async def _on_research_progress(message: str):
@@ -436,8 +456,9 @@ async def execute_tool(tool_name: str, tool_input: dict) -> str:
         if attendee_emails:
             attendees = [{"email": e, "name": e.split("@")[0]} for e in attendee_emails]
         else:
+            # _parse_guests handles both plain email strings and dicts from GAS bridge
             raw_guests = (target_event or {}).get("guests", [])
-            attendees = [g for g in raw_guests if "@codecombat.com" not in g.get("email","").lower()]
+            attendees = _parse_guests(raw_guests)
             if not attendees:
                 attendees = [{"name": "Prospect", "email": ""}]
         mtitle = (target_event or {}).get("title", meeting_title or "your meeting")
@@ -481,8 +502,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_text = update.message.text.strip()
     logger.info(f"Received: {user_text}")
 
-    # _ack_sent tracks whether we already sent an immediate acknowledgment.
-    # Prevents duplicate "⏳ Working on it..." when a command branch already sent its own ack.
     _ack_sent = False
 
     # ── Command routing ────────────────────────────────────────────────────────
@@ -546,18 +565,14 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
 
     elif user_text.lower().startswith("/recent_calls") or user_text.lower() in ["recent calls", "list calls", "show calls"]:
-        # Parse optional number: /recent_calls 10
         num = 5
         raw = user_text.lower().replace("/recent_calls", "").strip()
         if raw.isdigit():
             num = max(1, min(int(raw), 20))
-
         if not FIREFLIES_API_KEY:
             await send_message("❌ FIREFLIES_API_KEY not set in Railway.")
             return
-
         await send_message(f"📞 Fetching your {num} most recent external calls from Fireflies...")
-
         try:
             from tools.fireflies import FirefliesClient
             ff_client = FirefliesClient(api_key=FIREFLIES_API_KEY)
@@ -565,7 +580,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             msg = ff_client.format_recent_for_telegram(transcripts)
         except Exception as e:
             msg = f"❌ Could not fetch Fireflies transcripts: {e}"
-
         await send_message(msg)
         return
 
@@ -609,7 +623,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             + "\n\n[If this is a behavioral correction or preference, append [MEMORY_UPDATE: one sentence summary] to your response so it gets saved permanently.]"
         )
 
-    # General ack for task-style messages (only if we haven't already acked)
+    # General ack for task-style messages
     if not _ack_sent and any(
         kw in user_text.lower() for kw in [
             "draft", "research", "sequence", "deck", "train", "brief", "build",
@@ -627,13 +641,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         memory=memory,
     )
 
-    # Detect and recover from corrupted conversation history (tool_use without tool_result)
-    if "tool_use" in text_response and "tool_result" in text_response.lower():
-        logger.warning("Detected history corruption — clearing conversation history.")
-        conversation_history.clear()
-
     if text_response.startswith("❌ Claude API error"):
-        # If Claude 400'd due to corrupted history, clear it so next message works
         if "tool_use" in text_response and "tool_result" in text_response:
             logger.warning("400 tool_use error — clearing conversation history to recover.")
             conversation_history.clear()
@@ -651,7 +659,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         tool_results.append(result)
 
     # CRITICAL: Every tool_use block MUST have a matching tool_result in the next message.
-    # Without this, the next API call will 400.
     if tool_calls and tool_results:
         tool_result_content = [
             {
@@ -666,7 +673,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "content": tool_result_content,
         })
 
-    # Strip filler phrases
     def _clean(msg: str) -> str:
         msg = re.sub(r"\s*\bOn it[.!]*\s*$", "", msg, flags=re.IGNORECASE).strip()
         msg = re.sub(r"\s*Let me know if (you need|there's|you have).*$", "", msg, flags=re.IGNORECASE | re.DOTALL).strip()
@@ -676,7 +682,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await send_message(_clean(text_response))
     elif tool_results:
         for r in tool_results:
-            if r:  # skip empty strings — tool already sent messages directly
+            if r:
                 await send_message(_clean(r))
     else:
         await send_message("👍")
@@ -767,8 +773,9 @@ async def _check_precall_briefs(gas):
                 continue
             if 9 <= minutes_until <= 11:
                 _precall_briefs_sent.add(event_id)
-                all_guests = event.get("guests") or []
-                attendees = [g for g in all_guests if "@codecombat.com" not in g.get("email","").lower()]
+                raw_guests = event.get("guests") or []
+                # _parse_guests handles both plain email strings and dicts
+                attendees = _parse_guests(raw_guests)
                 if not attendees:
                     attendees = [{"name": "Prospect", "email": ""}]
                 await send_message(f"⏰ 10-minute warning: *{event.get('title','Zoom call')}*\nBuilding pre-call brief now...")
