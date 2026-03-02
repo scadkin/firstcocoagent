@@ -355,22 +355,12 @@ Rules: Be direct. Use bullets. Skip filler. Give Steven only what matters."""
 
         salesforce_block = self._build_salesforce_block(extracted)
 
-        outreach_row = self._build_outreach_row(extracted, attendees)
-        if outreach_row and outreach_row.get("Email"):
-            try:
-                import tools.sheets_writer as sheets_writer
-                sheets_writer.write_contacts([outreach_row])
-                await progress("📋 Contact added to Google Sheet for Outreach.io")
-            except Exception as e:
-                logger.warning(f"[PostCall] Sheet write failed: {e}")
-
         telegram_summary = self._format_telegram_summary(extracted, draft_url)
 
         return {
             "telegram_summary": telegram_summary,
             "recap_email": recap_email,
             "salesforce_block": salesforce_block,
-            "outreach_row": outreach_row,
             "draft_url": draft_url,
             "error": None,
         }
@@ -426,6 +416,8 @@ Return a JSON object with these exact keys (use null if not mentioned):
   "temperature": "Hot / Warm / Cold",
   "temperature_reason": "1-2 sentence reasoning"
 }}
+
+Keep all string field values concise — clean phrases under 80 characters. No parenthetical explanations inside field values. Use the cleanest version of names (e.g. "Oklahoma State University Academy" not "Oklahoma State University Academy (referenced as...)").
 
 Return ONLY valid JSON. No preamble, no explanation, no markdown fences."""
 
@@ -515,36 +507,38 @@ Body:
     def _build_salesforce_block(self, data: dict) -> str:
         now = datetime.now(CST).strftime("%Y-%m-%d %H:%M CST")
 
-        def val(key: str) -> str:
+        def val(key: str, max_len: int = 0) -> str:
             v = data.get(key)
-            return str(v) if v and v != "not mentioned" else "N/A"
+            s = str(v) if v and v != "not mentioned" else "N/A"
+            if max_len and len(s) > max_len:
+                return s[:max_len] + "…"
+            return s
 
+        temp_icon = {"Hot": "🔥", "Warm": "☀️", "Cold": "🧊"}.get(data.get("temperature", ""), "")
         ns = data.get("next_steps") or []
-        next_steps_str = "\n".join(f"  - {s}" for s in ns) if ns else "  - N/A"
+        next_steps_str = "\n".join(f"• {s}" for s in ns) if ns else "• N/A"
 
         return (
-            f"*━━━ Salesforce Activity Log ━━━*\n"
-            f"```\n"
-            f"Date: {now}\n"
-            f"Contact: {val('contact_name')} — {val('contact_title')}\n"
-            f"Email: {val('contact_email')}\n"
-            f"District: {val('district')}\n"
-            f"Temperature: {val('temperature')}\n"
+            f"*━━━ Salesforce Log ━━━*\n"
+            f"📅 {now}\n"
+            f"👤 *{val('contact_name')}* — {val('contact_title', 60)}\n"
+            f"📧 {val('contact_email')}\n"
+            f"🏫 {val('district', 60)}\n"
+            f"{temp_icon} *{val('temperature')}*\n"
             f"\n"
-            f"Key Info:\n"
-            f"  Grade Levels:  {val('grade_levels')}\n"
-            f"  License Count: {val('license_count')}\n"
-            f"  Timeline:      {val('implementation_timeline')}\n"
-            f"  Budget:        {val('budget_signal')}\n"
-            f"  Devices:       {val('device_type')}\n"
-            f"  CC Familiarity:{val('codecombat_familiarity')}\n"
+            f"*Key Info:*\n"
+            f"• Grades: {val('grade_levels', 60)}\n"
+            f"• Licenses: {val('license_count')}\n"
+            f"• Timeline: {val('implementation_timeline', 60)}\n"
+            f"• Budget: {val('budget_signal', 80)}\n"
+            f"• Devices: {val('device_type')}\n"
+            f"• CC Familiarity: {val('codecombat_familiarity', 60)}\n"
             f"\n"
-            f"Vision: {val('vision')}\n"
+            f"*Vision:* {val('vision', 150)}\n"
             f"\n"
-            f"Next Steps:\n{next_steps_str}\n"
+            f"*Next Steps:*\n{next_steps_str}\n"
             f"\n"
-            f"Reasoning: {val('temperature_reason')}\n"
-            f"```"
+            f"*Reasoning:* {val('temperature_reason', 150)}"
         )
 
     def _build_outreach_row(self, data: dict, attendees: list[dict]) -> dict:
@@ -578,9 +572,12 @@ Body:
         }
 
     def _format_telegram_summary(self, data: dict, draft_url: str) -> str:
-        def val(key: str) -> str:
+        def val(key: str, max_len: int = 0) -> str:
             v = data.get(key)
-            return str(v) if v and v not in (None, "not mentioned", "N/A") else "Not mentioned"
+            s = str(v) if v and v not in (None, "not mentioned", "N/A") else "—"
+            if max_len and len(s) > max_len:
+                return s[:max_len] + "…"
+            return s
 
         if data.get("_parse_error") or data.get("_error"):
             return (
@@ -590,51 +587,53 @@ Body:
                 + (f"\n✉️ [Recap email in Gmail Drafts]({draft_url})" if draft_url else "")
             )
 
-        lines = [
-            f"📞 *Post-Call Summary: {val('district')}*",
-            f"",
-            f"👤 *Contact:* {val('contact_name')} — {val('contact_title')}",
-            f"🌡️ *Temperature:* {val('temperature')} — {val('temperature_reason')}",
-            f"",
-            f"📊 *Intelligence Captured:*",
-            f"• Grade Levels: {val('grade_levels')}",
-            f"• Students/Licenses: {val('license_count')}",
-            f"• Devices: {val('device_type')}",
-            f"• Timeline: {val('implementation_timeline')}",
-            f"• Budget Signal: {val('budget_signal')}",
-            f"• CC Familiarity: {val('codecombat_familiarity')}",
-            f"• Teacher Comfort: {val('teacher_comfort')}",
-            f"• Vision: {val('vision')}",
-            f"• Decision Maker: {val('decision_makers')}",
-            f"",
-        ]
+        temp_icon = {"Hot": "🔥", "Warm": "☀️", "Cold": "🧊"}.get(data.get("temperature", ""), "🌡️")
+
+        lines = [f"📞 *Post-Call Summary: {val('district', 60)}*", ""]
+
+        # Contact line — name, title, email on next line if present
+        lines.append(f"👤 *{val('contact_name')}* — {val('contact_title', 60)}")
+        email = data.get("contact_email")
+        if email and email not in (None, "not mentioned", "N/A"):
+            lines.append(f"📧 {email}")
+
+        lines.append(f"{temp_icon} *{val('temperature')}* — {val('temperature_reason', 120)}")
+        lines.append("")
+
+        lines.append("📊 *Key Intel:*")
+        for key, label in [
+            ("grade_levels",             "Grades"),
+            ("license_count",            "Licenses"),
+            ("device_type",              "Devices"),
+            ("implementation_timeline",  "Timeline"),
+            ("budget_signal",            "Budget"),
+            ("codecombat_familiarity",   "CC Familiarity"),
+            ("teacher_comfort",          "Teacher Comfort"),
+            ("decision_makers",          "Decision Maker"),
+        ]:
+            lines.append(f"• {label}: {val(key, 80)}")
+        lines.append(f"• Vision: {val('vision', 160)}")
+        lines.append("")
 
         next_steps = data.get("next_steps") or []
         if next_steps:
             lines.append("✅ *Next Steps:*")
-            for s in next_steps:
-                lines.append(f"• {s}")
+            for s in next_steps[:5]:
+                lines.append(f"• {str(s)[:120]}")
             lines.append("")
 
         tasks = data.get("steven_tasks") or []
         if tasks:
-            lines.append("📋 *Your Task List:*")
-            for t in tasks:
-                lines.append(f"• {t}")
+            lines.append("📋 *Your Tasks:*")
+            for t in tasks[:5]:
+                lines.append(f"• {str(t)[:120]}")
             lines.append("")
 
         suggestions = data.get("scout_suggestions") or []
         if suggestions:
-            lines.append("💡 *Scout's Suggestions:*")
-            for s in suggestions:
-                lines.append(f"• {s}")
-            lines.append("")
-
-        unanswered = data.get("unanswered_questions") or []
-        if unanswered:
-            lines.append("❓ *Open Questions:*")
-            for q in unanswered:
-                lines.append(f"• {q}")
+            lines.append("💡 *Scout's Take:*")
+            for s in suggestions[:4]:
+                lines.append(f"• {str(s)[:120]}")
             lines.append("")
 
         if draft_url:
