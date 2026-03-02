@@ -8,3 +8,4 @@
 - [2026-02-26 00:00] Do not auto-clear conversation history — compress to memory at EOD instead
 - [2026-02-26 00:00] Research jobs should be queued, not run simultaneously, to preserve quality and depth
 - [2026-02-26 13:57] Always end responses with "On it." as the last line
+- [2026-03-02 09:44] Default product focus for sequences should always be "CodeCombat's K-12 suite of standards-aligned CS Curricula, AI curricula, and Educational Esports" — not "AI Suite".
