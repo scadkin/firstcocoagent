@@ -391,16 +391,18 @@ async def execute_tool(tool_name: str, tool_input: dict) -> str:
             return f"❌ Sequence generation failed: {result['error']}"
         steps = result["steps"]
         tg_text = sequence_builder.format_for_telegram(campaign_name, steps)
-        # Write to Google Doc via GAS bridge — no folder move, goes to Drive root
+        # Write to Google Doc via GAS bridge
         gas = get_gas_bridge()
-        doc_result = sequence_builder.write_sequence_to_doc(campaign_name, steps, gas, folder_id="")
+        doc_result = sequence_builder.write_sequence_to_doc(campaign_name, steps, gas)
         if doc_result["success"] and doc_result["url"]:
-            # Doc link goes FIRST so it's always visible even if preview is long
-            return f"📄 [Full sequence — {campaign_name}]({doc_result['url']})\n\n{tg_text}"
+            full_output = f"📄 [Full sequence — {campaign_name}]({doc_result['url']})\n\n{tg_text}"
         else:
             raw_error = doc_result.get("error", "unknown error")
             logger.error(f"Sequence doc creation failed: {raw_error}")
-            return f"{tg_text}\n\n⚠️ Doc creation failed: `{raw_error}`\n📋 Copy steps into Outreach.io manually."
+            full_output = f"{tg_text}\n\n⚠️ Doc creation failed: `{raw_error}`\n📋 Copy steps into Outreach.io manually."
+        # Send directly to Telegram — bypasses Claude so it can't rewrite the output
+        await send_message(full_output)
+        return "✅ Sequence built and sent above."
 
     elif tool_name == "process_call_transcript":
         try:
@@ -561,22 +563,18 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             if user_text.lower().startswith(prefix):
                 args = user_text[len(prefix):].strip()
                 break
-        if not args:
-            await send_message(
-                "What's the campaign? Include the role in the name.\n"
-                "Example: `/build_sequence CS Directors - Texas Spring 2026`"
-            )
-            return
-        campaign_name = args
-        # Infer role from part before first " - " separator
-        target_role = args.split(" - ")[0].strip() if " - " in args else args
-        result = await execute_tool("build_sequence", {
-            "campaign_name": campaign_name,
-            "target_role": target_role,
-        })
-        if result:
-            await send_message(result)
-        return
+        campaign_hint = f" for '{args}'" if args else ""
+        # Route through Claude so it asks clarifying questions before building.
+        # execute_tool sends the final result directly to Telegram — Claude won't rewrite it.
+        user_text = (
+            f"I want to build an email sequence{campaign_hint}. "
+            f"Before building, ask me all of these in one message: "
+            f"(1) Exact target role/title — if already clear from the campaign name, confirm it. "
+            f"(2) Number of steps — give a recommendation based on the scenario. "
+            f"(3) Primary CodeCombat product to highlight — or ask if I want to cover the full suite. "
+            f"(4) Any specific context: state CS requirements, budget timing, pain points, or scenario type (cold, post-demo, re-engagement, etc.). "
+            f"Once you have my answers, use the build_sequence tool."
+        )
 
     elif user_text.lower().startswith("/brief"):
         args = user_text[len("/brief"):].strip()

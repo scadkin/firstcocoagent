@@ -414,15 +414,16 @@ function jsonResponse(data, statusCode) {
 // ════════════════════════════════════════════════════════════
 
 /**
- * Creates a new Google Doc. Doc lands in Drive root (My Drive).
+ * Creates a new Google Doc, optionally moved to a Drive folder.
  * Phase 5+: Used for pre-call briefs and sequence docs.
  *
- * params: { title (str), content (str) }
+ * params: { title (str), content (str), folder_id (str, optional) }
  * Returns: { success, doc_id, url, title }
  */
 function createGoogleDoc(params) {
-  var title   = params.title   || "Scout Doc";
-  var content = params.content || "";
+  var title    = params.title    || "Scout Doc";
+  var content  = params.content  || "";
+  var folderId = params.folder_id || "";
 
   var doc   = DocumentApp.create(title);
   var docId = doc.getId();
@@ -432,6 +433,20 @@ function createGoogleDoc(params) {
   doc.saveAndClose();
 
   var url = "https://docs.google.com/document/d/" + docId + "/edit";
+
+  // Move to specified folder — wrapped in try/catch so doc creation never fails
+  // even if the folder move hits a permissions issue
+  if (folderId) {
+    try {
+      var file   = DriveApp.getFileById(docId);
+      var folder = DriveApp.getFolderById(folderId);
+      folder.addFile(file);
+      DriveApp.getRootFolder().removeFile(file);
+    } catch (moveErr) {
+      Logger.log("Folder move failed (doc still created): " + moveErr.toString());
+    }
+  }
+
   return { success: true, doc_id: docId, url: url, title: title };
 }
 

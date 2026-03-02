@@ -9,7 +9,8 @@ Each step supports an optional A/B variant for subject line / body testing.
 import json
 import logging
 import os
-from datetime import date
+from datetime import datetime
+import pytz
 from anthropic import Anthropic
 
 logger = logging.getLogger(__name__)
@@ -20,7 +21,8 @@ client = Anthropic()
 
 _HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 TEMPLATES_PATH = os.path.join(_HERE, "prompts", "sequence_templates.md")
-SEQUENCES_FOLDER_ID = os.environ.get("SEQUENCES_FOLDER_ID", "")  # optional Drive folder
+# Strip any URL query params (e.g. "?ths=true") — Railway value may be pasted from browser URL
+SEQUENCES_FOLDER_ID = os.environ.get("SEQUENCES_FOLDER_ID", "").split("?")[0].strip()
 
 # ── Products reference (from system.md) ─────────────────────────────────────
 
@@ -198,12 +200,15 @@ def write_sequence_to_doc(
     if not gas_bridge:
         return {"success": False, "url": "", "error": "GAS bridge not available"}
 
-    today = date.today().strftime("%Y-%m-%d")
+    cst = pytz.timezone("America/Chicago")
+    now_cst = datetime.now(cst)
+    today = now_cst.strftime("%Y-%m-%d")
+    time_str = now_cst.strftime("%I:%M %p CST").lstrip("0")
     doc_title = f"Sequence — {campaign_name} — {today}"
 
     lines = [
         f"# {campaign_name}",
-        f"Generated: {today}",
+        f"Generated: {today} at {time_str}",
         f"Steps: {len(steps)}",
         "",
         "---",
@@ -240,7 +245,7 @@ def write_sequence_to_doc(
         result = gas_bridge.create_google_doc(
             title=doc_title,
             content=content,
-            folder_id="",  # No folder move — lands in Drive root
+            folder_id=SEQUENCES_FOLDER_ID,
         )
         url = result.get("url", "")
         logger.info(f"Sequence doc created: {doc_title} → {url}")
