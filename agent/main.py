@@ -704,7 +704,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         msg = re.sub(r"\s*Let me know if (you need|there's|you have).*$", "", msg, flags=re.IGNORECASE | re.DOTALL).strip()
         return msg
 
-    if text_response:
+    if text_response and not tool_calls:
         await send_message(_clean(text_response))
     elif tool_results:
         for r in tool_results:
