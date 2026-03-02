@@ -365,7 +365,7 @@ async def execute_tool(tool_name: str, tool_input: dict) -> str:
         campaign_name = tool_input.get("campaign_name", "")
         target_role = tool_input.get("target_role", "")
         focus_product = tool_input.get("focus_product", "CodeCombat AI Suite")
-        num_steps = int(tool_input.get("num_steps", 4))
+        num_steps = int(tool_input.get("num_steps", 5))
         additional_context = tool_input.get("additional_context", "")
         if not campaign_name or not target_role:
             return "❌ Need at least `campaign_name` and `target_role` to build a sequence."
@@ -390,10 +390,15 @@ async def execute_tool(tool_name: str, tool_input: dict) -> str:
         if not result["success"]:
             return f"❌ Sequence generation failed: {result['error']}"
         steps = result["steps"]
-        saved_to_sheets = sequence_builder.write_sequence_to_sheets(campaign_name, steps)
-        sheets_note = "\n✅ Saved to *Sequences* tab in your sheet." if saved_to_sheets else ""
         tg_text = sequence_builder.format_for_telegram(campaign_name, steps)
-        return f"{tg_text}{sheets_note}\n\n📋 Paste each step into Outreach.io sequence editor."
+        # Write to Google Doc via GAS bridge
+        gas = get_gas_bridge()
+        doc_result = sequence_builder.write_sequence_to_doc(campaign_name, steps, gas)
+        if doc_result["success"] and doc_result["url"]:
+            doc_note = f"\n\n📄 [Full sequence doc]({doc_result['url']}) — copy steps into Outreach.io"
+        else:
+            doc_note = "\n\n📋 Copy each step into Outreach.io sequence editor."
+        return f"{tg_text}{doc_note}"
 
     elif tool_name == "process_call_transcript":
         try:

@@ -221,7 +221,7 @@ TOOLS = [
                 },
                 "num_steps": {
                     "type": "integer",
-                    "description": "Number of sequence steps (default 4: cold + 3 follow-ups)",
+                    "description": "Number of sequence steps. Default 5. Typical range 5-12. Ask Steven if not specified.",
                 },
                 "additional_context": {
                     "type": "string",
