@@ -66,6 +66,10 @@
 | Sequence Google Doc: DriveApp "Unexpected error while getting getFolderById" | DriveApp authorization not stable — throws even when called conditionally in GAS | Wrapped DriveApp folder-move block in try/catch in createGoogleDoc — doc creation succeeds regardless of folder move outcome | ✅ Fixed (pending GAS redeploy) |
 | Sequence Google Doc: silent error — no error surfaced to Telegram | Doc creation failure was caught, but error msg only reached Claude which paraphrased it | Added direct await send_message() for doc errors in execute_tool, bypassing Claude | ✅ Fixed |
 | Duplicate "Got it — building the sequence now." after sequence output | text_response (Claude's preamble text alongside tool_use block) sent to Telegram AFTER execute_tool already sent sequence directly — appeared out of order | Changed `if text_response:` → `if text_response and not tool_calls:` in handle_message. Suppresses Claude pre-tool chatter whenever a tool is being called. | ✅ Fixed |
+| Research job froze event loop — Scout unresponsive during research, heartbeat never fired | `_serper_batch()` used `requests.post()` + `time.sleep()` (synchronous) inside async function — blocks entire asyncio event loop | Replaced with `httpx.AsyncClient` + `await asyncio.sleep(0.3)` | ✅ Fixed |
+| Research job silent for 10+ minutes at Claude extraction pass | `extract_from_multiple()` in contact_extractor.py makes 30+ synchronous `client.messages.create()` calls — each blocks the event loop | Wrapped in `await loop.run_in_executor(None, extract_from_multiple, ...)` in `_layer9_claude_extraction()` | ✅ Fixed |
+| Sheet duplicates after re-running research on same district | Dedup key was `first\|last\|district` but Claude extractor varies district_name spelling (e.g. "Austin ISD" vs "Austin Independent School District") | Changed primary dedup key to email; falls back to `first\|last` for no-email contacts | ✅ Fixed |
+| Research Log tab always empty | `_on_research_complete` in main.py never called `sheets_writer.log_research_job()` | Added `log_research_job()` call with timing + layer stats in notes field | ✅ Fixed |
 
 ---
 
@@ -129,3 +133,13 @@
 | 2026-03-02 | Session 5: GAS redeploy completed — createGoogleDoc try/catch now live | Phase 6A |
 | 2026-03-02 | Session 5: /build_sequence fully verified end-to-end — questions, sequence, doc, correct folder | Phase 6A ✅ |
 | 2026-03-02 | Session 5: Bug fix — duplicate "Got it — building..." message after sequence output. Fixed with `if text_response and not tool_calls:` in handle_message (main.py line 707) | Phase 6A ✅ |
+| 2026-03-02 | Session 6: Phase 6B built — 4 new research layers (L11-L14), Serper safety cap 100 (enforced), "keep digging" command, enqueue_batch(), research_batch tool | Phase 6B |
+| 2026-03-02 | Session 6: Steven's sales territory saved to memory/preferences.md and committed to GitHub | Meta |
+| 2026-03-02 | Session 6: STATE_ABBREVIATIONS dict added to keywords.py for L13 state DOE searches | Phase 6B |
+| 2026-03-02 | Session 6: Bug fix — requests.post() + time.sleep() in _serper_batch() blocked asyncio event loop. Replaced with httpx.AsyncClient + await asyncio.sleep() | Phase 6B |
+| 2026-03-02 | Session 6: Bug fix — extract_from_multiple() makes 30+ synchronous Claude API calls — froze event loop ~10 min. Fixed with loop.run_in_executor(None, ...) in _layer9_claude_extraction() | Phase 6B |
+| 2026-03-02 | Session 6: Heartbeat added — asyncio task in ResearchQueue._worker() pings Telegram every 60s with elapsed time. Works now that event loop is unblocked. | Phase 6B |
+| 2026-03-02 | Session 6: Layer effectiveness tracking — _add_raw_from_serper() now takes layer_tag; url→layer dict built; layer_contact_counts included in result dict | Phase 6B |
+| 2026-03-02 | Session 6: Richer completion message — time elapsed, Serper queries, verified count, new-to-sheet, dupes skipped, per-layer contact breakdown | Phase 6B |
+| 2026-03-02 | Session 6: Bug fix — _on_research_complete never called log_research_job(). Research Log tab was always empty. Added call with notes field containing layer stats + timing. | Phase 6B |
+| 2026-03-02 | Session 6: Bug fix — sheet dedup keyed on first\|last\|district but Claude varies district_name spelling across runs → duplicates. Switched to email as primary key. | Phase 6B |

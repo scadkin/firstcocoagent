@@ -1,34 +1,44 @@
 # SCOUT — Claude Code Reference
-*Last updated: 2026-03-02 — Session 5*
+*Last updated: 2026-03-02 — Session 6*
 
 ---
 
 ## CURRENT STATE — update this after each session
 
-**Phase 6A fully verified ✅. Ready to build Phase 6B.**
+**Phase 6B fully built and pushed ✅. Pending end-to-end verification.**
 
 ### What was built/fixed this session
-- GAS redeploy completed: `createGoogleDoc` try/catch for DriveApp folder-move is now live
-- `/build_sequence` verified end-to-end: questions → build → Telegram preview → Google Doc link → doc lands in "Scout Built Sequences" folder
-- **Bug fix:** Duplicate "Got it — building the sequence now." message after sequence output. Root cause: `text_response` (Claude's preamble text sent alongside a tool_use block) was being sent to Telegram AFTER `execute_tool` had already sent the sequence directly. Fix: `if text_response and not tool_calls:` at line 707 of `agent/main.py`. Suppresses Claude's pre-tool chatter whenever a tool is being called.
+- **Phase 6B built:** 4 new research layers (L11 school staff, L12 board agendas, L13 state DOE, L14 conference presenters), `enqueue_batch()`, `research_batch` tool, Serper safety cap (100, enforced), "keep digging" command
+- **Critical bug fix:** `_serper_batch()` used `requests.post()` (synchronous) inside async code — froze entire event loop during all Serper queries. Replaced with `httpx.AsyncClient` + `await asyncio.sleep(0.3)`
+- **Critical bug fix:** Layer 9 (`_layer9_claude_extraction`) called `extract_from_multiple()` synchronously — 30+ blocking Claude API calls per page froze event loop for ~10 minutes. Fixed with `loop.run_in_executor(None, extract_from_multiple, ...)`
+- **Heartbeat:** 60s ping during research jobs via asyncio task in `_worker()` — fires independently now that event loop is unblocked
+- **Layer effectiveness tracking:** every `_add_raw_from_serper` call tagged with layer name; contacts attributed to source layer; `layer_contact_counts` in result dict
+- **Richer completion message:** time elapsed, Serper queries used, verified email count, new-to-sheet count, dupes skipped, per-layer contact breakdown
+- **Research Log fix:** `_on_research_complete` was never calling `sheets_writer.log_research_job()` — now fixed
+- **Dedup fix:** `sheets_writer.write_contacts()` previously keyed on `first|last|district` — Claude varies district name spelling across runs causing duplicates. Switched to email as primary dedup key (district-agnostic). Falls back to `first|last` for no-email contacts.
+- **Steven's sales territory** saved to `memory/preferences.md` and committed — Scout knows territory every session
+- **STATE_ABBREVIATIONS** added to `keywords.py` — used by L13 for state DOE `.us` domain searches
 
 ### Current status
 - `/recent_calls` ✅
 - `/call [id]` ✅
 - `/brief` (manual) ✅
 - Auto pre-call brief (10-min trigger) ✅
-- Fireflies webhook (auto on call end) ⏳ configured, pending first real external call
-- `/build_sequence` ✅ fully verified — questions, sequence, Google Doc, correct folder, clean output
+- Fireflies webhook ⏳ pending first real external call
+- `/build_sequence` ✅
+- Phase 6B code: ✅ built + pushed — **NOT YET VERIFIED end-to-end**
 
 ### Next step
-**Phase 6B — Research Engine Expansion.** Full plan in `/Users/stevenadkins/.claude/plans/glistening-jumping-teacup.md`.
-- 4 new search layers in `tools/research_engine.py` (L11: school staff, L12: board agendas, L13: state DOE, L14: conference presenters)
-- `enqueue_batch()` on `ResearchQueue` + `research_batch` tool wired into `claude_brain.py` + `main.py`
-- Configurable `SERPER_REQUESTS_PER_JOB` env var (default 22, up from hardcoded 15)
+**Verify Phase 6B end-to-end** after Railway deploys latest commit:
+1. Run a single district research with state — confirm heartbeat pings every 60s, completion message shows layer breakdown + time + queries
+2. Check Research Log tab has a new row
+3. Confirm no sheet duplicates
+4. Test batch: "Research Houston ISD Texas and Chicago Public Schools Illinois" → 2 jobs queued
+5. After verification → Phase 6C (Activity Tracking)
 
 ### Phase 6 plan
 - **6A** — Campaign Engine ✅ done
-- **6B** — Research Engine Expansion ← next
+- **6B** — Research Engine Expansion ✅ built, pending verification
 - **6C** — Activity Tracking + Analytics (activity_tracker.py, data-driven morning brief/EOD)
 - **6D** — Automation + Learning Loops (campaign_manager.py, Outreach CSV import, weekly review)
 
@@ -57,6 +67,14 @@
 **GAS deployment URL does NOT change when bumping version.** When you edit an existing deployment and increment the version, the Web App URL stays the same. Only Railway update needed is if you create a brand-new deployment (not an edit).
 
 **Suppress `text_response` when tool_calls are present.** In `handle_message`, use `if text_response and not tool_calls:` before sending Claude's text response. When Claude calls a tool, its preamble text ("Got it — building...") is noise — the tool output IS the response. This prevents duplicate/out-of-order messages for any tool that sends output directly to Telegram.
+
+**Never use `requests` or `time.sleep()` inside async functions.** Both are synchronous and freeze the entire asyncio event loop — blocking all Telegram processing, heartbeats, and scheduled tasks. Always use `httpx.AsyncClient` for HTTP and `await asyncio.sleep()` for delays.
+
+**Synchronous code called from async context must use `run_in_executor`.** If a module uses synchronous I/O (e.g. `anthropic.Anthropic().messages.create()` in `contact_extractor.py`), wrap calls in `await loop.run_in_executor(None, fn, args...)`. Never call blocking functions directly from an async method — they freeze the event loop even if wrapped in `asyncio.create_task()`.
+
+**Sheet dedup uses email as primary key.** `sheets_writer.write_contacts()` deduplicates by email first (district-agnostic), then falls back to `first|last` name for no-email contacts. Claude's extractor varies district_name spelling across runs so name+district keying caused duplicates.
+
+**Research completion always calls `log_research_job`.** `_on_research_complete` in `main.py` must call `sheets_writer.log_research_job()` after every successful job. Failure to log is silent — no error is thrown.
 
 ---
 
