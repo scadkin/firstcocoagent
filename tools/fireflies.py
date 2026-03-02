@@ -119,7 +119,7 @@ class FirefliesClient:
                     email
                 }
                 sentences {
-                    speakerName
+                    speaker_name
                     text
                 }
                 summary {
@@ -138,7 +138,7 @@ class FirefliesClient:
         # Flatten sentences into a single readable transcript string
         sentences = t.get("sentences") or []
         transcript_text = "\n".join(
-            f"{s.get('speakerName', 'Speaker')}: {s.get('text', '')}"
+            f"{s.get('speaker_name', 'Speaker')}: {s.get('text', '')}"
             for s in sentences
             if s.get("text", "").strip()
         )
