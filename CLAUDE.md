@@ -25,6 +25,13 @@
 ### Next phase
 Phase 6 — At-Scale Research + Campaign Engine
 
+**Phase 6 vision (Steven's goals):**
+- **Research engine expansion:** More layers per district/company — maximize leads per site, add new AI-powered contact discovery strategies, find more contacts per school/district/company
+- **Campaign engine:** Build email templates, snippets, and sequences for all use cases (roles, scenarios, FAQs, objections). Quick personalization at scale. High open/reply rates. Goals: book calls, keep opps warm, convert sales.
+- **Iteration + A/B testing:** Scout tracks what's working, makes suggestions, improves sequences over time based on feedback
+- **Daily activity tracking:** Leads found, people sequenced, calls made, opps updated, research requests made — Scout reports on these daily
+- **Automations:** The whole system runs and learns with minimal manual input
+
 ---
 
 ## CRITICAL RULES

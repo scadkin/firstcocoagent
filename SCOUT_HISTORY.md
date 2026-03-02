@@ -53,6 +53,13 @@
 | GAS createGoogleDoc permission error: DocumentApp.create not authorized | DocumentApp scope was never authorized — added after original GAS deployment | Added params = params \|\| {} to createGoogleDoc, ran manually in editor to trigger OAuth consent, created new GAS deployment | ✅ Fixed |
 | /brief: Claude responds with text describing tool instead of calling it | Conversation history accumulates; Claude hallucinates tool execution when history is long | /brief and /call now bypass Claude entirely — call execute_tool() directly like /recent_calls | ✅ Fixed |
 | /brief still failing after bypass fix | Root cause unknown — context exhausted before diagnosing | Next session: try /brief [meeting name], check Railway logs for actual exception | ⏳ Open |
+| /brief: Google Doc created but not in correct folder | GAS DriveApp scope never authorized — existing OAuth token predated DriveApp code | Revoked OAuth at myaccount.google.com/permissions; added explicit oauthScopes (incl. auth/drive) to appsscript.json; fresh deployment forced re-auth | ✅ Fixed |
+| /brief: Google Doc not moving to folder (DriveApp silent catch) | try/catch in createGoogleDoc swallowed DriveApp errors; only logged to GAS Logger | Removed silent catch — DriveApp errors now propagate to doPost handler and surface to Scout | ✅ Fixed |
+| Auto pre-call brief (10-min trigger) never fired | GAS getCalendarEvents returned Date.toString() non-ISO string; fromisoformat() always threw; except swallowed it silently | Changed getStartTime().toString() → toISOString() in Code.gs | ✅ Fixed |
+| /call [id]: 400 Bad Request with no useful message | raise_for_status() threw before response body was read; actual Fireflies error was lost | Fixed _query() to read response body on non-200 before raising FirefliesError | ✅ Fixed |
+| /call [id]: Fireflies 400 — invalid field summary { keywords } | keywords is not a valid subfield of summary in Fireflies GraphQL schema | Removed keywords from summary subquery; also removed from return dict (unused downstream) | ✅ Fixed |
+| /call [id]: Fireflies 400 — Cannot query field "speakerName" on type "Sentence" | Field renamed in Fireflies API — correct name is speaker_name | Renamed speakerName → speaker_name in query and transcript builder | ✅ Fixed |
+| /call [id]: transcript ID string interpolation in GraphQL query | Using %s interpolation is unsafe and can break on special chars | Switched get_transcript to use GraphQL variables: query GetTranscript($id: String!) | ✅ Fixed |
 
 ---
 
@@ -101,3 +108,9 @@
 | 2026-03-01 | /brief: Claude was responding with text instead of calling tool when history long — fixed by bypassing Claude | Phase 5 |
 | 2026-03-01 | /brief and /call now call execute_tool() directly like /recent_calls — no Claude routing for explicit commands | Phase 5 |
 | 2026-03-01 | /brief still failing after bypass fix — root cause unknown, context exhausted before diagnosing | Phase 5 ⏳ |
+| 2026-03-01 | Session 3: GAS DriveApp OAuth fixed — revoked old token, added explicit oauthScopes to appsscript.json, fresh deployment | Phase 5 |
+| 2026-03-01 | Session 3: Code.gs toISOString() fix — auto pre-call brief trigger now fires correctly | Phase 5 |
+| 2026-03-01 | Session 3: /call fixed — Fireflies schema: removed summary.keywords, speaker_name fix, GraphQL variables, better error handling | Phase 5 |
+| 2026-03-01 | Session 3: Post-call output reformatted — tighter Telegram summary, Salesforce block dropped code block, extraction prompt conciseness added | Phase 5 |
+| 2026-03-01 | Session 3: Outreach.io sheet write removed from post-call flow (_build_outreach_row kept for future use) | Phase 5 |
+| 2026-03-01 | Session 3: Phase 5 fully verified ✅ — all features working, Fireflies webhook configured (pending first real call) | Phase 5 ✅ |
