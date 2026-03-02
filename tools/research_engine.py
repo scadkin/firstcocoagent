@@ -20,11 +20,9 @@ Layers:
 
 import os
 import re
-import time
 import logging
 import asyncio
 import httpx
-import requests
 from bs4 import BeautifulSoup
 from urllib.parse import urljoin, urlparse
 from datetime import date
@@ -495,19 +493,19 @@ class ResearchJob:
                 continue
 
             try:
-                response = requests.post(
-                    SERPER_URL,
-                    headers={
-                        "X-API-KEY": SERPER_API_KEY,
-                        "Content-Type": "application/json"
-                    },
-                    json={"q": query, "num": 10},
-                    timeout=10
-                )
-                response.raise_for_status()
-                results.append(response.json())
-                self._serper_count += 1
-                time.sleep(0.3)  # rate limit courtesy
+                async with httpx.AsyncClient(timeout=10) as client:
+                    response = await client.post(
+                        SERPER_URL,
+                        headers={
+                            "X-API-KEY": SERPER_API_KEY,
+                            "Content-Type": "application/json"
+                        },
+                        json={"q": query, "num": 10},
+                    )
+                    response.raise_for_status()
+                    results.append(response.json())
+                    self._serper_count += 1
+                await asyncio.sleep(0.3)  # rate limit courtesy — non-blocking
             except Exception as e:
                 logger.error(f"Serper query failed: '{query}' — {e}")
                 results.append({})
