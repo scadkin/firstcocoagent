@@ -396,6 +396,8 @@ async def execute_tool(tool_name: str, tool_input: dict) -> str:
         doc_result = sequence_builder.write_sequence_to_doc(campaign_name, steps, gas)
         if doc_result["success"] and doc_result["url"]:
             doc_note = f"\n\n📄 [Full sequence doc]({doc_result['url']}) — copy steps into Outreach.io"
+        elif doc_result.get("error"):
+            doc_note = f"\n\n⚠️ Doc creation failed: {doc_result['error']}\n📋 Copy steps into Outreach.io manually."
         else:
             doc_note = "\n\n📋 Copy each step into Outreach.io sequence editor."
         return f"{tg_text}{doc_note}"
