@@ -1,36 +1,29 @@
 # SCOUT — Claude Code Reference
-*Last updated: 2026-03-01 — Session 2*
+*Last updated: 2026-03-01 — Session 3*
 
 ---
 
 ## CURRENT STATE — update this after each session
 
-**Phase 5 live. `/brief` still not working — root cause not yet isolated.**
+**Phase 5 fully verified. Ready for Phase 6 — At-Scale Research + Campaign Engine.**
 
 ### What was fixed this session
-- GAS `DocumentApp` OAuth scope: added `params = params || {};` to `createGoogleDoc` in Code.gs, ran function manually to trigger authorization, created new deployment
-- `/brief` was responding with Claude text instead of calling the tool (Claude hallucinating tool execution when conversation history is long/stale)
-- Fixed: `/brief` and `/call` now bypass Claude entirely and call `execute_tool()` directly — same pattern as `/recent_calls`
-- Migrated from MASTER.md → lean CLAUDE.md + SCOUT_HISTORY.md
+- `/brief` + Google Doc folder: GAS DriveApp scope was never authorized. Fixed by revoking existing OAuth at myaccount.google.com/permissions, adding explicit `oauthScopes` to `appsscript.json` (including `auth/drive`), and creating a fresh deployment. Docs now land in correct folder.
+- GAS `getCalendarEvents` returned `Date.toString()` (non-ISO) — auto pre-call brief was silently skipping every event on datetime parse. Fixed: `toISOString()`.
+- `/call [id]` Fireflies 400: removed invalid `summary { keywords }` subfield, `speakerName` → `speaker_name`, switched to GraphQL variables for safety. Also improved error handling to surface actual API error body.
+- Post-call output reformatted: tighter Telegram summary, Salesforce block dropped code block, extraction prompt now requests concise field values.
+- Outreach.io sheet write removed from post-call flow (`_build_outreach_row` method kept).
 
 ### Current status
-- `/recent_calls` ✅ working
-- `/call [id]` ✅ fixed (bypasses Claude)
-- `/brief` ❌ still failing after bypass fix — exact error unknown, context ran out before diagnosing
-- Immediate ack ✅ working
-- Google Doc OAuth ✅ authorized
+- `/recent_calls` ✅
+- `/call [id]` ✅
+- `/brief` (manual) ✅
+- Auto pre-call brief (10-min trigger) ✅
+- Google Doc → correct Drive folder ✅
+- Fireflies webhook (auto on call end) ⏳ configured, pending first real external call
 
-### Next debug step for `/brief`
-The bypass fix is deployed. When `/brief` is run now, `execute_tool("get_pre_call_brief", {})` is called directly. Most likely failure points in order:
-1. **No Zoom meeting found in calendar** — handler returns `"Could not find a Zoom meeting. Upcoming events: ..."` — this IS surfaced now
-2. **GAS bridge error on `get_calendar_events`** — would return `"❌ Could not fetch calendar: ..."`
-3. **CallProcessor import error** — would return `"agent/call_processor.py not found: ..."`
-4. **Something inside `build_pre_call_brief` failing silently** — check Railway logs
-
-Try: `/brief [exact meeting title]` to bypass Zoom detection and test with a specific meeting name.
-If that also fails, check Railway logs for the actual exception.
-
-**Next phase when `/brief` is resolved:** Phase 6 — At-Scale Research + Campaign Engine
+### Next phase
+Phase 6 — At-Scale Research + Campaign Engine
 
 ---
 
