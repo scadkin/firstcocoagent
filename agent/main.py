@@ -558,11 +558,11 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "🔍 *On it!* Looking up your calendar and researching attendees...\n"
             "This takes about 30-60 seconds. I'll send progress updates."
         )
-        _ack_sent = True
-        user_text = (
-            "Use the get_pre_call_brief tool to generate a pre-call brief"
-            + (" for the meeting: " + args if args else " for my next upcoming Zoom meeting") + "."
-        )
+        tool_input = {"meeting_title": args} if args else {}
+        result = await execute_tool("get_pre_call_brief", tool_input)
+        if result:
+            await send_message(result)
+        return
 
     elif user_text.lower().startswith("/recent_calls") or user_text.lower() in ["recent calls", "list calls", "show calls"]:
         num = 5
@@ -589,10 +589,12 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             args = args.split("/transcript/")[-1].split("/")[0].split("?")[0]
         if args:
             await send_message(f"📞 Got it — fetching transcript `{args}` from Fireflies...")
-            _ack_sent = True
-            user_text = "Use the process_call_transcript tool with transcript_id: " + args
+            result = await execute_tool("process_call_transcript", {"transcript_id": args})
+            if result:
+                await send_message(result)
         else:
-            user_text = "Ask me for the transcript ID, or use /recent_calls to find one."
+            await send_message("Give me the transcript ID, or use /recent_calls to find one.")
+        return
 
     elif _pending_draft and any(
         user_text.lower().startswith(t) for t in ["looks good", "save it", "save to gmail", "approved", "use this"]
