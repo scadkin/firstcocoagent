@@ -47,12 +47,21 @@ class FirefliesClient:
 
         try:
             r = self._session.post(FIREFLIES_API_URL, json=payload, timeout=30)
-            r.raise_for_status()
-            data = r.json()
         except requests.exceptions.Timeout:
             raise FirefliesError("Fireflies API timed out (>30s). Try again.")
         except requests.exceptions.RequestException as e:
             raise FirefliesError(f"Fireflies API request failed: {e}")
+
+        if not r.ok:
+            try:
+                error_body = r.json()
+                errors = error_body.get("errors", [])
+                msg = errors[0].get("message") if errors else r.text[:400]
+            except Exception:
+                msg = r.text[:400]
+            raise FirefliesError(f"Fireflies API {r.status_code} — {msg}")
+
+        data = r.json()
 
         if "errors" in data:
             msg = data["errors"][0].get("message", str(data["errors"]))
@@ -98,8 +107,8 @@ class FirefliesClient:
         }
         """
         query = """
-        query {
-            transcript(id: "%s") {
+        query GetTranscript($id: String!) {
+            transcript(id: $id) {
                 id
                 title
                 dateString
@@ -116,13 +125,12 @@ class FirefliesClient:
                 summary {
                     overview
                     action_items
-                    keywords
                 }
             }
         }
-        """ % transcript_id
+        """
 
-        data = self._query(query)
+        data = self._query(query, variables={"id": transcript_id})
         t = data.get("transcript")
         if not t:
             raise FirefliesError(f"Transcript '{transcript_id}' not found or not yet ready.")
@@ -159,7 +167,6 @@ class FirefliesClient:
             "transcript": transcript_text,
             "summary": summary.get("overview", ""),
             "action_items": summary.get("action_items", ""),
-            "keywords": summary.get("keywords") or [],
         }
 
     def get_recent_transcripts(self, limit: int = 5, filter_internal: bool = True) -> list[dict]:
