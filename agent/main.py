@@ -135,7 +135,7 @@ async def execute_tool(tool_name: str, tool_input: dict) -> str:
             progress_callback=_on_research_progress,
             completion_callback=_on_research_complete,
         )
-        return f"📋 Research queued for *{district}*. I'll update you when done."
+        return f"📋 Research queued for *{district}*. Full 14-layer run typically takes 5–10 minutes. I'll ping you every minute so you know it's still working."
 
     elif tool_name == "research_batch":
         targets = tool_input.get("targets", [])

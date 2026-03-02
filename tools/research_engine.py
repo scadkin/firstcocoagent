@@ -92,10 +92,8 @@ class ResearchJob:
 
     async def run(self) -> dict:
         """
-        Execute all 10 layers. Returns result summary dict.
+        Execute all 14 layers. Returns result summary dict.
         """
-        await self._progress(f"🔍 Starting research on **{self.district_name}**...")
-
         # Layer 1: Direct title search
         await self._layer1_direct_title_search()
 
@@ -665,6 +663,24 @@ class ResearchQueue:
         while not self._queue.empty():
             job = await self._queue.get()
             self._current_job = job["district_name"]
+            start_time = asyncio.get_event_loop().time()
+
+            # Heartbeat: send a "still working" ping every 60 seconds
+            async def _heartbeat(district_name: str, progress_callback, start: float):
+                try:
+                    while True:
+                        await asyncio.sleep(60)
+                        elapsed = int((asyncio.get_event_loop().time() - start) / 60)
+                        if progress_callback:
+                            await progress_callback(
+                                f"⏳ Still researching *{district_name}*... ({elapsed} min elapsed)"
+                            )
+                except asyncio.CancelledError:
+                    pass
+
+            heartbeat_task = asyncio.create_task(
+                _heartbeat(job["district_name"], job["progress_callback"], start_time)
+            )
 
             try:
                 engine = ResearchJob(
@@ -682,6 +698,7 @@ class ResearchQueue:
                         f"❌ Research job failed for {job['district_name']}: {e}"
                     )
             finally:
+                heartbeat_task.cancel()
                 self._current_job = None
                 self._queue.task_done()
 
