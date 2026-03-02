@@ -392,14 +392,16 @@ async def execute_tool(tool_name: str, tool_input: dict) -> str:
         steps = result["steps"]
         tg_text = sequence_builder.format_for_telegram(campaign_name, steps)
         # Write to Google Doc via GAS bridge
+        # Fall back to PRECALL_BRIEF_FOLDER_ID if no dedicated sequences folder is set
         gas = get_gas_bridge()
-        doc_result = sequence_builder.write_sequence_to_doc(campaign_name, steps, gas)
+        sequences_folder = os.environ.get("SEQUENCES_FOLDER_ID", "") or PRECALL_BRIEF_FOLDER_ID
+        doc_result = sequence_builder.write_sequence_to_doc(campaign_name, steps, gas, folder_id=sequences_folder)
         if doc_result["success"] and doc_result["url"]:
             doc_note = f"\n\n📄 [Full sequence doc]({doc_result['url']}) — copy steps into Outreach.io"
-        elif doc_result.get("error"):
-            doc_note = f"\n\n⚠️ Doc creation failed: {doc_result['error']}\n📋 Copy steps into Outreach.io manually."
         else:
-            doc_note = "\n\n📋 Copy each step into Outreach.io sequence editor."
+            raw_error = doc_result.get("error", "unknown error")
+            await send_message(f"⚠️ Doc creation failed — raw error:\n`{raw_error}`")
+            doc_note = "\n\n📋 Copy steps into Outreach.io manually."
         return f"{tg_text}{doc_note}"
 
     elif tool_name == "process_call_transcript":
