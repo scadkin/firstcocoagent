@@ -9,3 +9,4 @@
 - [2026-02-26 00:00] Research jobs should be queued, not run simultaneously, to preserve quality and depth
 - [2026-02-26 13:57] Always end responses with "On it." as the last line
 - [2026-03-02 09:44] Default product focus for sequences should always be "CodeCombat's K-12 suite of standards-aligned CS Curricula, AI curricula, and Educational Esports" — not "AI Suite".
+- [2026-03-02] Steven's sales territory: US states — IL, PA, OH, MI, CT, OK, MA, IN, NV, TN, NE, TX. Southern California — Los Angeles, San Diego, Orange, Riverside, San Bernardino, Kern, Ventura, Santa Barbara, San Luis Obispo, and Imperial counties. International — Canada, Mexico, and all South American countries. Always prioritize research, sequencing, and outreach within this territory. Flag if Steven asks to target districts outside it.
