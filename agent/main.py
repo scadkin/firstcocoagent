@@ -395,12 +395,12 @@ async def execute_tool(tool_name: str, tool_input: dict) -> str:
         gas = get_gas_bridge()
         doc_result = sequence_builder.write_sequence_to_doc(campaign_name, steps, gas, folder_id="")
         if doc_result["success"] and doc_result["url"]:
-            doc_note = f"\n\n📄 [Full sequence doc]({doc_result['url']}) — copy steps into Outreach.io"
+            # Doc link goes FIRST so it's always visible even if preview is long
+            return f"📄 [Full sequence — {campaign_name}]({doc_result['url']})\n\n{tg_text}"
         else:
             raw_error = doc_result.get("error", "unknown error")
-            await send_message(f"⚠️ Doc creation failed — raw error:\n`{raw_error}`")
-            doc_note = "\n\n📋 Copy steps into Outreach.io manually."
-        return f"{tg_text}{doc_note}"
+            logger.error(f"Sequence doc creation failed: {raw_error}")
+            return f"{tg_text}\n\n⚠️ Doc creation failed: `{raw_error}`\n📋 Copy steps into Outreach.io manually."
 
     elif tool_name == "process_call_transcript":
         try:
@@ -556,8 +556,27 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
 
     elif user_text.lower().startswith("/build_sequence") or user_text.lower().startswith("/sequence"):
-        args = user_text.split(" ", 1)[1].strip() if " " in user_text else ""
-        user_text = f"Build an email sequence{' for ' + args if args else ''}. Ask me for any details you need."
+        args = ""
+        for prefix in ["/build_sequence", "/sequence"]:
+            if user_text.lower().startswith(prefix):
+                args = user_text[len(prefix):].strip()
+                break
+        if not args:
+            await send_message(
+                "What's the campaign? Include the role in the name.\n"
+                "Example: `/build_sequence CS Directors - Texas Spring 2026`"
+            )
+            return
+        campaign_name = args
+        # Infer role from part before first " - " separator
+        target_role = args.split(" - ")[0].strip() if " - " in args else args
+        result = await execute_tool("build_sequence", {
+            "campaign_name": campaign_name,
+            "target_role": target_role,
+        })
+        if result:
+            await send_message(result)
+        return
 
     elif user_text.lower().startswith("/brief"):
         args = user_text[len("/brief"):].strip()
