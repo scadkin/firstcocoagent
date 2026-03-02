@@ -39,6 +39,28 @@ TOOLS = [
         "description": "Get current research job and queue depth.",
         "input_schema": {"type": "object", "properties": {}, "required": []},
     },
+    {
+        "name": "research_batch",
+        "description": "Research multiple school districts in batch. Use when Steven asks to research several districts at once, e.g. 'research Austin ISD, Houston ISD, and Dallas ISD'.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "targets": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "district_name": {"type": "string"},
+                            "state": {"type": "string"},
+                        },
+                        "required": ["district_name"],
+                    },
+                    "description": "List of districts to research. Include state when known.",
+                },
+            },
+            "required": ["targets"],
+        },
+    },
     # Phase 3: Voice Training
     {
         "name": "train_voice",

@@ -1,5 +1,5 @@
 """
-research_engine.py — Scout's 10-layer K-12 lead research engine.
+research_engine.py — Scout's 14-layer K-12 lead research engine.
 
 Layers:
   1. Serper: direct title search
@@ -10,7 +10,11 @@ Layers:
   6. Direct website scrape (BeautifulSoup)
   7. Keyword deep crawl across all pages found
   8. Email pattern inference
-  9. Claude extraction pass (all raw content)
+  11. Serper: school-level staff directories
+  12. Serper: board meeting / agenda mining
+  13. Serper: state DOE directory lookup
+  14. Serper: conference presenter search
+  9. Claude extraction pass (all raw content from L1-L8 + L11-L14)
   10. Dedup + confidence scoring
 """
 
@@ -34,6 +38,7 @@ from agent.keywords import (
     CTE_KEYWORDS,
     TARGET_DEPARTMENTS,
     EMAIL_PATTERNS,
+    STATE_ABBREVIATIONS,
 )
 from tools.contact_extractor import (
     extract_contacts,
@@ -53,7 +58,7 @@ HEADERS = {
 
 MAX_CRAWL_PAGES = 30          # max pages to crawl on district site
 CRAWL_DELAY = 0.5             # seconds between requests (be polite)
-SERPER_REQUESTS_PER_JOB = 15  # stay well under rate limits
+SERPER_REQUESTS_PER_JOB = int(os.environ.get("SERPER_REQUESTS_PER_JOB", "100"))  # safety cap; ~27 used in normal 14-layer run
 
 
 # ─────────────────────────────────────────────
@@ -66,7 +71,7 @@ class ResearchJob:
     Call run() to execute. Progress callback fires at key milestones.
     """
 
-    def __init__(self, district_name: str, state: str, progress_callback=None):
+    def __init__(self, district_name: str, state: str, progress_callback=None, serper_cap_override: int = None):
         self.district_name = district_name
         self.state = state
         self.progress_callback = progress_callback  # async func(message: str)
@@ -78,6 +83,12 @@ class ResearchJob:
         self.district_domain: str = ""
         self.known_emails: list[str] = []
         self.email_pattern: str = ""
+
+        # Serper safety cap
+        self._serper_cap = serper_cap_override if serper_cap_override is not None else SERPER_REQUESTS_PER_JOB
+        self._serper_count = 0
+        self._cap_hit = False
+        self._skipped_layers: list[str] = []
 
     async def run(self) -> dict:
         """
@@ -111,9 +122,23 @@ class ResearchJob:
         # Layer 8: Email pattern inference
         await self._layer8_email_inference()
 
+        await self._progress(f"🔎 Running expanded search layers...")
+
+        # Layer 11: School-level staff directories
+        await self._layer11_school_staff_search()
+
+        # Layer 12: Board meeting / agenda mining
+        await self._layer12_board_agenda_search()
+
+        # Layer 13: State DOE directory lookup
+        await self._layer13_state_doe_search()
+
+        # Layer 14: Conference presenter search
+        await self._layer14_conference_presenter_search()
+
         await self._progress(f"🤖 Running Claude extraction pass...")
 
-        # Layer 9: Claude extraction pass
+        # Layer 9: Claude extraction pass (all raw pages from L1-L8 + L11-L14)
         await self._layer9_claude_extraction()
 
         # Layer 10: Dedup + confidence scoring
@@ -132,6 +157,9 @@ class ResearchJob:
             "with_email": with_email,
             "no_email": no_email,
             "layers_used": layers_str,
+            "cap_hit": self._cap_hit,
+            "queries_used": self._serper_count,
+            "skipped_layers": self._skipped_layers,
         }
 
     # ─────────────────────────────────────────────
@@ -388,17 +416,86 @@ class ResearchJob:
         self.all_contacts = final
 
     # ─────────────────────────────────────────────
+    # LAYER 11: School-level staff directories
+    # ─────────────────────────────────────────────
+
+    async def _layer11_school_staff_search(self):
+        self.layers_used.append("L11:school-staff")
+        if not self.district_domain:
+            self._skipped_layers.append("L11:school-staff (no domain)")
+            return
+        queries = [
+            f'site:{self.district_domain} "staff directory" OR "staff" OR "faculty"',
+            f'site:{self.district_domain} "computer science" OR "coding" teacher',
+        ]
+        results = await self._serper_batch(queries)
+        self._add_raw_from_serper(results)
+
+    # ─────────────────────────────────────────────
+    # LAYER 12: Board meeting / agenda mining
+    # ─────────────────────────────────────────────
+
+    async def _layer12_board_agenda_search(self):
+        self.layers_used.append("L12:board-agendas")
+        queries = [
+            f'site:{self.district_domain} "board meeting" "computer science" OR "STEM"' if self.district_domain else f'"{self.district_name}" site:.gov "board meeting" "computer science" OR "STEM"',
+            f'"{self.district_name}" "board agenda" "computer science" OR "coding"',
+        ]
+        results = await self._serper_batch(queries)
+        self._add_raw_from_serper(results)
+
+    # ─────────────────────────────────────────────
+    # LAYER 13: State DOE directory lookup
+    # ─────────────────────────────────────────────
+
+    async def _layer13_state_doe_search(self):
+        if not self.state:
+            self._skipped_layers.append("L13:state-doe (no state provided)")
+            return
+        self.layers_used.append("L13:state-doe")
+        # Look up 2-letter abbreviation; fall back to first 2 chars of state name
+        state_abbrev = STATE_ABBREVIATIONS.get(self.state, self.state[:2]).lower()
+        queries = [
+            f'site:*.{state_abbrev}.us "computer science" coordinator OR director',
+            f'"{self.state}" department of education "computer science"',
+        ]
+        results = await self._serper_batch(queries)
+        self._add_raw_from_serper(results)
+
+    # ─────────────────────────────────────────────
+    # LAYER 14: Conference presenter search
+    # ─────────────────────────────────────────────
+
+    async def _layer14_conference_presenter_search(self):
+        self.layers_used.append("L14:conference")
+        year = date.today().year
+        queries = [
+            f'"{self.district_name}" "CSTA" OR "ISTE" OR "CSforAll" presenter OR speaker',
+            f'"{self.district_name}" "computer science" conference presenter {year}',
+        ]
+        results = await self._serper_batch(queries)
+        self._add_raw_from_serper(results)
+
+    # ─────────────────────────────────────────────
     # HELPERS
     # ─────────────────────────────────────────────
 
     async def _serper_batch(self, queries: list[str]) -> list[dict]:
-        """Run a batch of Serper queries. Returns list of result dicts."""
+        """Run a batch of Serper queries. Returns list of result dicts. Enforces per-job safety cap."""
         if not SERPER_API_KEY:
             logger.error("SERPER_API_KEY not set")
             return []
 
         results = []
         for query in queries:
+            # Safety cap — stop if budget exhausted
+            if self._serper_count >= self._serper_cap:
+                if not self._cap_hit:
+                    self._cap_hit = True
+                    logger.warning(f"Serper cap hit ({self._serper_cap}) for {self.district_name} — remaining queries skipped")
+                results.append({})
+                continue
+
             try:
                 response = requests.post(
                     SERPER_URL,
@@ -411,6 +508,7 @@ class ResearchJob:
                 )
                 response.raise_for_status()
                 results.append(response.json())
+                self._serper_count += 1
                 time.sleep(0.3)  # rate limit courtesy
             except Exception as e:
                 logger.error(f"Serper query failed: '{query}' — {e}")
@@ -542,17 +640,20 @@ class ResearchQueue:
         district_name: str,
         state: str,
         progress_callback,
-        completion_callback
+        completion_callback,
+        serper_cap_override: int = None,
     ):
         """
         Add a job to the queue.
         completion_callback(result: dict) is called when done.
+        serper_cap_override: if set, overrides SERPER_REQUESTS_PER_JOB for this job.
         """
         await self._queue.put({
             "district_name": district_name,
             "state": state,
             "progress_callback": progress_callback,
             "completion_callback": completion_callback,
+            "serper_cap_override": serper_cap_override,
         })
 
         if not self._running:
@@ -569,7 +670,8 @@ class ResearchQueue:
                 engine = ResearchJob(
                     district_name=job["district_name"],
                     state=job["state"],
-                    progress_callback=job["progress_callback"]
+                    progress_callback=job["progress_callback"],
+                    serper_cap_override=job.get("serper_cap_override"),
                 )
                 result = await engine.run()
                 await job["completion_callback"](result)
@@ -584,6 +686,25 @@ class ResearchQueue:
                 self._queue.task_done()
 
         self._running = False
+
+
+    async def enqueue_batch(
+        self,
+        targets: list[dict],
+        progress_callback,
+        completion_callback,
+    ):
+        """
+        Queue multiple research jobs. Each processes sequentially.
+        Each target dict: {district_name, state (optional)}
+        """
+        for target in targets:
+            await self.enqueue(
+                district_name=target["district_name"],
+                state=target.get("state", ""),
+                progress_callback=progress_callback,
+                completion_callback=completion_callback,
+            )
 
 
 # Singleton queue instance

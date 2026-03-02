@@ -98,11 +98,21 @@ async def _on_research_complete(result: dict):
         total = result.get("total", 0)
         district = result.get("district_name", "")
         sheet_url = f"https://docs.google.com/spreadsheets/d/{os.environ.get('GOOGLE_SHEETS_ID', '')}"
-        await send_message(
+        msg = (
             f"✅ *Research complete: {district}*\n"
             f"{total} contacts — {with_email} with emails, {no_email} name-only.\n"
             f"[View sheet]({sheet_url})"
         )
+        # Cap-hit reporting — tell Steven which layers were skipped and offer to keep digging
+        if result.get("cap_hit"):
+            skipped = result.get("skipped_layers", [])
+            queries_used = result.get("queries_used", 0)
+            skipped_str = ", ".join(skipped) if skipped else "some layers"
+            msg += (
+                f"\n\n⚠️ *Hit the {queries_used}-query safety limit.* Layers skipped: _{skipped_str}_\n"
+                f"There are likely more leads — say *\"keep digging on {district}\"* to continue."
+            )
+        await send_message(msg)
     except Exception as e:
         logger.error(f"Research completion handler failed: {e}")
         await send_message(f"❌ Research finished but sheet write failed: {e}")
@@ -126,6 +136,19 @@ async def execute_tool(tool_name: str, tool_input: dict) -> str:
             completion_callback=_on_research_complete,
         )
         return f"📋 Research queued for *{district}*. I'll update you when done."
+
+    elif tool_name == "research_batch":
+        targets = tool_input.get("targets", [])
+        if not targets:
+            return "❌ No targets provided."
+        names = [t.get("district_name", "?") for t in targets]
+        await send_message(f"📋 Queuing batch research for {len(targets)} districts: {', '.join(names)}")
+        await research_queue.enqueue_batch(
+            targets=targets,
+            progress_callback=_on_research_progress,
+            completion_callback=_on_research_complete,
+        )
+        return f"✅ {len(targets)} research jobs queued. I'll send updates as each completes."
 
     elif tool_name == "get_sheet_status":
         try:
@@ -556,6 +579,19 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"Analyze the writing style, structure, and tone. "
             f"Then permanently add it to my voice profile under a Templates section so you can reference it when drafting."
         )
+
+    elif re.match(r"^(keep digging|dig deeper|keep searching|go deeper)\s+(on\s+)?(.+)", user_text, re.IGNORECASE):
+        m = re.match(r"^(keep digging|dig deeper|keep searching|go deeper)\s+(on\s+)?(.+)", user_text, re.IGNORECASE)
+        district = m.group(3).strip().rstrip(".")
+        await send_message(f"🔍 Continuing deep search on *{district}* with extended query budget...")
+        await research_queue.enqueue(
+            district_name=district,
+            state="",
+            progress_callback=_on_research_progress,
+            completion_callback=_on_research_complete,
+            serper_cap_override=200,
+        )
+        return
 
     elif user_text.lower().startswith("/build_sequence") or user_text.lower().startswith("/sequence"):
         args = ""
