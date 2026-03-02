@@ -240,7 +240,7 @@ def write_sequence_to_doc(
         result = gas_bridge.create_google_doc(
             title=doc_title,
             content=content,
-            folder_id=folder_id or SEQUENCES_FOLDER_ID,
+            folder_id="",  # No folder move — lands in Drive root
         )
         url = result.get("url", "")
         logger.info(f"Sequence doc created: {doc_title} → {url}")

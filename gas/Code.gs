@@ -1,11 +1,11 @@
 /**
  * Code.gs — Scout GAS Bridge
- * 
+ *
  * This is your private API that lives inside Google Apps Script.
  * It runs as YOU, with full access to your Gmail, Calendar, and Slides.
  * Deploy as a Web App (execute as Me, access to Anyone) and protect
  * with the secret token below.
- * 
+ *
  * HOW TO DEPLOY:
  * 1. Go to script.google.com → New Project → name it "Scout Bridge"
  * 2. Paste this entire file into the editor (replace the default code)
@@ -208,8 +208,8 @@ function getCalendarEvents(params) {
     var ev = events[i];
     results.push({
       title: ev.getTitle(),
-      start: ev.getStartTime().toString(),
-      end: ev.getEndTime().toString(),
+      start: ev.getStartTime().toISOString(),
+      end: ev.getEndTime().toISOString(),
       location: ev.getLocation(),
       description: ev.getDescription().substring(0, 500),
       guests: ev.getGuestList().map(function(g) { return g.getEmail(); })
@@ -414,40 +414,34 @@ function jsonResponse(data, statusCode) {
 // ════════════════════════════════════════════════════════════
 
 /**
- * Creates a new Google Doc in a specified Drive folder.
- * Phase 5: Used for pre-call briefs saved to "Scout Pre-Call Briefs" folder.
+ * Creates a new Google Doc. Doc lands in Drive root (My Drive).
+ * Phase 5+: Used for pre-call briefs and sequence docs.
  *
- * params: { title (str), content (str), folder_id (str, optional) }
+ * params: { title (str), content (str) }
  * Returns: { success, doc_id, url, title }
  */
 function createGoogleDoc(params) {
   var title   = params.title   || "Scout Doc";
   var content = params.content || "";
-  var folderId = params.folder_id || "";
 
-  // Create the document
-  var doc = DocumentApp.create(title);
+  var doc   = DocumentApp.create(title);
   var docId = doc.getId();
 
-  // Write content to the body
   var body = doc.getBody();
   body.setText(content);
   doc.saveAndClose();
 
-  // Move to specified folder if folder_id is provided
-  if (folderId) {
-    try {
-      var file   = DriveApp.getFileById(docId);
-      var folder = DriveApp.getFolderById(folderId);
-      folder.addFile(file);
-      // Remove from root (My Drive) to keep things tidy
-      DriveApp.getRootFolder().removeFile(file);
-    } catch (e) {
-      // Non-fatal: Doc was created, just couldn't move it
-      Logger.log("createGoogleDoc: could not move to folder " + folderId + " — " + e.toString());
-    }
-  }
-
   var url = "https://docs.google.com/document/d/" + docId + "/edit";
   return { success: true, doc_id: docId, url: url, title: title };
+}
+
+
+/**
+ * One-time authorization helper.
+ * Run this ONCE from the script editor to grant Google Drive permission,
+ * then you can delete it or leave it — it does nothing harmful.
+ */
+function testDriveAccess() {
+  var folder = DriveApp.getFolderById("1nZh71XWU_TajUVS22F5yStA3_9YNcy3a");
+  Logger.log("Drive access OK — folder name: " + folder.getName());
 }

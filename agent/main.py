@@ -370,7 +370,7 @@ async def execute_tool(tool_name: str, tool_input: dict) -> str:
         if not campaign_name or not target_role:
             return "❌ Need at least `campaign_name` and `target_role` to build a sequence."
         await send_message(
-            f"✍️ Building {num_steps}-step sequence for *{target_role}s*...\n"
+            f"✍️ Building {num_steps}-step sequence for *{target_role}*...\n"
             f"Campaign: _{campaign_name}_"
         )
         voice_profile = None
