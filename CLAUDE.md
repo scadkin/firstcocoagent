@@ -1,36 +1,41 @@
 # SCOUT — Claude Code Reference
-*Last updated: 2026-03-01 — Session 3*
+*Last updated: 2026-03-02 — Session 4*
 
 ---
 
 ## CURRENT STATE — update this after each session
 
-**Phase 5 fully verified. Ready for Phase 6 — At-Scale Research + Campaign Engine.**
+**Phase 6A (Campaign Engine) built and partially verified. One pending action before fully verified.**
 
-### What was fixed this session
-- `/brief` + Google Doc folder: GAS DriveApp scope was never authorized. Fixed by revoking existing OAuth at myaccount.google.com/permissions, adding explicit `oauthScopes` to `appsscript.json` (including `auth/drive`), and creating a fresh deployment. Docs now land in correct folder.
-- GAS `getCalendarEvents` returned `Date.toString()` (non-ISO) — auto pre-call brief was silently skipping every event on datetime parse. Fixed: `toISOString()`.
-- `/call [id]` Fireflies 400: removed invalid `summary { keywords }` subfield, `speakerName` → `speaker_name`, switched to GraphQL variables for safety. Also improved error handling to surface actual API error body.
-- Post-call output reformatted: tighter Telegram summary, Salesforce block dropped code block, extraction prompt now requests concise field values.
-- Outreach.io sheet write removed from post-call flow (`_build_outreach_row` method kept).
+### What was built/fixed this session
+- `tools/sequence_builder.py` fully implemented (was empty stub): `build_sequence()`, `write_sequence_to_doc()`, `format_for_telegram()`
+- `prompts/sequence_templates.md` created: 17 archetypes (6 role-based cold prospecting + 11 scenario-based)
+- `/build_sequence` now asks clarifying questions first (routed through Claude), then builds
+- `execute_tool("build_sequence")` sends result directly to Telegram via `send_message()` — bypasses Claude rewriting the output. Returns `"✅ Sequence built and sent above."` to Claude.
+- Google Doc creation via GAS bridge: DriveApp folder-move code wrapped in try/catch so doc always succeeds even if folder move fails
+- `SEQUENCES_FOLDER_ID` env var support: strips `?ths=true` query params automatically (user may paste full browser URL)
+- Doc header includes CST timestamp: `Generated: 2026-03-02 at 9:15 AM CST`
+
+### Pending action before Phase 6A is fully verified
+**GAS redeploy required.** Code.gs `createGoogleDoc` was updated to wrap DriveApp folder-move in try/catch. Steven needs to:
+1. Open script.google.com → Scout Bridge → paste updated `createGoogleDoc` function → save
+2. Deploy → Manage deployments → New version → Deploy
+3. URL stays the same — no Railway update needed
+4. Test: `/build_sequence CS Directors - Texas Spring 2026` → should ask questions → build → Google Doc link → doc lands in "Scout Built Sequences" folder
 
 ### Current status
 - `/recent_calls` ✅
 - `/call [id]` ✅
 - `/brief` (manual) ✅
 - Auto pre-call brief (10-min trigger) ✅
-- Google Doc → correct Drive folder ✅
 - Fireflies webhook (auto on call end) ⏳ configured, pending first real external call
+- `/build_sequence` ✅ (sequence generation + Telegram preview working, Google Doc ⏳ pending GAS redeploy above)
 
-### Next phase
-Phase 6 — At-Scale Research + Campaign Engine
-
-**Phase 6 vision (Steven's goals):**
-- **Research engine expansion:** More layers per district/company — maximize leads per site, add new AI-powered contact discovery strategies, find more contacts per school/district/company
-- **Campaign engine:** Build email templates, snippets, and sequences for all use cases (roles, scenarios, FAQs, objections). Quick personalization at scale. High open/reply rates. Goals: book calls, keep opps warm, convert sales.
-- **Iteration + A/B testing:** Scout tracks what's working, makes suggestions, improves sequences over time based on feedback
-- **Daily activity tracking:** Leads found, people sequenced, calls made, opps updated, research requests made — Scout reports on these daily
-- **Automations:** The whole system runs and learns with minimal manual input
+### Phase 6 plan
+- **6A** — Campaign Engine ← current (sequence_builder.py + templates) — nearly done
+- **6B** — Research Engine Expansion (layers 11-14, batch research tool)
+- **6C** — Activity Tracking + Analytics (activity_tracker.py, data-driven morning brief/EOD)
+- **6D** — Automation + Learning Loops (campaign_manager.py, Outreach CSV import, weekly review)
 
 ---
 
@@ -49,6 +54,12 @@ Phase 6 — At-Scale Research + Campaign Engine
 **Never design workflows that require pasting large text through Telegram.** Use fetch-first: Scout reads from GitHub, asks for changes in plain English.
 
 **Explicit commands must bypass Claude and call execute_tool() directly.** `/brief`, `/call`, `/recent_calls` all call execute_tool() directly and return — never route through Claude's tool dispatch. When conversation history is long, Claude responds with text describing what the tool would do instead of calling it. Direct dispatch is the only reliable pattern for explicit slash commands.
+
+**`/build_sequence` is a hybrid — questions via Claude, output direct.** The slash command routes through Claude so it can ask clarifying questions. But `execute_tool("build_sequence")` sends the final result via `await send_message()` directly and returns `"✅ Sequence built and sent above."` — a short string that prevents Claude from rewriting the sequence output.
+
+**`execute_tool` can send directly to Telegram for long outputs.** For tools that return content Claude tends to rewrite (sequences, docs), use `await send_message(full_output)` inside `execute_tool` and return a short ack string. This is the pattern for `build_sequence` and should be used for any future tools with rich structured output.
+
+**GAS deployment URL does NOT change when bumping version.** When you edit an existing deployment and increment the version, the Web App URL stays the same. Only Railway update needed is if you create a brand-new deployment (not an edit).
 
 ---
 
@@ -98,7 +109,7 @@ firstcocoagent/
 │   ├── sheets_writer.py        ← MODULE (not class). write_contacts(), count_leads(), etc.
 │   ├── gas_bridge.py           ← GASBridge class
 │   ├── github_pusher.py        ← push_file(), list_repo_files(), get_file_content()
-│   ├── sequence_builder.py     ← build_sequence(), write_sequence_to_sheets(), format_for_telegram()
+│   ├── sequence_builder.py     ← Phase 6A. build_sequence(), write_sequence_to_doc(), format_for_telegram()
 │   └── fireflies.py            ← FirefliesClient, FirefliesError
 ├── gas/
 │   └── Code.gs                 ← Deployed at script.google.com as "Scout Bridge"
@@ -106,7 +117,8 @@ firstcocoagent/
 │   ├── system.md
 │   ├── morning_brief.md
 │   ├── eod_report.md
-│   └── email_draft.md
+│   ├── email_draft.md
+│   └── sequence_templates.md   ← Phase 6A. 17 archetypes: 6 role-based + 11 scenario-based
 └── memory/
     ├── preferences.md          ← Corrections/preferences. GitHub-committed on every write.
     ├── context_summary.md      ← EOD summaries. Never deleted.
@@ -138,8 +150,9 @@ firstcocoagent/
 | FIREFLIES_API_KEY | app.fireflies.ai → Account → API |
 | FIREFLIES_WEBHOOK_SECRET | Must match Fireflies webhook config |
 | PRECALL_BRIEF_FOLDER_ID | Google Drive folder ID — confirmed set |
+| SEQUENCES_FOLDER_ID | Phase 6A. Google Drive folder ID for sequence docs. Paste full browser URL — query params stripped automatically. Set to "Scout Built Sequences" folder. |
 
-**Note:** Phase 5 env vars (`FIREFLIES_API_KEY`, `FIREFLIES_WEBHOOK_SECRET`, `PRECALL_BRIEF_FOLDER_ID`) are read via `os.environ.get()` directly in the files that need them — they are NOT in `config.py`.
+**Note:** Phase 5+ env vars (`FIREFLIES_API_KEY`, `FIREFLIES_WEBHOOK_SECRET`, `PRECALL_BRIEF_FOLDER_ID`, `SEQUENCES_FOLDER_ID`) are read via `os.environ.get()` directly in the files that need them — they are NOT in `config.py`.
 
 ---
 
@@ -219,10 +232,14 @@ github_pusher.get_file_content(filepath) -> str | None
 ### sequence_builder (`tools/sequence_builder.py`) — lazy import only
 ```python
 import tools.sequence_builder as sequence_builder
-sequence_builder.build_sequence(campaign_name, target_role, focus_product="CodeCombat AI Suite", num_steps=4, voice_profile=None, additional_context="") -> dict
-# {success, steps: [{step, day, label, subject, body}], raw, error}
-sequence_builder.write_sequence_to_sheets(campaign_name, steps) -> bool
+sequence_builder.build_sequence(campaign_name, target_role, focus_product="CodeCombat AI Suite", num_steps=5, voice_profile=None, additional_context="", ab_variants=True) -> dict
+# {success, steps: [{step, day, label, subject, body, variant_b_subject, variant_b_body}], raw, error}
+# Uses prompts/sequence_templates.md for 17 archetypes. Calls claude-sonnet-4-6.
+sequence_builder.write_sequence_to_doc(campaign_name, steps, gas_bridge, folder_id=None) -> dict
+# {success, url, error} — creates Google Doc via GAS bridge. folder_id defaults to SEQUENCES_FOLDER_ID env var.
 sequence_builder.format_for_telegram(campaign_name, steps) -> str
+# Compact preview: subject + first ~150 chars of body per step. A/B variant subject shown inline.
+# SEQUENCES_FOLDER_ID env var: strip ?query params automatically — safe to paste full browser URL
 ```
 
 ### FirefliesClient (`tools/fireflies.py`) — lazy import only
@@ -267,7 +284,7 @@ await processor.process_transcript(transcript_id, progress_callback=None) -> dic
 | `/add_template [content]` | add template to voice profile |
 | `/list_files`, `/ls`, `list files` | list repo files |
 | `/push_code [filepath]` | fetch-first: read file, ask for changes, edit + push |
-| `/build_sequence [args]` | build Outreach.io sequence |
+| `/build_sequence [campaign name]` | Routes through Claude to ask 4 clarifying questions, then builds. execute_tool sends result directly to Telegram. |
 | `looks good`, `save it`, `approved`, `use this` | save pending draft to Gmail |
 | `add email: addr@domain.org` | set recipient on pending draft |
 | `/brief [meeting name]` | manual pre-call brief (Phase 5) |
@@ -290,3 +307,6 @@ Every time `Code.gs` changes:
 - `SECRET_TOKEN` placeholder in Code.gs must be replaced with actual token before deploying
 - `Session.getActiveUser().getEmail()` returns `""` for anonymous callers — hardcode `"steven@codecombat.com"` in ping handler
 - Never use `Session.getEffectiveUser()` — throws permission error
+- Bumping version on an existing deployment keeps the same URL — no Railway update needed
+- DriveApp `getFolderById` throws "Unexpected error" if DriveApp is not authorized OR if called during a deployment that hasn't re-authed. Wrap in try/catch so doc creation never fails due to folder move.
+- `SEQUENCES_FOLDER_ID` (and any Drive folder ID env var) may be pasted as full browser URL with `?ths=true`. Strip with `.split("?")[0]` before use.

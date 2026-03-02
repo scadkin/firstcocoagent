@@ -60,6 +60,11 @@
 | /call [id]: Fireflies 400 — invalid field summary { keywords } | keywords is not a valid subfield of summary in Fireflies GraphQL schema | Removed keywords from summary subquery; also removed from return dict (unused downstream) | ✅ Fixed |
 | /call [id]: Fireflies 400 — Cannot query field "speakerName" on type "Sentence" | Field renamed in Fireflies API — correct name is speaker_name | Renamed speakerName → speaker_name in query and transcript builder | ✅ Fixed |
 | /call [id]: transcript ID string interpolation in GraphQL query | Using %s interpolation is unsafe and can break on special chars | Switched get_transcript to use GraphQL variables: query GetTranscript($id: String!) | ✅ Fixed |
+| /build_sequence: tool result rewritten by Claude — truncated bodies, paraphrased output | Claude intercepts execute_tool return value and rewrites it when history is long | execute_tool now sends via await send_message() directly; returns short ack "✅ Sequence built and sent above." to Claude | ✅ Fixed |
+| /build_sequence: "CS Directorss" double-s in ack | execute_tool ack appended "s" to target_role which already ended in "s" | Removed trailing "s" from ack f-string | ✅ Fixed |
+| Sequence Google Doc: DriveApp getFolderById error even with empty folder_id | sequence_builder passed `folder_id or SEQUENCES_FOLDER_ID` — if env var was set, non-empty folder ID reached GAS even when caller passed "" | Always pass SEQUENCES_FOLDER_ID directly; strip ?query params from env var with .split("?")[0] | ✅ Fixed |
+| Sequence Google Doc: DriveApp "Unexpected error while getting getFolderById" | DriveApp authorization not stable — throws even when called conditionally in GAS | Wrapped DriveApp folder-move block in try/catch in createGoogleDoc — doc creation succeeds regardless of folder move outcome | ✅ Fixed (pending GAS redeploy) |
+| Sequence Google Doc: silent error — no error surfaced to Telegram | Doc creation failure was caught, but error msg only reached Claude which paraphrased it | Added direct await send_message() for doc errors in execute_tool, bypassing Claude | ✅ Fixed |
 
 ---
 
@@ -114,3 +119,9 @@
 | 2026-03-01 | Session 3: Post-call output reformatted — tighter Telegram summary, Salesforce block dropped code block, extraction prompt conciseness added | Phase 5 |
 | 2026-03-01 | Session 3: Outreach.io sheet write removed from post-call flow (_build_outreach_row kept for future use) | Phase 5 |
 | 2026-03-01 | Session 3: Phase 5 fully verified ✅ — all features working, Fireflies webhook configured (pending first real call) | Phase 5 ✅ |
+| 2026-03-02 | Phase 6A built: sequence_builder.py fully implemented, 17-archetype sequence_templates.md created | Phase 6A |
+| 2026-03-02 | /build_sequence: routes through Claude for questions, execute_tool sends result directly to Telegram | Phase 6A |
+| 2026-03-02 | Sequence output: Google Doc via GAS bridge, folder support, CST timestamp in doc header | Phase 6A |
+| 2026-03-02 | Code.gs createGoogleDoc: DriveApp folder-move wrapped in try/catch — doc creation never fails due to folder move error | Phase 6A |
+| 2026-03-02 | SEQUENCES_FOLDER_ID env var added — strips ?query params automatically | Phase 6A |
+| 2026-03-02 | Phase 6A nearly verified — GAS redeploy pending to activate try/catch folder-move fix | Phase 6A ⏳ |
