@@ -1,25 +1,36 @@
 # SCOUT — Claude Code Reference
-*Last updated: 2026-03-01*
+*Last updated: 2026-03-01 — Session 2*
 
 ---
 
 ## CURRENT STATE — update this after each session
 
-**Phase 5 live.** One outstanding issue:
+**Phase 5 live. `/brief` still not working — root cause not yet isolated.**
 
-**Google Doc creation in `/brief` is failing silently.**
-- Fix is in `agent/call_processor.py` — `_create_brief_doc` now returns `"ERROR:<msg>"` instead of swallowing exceptions
-- Upload that file to GitHub, let Railway redeploy, run `/brief` again
-- Most likely cause: `createGoogleDoc` case in `Code.gs` was added but a **new deployment** was never created
-- Check script.google.com → Scout Bridge → Code.gs → confirm `createGoogleDoc` case exists → new deployment → update `GAS_WEBHOOK_URL` in Railway
+### What was fixed this session
+- GAS `DocumentApp` OAuth scope: added `params = params || {};` to `createGoogleDoc` in Code.gs, ran function manually to trigger authorization, created new deployment
+- `/brief` was responding with Claude text instead of calling the tool (Claude hallucinating tool execution when conversation history is long/stale)
+- Fixed: `/brief` and `/call` now bypass Claude entirely and call `execute_tool()` directly — same pattern as `/recent_calls`
+- Migrated from MASTER.md → lean CLAUDE.md + SCOUT_HISTORY.md
 
-**What's working:**
-- `/recent_calls` ✅ — filters internal meetings, optional count, sorted most-recent-first
-- `/brief` ✅ — content works, Google Doc creation pending fix above
-- `/call [id]` ✅ — manual post-call processing
-- Immediate ack ✅ — all commands respond within 5 seconds
+### Current status
+- `/recent_calls` ✅ working
+- `/call [id]` ✅ fixed (bypasses Claude)
+- `/brief` ❌ still failing after bypass fix — exact error unknown, context ran out before diagnosing
+- Immediate ack ✅ working
+- Google Doc OAuth ✅ authorized
 
-**Next phase:** Phase 6 — At-Scale Research + Campaign Engine
+### Next debug step for `/brief`
+The bypass fix is deployed. When `/brief` is run now, `execute_tool("get_pre_call_brief", {})` is called directly. Most likely failure points in order:
+1. **No Zoom meeting found in calendar** — handler returns `"Could not find a Zoom meeting. Upcoming events: ..."` — this IS surfaced now
+2. **GAS bridge error on `get_calendar_events`** — would return `"❌ Could not fetch calendar: ..."`
+3. **CallProcessor import error** — would return `"agent/call_processor.py not found: ..."`
+4. **Something inside `build_pre_call_brief` failing silently** — check Railway logs
+
+Try: `/brief [exact meeting title]` to bypass Zoom detection and test with a specific meeting name.
+If that also fails, check Railway logs for the actual exception.
+
+**Next phase when `/brief` is resolved:** Phase 6 — At-Scale Research + Campaign Engine
 
 ---
 
@@ -36,6 +47,8 @@
 **GAS bridge: every Code.gs edit needs a new deployment.** Save → Deploy → Manage deployments → Edit → New version → Deploy → copy URL → update `GAS_WEBHOOK_URL` in Railway.
 
 **Never design workflows that require pasting large text through Telegram.** Use fetch-first: Scout reads from GitHub, asks for changes in plain English.
+
+**Explicit commands must bypass Claude and call execute_tool() directly.** `/brief`, `/call`, `/recent_calls` all call execute_tool() directly and return — never route through Claude's tool dispatch. When conversation history is long, Claude responds with text describing what the tool would do instead of calling it. Direct dispatch is the only reliable pattern for explicit slash commands.
 
 ---
 

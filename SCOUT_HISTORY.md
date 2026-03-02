@@ -48,8 +48,11 @@
 | /brief 400 on follow-up message | tool_use block in history had no matching tool_result (history corrupted) | try/except guarantees tool_result always written; history auto-clears on 400 | ✅ Fixed |
 | /brief "str object has no attribute get" | GAS bridge returns guests as plain email strings, not dicts | Added _parse_guests() helper that handles both string and dict formats | ✅ Fixed |
 | ImportError: PRECALL_BRIEF_FOLDER_ID in call_processor | Imported from config.py which didn't have it | Changed to os.environ.get() directly | ✅ Fixed |
-| Google Doc silently skipped despite PRECALL_BRIEF_FOLDER_ID being set | Exception swallowed silently, fallback message blamed missing env var | _create_brief_doc now returns "ERROR:<msg>" string; build_pre_call_brief surfaces it | ⏳ Fix ready — upload call_processor.py |
+| Google Doc silently skipped despite PRECALL_BRIEF_FOLDER_ID being set | Exception swallowed silently, fallback message blamed missing env var | _create_brief_doc now returns "ERROR:<msg>" string; build_pre_call_brief surfaces it | ✅ Fixed |
 | internal meeting filter used hostEmail | hostEmail = codecombat.com on all calls; need to check if ANY attendee is external | Changed to check meeting_attendees[].email — skip only if ALL emails are @codecombat.com | ✅ Fixed |
+| GAS createGoogleDoc permission error: DocumentApp.create not authorized | DocumentApp scope was never authorized — added after original GAS deployment | Added params = params \|\| {} to createGoogleDoc, ran manually in editor to trigger OAuth consent, created new GAS deployment | ✅ Fixed |
+| /brief: Claude responds with text describing tool instead of calling it | Conversation history accumulates; Claude hallucinates tool execution when history is long | /brief and /call now bypass Claude entirely — call execute_tool() directly like /recent_calls | ✅ Fixed |
+| /brief still failing after bypass fix | Root cause unknown — context exhausted before diagnosing | Next session: try /brief [meeting name], check Railway logs for actual exception | ⏳ Open |
 
 ---
 
@@ -94,3 +97,7 @@
 | 2026-03-01 | /brief working end-to-end — Google Doc creation still failing silently (fix generated, pending upload) | Phase 5 |
 | 2026-03-01 | call_processor.py updated: _create_brief_doc surfaces real error instead of generic fallback message | Phase 5 ⏳ |
 | 2026-03-01 | Migrated from MASTER.md to lean CLAUDE.md + SCOUT_HISTORY.md for Claude Code CLI | Meta |
+| 2026-03-01 | GAS DocumentApp OAuth: added params = params \|\| {} to createGoogleDoc, ran to trigger auth, new deployment | Phase 5 |
+| 2026-03-01 | /brief: Claude was responding with text instead of calling tool when history long — fixed by bypassing Claude | Phase 5 |
+| 2026-03-01 | /brief and /call now call execute_tool() directly like /recent_calls — no Claude routing for explicit commands | Phase 5 |
+| 2026-03-01 | /brief still failing after bypass fix — root cause unknown, context exhausted before diagnosing | Phase 5 ⏳ |
