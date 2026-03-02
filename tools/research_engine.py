@@ -118,7 +118,7 @@ class ResearchJob:
         # Layer 8: Email pattern inference
         await self._layer8_email_inference()
 
-        await self._progress(f"🔎 Running expanded search layers...")
+        await self._progress(f"🔎 Running expanded search layers (L11–L14)...")
 
         # Layer 11: School-level staff directories
         await self._layer11_school_staff_search()
@@ -131,8 +131,6 @@ class ResearchJob:
 
         # Layer 14: Conference presenter search
         await self._layer14_conference_presenter_search()
-
-        await self._progress(f"🤖 Running Claude extraction pass...")
 
         # Layer 9: Claude extraction pass (all raw pages from L1-L8 + L11-L14)
         await self._layer9_claude_extraction()
@@ -352,8 +350,15 @@ class ResearchJob:
             logger.warning(f"No raw pages to extract from for {self.district_name}")
             return
 
-        # Extract from all pages (deduped internally)
-        contacts = extract_from_multiple(self.raw_pages, self.district_name)
+        await self._progress(f"🤖 Extracting contacts from {len(self.raw_pages)} pages...")
+
+        # Run synchronous Claude extraction in a thread pool so it doesn't block the event loop.
+        # extract_from_multiple makes one blocking Claude API call per page — without run_in_executor
+        # it freezes asyncio entirely, preventing heartbeats and Telegram messages from processing.
+        loop = asyncio.get_event_loop()
+        contacts = await loop.run_in_executor(
+            None, extract_from_multiple, self.raw_pages, self.district_name
+        )
 
         # Apply email inference to contacts that have name but no email
         if self.email_pattern and self.district_domain:
