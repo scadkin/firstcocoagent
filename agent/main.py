@@ -391,11 +391,9 @@ async def execute_tool(tool_name: str, tool_input: dict) -> str:
             return f"❌ Sequence generation failed: {result['error']}"
         steps = result["steps"]
         tg_text = sequence_builder.format_for_telegram(campaign_name, steps)
-        # Write to Google Doc via GAS bridge
-        # Fall back to PRECALL_BRIEF_FOLDER_ID if no dedicated sequences folder is set
+        # Write to Google Doc via GAS bridge — no folder move, goes to Drive root
         gas = get_gas_bridge()
-        sequences_folder = os.environ.get("SEQUENCES_FOLDER_ID", "") or PRECALL_BRIEF_FOLDER_ID
-        doc_result = sequence_builder.write_sequence_to_doc(campaign_name, steps, gas, folder_id=sequences_folder)
+        doc_result = sequence_builder.write_sequence_to_doc(campaign_name, steps, gas, folder_id="")
         if doc_result["success"] and doc_result["url"]:
             doc_note = f"\n\n📄 [Full sequence doc]({doc_result['url']}) — copy steps into Outreach.io"
         else:
