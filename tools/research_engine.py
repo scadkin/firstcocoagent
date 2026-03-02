@@ -25,7 +25,7 @@ import asyncio
 import httpx
 from bs4 import BeautifulSoup
 from urllib.parse import urljoin, urlparse
-from datetime import date
+from datetime import date, datetime
 
 from agent.keywords import (
     SERPER_PRIORITY_TITLES,
@@ -88,6 +88,10 @@ class ResearchJob:
         self._cap_hit = False
         self._skipped_layers: list[str] = []
 
+        # Layer effectiveness tracking
+        self._url_to_layer: dict[str, str] = {}  # url → layer tag
+        self._start_time: datetime = datetime.now()
+
     async def run(self) -> dict:
         """
         Execute all 14 layers. Returns result summary dict.
@@ -142,6 +146,15 @@ class ResearchJob:
         total = len(self.all_contacts)
         with_email = sum(1 for c in self.all_contacts if c.get("email"))
         no_email = total - with_email
+        verified = sum(1 for c in self.all_contacts if c.get("email_confidence") == "VERIFIED")
+        elapsed_seconds = int((datetime.now() - self._start_time).total_seconds())
+
+        # Count contacts per layer using source_url → layer mapping
+        layer_contact_counts: dict[str, int] = {}
+        for c in self.all_contacts:
+            src = c.get("source_url", "")
+            layer = self._url_to_layer.get(src, "unknown")
+            layer_contact_counts[layer] = layer_contact_counts.get(layer, 0) + 1
 
         return {
             "district_name": self.district_name,
@@ -150,10 +163,13 @@ class ResearchJob:
             "total": total,
             "with_email": with_email,
             "no_email": no_email,
+            "verified": verified,
             "layers_used": layers_str,
             "cap_hit": self._cap_hit,
             "queries_used": self._serper_count,
             "skipped_layers": self._skipped_layers,
+            "elapsed_seconds": elapsed_seconds,
+            "layer_contact_counts": layer_contact_counts,
         }
 
     # ─────────────────────────────────────────────
@@ -167,7 +183,7 @@ class ResearchJob:
             for title in SERPER_PRIORITY_TITLES[:8]
         ]
         results = await self._serper_batch(queries[:5])
-        self._add_raw_from_serper(results)
+        self._add_raw_from_serper(results, "L1:direct-title")
 
     # ─────────────────────────────────────────────
     # LAYER 2: Title variation sweep
@@ -184,7 +200,7 @@ class ResearchJob:
             f'"{self.district_name}" curriculum director',
         ]
         results = await self._serper_batch(varied)
-        self._add_raw_from_serper(results)
+        self._add_raw_from_serper(results, "L2:title-variations")
 
     # ─────────────────────────────────────────────
     # LAYER 3: LinkedIn targeted
@@ -198,7 +214,7 @@ class ResearchJob:
             f'site:linkedin.com "instructional technology" "{self.district_name}"',
         ]
         results = await self._serper_batch(queries[:3])
-        self._add_raw_from_serper(results)
+        self._add_raw_from_serper(results, "L3:linkedin")
 
     # ─────────────────────────────────────────────
     # LAYER 4: District site deep search
@@ -227,7 +243,7 @@ class ResearchJob:
                 f'site:{self.district_domain} department contact',
             ]
             results = await self._serper_batch(site_queries[:3])
-            self._add_raw_from_serper(results)
+            self._add_raw_from_serper(results, "L4:district-site")
 
     # ─────────────────────────────────────────────
     # LAYER 5: News + grants search
@@ -242,7 +258,7 @@ class ResearchJob:
             f'"{self.district_name}" coding curriculum announcement',
         ]
         results = await self._serper_batch(queries[:2])
-        self._add_raw_from_serper(results)
+        self._add_raw_from_serper(results, "L5:news-grants")
 
     # ─────────────────────────────────────────────
     # LAYER 6: Direct website scrape
@@ -269,6 +285,7 @@ class ResearchJob:
             content = await self._fetch_page(url)
             if content:
                 self.raw_pages.append((url, content))
+                self._url_to_layer.setdefault(url, "L6:scrape")
                 crawled.add(url)
                 # Extract links for Layer 7
                 soup = BeautifulSoup(content, "html.parser")
@@ -310,6 +327,7 @@ class ResearchJob:
             content = await self._fetch_page(url)
             if content:
                 self.raw_pages.append((url, content))
+                self._url_to_layer.setdefault(url, "L7:deep-crawl")
             await asyncio.sleep(CRAWL_DELAY)
 
     # ─────────────────────────────────────────────
@@ -430,7 +448,7 @@ class ResearchJob:
             f'site:{self.district_domain} "computer science" OR "coding" teacher',
         ]
         results = await self._serper_batch(queries)
-        self._add_raw_from_serper(results)
+        self._add_raw_from_serper(results, "L11:school-staff")
 
     # ─────────────────────────────────────────────
     # LAYER 12: Board meeting / agenda mining
@@ -443,7 +461,7 @@ class ResearchJob:
             f'"{self.district_name}" "board agenda" "computer science" OR "coding"',
         ]
         results = await self._serper_batch(queries)
-        self._add_raw_from_serper(results)
+        self._add_raw_from_serper(results, "L12:board-agendas")
 
     # ─────────────────────────────────────────────
     # LAYER 13: State DOE directory lookup
@@ -461,7 +479,7 @@ class ResearchJob:
             f'"{self.state}" department of education "computer science"',
         ]
         results = await self._serper_batch(queries)
-        self._add_raw_from_serper(results)
+        self._add_raw_from_serper(results, "L13:state-doe")
 
     # ─────────────────────────────────────────────
     # LAYER 14: Conference presenter search
@@ -475,7 +493,7 @@ class ResearchJob:
             f'"{self.district_name}" "computer science" conference presenter {year}',
         ]
         results = await self._serper_batch(queries)
-        self._add_raw_from_serper(results)
+        self._add_raw_from_serper(results, "L14:conference")
 
     # ─────────────────────────────────────────────
     # HELPERS
@@ -517,7 +535,7 @@ class ResearchJob:
 
         return results
 
-    def _add_raw_from_serper(self, results: list[dict]):
+    def _add_raw_from_serper(self, results: list[dict], layer_tag: str = ""):
         """Extract snippet text from Serper results and add to raw_pages."""
         for result in results:
             for item in result.get("organic", []):
@@ -527,6 +545,8 @@ class ResearchJob:
                 if url and snippet:
                     content = f"Title: {title}\nURL: {url}\n{snippet}"
                     self.raw_pages.append((url, content))
+                    if layer_tag and url not in self._url_to_layer:
+                        self._url_to_layer[url] = layer_tag
 
     async def _fetch_page(self, url: str) -> str | None:
         """Fetch a web page and return its text content."""

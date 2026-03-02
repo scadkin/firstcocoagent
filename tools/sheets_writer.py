@@ -156,10 +156,12 @@ def _ensure_headers(service, sheet_id: str, tab: str, columns: list[str]):
 # DEDUP CHECK
 # ─────────────────────────────────────────────
 
-def _load_existing_keys(service, sheet_id: str, tab: str) -> set[str]:
+def _load_existing_keys(service, sheet_id: str, tab: str) -> tuple[set[str], set[str]]:
     """
-    Load all existing (first_name, last_name, district_name) keys from a tab.
-    Used for dedup before writing.
+    Load dedup keys from an existing tab.
+    Returns (email_keys, name_keys):
+      - email_keys: lowercase emails (primary dedup — district-agnostic)
+      - name_keys:  "first|last" keys for no-email contacts
     """
     result = service.spreadsheets().values().get(
         spreadsheetId=sheet_id,
@@ -168,25 +170,29 @@ def _load_existing_keys(service, sheet_id: str, tab: str) -> set[str]:
 
     rows = result.get("values", [])
     if len(rows) < 2:
-        return set()
+        return set(), set()
 
     headers = rows[0]
     try:
         fn_idx = headers.index("First Name")
         ln_idx = headers.index("Last Name")
-        dist_idx = headers.index("District Name")
+        email_idx = headers.index("Email")
     except ValueError:
-        return set()
+        return set(), set()
 
-    keys = set()
+    email_keys: set[str] = set()
+    name_keys: set[str] = set()
+
     for row in rows[1:]:
         fn = row[fn_idx].lower().strip() if fn_idx < len(row) else ""
         ln = row[ln_idx].lower().strip() if ln_idx < len(row) else ""
-        dist = row[dist_idx].lower().strip() if dist_idx < len(row) else ""
-        if fn or ln:
-            keys.add(f"{fn}|{ln}|{dist}")
+        email = row[email_idx].lower().strip() if email_idx < len(row) else ""
+        if email:
+            email_keys.add(email)
+        elif fn or ln:
+            name_keys.add(f"{fn}|{ln}")
 
-    return keys
+    return email_keys, name_keys
 
 
 # ─────────────────────────────────────────────
@@ -209,22 +215,28 @@ def write_contacts(contacts: list[dict], state: str = "") -> dict:
 
     ensure_sheet_tabs_exist()
 
-    # Load existing keys from both tabs
-    leads_keys = _load_existing_keys(service, sheet_id, TAB_LEADS)
-    no_email_keys = _load_existing_keys(service, sheet_id, TAB_NO_EMAIL)
-    all_existing = leads_keys | no_email_keys
+    # Load existing dedup keys from both tabs
+    leads_emails, leads_names = _load_existing_keys(service, sheet_id, TAB_LEADS)
+    no_email_emails, no_email_names = _load_existing_keys(service, sheet_id, TAB_NO_EMAIL)
+    all_emails = leads_emails | no_email_emails
+    all_names = leads_names | no_email_names
 
     leads_rows = []
     no_email_rows = []
     duplicates = 0
 
     for c in contacts:
+        email = c.get("email", "").lower().strip()
         fn = c.get("first_name", "").lower().strip()
         ln = c.get("last_name", "").lower().strip()
-        dist = c.get("district_name", "").lower().strip()
-        key = f"{fn}|{ln}|{dist}"
 
-        if key in all_existing:
+        # Primary dedup: email (cross-district reliable)
+        if email and email in all_emails:
+            duplicates += 1
+            continue
+        # Secondary dedup: name match for no-email contacts
+        name_key = f"{fn}|{ln}"
+        if not email and name_key in all_names:
             duplicates += 1
             continue
 
@@ -243,7 +255,11 @@ def write_contacts(contacts: list[dict], state: str = "") -> dict:
             c.get("date_found", datetime.now().strftime("%Y-%m-%d")),
         ]
 
-        all_existing.add(key)  # prevent duplicates within this batch
+        # Track within this batch
+        if email:
+            all_emails.add(email)
+        else:
+            all_names.add(name_key)
 
         if c.get("email"):
             leads_rows.append(row)

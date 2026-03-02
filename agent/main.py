@@ -92,27 +92,77 @@ async def _on_research_progress(message: str):
 async def _on_research_complete(result: dict):
     try:
         contacts = result.get("contacts", [])
-        sheets_writer.write_contacts(contacts, state=result.get("state", ""))
+        write_summary = sheets_writer.write_contacts(contacts, state=result.get("state", ""))
         with_email = result.get("with_email", 0)
         no_email = result.get("no_email", 0)
         total = result.get("total", 0)
+        verified = result.get("verified", 0)
         district = result.get("district_name", "")
+        state = result.get("state", "")
+        elapsed = result.get("elapsed_seconds", 0)
+        queries_used = result.get("queries_used", 0)
+        layer_counts = result.get("layer_contact_counts", {})
+        leads_added = write_summary.get("leads_added", 0)
+        no_email_added = write_summary.get("no_email_added", 0)
+        dupes_skipped = write_summary.get("duplicates_skipped", 0)
         sheet_url = f"https://docs.google.com/spreadsheets/d/{os.environ.get('GOOGLE_SHEETS_ID', '')}"
+
+        # Format elapsed time
+        mins, secs = divmod(elapsed, 60)
+        elapsed_str = f"{mins}m {secs}s" if mins else f"{secs}s"
+
+        # Format layer breakdown (only layers that found contacts)
+        layer_lines = []
+        layer_order = [
+            "L1:direct-title", "L2:title-variations", "L3:linkedin",
+            "L4:district-site", "L5:news-grants", "L6:scrape", "L7:deep-crawl",
+            "L11:school-staff", "L12:board-agendas", "L13:state-doe", "L14:conference",
+        ]
+        for layer in layer_order:
+            count = layer_counts.get(layer, 0)
+            layer_lines.append(f"  {layer}: {count}")
+        # Include any layers not in the order list
+        for layer, count in layer_counts.items():
+            if layer not in layer_order:
+                layer_lines.append(f"  {layer}: {count}")
+
         msg = (
-            f"✅ *Research complete: {district}*\n"
-            f"{total} contacts — {with_email} with emails, {no_email} name-only.\n"
-            f"[View sheet]({sheet_url})"
+            f"✅ *Research complete: {district}*\n\n"
+            f"⏱ Time: {elapsed_str} | 🔍 Serper queries: {queries_used}\n"
+            f"📊 Found: {total} total — {with_email} with email, {no_email} name-only\n"
+            f"✅ Verified emails: {verified} | 🆕 New to sheet: {leads_added + no_email_added} | ♻️ Dupes skipped: {dupes_skipped}\n\n"
+            f"*Layer breakdown (contacts found per strategy):*\n"
+            + "\n".join(layer_lines)
+            + f"\n\n[View sheet]({sheet_url})"
         )
-        # Cap-hit reporting — tell Steven which layers were skipped and offer to keep digging
+
+        # Cap-hit reporting
         if result.get("cap_hit"):
             skipped = result.get("skipped_layers", [])
-            queries_used = result.get("queries_used", 0)
             skipped_str = ", ".join(skipped) if skipped else "some layers"
             msg += (
                 f"\n\n⚠️ *Hit the {queries_used}-query safety limit.* Layers skipped: _{skipped_str}_\n"
                 f"There are likely more leads — say *\"keep digging on {district}\"* to continue."
             )
+
         await send_message(msg)
+
+        # Log to Research Log tab
+        try:
+            layer_notes = " | ".join(f"{k}:{v}" for k, v in layer_counts.items() if v > 0)
+            notes = f"{elapsed_str} | {queries_used} queries | {layer_notes}"
+            sheets_writer.log_research_job(
+                district=district,
+                state=state,
+                layers_used=result.get("layers_used", ""),
+                total_found=total,
+                with_email=with_email,
+                no_email=no_email,
+                notes=notes,
+            )
+        except Exception as log_err:
+            logger.error(f"Research log write failed: {log_err}")
+
     except Exception as e:
         logger.error(f"Research completion handler failed: {e}")
         await send_message(f"❌ Research finished but sheet write failed: {e}")
