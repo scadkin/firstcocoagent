@@ -1,27 +1,16 @@
 # SCOUT — Claude Code Reference
-*Last updated: 2026-03-02 — Session 4*
+*Last updated: 2026-03-02 — Session 5*
 
 ---
 
 ## CURRENT STATE — update this after each session
 
-**Phase 6A (Campaign Engine) built and partially verified. One pending action before fully verified.**
+**Phase 6A fully verified ✅. Ready to build Phase 6B.**
 
 ### What was built/fixed this session
-- `tools/sequence_builder.py` fully implemented (was empty stub): `build_sequence()`, `write_sequence_to_doc()`, `format_for_telegram()`
-- `prompts/sequence_templates.md` created: 17 archetypes (6 role-based cold prospecting + 11 scenario-based)
-- `/build_sequence` now asks clarifying questions first (routed through Claude), then builds
-- `execute_tool("build_sequence")` sends result directly to Telegram via `send_message()` — bypasses Claude rewriting the output. Returns `"✅ Sequence built and sent above."` to Claude.
-- Google Doc creation via GAS bridge: DriveApp folder-move code wrapped in try/catch so doc always succeeds even if folder move fails
-- `SEQUENCES_FOLDER_ID` env var support: strips `?ths=true` query params automatically (user may paste full browser URL)
-- Doc header includes CST timestamp: `Generated: 2026-03-02 at 9:15 AM CST`
-
-### Pending action before Phase 6A is fully verified
-**GAS redeploy required.** Code.gs `createGoogleDoc` was updated to wrap DriveApp folder-move in try/catch. Steven needs to:
-1. Open script.google.com → Scout Bridge → paste updated `createGoogleDoc` function → save
-2. Deploy → Manage deployments → New version → Deploy
-3. URL stays the same — no Railway update needed
-4. Test: `/build_sequence CS Directors - Texas Spring 2026` → should ask questions → build → Google Doc link → doc lands in "Scout Built Sequences" folder
+- GAS redeploy completed: `createGoogleDoc` try/catch for DriveApp folder-move is now live
+- `/build_sequence` verified end-to-end: questions → build → Telegram preview → Google Doc link → doc lands in "Scout Built Sequences" folder
+- **Bug fix:** Duplicate "Got it — building the sequence now." message after sequence output. Root cause: `text_response` (Claude's preamble text sent alongside a tool_use block) was being sent to Telegram AFTER `execute_tool` had already sent the sequence directly. Fix: `if text_response and not tool_calls:` at line 707 of `agent/main.py`. Suppresses Claude's pre-tool chatter whenever a tool is being called.
 
 ### Current status
 - `/recent_calls` ✅
@@ -29,11 +18,17 @@
 - `/brief` (manual) ✅
 - Auto pre-call brief (10-min trigger) ✅
 - Fireflies webhook (auto on call end) ⏳ configured, pending first real external call
-- `/build_sequence` ✅ (sequence generation + Telegram preview working, Google Doc ⏳ pending GAS redeploy above)
+- `/build_sequence` ✅ fully verified — questions, sequence, Google Doc, correct folder, clean output
+
+### Next step
+**Phase 6B — Research Engine Expansion.** Full plan in `/Users/stevenadkins/.claude/plans/glistening-jumping-teacup.md`.
+- 4 new search layers in `tools/research_engine.py` (L11: school staff, L12: board agendas, L13: state DOE, L14: conference presenters)
+- `enqueue_batch()` on `ResearchQueue` + `research_batch` tool wired into `claude_brain.py` + `main.py`
+- Configurable `SERPER_REQUESTS_PER_JOB` env var (default 22, up from hardcoded 15)
 
 ### Phase 6 plan
-- **6A** — Campaign Engine ← current (sequence_builder.py + templates) — nearly done
-- **6B** — Research Engine Expansion (layers 11-14, batch research tool)
+- **6A** — Campaign Engine ✅ done
+- **6B** — Research Engine Expansion ← next
 - **6C** — Activity Tracking + Analytics (activity_tracker.py, data-driven morning brief/EOD)
 - **6D** — Automation + Learning Loops (campaign_manager.py, Outreach CSV import, weekly review)
 
@@ -60,6 +55,8 @@
 **`execute_tool` can send directly to Telegram for long outputs.** For tools that return content Claude tends to rewrite (sequences, docs), use `await send_message(full_output)` inside `execute_tool` and return a short ack string. This is the pattern for `build_sequence` and should be used for any future tools with rich structured output.
 
 **GAS deployment URL does NOT change when bumping version.** When you edit an existing deployment and increment the version, the Web App URL stays the same. Only Railway update needed is if you create a brand-new deployment (not an edit).
+
+**Suppress `text_response` when tool_calls are present.** In `handle_message`, use `if text_response and not tool_calls:` before sending Claude's text response. When Claude calls a tool, its preamble text ("Got it — building...") is noise — the tool output IS the response. This prevents duplicate/out-of-order messages for any tool that sends output directly to Telegram.
 
 ---
 

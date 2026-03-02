@@ -65,6 +65,7 @@
 | Sequence Google Doc: DriveApp getFolderById error even with empty folder_id | sequence_builder passed `folder_id or SEQUENCES_FOLDER_ID` — if env var was set, non-empty folder ID reached GAS even when caller passed "" | Always pass SEQUENCES_FOLDER_ID directly; strip ?query params from env var with .split("?")[0] | ✅ Fixed |
 | Sequence Google Doc: DriveApp "Unexpected error while getting getFolderById" | DriveApp authorization not stable — throws even when called conditionally in GAS | Wrapped DriveApp folder-move block in try/catch in createGoogleDoc — doc creation succeeds regardless of folder move outcome | ✅ Fixed (pending GAS redeploy) |
 | Sequence Google Doc: silent error — no error surfaced to Telegram | Doc creation failure was caught, but error msg only reached Claude which paraphrased it | Added direct await send_message() for doc errors in execute_tool, bypassing Claude | ✅ Fixed |
+| Duplicate "Got it — building the sequence now." after sequence output | text_response (Claude's preamble text alongside tool_use block) sent to Telegram AFTER execute_tool already sent sequence directly — appeared out of order | Changed `if text_response:` → `if text_response and not tool_calls:` in handle_message. Suppresses Claude pre-tool chatter whenever a tool is being called. | ✅ Fixed |
 
 ---
 
@@ -125,3 +126,6 @@
 | 2026-03-02 | Code.gs createGoogleDoc: DriveApp folder-move wrapped in try/catch — doc creation never fails due to folder move error | Phase 6A |
 | 2026-03-02 | SEQUENCES_FOLDER_ID env var added — strips ?query params automatically | Phase 6A |
 | 2026-03-02 | Phase 6A nearly verified — GAS redeploy pending to activate try/catch folder-move fix | Phase 6A ⏳ |
+| 2026-03-02 | Session 5: GAS redeploy completed — createGoogleDoc try/catch now live | Phase 6A |
+| 2026-03-02 | Session 5: /build_sequence fully verified end-to-end — questions, sequence, doc, correct folder | Phase 6A ✅ |
+| 2026-03-02 | Session 5: Bug fix — duplicate "Got it — building..." message after sequence output. Fixed with `if text_response and not tool_calls:` in handle_message (main.py line 707) | Phase 6A ✅ |
