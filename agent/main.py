@@ -52,6 +52,7 @@ _precall_briefs_sent: set = set()
 # Phase 5+: Fireflies Gmail polling dedup
 _fireflies_email_triggers: set = set()   # keyed by "subject[:60]|date[:16]"
 _fireflies_processed_ids: set = set()    # keyed by transcript_id
+_fireflies_gmail_seeded: bool = False    # True after first scan seeds existing emails
 
 
 def get_gas_bridge():
@@ -1112,16 +1113,29 @@ async def _on_transcript_received(transcript_id: str):
 async def _check_fireflies_gmail(gas):
     """
     Scans Gmail every 60s for new Fireflies recap emails.
-    When a new recap is detected, sends a Telegram notification and kicks off
-    _process_latest_fireflies_transcript() as a background task.
+    On the first run after startup, seeds existing emails as already-seen so Scout
+    doesn't replay old meetings on reboot. Only emails that arrive after startup
+    trigger processing.
     """
-    global _fireflies_email_triggers
+    global _fireflies_email_triggers, _fireflies_gmail_seeded
     try:
         loop = asyncio.get_event_loop()
         results = await loop.run_in_executor(
             None,
             lambda: gas.search_inbox("from:fireflies.ai", max_results=5)
         )
+
+        if not _fireflies_gmail_seeded:
+            # First run: mark all existing emails as already seen — don't process any
+            for email in results:
+                subj = email.get("subject", "")
+                date = email.get("date", "")[:16]
+                key = f"{subj[:60]}|{date}"
+                _fireflies_email_triggers.add(key)
+            _fireflies_gmail_seeded = True
+            logger.info(f"[Fireflies Gmail] Seeded {len(results)} existing email(s) — watching for new ones.")
+            return
+
         for email in results:
             subj = email.get("subject", "")
             date = email.get("date", "")[:16]
