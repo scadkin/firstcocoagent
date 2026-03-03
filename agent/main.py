@@ -1,6 +1,6 @@
 """
 agent/main.py
-Scout's entry point. Phase 5: Full Call Intelligence Suite.
+Scout's entry point. Phase 6C: Activity Tracking + KPI Goals + Salesforce CSV import + Gmail intelligence.
 """
 
 import asyncio
@@ -24,6 +24,8 @@ from agent.scheduler import Scheduler
 from agent.voice_trainer import VoiceTrainer
 from tools.research_engine import research_queue   # singleton queue from Phase 2
 import tools.sheets_writer as sheets_writer
+import tools.activity_tracker as activity_tracker
+import tools.csv_importer as csv_importer
 from tools.telegram_bot import send_message
 # Phase 4/5 modules imported lazily inside execute_tool() — safe to boot without them
 
@@ -163,6 +165,18 @@ async def _on_research_complete(result: dict):
         except Exception as log_err:
             logger.error(f"Research log write failed: {log_err}")
 
+        # Phase 6C: log to Activities tab
+        try:
+            activity_tracker.log_activity(
+                activity_type="research_job",
+                district=district,
+                contact="",
+                notes=f"{total} contacts found ({with_email} with email) | {elapsed_str}",
+                source="scout",
+            )
+        except Exception as act_err:
+            logger.error(f"Activity log failed: {act_err}")
+
     except Exception as e:
         logger.error(f"Research completion handler failed: {e}")
         await send_message(f"❌ Research finished but sheet write failed: {e}")
@@ -281,6 +295,19 @@ async def execute_tool(tool_name: str, tool_input: dict) -> str:
             return draft_text
         subject, body = _parse_draft(draft_text)
         _pending_draft = {"to": "", "subject": subject, "body": body, "raw": draft_text}
+
+        # Phase 6C: log email draft
+        try:
+            activity_tracker.log_activity(
+                activity_type="email_drafted",
+                district=district,
+                contact=f"{recipient_name} ({recipient_title})" if recipient_name else recipient_title,
+                notes=f"Type: {email_type} | Subject: {subject}",
+                source="scout",
+            )
+        except Exception as act_err:
+            logger.error(f"Activity log (draft_email) failed: {act_err}")
+
         return (
             f"📧 *Draft ready:*\n\n"
             f"{draft_text}\n\n"
@@ -302,6 +329,19 @@ async def execute_tool(tool_name: str, tool_input: dict) -> str:
         try:
             result = gas.create_draft(to=to, subject=subject, body=body)
             _pending_draft = None
+
+            # Phase 6C: log email saved
+            try:
+                activity_tracker.log_activity(
+                    activity_type="email_saved",
+                    district="",
+                    contact=to,
+                    notes=f"Subject: {subject}",
+                    source="scout",
+                )
+            except Exception as act_err:
+                logger.error(f"Activity log (email_saved) failed: {act_err}")
+
             return (
                 f"✅ *Saved to Gmail Drafts!*\n"
                 f"Subject: _{subject}_\n"
@@ -344,6 +384,19 @@ async def execute_tool(tool_name: str, tool_input: dict) -> str:
                 outcome=tool_input.get("outcome", ""),
                 next_steps=tool_input.get("next_steps", ""),
             )
+
+            # Phase 6C: log call activity
+            try:
+                activity_tracker.log_activity(
+                    activity_type="call_logged",
+                    district=tool_input.get("district", ""),
+                    contact=tool_input.get("contact_name", ""),
+                    notes=f"Outcome: {tool_input.get('outcome', '')} | {tool_input.get('notes', '')}",
+                    source="scout",
+                )
+            except Exception as act_err:
+                logger.error(f"Activity log (log_call) failed: {act_err}")
+
             return (
                 f"✅ *Call logged!*\n"
                 f"_{result.get('title', 'Call')}_\n"
@@ -475,6 +528,19 @@ async def execute_tool(tool_name: str, tool_input: dict) -> str:
             full_output = f"{tg_text}\n\n⚠️ Doc creation failed: `{raw_error}`\n📋 Copy steps into Outreach.io manually."
         # Send directly to Telegram — bypasses Claude so it can't rewrite the output
         await send_message(full_output)
+
+        # Phase 6C: log sequence built
+        try:
+            activity_tracker.log_activity(
+                activity_type="sequence_built",
+                district="",
+                contact=target_role,
+                notes=f"Campaign: {campaign_name} | {num_steps} steps",
+                source="scout",
+            )
+        except Exception as act_err:
+            logger.error(f"Activity log (sequence_built) failed: {act_err}")
+
         return "✅ Sequence built and sent above."
 
     elif tool_name == "process_call_transcript":
@@ -538,7 +604,6 @@ async def execute_tool(tool_name: str, tool_input: dict) -> str:
         if attendee_emails:
             attendees = [{"email": e, "name": e.split("@")[0]} for e in attendee_emails]
         else:
-            # _parse_guests handles both plain email strings and dicts from GAS bridge
             raw_guests = (target_event or {}).get("guests", [])
             attendees = _parse_guests(raw_guests)
             if not attendees:
@@ -558,7 +623,128 @@ async def execute_tool(tool_name: str, tool_input: dict) -> str:
         await send_message(brief)
         return ""
 
+    # ── Phase 6C tools ────────────────────────────────────────────────────────
+
+    elif tool_name == "get_activity_summary":
+        try:
+            date_str = tool_input.get("date", None)
+            progress = activity_tracker.get_daily_progress(date_str=date_str)
+            return progress.get("progress_text", "No activity data available.")
+        except Exception as e:
+            return f"❌ Could not load activity data: {e}"
+
+    elif tool_name == "get_accounts_status":
+        try:
+            return csv_importer.get_import_summary()
+        except Exception as e:
+            return f"❌ Could not read Active Accounts tab: {e}"
+
+    elif tool_name == "set_goal":
+        goal_type = tool_input.get("goal_type", "")
+        daily_target = tool_input.get("daily_target", 0)
+        description = tool_input.get("description", "")
+        if not goal_type or not daily_target:
+            return "❌ Need goal_type and daily_target."
+        try:
+            activity_tracker.set_goal(goal_type, int(daily_target), description)
+            return f"✅ Goal updated: *{goal_type}* = {daily_target}/day"
+        except Exception as e:
+            return f"❌ Could not update goal: {e}"
+
+    elif tool_name == "sync_gmail_activities":
+        gas = get_gas_bridge()
+        if not gas:
+            return "❌ GAS bridge not configured."
+        try:
+            await send_message("🔄 Scanning Gmail for PandaDoc and Dialpad events...")
+            loop = asyncio.get_event_loop()
+            result = await loop.run_in_executor(None, activity_tracker.sync_gmail_activities, gas)
+            pd = result.get("pandadoc_logged", 0)
+            dd = result.get("dialpad_logged", 0)
+            seen = result.get("already_seen", 0)
+            return (
+                f"✅ *Gmail scan complete*\n"
+                f"📄 PandaDoc events logged: {pd}\n"
+                f"📞 Dialpad calls logged: {dd}\n"
+                f"♻️ Already seen (skipped): {seen}"
+            )
+        except Exception as e:
+            return f"❌ Gmail sync failed: {e}"
+
     return f"❓ Unknown tool: {tool_name}"
+
+
+# ── CSV file upload handler ────────────────────────────────────────────────────
+
+async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle CSV file uploads from Steven. Triggers Salesforce active accounts import."""
+    if str(update.effective_chat.id) != str(TELEGRAM_CHAT_ID):
+        return
+
+    doc = update.message.document
+    if not doc:
+        return
+
+    filename = doc.file_name or ""
+    mime = doc.mime_type or ""
+
+    # Only handle CSV files
+    if not (filename.lower().endswith(".csv") or "csv" in mime.lower() or "text" in mime.lower()):
+        await send_message(
+            "📎 Got a file, but I can only process `.csv` files right now.\n"
+            "Export from Salesforce as CSV and send that file."
+        )
+        return
+
+    await send_message(f"📥 Got `{filename}` — importing Salesforce accounts...")
+
+    try:
+        tg_file = await doc.get_file()
+        file_bytes = await tg_file.download_as_bytearray()
+        csv_text = file_bytes.decode("utf-8-sig")  # utf-8-sig handles BOM from Excel/Salesforce exports
+    except Exception as e:
+        await send_message(f"❌ Could not download file: {e}")
+        return
+
+    try:
+        loop = asyncio.get_event_loop()
+        result = await loop.run_in_executor(None, csv_importer.import_accounts, csv_text)
+    except Exception as e:
+        await send_message(f"❌ Import failed: {e}")
+        return
+
+    imported = result.get("imported", 0)
+    districts = result.get("districts", 0)
+    schools = result.get("schools", 0)
+    skipped = result.get("skipped", 0)
+    errors = result.get("errors", [])
+    sheet_url = sheets_writer.get_master_sheet_url()
+
+    msg = (
+        f"✅ *Salesforce import complete!*\n\n"
+        f"📊 {imported} accounts imported\n"
+        f"  • {districts} districts\n"
+        f"  • {schools} schools\n"
+    )
+    if skipped:
+        msg += f"⚠️ {skipped} rows skipped (blank account name)\n"
+    if errors:
+        msg += f"❌ Errors: {'; '.join(errors[:3])}\n"
+    msg += f"\n[View Active Accounts tab]({sheet_url})"
+
+    # Log the import as an activity
+    try:
+        activity_tracker.log_activity(
+            activity_type="research_job",
+            district="Salesforce Import",
+            contact="",
+            notes=f"Imported {imported} accounts ({districts} districts, {schools} schools) from {filename}",
+            source="manual",
+        )
+    except Exception:
+        pass
+
+    await send_message(msg)
 
 
 # ── Draft parsing ──────────────────────────────────────────────────────────────
@@ -650,8 +836,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 args = user_text[len(prefix):].strip()
                 break
         campaign_hint = f" for '{args}'" if args else ""
-        # Route through Claude so it asks clarifying questions before building.
-        # execute_tool sends the final result directly to Telegram — Claude won't rewrite it.
         user_text = (
             f"I want to build an email sequence{campaign_hint}. "
             f"Before building, ask me all of these in one message: "
@@ -704,6 +888,38 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 await send_message(result)
         else:
             await send_message("Give me the transcript ID, or use /recent_calls to find one.")
+        return
+
+    # ── Phase 6C commands ──────────────────────────────────────────────────────
+
+    elif user_text.lower() in ["/progress", "/kpi", "kpi", "my progress", "how am i doing"]:
+        await send_message("📊 Checking today's progress...")
+        try:
+            loop = asyncio.get_event_loop()
+            progress = await loop.run_in_executor(None, activity_tracker.get_daily_progress)
+            await send_message(progress.get("progress_text", "No activity data yet today."))
+        except Exception as e:
+            await send_message(f"❌ Could not load progress: {e}")
+        return
+
+    elif user_text.lower().startswith("/sync_activities") or user_text.lower() in ["sync activities", "sync gmail"]:
+        result = await execute_tool("sync_gmail_activities", {})
+        if result:
+            await send_message(result)
+        return
+
+    elif user_text.lower().startswith("/set_goal"):
+        args = user_text[len("/set_goal"):].strip().split()
+        if len(args) >= 2:
+            goal_type = args[0]
+            try:
+                target = int(args[1])
+                result = await execute_tool("set_goal", {"goal_type": goal_type, "daily_target": target})
+                await send_message(result)
+            except ValueError:
+                await send_message("Usage: `/set_goal calls_made 15`\nGoal types: `calls_made`, `districts_researched`, `emails_drafted`")
+        else:
+            await send_message("Usage: `/set_goal calls_made 15`\nGoal types: `calls_made`, `districts_researched`, `emails_drafted`")
         return
 
     elif _pending_draft and any(
@@ -805,7 +1021,18 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def send_morning_brief():
     try:
         with open("prompts/morning_brief.md", "r") as f:
-            prompt = f.read()
+            prompt_template = f.read()
+
+        # Phase 6C: inject real activity data from yesterday
+        try:
+            from datetime import date, timedelta
+            yesterday = (date.today() - timedelta(days=1)).strftime("%Y-%m-%d")
+            data_block = activity_tracker.build_brief_data_block(date_str=yesterday)
+            prompt = f"{data_block}\n\n---\n\n{prompt_template}"
+        except Exception as data_err:
+            logger.warning(f"Could not load activity data for morning brief: {data_err}")
+            prompt = prompt_template
+
         text, _, _ = process_message(prompt, [], memory)
         await send_message(f"☀️ *Good morning, Steven!*\n\n{text}")
     except Exception as e:
@@ -815,7 +1042,24 @@ async def send_morning_brief():
 async def send_eod_report():
     try:
         with open("prompts/eod_report.md", "r") as f:
-            prompt = f.read()
+            prompt_template = f.read()
+
+        # Phase 6C: inject real activity data from today + trigger Gmail sync first
+        try:
+            gas = get_gas_bridge()
+            if gas:
+                loop = asyncio.get_event_loop()
+                await loop.run_in_executor(None, activity_tracker.sync_gmail_activities, gas)
+        except Exception as sync_err:
+            logger.warning(f"Gmail sync before EOD failed: {sync_err}")
+
+        try:
+            data_block = activity_tracker.build_brief_data_block()
+            prompt = f"{data_block}\n\n---\n\n{prompt_template}"
+        except Exception as data_err:
+            logger.warning(f"Could not load activity data for EOD: {data_err}")
+            prompt = prompt_template
+
         text, _, _ = process_message(prompt, conversation_history, memory)
         await send_message(f"🌙 *EOD Report*\n\n{text}")
         memory.append_to_summary(text)
@@ -886,7 +1130,6 @@ async def _check_precall_briefs(gas):
             if 9 <= minutes_until <= 11:
                 _precall_briefs_sent.add(event_id)
                 raw_guests = event.get("guests") or []
-                # _parse_guests handles both plain email strings and dicts
                 attendees = _parse_guests(raw_guests)
                 if not attendees:
                     attendees = [{"name": "Prospect", "email": ""}]
@@ -912,6 +1155,7 @@ async def _run_telegram_and_scheduler():
     app = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     app.add_handler(MessageHandler(filters.COMMAND, handle_message))
+    app.add_handler(MessageHandler(filters.Document.ALL, handle_document))
 
     scheduler = Scheduler()
     gas = get_gas_bridge() if gas_bridge_configured() else None
@@ -923,9 +1167,10 @@ async def _run_telegram_and_scheduler():
     gas_status = "GAS bridge ready" if gas_bridge_configured() else "GAS bridge not configured"
     ff_status = "Fireflies ready" if FIREFLIES_API_KEY else "FIREFLIES_API_KEY not set"
     await send_message(
-        f"Scout is online — Phase 5 active.\n"
+        f"Scout is online — Phase 6C active.\n"
         f"{gas_status} | {ff_status}\n"
-        f"Commands: /brief | /recent_calls [num] | /call [id] | /push_code [file]"
+        f"Commands: /brief | /recent_calls [num] | /call [id] | /push_code [file]\n"
+        f"New: /progress | /sync_activities | /set_goal [type] [target] | send CSV to import accounts"
     )
 
     try:
@@ -947,7 +1192,7 @@ async def _run_telegram_and_scheduler():
 
 
 async def main():
-    logger.info(f"Starting {AGENT_NAME} — Phase 5...")
+    logger.info(f"Starting {AGENT_NAME} — Phase 6C...")
     port = int(os.environ.get("PORT", 8080))
     if os.environ.get("PORT"):
         from agent.webhook_server import start_webhook_server

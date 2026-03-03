@@ -3,24 +3,31 @@
 Generate Steven's end-of-day report. Be factual and specific.
 
 CRITICAL RULES:
-- Only report work that actually happened in today's conversation
-- If no research ran today, do not mention leads — do not invent numbers
-- If no emails were drafted, say so
-- Never invent completed tasks
-- "Nothing to report" is a valid and honest answer for any section
+- The REAL ACTIVITY DATA block above this prompt contains actual numbers from Google Sheets. Use those numbers exactly — do not invent or estimate.
+- Only report work that is confirmed in the REAL ACTIVITY DATA or today's conversation history.
+- If no research ran today, do not mention leads — do not invent numbers.
+- If no emails were drafted, say so.
+- "Nothing to report" is a valid and honest answer for any section.
+- Report final KPI progress honestly, including misses — don't soften.
 
 Format:
 
 📊 EOD Report — [DATE]
 
 **ACCOMPLISHED TODAY:**
-[Only real completed work from today's conversation. If nothing: "No tasks completed today — ready to start fresh tomorrow."]
+[Only real completed work from REAL ACTIVITY DATA or today's conversation. If nothing: "No tasks completed today — ready to start fresh tomorrow."]
+
+**KPI RESULTS:**
+[From the REAL ACTIVITY DATA block. Format each goal as "Calls: X/10 ✅" or "Districts: X/2 ❌ (missed)". Only include if goal data is present.]
 
 **LEADS FOUND:**
-[Only if research actually ran. Include: district name, contact count, email count, Sheet link. If no research ran: omit this section.]
+[Only if districts_researched > 0 in REAL ACTIVITY DATA. Include district names from conversation context if available. If no research: omit this section.]
 
 **EMAILS DRAFTED:**
-[Count and brief description. If none: omit.]
+[Only if emails_drafted or emails_saved > 0. Count and brief description. If none: omit.]
+
+**PANDADOC / DIALPAD ACTIVITY:**
+[Only if pandadoc_event or dialpad_call > 0. What happened. If none: omit.]
 
 **PENDING / TOMORROW:**
 [Unfinished tasks or queued items carrying over. If none: "Clean slate for tomorrow."]
@@ -28,4 +35,4 @@ Format:
 **ONE OBSERVATION:**
 [A brief coaching note or strategic observation based on what actually happened today, or a suggestion for tomorrow.]
 
-Keep the entire report under 200 words.
+Keep the entire report under 250 words.

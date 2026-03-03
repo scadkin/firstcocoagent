@@ -259,6 +259,69 @@ TOOLS = [
         "description": "Test the Google Apps Script bridge connection. Use when Steven asks if Google is connected or sends /ping_gas.",
         "input_schema": {"type": "object", "properties": {}, "required": []},
     },
+    # Phase 6C: Activity Tracking + KPI
+    {
+        "name": "get_activity_summary",
+        "description": (
+            "Get today's activity counts and KPI progress (calls, districts researched, emails). "
+            "Use when Steven asks 'how am I doing', 'what's my progress today', 'show my KPIs', or /progress."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "date": {
+                    "type": "string",
+                    "description": "Date in YYYY-MM-DD format. Defaults to today.",
+                },
+            },
+            "required": [],
+        },
+    },
+    {
+        "name": "get_accounts_status",
+        "description": (
+            "Show what's currently in the Active Accounts tab — how many districts and schools "
+            "are imported from Salesforce, and how many districts have active CodeCombat schools. "
+            "Use when Steven asks about his territory, active accounts, or 'how many schools do we have'."
+        ),
+        "input_schema": {"type": "object", "properties": {}, "required": []},
+    },
+    {
+        "name": "set_goal",
+        "description": (
+            "Update a KPI daily target. Use when Steven says 'set my call goal to 15', "
+            "'change the research target', or /set_goal. "
+            "Goal types: calls_made, districts_researched, emails_drafted."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "goal_type": {
+                    "type": "string",
+                    "enum": ["calls_made", "districts_researched", "emails_drafted"],
+                    "description": "Which KPI to update.",
+                },
+                "daily_target": {
+                    "type": "integer",
+                    "description": "New daily target number.",
+                },
+                "description": {
+                    "type": "string",
+                    "description": "Optional label for the goal. Leave blank to keep existing.",
+                },
+            },
+            "required": ["goal_type", "daily_target"],
+        },
+    },
+    {
+        "name": "sync_gmail_activities",
+        "description": (
+            "Scan Gmail inbox for PandaDoc quote events (opened/signed/rejected) and "
+            "Dialpad call summary emails. Log any new ones to the Activities tab. "
+            "Use when Steven says 'sync activities', 'check for PandaDoc events', or /sync_activities."
+        ),
+        "input_schema": {"type": "object", "properties": {}, "required": []},
+    },
     # Phase 5: Call Intelligence
     {
         "name": "process_call_transcript",
@@ -352,7 +415,7 @@ def process_message(
 
     try:
         response = client.messages.create(
-            model="claude-opus-4-5",
+            model="claude-sonnet-4-6",
             max_tokens=4096,
             system=system,
             tools=TOOLS,
@@ -410,7 +473,7 @@ def build_draft_prompt(voice_profile, recipient_name, recipient_title, district,
 def draft_email_with_claude(prompt: str) -> str:
     try:
         response = client.messages.create(
-            model="claude-opus-4-5",
+            model="claude-sonnet-4-6",
             max_tokens=1024,
             messages=[{"role": "user", "content": prompt}],
         )

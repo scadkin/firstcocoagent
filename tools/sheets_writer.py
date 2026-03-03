@@ -71,6 +71,22 @@ LOG_COLUMNS = [
 TAB_LEADS = "Leads"
 TAB_NO_EMAIL = "No Email"
 TAB_LOG = "Research Log"
+TAB_ACTIVITIES = "Activities"
+TAB_ACTIVE_ACCOUNTS = "Active Accounts"
+TAB_GOALS = "Goals"
+TAB_SF_IMPORT = "Salesforce Import"
+
+ACTIVITY_COLUMNS = [
+    "Date", "Time", "Type", "District/Account", "Contact", "Notes", "Source", "Message ID",
+]
+GOALS_COLUMNS = [
+    "Goal Type", "Daily Target", "Description",
+]
+ACTIVE_ACCOUNTS_COLUMNS = [
+    "Name Key", "Display Name", "Parent Account", "Type", "Open Renewal",
+    "Opportunities", "Active Licenses", "2025 Revenue", "Lifetime Revenue",
+    "Last Activity", "Last Modified", "State", "Is District",
+]
 
 
 # ─────────────────────────────────────────────
@@ -113,7 +129,11 @@ def ensure_sheet_tabs_exist():
     existing_tabs = {s["properties"]["title"] for s in meta.get("sheets", [])}
 
     requests = []
-    for tab_name in [TAB_LEADS, TAB_NO_EMAIL, TAB_LOG]:
+    all_tabs = [
+        TAB_LEADS, TAB_NO_EMAIL, TAB_LOG,
+        TAB_ACTIVITIES, TAB_ACTIVE_ACCOUNTS, TAB_GOALS, TAB_SF_IMPORT,
+    ]
+    for tab_name in all_tabs:
         if tab_name not in existing_tabs:
             requests.append({
                 "addSheet": {
@@ -132,6 +152,9 @@ def ensure_sheet_tabs_exist():
     _ensure_headers(service, sheet_id, TAB_LEADS, LEAD_COLUMNS)
     _ensure_headers(service, sheet_id, TAB_NO_EMAIL, LEAD_COLUMNS)
     _ensure_headers(service, sheet_id, TAB_LOG, LOG_COLUMNS)
+    _ensure_headers(service, sheet_id, TAB_ACTIVITIES, ACTIVITY_COLUMNS)
+    _ensure_headers(service, sheet_id, TAB_ACTIVE_ACCOUNTS, ACTIVE_ACCOUNTS_COLUMNS)
+    _ensure_headers(service, sheet_id, TAB_GOALS, GOALS_COLUMNS)
 
 
 def _ensure_headers(service, sheet_id: str, tab: str, columns: list[str]):

@@ -1,20 +1,29 @@
 # SCOUT — Claude Code Reference
-*Last updated: 2026-03-02 — Session 7*
+*Last updated: 2026-03-02 — Session 8*
 
 ---
 
 ## CURRENT STATE — update this after each session
 
-**Phase 6B verified ✅. Phase 6C roadmap finalized. Ready to build.**
+**Phase 6C built ✅. Deploy and verify. Phase 6D is next.**
 
-### What was verified/decided this session
-- **Phase 6B fully verified end-to-end:** heartbeat ✅, completion message ✅, Research Log ✅, no duplicates ✅, batch queue ✅
-- **Full sales tech stack mapped:** Salesforce (source of truth + opps), Outreach.io (sequences + call logging + open tracking), Gmail (threads + replies + notifications), PandaDoc (quotes → Salesforce sync), Zoom/Fireflies (video calls), Dialpad (phone + texts → Outreach sync). No API integration permissions for any except Gmail.
-- **Gmail intelligence hub pattern:** PandaDoc and Dialpad both send email notifications to Gmail — Scout parses these via `gas.search_inbox()` to auto-log activity without any API access. PandaDoc: "opened/signed/rejected" emails. Dialpad: call summary emails (Steven must enable in Dialpad → Settings → Notifications → Call Summary).
-- **Outreach handoff pattern:** Scout builds and formats sequences → creates Google Doc for Outreach paste-in. Outreach handles actual sending + open/click tracking. Do NOT send cold outreach directly from Gmail — Outreach is Steven's tool for that.
-- **Salesforce CSV import pattern:** Steven exports Salesforce reports as CSV → Scout imports to Google Sheets → data feeds call lists, activity tracking, pipeline snapshots.
-- **Active accounts CSV format documented** — 12 columns: Billing State/Province, Account Name, Parent Account, Open Renewal, # of Opportunities, # of Active Licenses, 2025 Revenue, Lifetime Revenue, Last Activity, Last Modified Date, Type, Billing State/Province (text only)
-- **Phase 6C–6F roadmap finalized** — see Phase 6 plan below
+### What was built this session (Phase 6C)
+- **`tools/activity_tracker.py`** — new flat module. Logs activities to "Activities" Sheets tab. KPI Goals in "Goals" tab. `log_activity()`, `get_daily_progress()`, `sync_gmail_activities()`, `build_brief_data_block()`. Gmail scan: PandaDoc + Dialpad inbox search with Message ID dedup.
+- **`tools/csv_importer.py`** — new flat module. Accepts Salesforce CSV string. `import_accounts()` clears + rewrites "Active Accounts" tab. `get_districts_with_schools()` for Phase 6D call list. `normalize_name()` strips ISD/USD/etc for matching. `get_import_summary()`.
+- **`tools/sheets_writer.py`** — updated `ensure_sheet_tabs_exist()` to create Activities, Active Accounts, Goals, Salesforce Import tabs.
+- **`agent/main.py`** — Phase 6C: activity hooks on research_job/sequence_built/email_drafted/email_saved/call_logged, `handle_document()` for CSV file upload (Telegram attachment), new commands `/progress` `/sync_activities` `/set_goal`, `send_morning_brief()` and `send_eod_report()` inject real activity data block before sending to Claude. Startup message updated to "Phase 6C active".
+- **`agent/claude_brain.py`** — 4 new tools: `get_activity_summary`, `get_accounts_status`, `set_goal`, `sync_gmail_activities`. Model updated to `claude-sonnet-4-6`.
+- **`prompts/morning_brief.md`** + **`prompts/eod_report.md`** — updated to use injected REAL ACTIVITY DATA block.
+
+### Key design decisions (Phase 6C)
+- **CSV upload via Telegram file attachment** — Steven sends `.csv` directly in Telegram chat. `handle_document()` downloads it, runs `csv_importer.import_accounts()`. No GAS changes needed.
+- **Activity tracker is a flat module** (like sheets_writer) — imported at top of main.py as `import tools.activity_tracker as activity_tracker`
+- **csv_importer is a flat module** — same pattern
+- **KPI goal types**: `calls_made`, `districts_researched`, `emails_drafted` — seeded with 10/2/5 defaults
+- **calls_made** maps to `call_logged` + `dialpad_call` activities combined
+- **emails_drafted** maps to `email_drafted` + `email_saved` activities combined
+- **Morning brief** injects yesterday's data. **EOD report** syncs Gmail first, then injects today's data.
+- **`sync_gmail_activities` is synchronous** inside activity_tracker.py — called via `run_in_executor` from async context in main.py
 
 ### Current status
 - `/recent_calls` ✅
@@ -24,23 +33,21 @@
 - Fireflies webhook ⏳ pending first real external call
 - `/build_sequence` ✅
 - Phase 6B: ✅ verified end-to-end
-- Phase 6C: not yet started
+- Phase 6C: ✅ built — deploy + verify next
 
 ### Next step
-**Build Phase 6C: Activity Tracking + KPI Goals + Salesforce CSV import + Gmail intelligence**
+**Deploy Phase 6C to Railway (push to GitHub → auto-deploy) then verify:**
+1. `/progress` — should return KPI progress (all zeros on first run, which is correct)
+2. Send a `.csv` file in Telegram — should import to Active Accounts tab
+3. `/sync_activities` — should scan Gmail for PandaDoc + Dialpad events
+4. Run research on a district → check Activities tab has a new row
 
-Build in this order:
-1. `tools/activity_tracker.py` — log all Scout-driven activities (research jobs, sequences built, emails drafted) to Google Sheets "Activities" tab
-2. `tools/csv_importer.py` — parse Salesforce active accounts CSV + future pipeline CSV into Sheets tabs ("Active Accounts", "Pipeline")
-3. Gmail intelligence — `gas.search_inbox()` scans for PandaDoc quote notifications + Dialpad call summaries → logs to Activities tab
-4. KPI Goals — set daily targets (calls made, districts researched, emails sent) tracked in morning brief + EOD report
-5. New Sheets tabs needed: Activities, Active Accounts, Goals
-6. Update `prompts/morning_brief.md` and `prompts/eod_report.md` to pull real activity data
+**Then build Phase 6D: Daily Call List**
 
 ### Phase 6 plan (expanded)
 - **6A** — Campaign Engine ✅ verified
 - **6B** — Research Engine Expansion ✅ verified
-- **6C** — Activity Tracking + KPI Goals + Salesforce CSV import + Gmail intelligence (PandaDoc/Dialpad notifications)
+- **6C** — Activity Tracking + KPI Goals + Salesforce CSV import + Gmail intelligence ✅ built
 - **6D** — Daily Call List (10/day, prioritize districts with active CodeCombat schools, mini pre-call cards per contact, Google Doc)
 - **6E** — District Prospecting Queue (Scout suggests districts from territory, Steven approves, auto-research + sequence doc for Outreach)
 - **6F** — Pipeline Snapshot (Salesforce opp CSV → lightweight CRM in Sheets, stale follow-up alerts in EOD)
@@ -238,7 +245,37 @@ sheets_writer.count_leads()
 sheets_writer.get_master_sheet_url()
 sheets_writer.log_research_job(district, state, layers_used, total_found, with_email, no_email, notes)
 sheets_writer.ensure_sheet_tabs_exist()
+# Tabs created: Leads, No Email, Research Log, Activities, Active Accounts, Goals, Salesforce Import
 # from tools.sheets_writer import SheetsWriter  ← CRASHES — class does not exist
+```
+
+### activity_tracker (`tools/activity_tracker.py`) — MODULE, NOT A CLASS (Phase 6C)
+```python
+import tools.activity_tracker as activity_tracker
+activity_tracker.log_activity(activity_type, district="", contact="", notes="", source="scout", message_id="")
+# activity_type: "research_job" | "sequence_built" | "email_drafted" | "email_saved" | "call_logged" | "pandadoc_event" | "dialpad_call"
+activity_tracker.get_today_activities(date_str=None) -> list[dict]
+activity_tracker.get_activity_summary(date_str=None) -> dict  # {research_job: N, ..., summary_text: str}
+activity_tracker.get_goals() -> list[dict]
+activity_tracker.set_goal(goal_type, daily_target, description="")
+activity_tracker.get_daily_progress(date_str=None) -> dict  # {calls_made: {target, actual, pct}, ..., progress_text: str}
+activity_tracker.is_activity_logged(message_id) -> bool
+activity_tracker.scan_pandadoc_notifications(gas_bridge) -> list[dict]
+activity_tracker.scan_dialpad_summaries(gas_bridge) -> list[dict]
+activity_tracker.sync_gmail_activities(gas_bridge) -> dict  # {pandadoc_logged, dialpad_logged, already_seen}
+activity_tracker.build_brief_data_block(date_str=None) -> str  # injected into morning/EOD prompts
+# SYNC function — call via run_in_executor from async context
+```
+
+### csv_importer (`tools/csv_importer.py`) — MODULE, NOT A CLASS (Phase 6C)
+```python
+import tools.csv_importer as csv_importer
+csv_importer.import_accounts(csv_text: str) -> dict  # {imported, districts, schools, skipped, errors}
+# Clears Active Accounts tab, rewrites fresh from CSV string
+csv_importer.get_active_accounts(state_filter="") -> list[dict]
+csv_importer.get_districts_with_schools() -> list[dict]  # Phase 6D: districts with ≥1 active school
+csv_importer.normalize_name(name: str) -> str  # strips ISD/USD/etc for matching
+csv_importer.get_import_summary() -> str  # one-line status: N accounts, N districts, N with active schools
 ```
 
 ### VoiceTrainer (`agent/voice_trainer.py`)
@@ -296,9 +333,9 @@ await processor.process_transcript(transcript_id, progress_callback=None) -> dic
 
 ---
 
-## CLAUDE TOOLS (18 total, all in claude_brain.py + handled in main.py)
+## CLAUDE TOOLS (22 total, all in claude_brain.py + handled in main.py)
 
-`research_district`, `get_sheet_status`, `get_research_queue_status`, `train_voice`, `draft_email`, `save_draft_to_gmail`, `get_calendar`, `log_call`, `create_district_deck`, `push_code`, `list_repo_files`, `get_file_content`, `build_sequence`, `ping_gas_bridge`, `grade_draft`, `add_template`, `process_call_transcript`, `get_pre_call_brief`
+`research_district`, `get_sheet_status`, `get_research_queue_status`, `train_voice`, `draft_email`, `save_draft_to_gmail`, `get_calendar`, `log_call`, `create_district_deck`, `push_code`, `list_repo_files`, `get_file_content`, `build_sequence`, `ping_gas_bridge`, `grade_draft`, `add_template`, `process_call_transcript`, `get_pre_call_brief`, `get_activity_summary`, `get_accounts_status`, `set_goal`, `sync_gmail_activities`
 
 ---
 
@@ -318,6 +355,10 @@ await processor.process_transcript(transcript_id, progress_callback=None) -> dic
 | `/brief [meeting name]` | manual pre-call brief (Phase 5) |
 | `/recent_calls [num]` | recent external calls, optional count 1–20 |
 | `/call [transcript_id or url]` | manual post-call processing (Phase 5) |
+| `/progress` or `/kpi` | show today's activity counts vs KPI goals (direct dispatch) |
+| `/sync_activities` | scan Gmail for PandaDoc + Dialpad events, log new ones (direct dispatch) |
+| `/set_goal [type] [target]` | update KPI daily target e.g. `/set_goal calls_made 15` (direct dispatch) |
+| send a `.csv` file | triggers Salesforce active accounts import via `handle_document()` |
 
 ---
 
