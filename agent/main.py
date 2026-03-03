@@ -8,6 +8,7 @@ from datetime import datetime
 import logging
 import os
 import re
+import time
 import pytz
 CST = pytz.timezone('America/Chicago')
 
@@ -47,6 +48,10 @@ _pending_draft = None
 
 # Phase 5: Track which calendar event IDs have had pre-call briefs sent
 _precall_briefs_sent: set = set()
+
+# Phase 5+: Fireflies Gmail polling dedup
+_fireflies_email_triggers: set = set()   # keyed by "subject[:60]|date[:16]"
+_fireflies_processed_ids: set = set()    # keyed by transcript_id
 
 
 def get_gas_bridge():
@@ -1102,6 +1107,112 @@ async def _on_transcript_received(transcript_id: str):
         await send_message(f"❌ Error processing transcript {transcript_id}: {e}")
 
 
+# ── Phase 5+: Fireflies Gmail polling ─────────────────────────────────────────
+
+async def _check_fireflies_gmail(gas):
+    """
+    Scans Gmail every 60s for new Fireflies recap emails.
+    When a new recap is detected, sends a Telegram notification and kicks off
+    _process_latest_fireflies_transcript() as a background task.
+    """
+    global _fireflies_email_triggers
+    try:
+        loop = asyncio.get_event_loop()
+        results = await loop.run_in_executor(
+            None,
+            lambda: gas.search_inbox("from:fireflies.ai", max_results=5)
+        )
+        for email in results:
+            subj = email.get("subject", "")
+            date = email.get("date", "")[:16]
+            key = f"{subj[:60]}|{date}"
+
+            # Only care about recap / meeting note emails
+            subj_lower = subj.lower()
+            if "recap" not in subj_lower and "meeting note" not in subj_lower:
+                continue
+
+            if key in _fireflies_email_triggers:
+                continue
+            _fireflies_email_triggers.add(key)
+
+            # Parse meeting name from subject
+            meeting_name = subj
+            for prefix in [
+                "Your Fireflies.ai meeting recap:",
+                "Your Fireflies meeting recap:",
+                "Fireflies.ai meeting notes:",
+            ]:
+                if subj_lower.startswith(prefix.lower()):
+                    meeting_name = subj[len(prefix):].strip()
+                    break
+
+            await send_message(
+                f"📞 Fireflies recap detected: *{meeting_name}*\n"
+                f"Fetching transcript... I'll update you every minute if still processing."
+            )
+            asyncio.create_task(_process_latest_fireflies_transcript(meeting_name))
+    except Exception as e:
+        logger.warning(f"[Fireflies Gmail check] {e}")
+
+
+async def _process_latest_fireflies_transcript(meeting_name: str):
+    """
+    Polls the Fireflies API for the newest unprocessed external transcript.
+    Retries up to 5 times (60s apart) with Telegram status updates.
+    """
+    global _fireflies_processed_ids
+    if not FIREFLIES_API_KEY:
+        return
+
+    loop = asyncio.get_event_loop()
+
+    for attempt in range(1, 6):
+        try:
+            from tools.fireflies import FirefliesClient
+            fireflies = FirefliesClient(api_key=FIREFLIES_API_KEY)
+            transcripts = await loop.run_in_executor(
+                None, lambda: fireflies.get_recent_transcripts(limit=3)
+            )
+
+            new_t = next(
+                (t for t in transcripts
+                 if t.get("id") and t["id"] not in _fireflies_processed_ids),
+                None
+            )
+
+            if not new_t:
+                if attempt < 5:
+                    await send_message(
+                        f"⏳ Transcript not ready yet (attempt {attempt}/5) — "
+                        f"checking again in 60s"
+                    )
+                    await asyncio.sleep(60)
+                else:
+                    await send_message(
+                        "❌ Fireflies transcript not available after 5 attempts. "
+                        "Use `/call [id]` to process manually."
+                    )
+                continue
+
+            transcript_id = new_t["id"]
+            _fireflies_processed_ids.add(transcript_id)
+            await _on_transcript_received(transcript_id)
+            return
+
+        except Exception as e:
+            if attempt < 5:
+                await send_message(
+                    f"⏳ Attempt {attempt}/5 failed ({e}) — retrying in 60s"
+                )
+                await asyncio.sleep(60)
+            else:
+                await send_message(
+                    f"❌ Could not process transcript after 5 attempts: {e}\n"
+                    f"Use `/call [id]` to process manually."
+                )
+
+
 # ── Phase 5: Pre-call brief auto-trigger ───────────────────────────────────────
 
 async def _check_precall_briefs(gas):
@@ -1173,6 +1284,8 @@ async def _run_telegram_and_scheduler():
         f"New: /progress | /sync_activities | /set_goal [type] [target] | send CSV to import accounts"
     )
 
+    fireflies_gmail_last_check: float = 0.0
+
     try:
         while True:
             sched_event = scheduler.check()
@@ -1184,6 +1297,10 @@ async def _run_telegram_and_scheduler():
                 asyncio.create_task(send_checkin())
             if gas and FIREFLIES_API_KEY:
                 asyncio.create_task(_check_precall_briefs(gas))
+                now_ts = time.time()
+                if now_ts - fireflies_gmail_last_check >= 60:
+                    fireflies_gmail_last_check = now_ts
+                    asyncio.create_task(_check_fireflies_gmail(gas))
             await asyncio.sleep(30)
     finally:
         await app.updater.stop()
