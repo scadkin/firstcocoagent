@@ -1,23 +1,20 @@
 # SCOUT — Claude Code Reference
-*Last updated: 2026-03-02 — Session 6*
+*Last updated: 2026-03-02 — Session 7*
 
 ---
 
 ## CURRENT STATE — update this after each session
 
-**Phase 6B fully built and pushed ✅. Pending end-to-end verification.**
+**Phase 6B verified ✅. Phase 6C roadmap finalized. Ready to build.**
 
-### What was built/fixed this session
-- **Phase 6B built:** 4 new research layers (L11 school staff, L12 board agendas, L13 state DOE, L14 conference presenters), `enqueue_batch()`, `research_batch` tool, Serper safety cap (100, enforced), "keep digging" command
-- **Critical bug fix:** `_serper_batch()` used `requests.post()` (synchronous) inside async code — froze entire event loop during all Serper queries. Replaced with `httpx.AsyncClient` + `await asyncio.sleep(0.3)`
-- **Critical bug fix:** Layer 9 (`_layer9_claude_extraction`) called `extract_from_multiple()` synchronously — 30+ blocking Claude API calls per page froze event loop for ~10 minutes. Fixed with `loop.run_in_executor(None, extract_from_multiple, ...)`
-- **Heartbeat:** 60s ping during research jobs via asyncio task in `_worker()` — fires independently now that event loop is unblocked
-- **Layer effectiveness tracking:** every `_add_raw_from_serper` call tagged with layer name; contacts attributed to source layer; `layer_contact_counts` in result dict
-- **Richer completion message:** time elapsed, Serper queries used, verified email count, new-to-sheet count, dupes skipped, per-layer contact breakdown
-- **Research Log fix:** `_on_research_complete` was never calling `sheets_writer.log_research_job()` — now fixed
-- **Dedup fix:** `sheets_writer.write_contacts()` previously keyed on `first|last|district` — Claude varies district name spelling across runs causing duplicates. Switched to email as primary dedup key (district-agnostic). Falls back to `first|last` for no-email contacts.
-- **Steven's sales territory** saved to `memory/preferences.md` and committed — Scout knows territory every session
-- **STATE_ABBREVIATIONS** added to `keywords.py` — used by L13 for state DOE `.us` domain searches
+### What was verified/decided this session
+- **Phase 6B fully verified end-to-end:** heartbeat ✅, completion message ✅, Research Log ✅, no duplicates ✅, batch queue ✅
+- **Full sales tech stack mapped:** Salesforce (source of truth + opps), Outreach.io (sequences + call logging + open tracking), Gmail (threads + replies + notifications), PandaDoc (quotes → Salesforce sync), Zoom/Fireflies (video calls), Dialpad (phone + texts → Outreach sync). No API integration permissions for any except Gmail.
+- **Gmail intelligence hub pattern:** PandaDoc and Dialpad both send email notifications to Gmail — Scout parses these via `gas.search_inbox()` to auto-log activity without any API access. PandaDoc: "opened/signed/rejected" emails. Dialpad: call summary emails (Steven must enable in Dialpad → Settings → Notifications → Call Summary).
+- **Outreach handoff pattern:** Scout builds and formats sequences → creates Google Doc for Outreach paste-in. Outreach handles actual sending + open/click tracking. Do NOT send cold outreach directly from Gmail — Outreach is Steven's tool for that.
+- **Salesforce CSV import pattern:** Steven exports Salesforce reports as CSV → Scout imports to Google Sheets → data feeds call lists, activity tracking, pipeline snapshots.
+- **Active accounts CSV format documented** — 12 columns: Billing State/Province, Account Name, Parent Account, Open Renewal, # of Opportunities, # of Active Licenses, 2025 Revenue, Lifetime Revenue, Last Activity, Last Modified Date, Type, Billing State/Province (text only)
+- **Phase 6C–6F roadmap finalized** — see Phase 6 plan below
 
 ### Current status
 - `/recent_calls` ✅
@@ -26,21 +23,27 @@
 - Auto pre-call brief (10-min trigger) ✅
 - Fireflies webhook ⏳ pending first real external call
 - `/build_sequence` ✅
-- Phase 6B code: ✅ built + pushed — **NOT YET VERIFIED end-to-end**
+- Phase 6B: ✅ verified end-to-end
+- Phase 6C: not yet started
 
 ### Next step
-**Verify Phase 6B end-to-end** after Railway deploys latest commit:
-1. Run a single district research with state — confirm heartbeat pings every 60s, completion message shows layer breakdown + time + queries
-2. Check Research Log tab has a new row
-3. Confirm no sheet duplicates
-4. Test batch: "Research Houston ISD Texas and Chicago Public Schools Illinois" → 2 jobs queued
-5. After verification → Phase 6C (Activity Tracking)
+**Build Phase 6C: Activity Tracking + KPI Goals + Salesforce CSV import + Gmail intelligence**
 
-### Phase 6 plan
-- **6A** — Campaign Engine ✅ done
-- **6B** — Research Engine Expansion ✅ built, pending verification
-- **6C** — Activity Tracking + Analytics (activity_tracker.py, data-driven morning brief/EOD)
-- **6D** — Automation + Learning Loops (campaign_manager.py, Outreach CSV import, weekly review)
+Build in this order:
+1. `tools/activity_tracker.py` — log all Scout-driven activities (research jobs, sequences built, emails drafted) to Google Sheets "Activities" tab
+2. `tools/csv_importer.py` — parse Salesforce active accounts CSV + future pipeline CSV into Sheets tabs ("Active Accounts", "Pipeline")
+3. Gmail intelligence — `gas.search_inbox()` scans for PandaDoc quote notifications + Dialpad call summaries → logs to Activities tab
+4. KPI Goals — set daily targets (calls made, districts researched, emails sent) tracked in morning brief + EOD report
+5. New Sheets tabs needed: Activities, Active Accounts, Goals
+6. Update `prompts/morning_brief.md` and `prompts/eod_report.md` to pull real activity data
+
+### Phase 6 plan (expanded)
+- **6A** — Campaign Engine ✅ verified
+- **6B** — Research Engine Expansion ✅ verified
+- **6C** — Activity Tracking + KPI Goals + Salesforce CSV import + Gmail intelligence (PandaDoc/Dialpad notifications)
+- **6D** — Daily Call List (10/day, prioritize districts with active CodeCombat schools, mini pre-call cards per contact, Google Doc)
+- **6E** — District Prospecting Queue (Scout suggests districts from territory, Steven approves, auto-research + sequence doc for Outreach)
+- **6F** — Pipeline Snapshot (Salesforce opp CSV → lightweight CRM in Sheets, stale follow-up alerts in EOD)
 
 ---
 
@@ -75,6 +78,16 @@
 **Sheet dedup uses email as primary key.** `sheets_writer.write_contacts()` deduplicates by email first (district-agnostic), then falls back to `first|last` name for no-email contacts. Claude's extractor varies district_name spelling across runs so name+district keying caused duplicates.
 
 **Research completion always calls `log_research_job`.** `_on_research_complete` in `main.py` must call `sheets_writer.log_research_job()` after every successful job. Failure to log is silent — no error is thrown.
+
+**Salesforce CSV: Parent Account = always the district.** Account Name can be a district, a school, a library, or any business. When Parent Account is filled, that account is a school (or sub-unit) under that district. When Parent Account is empty, the account is either a standalone entity or a top-level district account. The hierarchy is one level deep: district → schools.
+
+**Active accounts CSV importer must normalize names.** Salesforce has inconsistent casing (e.g. "Medina Valley Isd" vs "MEDINA VALLEY ISD"). Store a normalized lowercase key alongside the display name for matching against research engine results.
+
+**Gmail intelligence hub pattern.** PandaDoc and Dialpad both email Steven when events occur. Use `gas.search_inbox()` with targeted queries to parse these notifications for activity logging — no API permissions needed. Dialpad call summary emails must be enabled by Steven in Dialpad → Settings → Notifications → Call Summary.
+
+**Outreach handoff pattern for cold sequences.** Scout builds sequence content and formats it into a Google Doc for easy copy-paste into Outreach.io. Outreach.io handles actual sending, open/click tracking, and call logging. Do NOT try to replace Outreach with Gmail for cold prospecting sequences — Outreach is Steven's tool for that workflow.
+
+**No Salesforce or Outreach API access.** Steven cannot obtain integration permissions for Salesforce, Outreach.io, PandaDoc, or Dialpad. All data from these tools enters Scout via CSV export (Salesforce, Outreach) or Gmail notification parsing (PandaDoc, Dialpad). Never design a feature that assumes API access to these tools.
 
 ---
 

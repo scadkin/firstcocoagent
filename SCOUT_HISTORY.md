@@ -143,3 +143,12 @@
 | 2026-03-02 | Session 6: Richer completion message — time elapsed, Serper queries, verified count, new-to-sheet, dupes skipped, per-layer contact breakdown | Phase 6B |
 | 2026-03-02 | Session 6: Bug fix — _on_research_complete never called log_research_job(). Research Log tab was always empty. Added call with notes field containing layer stats + timing. | Phase 6B |
 | 2026-03-02 | Session 6: Bug fix — sheet dedup keyed on first\|last\|district but Claude varies district_name spelling across runs → duplicates. Switched to email as primary key. | Phase 6B |
+| 2026-03-02 | Session 7: Phase 6B verified end-to-end ✅ — heartbeat, completion message, Research Log, no duplicates, batch queue all passing | Phase 6B ✅ |
+| 2026-03-02 | Session 7: Full sales tech stack mapped — Salesforce (source of truth), Outreach.io (sequences + tracking), Gmail (threads + notifications), PandaDoc (quotes), Zoom/Fireflies (video calls), Dialpad (phone/texts). No API permissions for any except Gmail. | Phase 6C design |
+| 2026-03-02 | Session 7: Gmail intelligence hub pattern — parse PandaDoc open/sign/reject emails + Dialpad call summary emails from Gmail inbox using gas.search_inbox(). No API needed. | Phase 6C design |
+| 2026-03-02 | Session 7: Outreach handoff pattern — Scout builds sequences → Google Doc formatted for Outreach paste-in. Outreach handles actual sending + open/click tracking. | Phase 6C design |
+| 2026-03-02 | Session 7: Salesforce CSV import pattern — Steven exports reports as CSV, Scout imports to Google Sheets tabs (Active Accounts, Pipeline). No API access. | Phase 6C design |
+| 2026-03-02 | Session 7: Active accounts CSV format documented. 12 columns. Parent Account = always district. Account Name = school/district/library/business. Inconsistent casing in Salesforce data — normalize on import. | Phase 6C design |
+| 2026-03-02 | Session 7: Dialpad call summary emails — Steven must enable in Dialpad → Settings → Notifications → Call Summary before Gmail intelligence can parse them. | Phase 6C design |
+| 2026-03-02 | Session 7: Phase 6C–6F roadmap finalized. 6C=Activity Tracking+KPI+CSV import+Gmail intel, 6D=Daily Call List (10/day district expansion contacts), 6E=District Prospecting Queue, 6F=Pipeline Snapshot | Phase 6C design |
+| 2026-03-02 | Session 7: Call list v1 strategy — 10 contacts/day, start with district curriculum/CS contacts for districts where CodeCombat already has ≥1 active school (from active accounts CSV). Pre-call card includes which school(s) are active. | Phase 6D design |
