@@ -90,6 +90,16 @@
 
 **Active accounts CSV importer must normalize names.** Salesforce has inconsistent casing (e.g. "Medina Valley Isd" vs "MEDINA VALLEY ISD"). Store a normalized lowercase key alongside the display name for matching against research engine results.
 
+**Telegram file upload handler is a separate MessageHandler.** `handle_document()` is registered with `filters.Document.ALL` — a distinct handler from `handle_message()` (which only handles TEXT). Never merge file handling into `handle_message`. Registration order: text handler, command handler, document handler.
+
+**activity_tracker and csv_importer are NOT lazy imports.** They are imported at the top of main.py like sheets_writer. Only Phase 4/5 modules are lazy: `github_pusher`, `sequence_builder`, `fireflies`, `call_processor`. Adding a new flat tool module? Import it at the top.
+
+**sync_gmail_activities() is synchronous — always use run_in_executor.** `activity_tracker.sync_gmail_activities(gas)` makes blocking HTTP calls via gas_bridge. Always call it from async context as: `await loop.run_in_executor(None, activity_tracker.sync_gmail_activities, gas)`. Same rule applies to any blocking sheets/network call inside activity_tracker or csv_importer.
+
+**CSV file upload decodes with utf-8-sig.** Salesforce (and Excel) exports often include a BOM at the start of the file. Use `file_bytes.decode("utf-8-sig")` — not `"utf-8"` — to silently strip it. Using plain `"utf-8"` causes the first column header to have a garbage prefix.
+
+**import_accounts() clears and rewrites — it is not additive.** `csv_importer.import_accounts()` clears the "Active Accounts" tab (A2:Z) before writing fresh rows. This is intentional — each Salesforce export is the full current state. Do not add an "append" mode unless explicitly asked.
+
 **Gmail intelligence hub pattern.** PandaDoc and Dialpad both email Steven when events occur. Use `gas.search_inbox()` with targeted queries to parse these notifications for activity logging — no API permissions needed. Dialpad call summary emails must be enabled by Steven in Dialpad → Settings → Notifications → Call Summary.
 
 **Outreach handoff pattern for cold sequences.** Scout builds sequence content and formats it into a Google Doc for easy copy-paste into Outreach.io. Outreach.io handles actual sending, open/click tracking, and call logging. Do NOT try to replace Outreach with Gmail for cold prospecting sequences — Outreach is Steven's tool for that workflow.
