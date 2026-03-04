@@ -114,19 +114,13 @@ def _ensure_tab():
             body={"requests": [{"addSheet": {"properties": {"title": TAB_ACTIVE_ACCOUNTS}}}]}
         ).execute()
 
-    # Write headers if empty
-    result = service.spreadsheets().values().get(
+    # Always write headers so they stay in sync with ACTIVE_ACCOUNTS_COLUMNS
+    service.spreadsheets().values().update(
         spreadsheetId=sheet_id,
-        range=f"'{TAB_ACTIVE_ACCOUNTS}'!A1:Z1"
+        range=f"'{TAB_ACTIVE_ACCOUNTS}'!A1",
+        valueInputOption="RAW",
+        body={"values": [ACTIVE_ACCOUNTS_COLUMNS]}
     ).execute()
-    values = result.get("values", [])
-    if not values or not values[0]:
-        service.spreadsheets().values().update(
-            spreadsheetId=sheet_id,
-            range=f"'{TAB_ACTIVE_ACCOUNTS}'!A1",
-            valueInputOption="RAW",
-            body={"values": [ACTIVE_ACCOUNTS_COLUMNS]}
-        ).execute()
 
     return service, sheet_id
 
