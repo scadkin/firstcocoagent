@@ -427,6 +427,41 @@ def get_master_sheet_url() -> str:
     return f"https://docs.google.com/spreadsheets/d/{sheet_id}"
 
 
+def get_leads(state_filter: str = "") -> list[dict]:
+    """
+    Read all leads from the Leads tab as a list of dicts.
+    Keys match LEAD_COLUMNS: First Name, Last Name, Title, Email, State,
+    Account, Work Phone, District Name, Source URL, Email Confidence, Date Found.
+
+    Optional state_filter narrows to a specific US state abbreviation.
+    """
+    try:
+        service = _get_service()
+        sheet_id = _get_sheet_id()
+
+        result = service.spreadsheets().values().get(
+            spreadsheetId=sheet_id,
+            range=f"'{TAB_LEADS}'!A:K"
+        ).execute()
+        rows = result.get("values", [])
+        if len(rows) < 2:
+            return []
+
+        headers = rows[0]
+        leads = []
+        for row in rows[1:]:
+            padded = row + [""] * (len(headers) - len(row))
+            record = dict(zip(headers, padded))
+            if state_filter:
+                if record.get("State", "").strip().upper() != state_filter.strip().upper():
+                    continue
+            leads.append(record)
+        return leads
+    except Exception as e:
+        logger.error(f"get_leads error: {e}")
+        return []
+
+
 def count_leads() -> dict:
     """Return counts from Leads and No Email tabs."""
     try:

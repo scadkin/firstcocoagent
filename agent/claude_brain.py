@@ -322,6 +322,26 @@ TOOLS = [
         ),
         "input_schema": {"type": "object", "properties": {}, "required": []},
     },
+    # Phase 6D: Daily Call List
+    {
+        "name": "generate_call_list",
+        "description": (
+            "Generate today's daily call list — 10 prioritized contacts from districts "
+            "where CodeCombat already has active schools. Creates a Google Doc with full "
+            "call cards and talking points. Use when Steven says 'who should I call', "
+            "'call list', 'daily list', or /call_list."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "max_contacts": {
+                    "type": "integer",
+                    "description": "Number of contacts to include. Default 10.",
+                },
+            },
+            "required": [],
+        },
+    },
     # Phase 5: Call Intelligence
     {
         "name": "process_call_transcript",

@@ -1,35 +1,34 @@
 # SCOUT — Claude Code Reference
-*Last updated: 2026-03-04 — Session 9*
+*Last updated: 2026-03-04 — Session 10*
 
 ---
 
 ## CURRENT STATE — update this after each session
 
-**Phase 6C verified ✅. Fireflies auto-processing live ✅. Phase 6D is next.**
+**Phase 6D built. Phase 6E is next.**
 
-### What was built/fixed this session (Session 9)
-- **Fireflies Gmail polling** (`agent/main.py`) — Scout polls Gmail every 60s for new Fireflies recap emails. On detection: sends Telegram notification + triggers `_process_latest_fireflies_transcript()`. Retries up to 5× (60s apart) with status updates. Startup seeding prevents replaying old meetings on reboot.
-  - `_fireflies_email_triggers` set — dedup by `"subject[:60]|date[:16]"` key
-  - `_fireflies_processed_ids` set — dedup by transcript_id
-  - `_fireflies_gmail_seeded` flag — True after first scan seeds existing emails without processing
-- **Account classifier** (`tools/csv_importer.py`) — replaced `is_district = not bool(parent)` with `classify_account(name, parent, sf_type)`. Returns `district | school | library | company`.
-  - SF Type field → first priority
-  - Has parent → school
-  - Library keywords → library
-  - Company/org keywords → company
-  - Parenthetical `"School Name (District Abbrev)"` → school (checked BEFORE district patterns)
-  - District patterns: ISD/USD/CISD/SD/ends in "schools"/trailing number/"district"/"public schools" → district
-  - School patterns: ends in "school"/contains "school"/contains "sch"/elementary/academy/etc. → school
-  - Default → company (safe: won't pollute district reports)
-- **Column schema change** — `"Is District"` (TRUE/FALSE) replaced by `"Account Type"` (district/school/library/company) and `"SF Type"` (raw Salesforce field). Column count unchanged (13). Header row now always overwritten on import.
-- **`normalize_name()`** — strips parenthetical district tags before normalizing e.g. `"Jefferson Elementary (Medina Valley ISD)"` → `"jefferson elementary"`
+### What was built/fixed this session (Session 10)
+- **Daily Call List** (`tools/daily_call_list.py`) — new flat module. `/call_list` generates a prioritized list of 10 contacts from districts where CodeCombat has active schools.
+  - Two-path matching: lead's District Name OR lead's Account matched against priority districts and their schools
+  - Ranking: email required, title weighted, school_count weighted, email confidence weighted
+  - Max 3 contacts per district for coverage spread
+  - Backfill from any lead with email+title if <10 from priority districts
+  - Template talking points based on school count (1 / 2–3 / 4+)
+  - Google Doc output with full call cards via `gas_bridge.create_google_doc()`
+  - Compact Telegram preview with name, title, district, school count, email
+- **`sheets_writer.get_leads()`** — reads all leads from Leads tab as list[dict], optional state_filter
+- **`activity_tracker`** — added `call_list_generated` activity type + label
+- **`claude_brain.py`** — added `generate_call_list` tool definition (23 tools total)
+- **`main.py`** — `/call_list` direct dispatch (Pattern A) + `generate_call_list` execute_tool handler
 
-### Key design decisions (Session 9)
-- **Gmail polling preferred over webhook** — Fireflies sends recap email the moment transcript is ready; polling Gmail = same timing, no webhook config complexity. Webhook kept as backup.
-- **Startup seeding pattern** — first Gmail scan seeds all existing emails as already-seen without processing. Prevents replaying historical meetings on every reboot. Apply this pattern to any future Gmail poller.
-- **District check before school check in `classify_account`** — district patterns run at step 6, school keywords at step 7. Required so "Austin Independent School District" hits district before the "school" keyword match.
-- **Parenthetical check before district check** — so "(Medina Valley ISD)" inside a school name doesn't trigger the ISD district pattern.
-- **`_ensure_tab()` always overwrites header row** — never skip with `if not values`. Schema changes must propagate immediately on next import.
+### Key design decisions (Session 10)
+- **Template talking points (not Claude-generated)** — fast, free, no API latency. Templates reference specific active school names. Can upgrade to Claude-generated in v2.
+- **Two-path matching** — matches both district_name and school account name against active accounts, catching both district-level and school-level contacts.
+- **Max 3 per district** — spreads coverage across districts instead of stacking contacts from the largest district.
+- **Backfill** — if <10 priority matches, fills remaining slots from any lead with email+title, marked as `is_backfill=True`.
+- **Reuse `SEQUENCES_FOLDER_ID`** — avoids new env var setup. Doc title "Daily Call List — {date}" distinguishes from sequences.
+- **Direct dispatch (Pattern A)** — no clarifying questions needed, just build and send.
+- **`daily_call_list` imported at top of main.py** — flat utility module, not lazy.
 
 ### Current status
 - `/recent_calls` ✅
@@ -42,20 +41,18 @@
 - Phase 6B ✅ verified
 - Phase 6C ✅ verified (all 5 steps passed)
 - Account classifier ✅ fixed — district/school/library/company
-- Phase 6D: Daily Call List — **next to build**
+- Phase 6D: Daily Call List ✅ built — **needs verification**
 
 ### Next step
-**Build Phase 6D: Daily Call List**
-- 10 contacts/day
-- Prioritize districts where CodeCombat already has ≥1 active school (from Active Accounts tab)
-- Mini pre-call card per contact: name, title, district, which school(s) are active, suggested talking point
-- Output as Google Doc (same pattern as sequences)
+**Verify Phase 6D** then **build Phase 6E: District Prospecting Queue**
+- Verify: upload Salesforce CSV → research some districts → `/call_list` → check Telegram + Google Doc + activity log
+- 6E: Scout suggests districts from territory, Steven approves, auto-research + sequence doc for Outreach
 
 ### Phase 6 plan (expanded)
 - **6A** — Campaign Engine ✅ verified
 - **6B** — Research Engine Expansion ✅ verified
 - **6C** — Activity Tracking + KPI Goals + Salesforce CSV import + Gmail intelligence ✅ verified
-- **6D** — Daily Call List (10/day, prioritize districts with active CodeCombat schools, mini pre-call cards per contact, Google Doc)
+- **6D** — Daily Call List ✅ built (10/day, prioritize districts with active CodeCombat schools, mini pre-call cards per contact, Google Doc)
 - **6E** — District Prospecting Queue (Scout suggests districts from territory, Steven approves, auto-research + sequence doc for Outreach)
 - **6F** — Pipeline Snapshot (Salesforce opp CSV → lightweight CRM in Sheets, stale follow-up alerts in EOD)
 
@@ -99,7 +96,7 @@
 
 **Telegram file upload handler is a separate MessageHandler.** `handle_document()` is registered with `filters.Document.ALL` — a distinct handler from `handle_message()` (which only handles TEXT). Never merge file handling into `handle_message`. Registration order: text handler, command handler, document handler.
 
-**activity_tracker and csv_importer are NOT lazy imports.** They are imported at the top of main.py like sheets_writer. Only Phase 4/5 modules are lazy: `github_pusher`, `sequence_builder`, `fireflies`, `call_processor`. Adding a new flat tool module? Import it at the top.
+**activity_tracker, csv_importer, and daily_call_list are NOT lazy imports.** They are imported at the top of main.py like sheets_writer. Only Phase 4/5 modules are lazy: `github_pusher`, `sequence_builder`, `fireflies`, `call_processor`. Adding a new flat tool module? Import it at the top.
 
 **sync_gmail_activities() is synchronous — always use run_in_executor.** `activity_tracker.sync_gmail_activities(gas)` makes blocking HTTP calls via gas_bridge. Always call it from async context as: `await loop.run_in_executor(None, activity_tracker.sync_gmail_activities, gas)`. Same rule applies to any blocking sheets/network call inside activity_tracker or csv_importer.
 
@@ -172,6 +169,7 @@ firstcocoagent/
 │   ├── gas_bridge.py           ← GASBridge class
 │   ├── github_pusher.py        ← push_file(), list_repo_files(), get_file_content()
 │   ├── sequence_builder.py     ← Phase 6A. build_sequence(), write_sequence_to_doc(), format_for_telegram()
+│   ├── daily_call_list.py      ← Phase 6D. build_daily_call_list(), write_call_list_to_doc(), format_for_telegram()
 │   └── fireflies.py            ← FirefliesClient, FirefliesError
 ├── gas/
 │   └── Code.gs                 ← Deployed at script.google.com as "Scout Bridge"
@@ -269,6 +267,7 @@ research_queue.queue_size    # property, no ()
 import tools.sheets_writer as sheets_writer
 sheets_writer.write_contacts(contacts, state="")
 sheets_writer.count_leads()
+sheets_writer.get_leads(state_filter="") -> list[dict]  # Phase 6D: all leads from Leads tab
 sheets_writer.get_master_sheet_url()
 sheets_writer.log_research_job(district, state, layers_used, total_found, with_email, no_email, notes)
 sheets_writer.ensure_sheet_tabs_exist()
@@ -280,7 +279,7 @@ sheets_writer.ensure_sheet_tabs_exist()
 ```python
 import tools.activity_tracker as activity_tracker
 activity_tracker.log_activity(activity_type, district="", contact="", notes="", source="scout", message_id="")
-# activity_type: "research_job" | "sequence_built" | "email_drafted" | "email_saved" | "call_logged" | "pandadoc_event" | "dialpad_call"
+# activity_type: "research_job" | "sequence_built" | "email_drafted" | "email_saved" | "call_logged" | "pandadoc_event" | "dialpad_call" | "call_list_generated"
 activity_tracker.get_today_activities(date_str=None) -> list[dict]
 activity_tracker.get_activity_summary(date_str=None) -> dict  # {research_job: N, ..., summary_text: str}
 activity_tracker.get_goals() -> list[dict]
@@ -313,6 +312,25 @@ csv_importer.get_districts_with_schools() -> list[dict]  # Phase 6D: districts w
 # filters on Account Type == "district"
 csv_importer.normalize_name(name: str) -> str  # strips ISD/USD/etc + parenthetical tags
 csv_importer.get_import_summary() -> str  # one-line status: N accounts by type, N districts with schools
+```
+
+### daily_call_list (`tools/daily_call_list.py`) — MODULE, NOT A CLASS (Phase 6D)
+```python
+import tools.daily_call_list as daily_call_list
+daily_call_list.build_daily_call_list(max_contacts=10) -> dict
+# {success, cards: list[dict], district_count, total_matched, error}
+# Synchronous — call via run_in_executor from async context
+
+daily_call_list.write_call_list_to_doc(cards, gas_bridge, folder_id=None) -> dict
+# {success, url, error} — creates Google Doc via GAS bridge
+# Uses CALL_LIST_FOLDER_ID env var, falls back to SEQUENCES_FOLDER_ID
+
+daily_call_list.format_for_telegram(cards, doc_url="") -> str
+# Compact preview: name, title, district, school count, email
+
+# Card dict keys:
+# contact_name, title, email, phone, district, state,
+# school_count, schools: list[str], talking_point, is_backfill
 ```
 
 ### VoiceTrainer (`agent/voice_trainer.py`)
@@ -370,9 +388,9 @@ await processor.process_transcript(transcript_id, progress_callback=None) -> dic
 
 ---
 
-## CLAUDE TOOLS (22 total, all in claude_brain.py + handled in main.py)
+## CLAUDE TOOLS (23 total, all in claude_brain.py + handled in main.py)
 
-`research_district`, `get_sheet_status`, `get_research_queue_status`, `train_voice`, `draft_email`, `save_draft_to_gmail`, `get_calendar`, `log_call`, `create_district_deck`, `push_code`, `list_repo_files`, `get_file_content`, `build_sequence`, `ping_gas_bridge`, `grade_draft`, `add_template`, `process_call_transcript`, `get_pre_call_brief`, `get_activity_summary`, `get_accounts_status`, `set_goal`, `sync_gmail_activities`
+`research_district`, `get_sheet_status`, `get_research_queue_status`, `train_voice`, `draft_email`, `save_draft_to_gmail`, `get_calendar`, `log_call`, `create_district_deck`, `push_code`, `list_repo_files`, `get_file_content`, `build_sequence`, `ping_gas_bridge`, `grade_draft`, `add_template`, `process_call_transcript`, `get_pre_call_brief`, `get_activity_summary`, `get_accounts_status`, `set_goal`, `sync_gmail_activities`, `generate_call_list`
 
 ---
 
@@ -395,6 +413,7 @@ await processor.process_transcript(transcript_id, progress_callback=None) -> dic
 | `/progress` or `/kpi` | show today's activity counts vs KPI goals (direct dispatch) |
 | `/sync_activities` | scan Gmail for PandaDoc + Dialpad events, log new ones (direct dispatch) |
 | `/set_goal [type] [target]` | update KPI daily target e.g. `/set_goal calls_made 15` (direct dispatch) |
+| `/call_list` or `call list` or `who should i call` | generate daily call list — 10 prioritized contacts (direct dispatch) |
 | send a `.csv` file | triggers Salesforce active accounts import via `handle_document()` |
 
 ---

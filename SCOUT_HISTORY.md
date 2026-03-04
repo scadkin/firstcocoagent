@@ -166,3 +166,12 @@
 | 2026-03-04 | Session 9: Column schema change — "Is District" (TRUE/FALSE) replaced by "Account Type" (district/school/library/company) and "SF Type" (raw Salesforce field). `get_districts_with_schools()` and `get_import_summary()` updated to use Account Type. | Phase 6C |
 | 2026-03-04 | Session 9: Bug fix — Active Accounts header row not updated after schema change. `_ensure_tab()` had `if not values` guard that skipped header write when tab already existed. Removed guard — always overwrites A1. | Phase 6C |
 | 2026-03-04 | Session 9: `normalize_name()` now strips parenthetical district tags. "Jefferson Elementary (Medina Valley ISD)" → "jefferson elementary". | Phase 6C |
+| 2026-03-04 | Session 10: Phase 6D built — Daily Call List. New module `tools/daily_call_list.py` with two-path matching, ranking, max 3 per district, backfill, template talking points, Google Doc output, Telegram preview. | Phase 6D |
+| 2026-03-04 | Session 10: `sheets_writer.get_leads()` added — reads all leads from Leads tab as list[dict] with optional state_filter. | Phase 6D |
+| 2026-03-04 | Session 10: `activity_tracker` — added `call_list_generated` activity type and label in get_activity_summary(). | Phase 6D |
+| 2026-03-04 | Session 10: `claude_brain.py` — added `generate_call_list` tool definition (23 tools total). | Phase 6D |
+| 2026-03-04 | Session 10: `main.py` — `/call_list` direct dispatch (Pattern A), `generate_call_list` execute_tool handler, Phase 6D startup message, `daily_call_list` imported at top (not lazy). | Phase 6D |
+| 2026-03-04 | Session 10: Design decision — template talking points over Claude-generated. Fast, free, no API latency. Templates reference specific active school names from Active Accounts tab. | Phase 6D |
+| 2026-03-04 | Session 10: Design decision — two-path matching. Lead's District Name matched against priority district name_key (path 1) OR lead's Account matched against school display_name under priority district (path 2). | Phase 6D |
+| 2026-03-04 | Session 10: Design decision — max 3 contacts per district for coverage spread. Backfill with any lead that has email+title if <10 priority matches. | Phase 6D |
+| 2026-03-04 | Session 10: Design decision — reuse SEQUENCES_FOLDER_ID for call list docs. Doc title "Daily Call List — {date}" distinguishes from sequences. CALL_LIST_FOLDER_ID env var supported but not required. | Phase 6D |

@@ -59,6 +59,7 @@ ACTIVITY_TYPES = {
     "call_logged":     "Call logged",
     "pandadoc_event":  "PandaDoc quote event",
     "dialpad_call":    "Dialpad call summary",
+    "call_list_generated": "Daily call list generated",
 }
 
 # Default daily goals seeded on first run
@@ -297,6 +298,7 @@ def get_activity_summary(date_str: str = None) -> dict:
         "call_logged":    "Calls logged",
         "pandadoc_event": "PandaDoc events",
         "dialpad_call":   "Dialpad call summaries",
+        "call_list_generated": "Call lists generated",
     }
     for key, label in label_map.items():
         if counts[key]:

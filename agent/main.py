@@ -1,6 +1,6 @@
 """
 agent/main.py
-Scout's entry point. Phase 6C: Activity Tracking + KPI Goals + Salesforce CSV import + Gmail intelligence.
+Scout's entry point. Phase 6D: Daily Call List + all previous phases.
 """
 
 import asyncio
@@ -27,6 +27,7 @@ from tools.research_engine import research_queue   # singleton queue from Phase 
 import tools.sheets_writer as sheets_writer
 import tools.activity_tracker as activity_tracker
 import tools.csv_importer as csv_importer
+import tools.daily_call_list as daily_call_list
 from tools.telegram_bot import send_message
 # Phase 4/5 modules imported lazily inside execute_tool() — safe to boot without them
 
@@ -677,6 +678,41 @@ async def execute_tool(tool_name: str, tool_input: dict) -> str:
         except Exception as e:
             return f"❌ Gmail sync failed: {e}"
 
+    # ── Phase 6D: Daily Call List ────────────────────────────────────────────
+
+    elif tool_name == "generate_call_list":
+        max_contacts = int(tool_input.get("max_contacts", 10))
+        await send_message("Building your daily call list...")
+        try:
+            loop = asyncio.get_event_loop()
+            result = await loop.run_in_executor(
+                None, daily_call_list.build_daily_call_list, max_contacts
+            )
+            if not result["success"]:
+                return f"Could not build call list: {result['error']}"
+            cards = result["cards"]
+            if not cards:
+                return "No contacts matched your active accounts. Research more districts or upload a fresh Salesforce CSV."
+            doc_url = ""
+            gas = get_gas_bridge()
+            if gas:
+                doc_result = await loop.run_in_executor(
+                    None, daily_call_list.write_call_list_to_doc, cards, gas
+                )
+                doc_url = doc_result.get("url", "")
+            tg_text = daily_call_list.format_for_telegram(cards, doc_url=doc_url)
+            await send_message(tg_text)
+            try:
+                activity_tracker.log_activity(
+                    "call_list_generated",
+                    notes=f"{len(cards)} contacts from {result.get('district_count', 0)} districts",
+                )
+            except Exception:
+                pass
+            return "Daily call list built and sent above."
+        except Exception as e:
+            return f"Call list failed: {e}"
+
     return f"❓ Unknown tool: {tool_name}"
 
 
@@ -933,6 +969,42 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 await send_message("Usage: `/set_goal calls_made 15`\nGoal types: `calls_made`, `districts_researched`, `emails_drafted`")
         else:
             await send_message("Usage: `/set_goal calls_made 15`\nGoal types: `calls_made`, `districts_researched`, `emails_drafted`")
+        return
+
+    # ── Phase 6D commands ──────────────────────────────────────────────────────
+
+    elif user_text.lower() in ["/call_list", "/daily_list", "call list",
+                               "daily call list", "who should i call today",
+                               "who should i call"]:
+        await send_message("Building your daily call list...")
+        try:
+            loop = asyncio.get_event_loop()
+            result = await loop.run_in_executor(None, daily_call_list.build_daily_call_list)
+            if not result["success"]:
+                await send_message(f"Could not build call list: {result['error']}")
+                return
+            cards = result["cards"]
+            if not cards:
+                await send_message("No contacts matched your active accounts. Research more districts or upload a fresh Salesforce CSV.")
+                return
+            doc_url = ""
+            gas = get_gas_bridge()
+            if gas:
+                doc_result = await loop.run_in_executor(
+                    None, daily_call_list.write_call_list_to_doc, cards, gas
+                )
+                doc_url = doc_result.get("url", "")
+            tg_text = daily_call_list.format_for_telegram(cards, doc_url=doc_url)
+            await send_message(tg_text)
+            try:
+                activity_tracker.log_activity(
+                    "call_list_generated",
+                    notes=f"{len(cards)} contacts from {result.get('district_count', 0)} districts",
+                )
+            except Exception:
+                pass
+        except Exception as e:
+            await send_message(f"Call list failed: {e}")
         return
 
     elif _pending_draft and any(
@@ -1299,10 +1371,10 @@ async def _run_telegram_and_scheduler():
     gas_status = "GAS bridge ready" if gas_bridge_configured() else "GAS bridge not configured"
     ff_status = "Fireflies ready" if FIREFLIES_API_KEY else "FIREFLIES_API_KEY not set"
     await send_message(
-        f"Scout is online — Phase 6C active.\n"
+        f"Scout is online — Phase 6D active.\n"
         f"{gas_status} | {ff_status}\n"
         f"Commands: /brief | /recent_calls [num] | /call [id] | /push_code [file]\n"
-        f"New: /progress | /sync_activities | /set_goal [type] [target] | send CSV to import accounts"
+        f"/call_list | /progress | /sync_activities | /set_goal [type] [target] | send CSV to import"
     )
 
     fireflies_gmail_last_check: float = 0.0
@@ -1330,7 +1402,7 @@ async def _run_telegram_and_scheduler():
 
 
 async def main():
-    logger.info(f"Starting {AGENT_NAME} — Phase 6C...")
+    logger.info(f"Starting {AGENT_NAME} — Phase 6D...")
     port = int(os.environ.get("PORT", 8080))
     if os.environ.get("PORT"):
         from agent.webhook_server import start_webhook_server
