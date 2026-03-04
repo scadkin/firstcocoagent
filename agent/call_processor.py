@@ -340,8 +340,10 @@ Rules: Be direct. Use bullets. Skip filler. Give Steven only what matters."""
         recap_email = await asyncio.to_thread(self._draft_recap_email, extracted)
 
         draft_url = ""
+        draft_error = ""
         try:
-            prospect_email = self._find_prospect_email(attendees)
+            # Prefer Fireflies attendee emails; fall back to what Claude extracted from transcript
+            prospect_email = self._find_prospect_email(attendees) or extracted.get("contact_email", "")
             if prospect_email:
                 result = self.gas.create_draft(
                     to=prospect_email,
@@ -350,12 +352,16 @@ Rules: Be direct. Use bullets. Skip filler. Give Steven only what matters."""
                 )
                 draft_url = result.get("link", "https://mail.google.com/mail/u/0/#drafts")
                 await progress("✉️ Recap email saved to Gmail Drafts")
+            else:
+                draft_error = "no prospect email found — draft skipped"
+                logger.warning(f"[PostCall] {draft_error}")
         except Exception as e:
+            draft_error = str(e)
             logger.warning(f"[PostCall] Gmail draft failed: {e}")
 
         salesforce_block = self._build_salesforce_block(extracted)
 
-        telegram_summary = self._format_telegram_summary(extracted, draft_url)
+        telegram_summary = self._format_telegram_summary(extracted, draft_url, draft_error)
 
         return {
             "telegram_summary": telegram_summary,
@@ -571,7 +577,7 @@ Body:
             "Notes": f"Call {date_str} | {temp} | {vision_snippet}",
         }
 
-    def _format_telegram_summary(self, data: dict, draft_url: str) -> str:
+    def _format_telegram_summary(self, data: dict, draft_url: str, draft_error: str = "") -> str:
         def val(key: str, max_len: int = 0) -> str:
             v = data.get(key)
             s = str(v) if v and v not in (None, "not mentioned", "N/A") else "—"
@@ -631,13 +637,15 @@ Body:
 
         suggestions = data.get("scout_suggestions") or []
         if suggestions:
-            lines.append("💡 *Scout's Take:*")
+            lines.append("💡 *Key Insights:*")
             for s in suggestions[:4]:
                 lines.append(f"• {str(s)[:120]}")
             lines.append("")
 
         if draft_url:
             lines.append(f"✉️ [Recap email saved to Gmail Drafts]({draft_url})")
+        elif draft_error:
+            lines.append(f"⚠️ *Recap email not saved:* {draft_error}")
 
         return "\n".join(lines)
 
