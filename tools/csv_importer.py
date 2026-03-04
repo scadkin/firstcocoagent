@@ -232,13 +232,15 @@ _DISTRICT_NAME_RE = re.compile(
         district
     )\b
     | \b\d+\s*$                             # trailing number "CUSD 300"
+    | \bschools\s*$                         # ends in "schools" (plural) → district
     """,
     re.IGNORECASE | re.VERBOSE,
 )
 
 _SCHOOL_NAME_RE = re.compile(
     r"\b(elementary|middle\s+school|high\s+school|junior\s+high|"
-    r"academy|charter|magnet|preparatory|prep\s+school|primary\s+school|k-12)\b",
+    r"academy|charter|magnet|preparatory|prep\s+school|primary\s+school|k-12|"
+    r"school|sch)\b",    # "school" anywhere; "sch" abbreviation (e.g. "Sch of Excellence")
     re.IGNORECASE,
 )
 
@@ -260,8 +262,10 @@ def classify_account(account_name: str, parent_account: str, sf_type: str) -> st
       3. Name contains library keywords → library
       4. Name is a company/org → company
       5. Name matches "School Name (District Abbrev)" pattern → school
-      6. Name contains school keywords → school
-      7. Name contains district keywords → district
+      6. Name contains district keywords → district  ← before school to avoid
+         "Austin Independent School District" matching "school" first
+      7. Name contains school keywords → school
+         (ends in "school"; contains "school" or "sch")
       8. Default → company (unknown, treated as non-district to be safe)
     """
     name   = (account_name or "").strip()
@@ -289,17 +293,19 @@ def classify_account(account_name: str, parent_account: str, sf_type: str) -> st
         return "company"
 
     # 5. "School Name (District Abbrev)" pattern → school
+    #    Must come before district check so ISD/USD inside parens doesn't win
     m = _PAREN_DISTRICT_RE.match(name)
     if m:
         return "school"
 
-    # 6. School keywords in name (no parent → standalone school or charter)
-    if _SCHOOL_NAME_RE.search(name):
-        return "school"
-
-    # 7. District keywords in name
+    # 6. District keywords — checked before school keywords so names like
+    #    "Austin Independent School District" aren't caught by "school" first
     if _DISTRICT_NAME_RE.search(name):
         return "district"
+
+    # 7. School keywords: ends in "school", contains "school" or "sch"
+    if _SCHOOL_NAME_RE.search(name):
+        return "school"
 
     # 8. Default: unknown → company (safe — won't pollute district reports)
     return "company"
