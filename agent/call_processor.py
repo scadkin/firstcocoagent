@@ -344,7 +344,7 @@ Rules: Be direct. Use bullets. Skip filler. Give Steven only what matters."""
         try:
             # Prefer Fireflies attendee emails; fall back to what Claude extracted from transcript
             prospect_email = self._find_prospect_email(attendees) or extracted.get("contact_email", "")
-            if prospect_email:
+            if prospect_email and self._is_valid_email(prospect_email):
                 result = self.gas.create_draft(
                     to=prospect_email,
                     subject=recap_email["subject"],
@@ -352,6 +352,9 @@ Rules: Be direct. Use bullets. Skip filler. Give Steven only what matters."""
                 )
                 draft_url = result.get("link", "https://mail.google.com/mail/u/0/#drafts")
                 await progress("✉️ Recap email saved to Gmail Drafts")
+            elif prospect_email:
+                draft_error = f"email looks malformed (`{prospect_email}`) — correct it and resend `/call`"
+                logger.warning(f"[PostCall] Malformed email, skipping draft: {prospect_email}")
             else:
                 draft_error = "no prospect email found — draft skipped"
                 logger.warning(f"[PostCall] {draft_error}")
@@ -685,3 +688,13 @@ Body:
             if email and "@codecombat.com" not in email.lower():
                 return email
         return ""
+
+    def _is_valid_email(self, email: str) -> bool:
+        """Basic sanity check: has @, domain has a dot, TLD is at least 2 chars."""
+        if not email or "@" not in email:
+            return False
+        local, _, domain = email.partition("@")
+        if not local or not domain or "." not in domain:
+            return False
+        tld = domain.rsplit(".", 1)[-1]
+        return len(tld) >= 2
