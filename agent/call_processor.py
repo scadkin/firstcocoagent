@@ -44,7 +44,7 @@ class CallProcessor:
 
         # Phase 5 fix: PRECALL_BRIEF_FOLDER_ID is a Railway env var, not in config.py
         from agent.config import ANTHROPIC_API_KEY, SERPER_API_KEY
-        self._claude = Anthropic(api_key=ANTHROPIC_API_KEY)
+        self._claude = Anthropic(api_key=ANTHROPIC_API_KEY, timeout=90.0)
         self._serper_key = SERPER_API_KEY
         self._brief_folder_id = os.environ.get("PRECALL_BRIEF_FOLDER_ID", "")
 
@@ -237,7 +237,7 @@ Rules: Be direct. Use bullets. Skip filler. Give Steven only what matters."""
 
         try:
             response = self._claude.messages.create(
-                model="claude-opus-4-5",
+                model="claude-sonnet-4-6",
                 max_tokens=2000,
                 messages=[{"role": "user", "content": prompt}],
             )
@@ -432,7 +432,7 @@ Return ONLY valid JSON. No preamble, no explanation, no markdown fences."""
 
         try:
             response = self._claude.messages.create(
-                model="claude-opus-4-5",
+                model="claude-sonnet-4-6",
                 max_tokens=1500,
                 messages=[{"role": "user", "content": prompt}],
             )
@@ -491,7 +491,7 @@ Body:
 
         try:
             response = self._claude.messages.create(
-                model="claude-opus-4-5",
+                model="claude-sonnet-4-6",
                 max_tokens=500,
                 messages=[{"role": "user", "content": prompt}],
             )
