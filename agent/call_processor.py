@@ -299,6 +299,7 @@ Rules: Be direct. Use bullets. Skip filler. Give Steven only what matters."""
         self,
         transcript_id: str,
         progress_callback: Optional[Callable] = None,
+        email_override: str = "",
     ) -> dict:
         """
         Full post-call processing pipeline triggered by Fireflies webhook or /call command.
@@ -342,8 +343,8 @@ Rules: Be direct. Use bullets. Skip filler. Give Steven only what matters."""
         draft_url = ""
         draft_error = ""
         try:
-            # Prefer Fireflies attendee emails; fall back to what Claude extracted from transcript
-            prospect_email = self._find_prospect_email(attendees) or extracted.get("contact_email", "")
+            # email_override takes priority, then Fireflies attendees, then Claude-extracted
+            prospect_email = email_override or self._find_prospect_email(attendees) or extracted.get("contact_email", "")
             if prospect_email and self._is_valid_email(prospect_email):
                 result = self.gas.create_draft(
                     to=prospect_email,

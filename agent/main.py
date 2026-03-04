@@ -572,7 +572,8 @@ async def execute_tool(tool_name: str, tool_input: dict) -> str:
         await send_message(f"📞 Processing transcript `{transcript_id}`... This takes 30-60 seconds.")
         async def on_progress(msg):
             await send_message(msg)
-        result = await processor.process_transcript(transcript_id=transcript_id, progress_callback=on_progress)
+        email_override = tool_input.get("email_override", "").strip()
+        result = await processor.process_transcript(transcript_id=transcript_id, progress_callback=on_progress, email_override=email_override)
         if result.get("error"):
             return "Processing failed: " + result["error"]
         await send_message(result["telegram_summary"])
@@ -930,9 +931,21 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         args = user_text[len("/call"):].strip()
         if "fireflies.ai" in args and "/transcript/" in args:
             args = args.split("/transcript/")[-1].split("/")[0].split("?")[0]
+        # Allow optional email override: /call [id] email@domain.com
+        email_override = ""
+        parts = args.split()
+        if len(parts) >= 2 and "@" in parts[-1]:
+            email_override = parts[-1]
+            args = " ".join(parts[:-1])
         if args:
-            await send_message(f"📞 Got it — fetching transcript `{args}` from Fireflies...")
-            result = await execute_tool("process_call_transcript", {"transcript_id": args})
+            msg = f"📞 Got it — fetching transcript `{args}` from Fireflies..."
+            if email_override:
+                msg += f"\nUsing email override: {email_override}"
+            await send_message(msg)
+            tool_input = {"transcript_id": args}
+            if email_override:
+                tool_input["email_override"] = email_override
+            result = await execute_tool("process_call_transcript", tool_input)
             if result:
                 await send_message(result)
         else:
