@@ -719,18 +719,25 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await send_message(f"❌ Import failed: {e}")
         return
 
-    imported = result.get("imported", 0)
+    imported  = result.get("imported", 0)
     districts = result.get("districts", 0)
-    schools = result.get("schools", 0)
-    skipped = result.get("skipped", 0)
-    errors = result.get("errors", [])
+    schools   = result.get("schools", 0)
+    libraries = result.get("libraries", 0)
+    companies = result.get("companies", 0)
+    skipped   = result.get("skipped", 0)
+    errors    = result.get("errors", [])
     sheet_url = sheets_writer.get_master_sheet_url()
+
+    breakdown = f"  • {districts} districts\n  • {schools} schools\n"
+    if libraries:
+        breakdown += f"  • {libraries} libraries\n"
+    if companies:
+        breakdown += f"  • {companies} other (companies/orgs)\n"
 
     msg = (
         f"✅ *Salesforce import complete!*\n\n"
         f"📊 {imported} accounts imported\n"
-        f"  • {districts} districts\n"
-        f"  • {schools} schools\n"
+        f"{breakdown}"
     )
     if skipped:
         msg += f"⚠️ {skipped} rows skipped (blank account name)\n"

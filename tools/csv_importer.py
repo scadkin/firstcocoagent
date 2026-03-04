@@ -13,9 +13,16 @@ Salesforce CSV columns (12):
   # of Opportunities | # of Active Licenses | 2025 Revenue | Lifetime Revenue |
   Last Activity | Last Modified Date | Type | Billing State/Province (text)
 
-Hierarchy rule:
-  Parent Account filled  → this row is a SCHOOL under that district
-  Parent Account empty   → this row is a DISTRICT (or standalone entity)
+Classification (Account Type column):
+  Uses Salesforce Type field first, then name-based heuristics.
+  Values: district | school | library | company
+
+  district  — name ends in ISD, USD, CISD, SD, "District", "Public Schools", or
+              a number suffix (e.g. "CUSD 300"); or SF Type contains "district"
+  school    — has a parent account; or name contains Elementary/Academy/High School/
+              etc.; or name matches "School Name (District Abbrev)" pattern
+  library   — name or SF Type contains "library"
+  company   — anything else (businesses, nonprofits, universities, etc.)
 
 Usage (module-level, not a class):
   import tools.csv_importer as csv_importer
@@ -45,8 +52,9 @@ TAB_ACTIVE_ACCOUNTS = "Active Accounts"
 ACTIVE_ACCOUNTS_COLUMNS = [
     "Name Key",           # normalized lowercase — used for matching
     "Display Name",       # original Salesforce Account Name
-    "Parent Account",     # district name if this is a school; blank if district
-    "Type",               # e.g. "School District", "K-12 School", "Library"
+    "Parent Account",     # district name if this is a school; blank if district/top-level
+    "SF Type",            # raw Salesforce Type field
+    "Account Type",       # classified: district | school | library | company
     "Open Renewal",       # dollar amount or blank
     "Opportunities",      # count
     "Active Licenses",    # count
@@ -55,7 +63,6 @@ ACTIVE_ACCOUNTS_COLUMNS = [
     "Last Activity",
     "Last Modified",
     "State",
-    "Is District",        # TRUE if Parent Account is blank
 ]
 
 # Salesforce CSV column name aliases (Salesforce exports vary slightly)
@@ -154,6 +161,7 @@ _SUFFIX_PATTERNS = [
     r"\bpublic schools\b",
     r"\bpublic school\b",
     r"\bcommunity school district\b",
+    r"\bcommunity unit school district\b",
     r"\bcommunity schools\b",
     r"\bschools\b",
     r"\bdistrict\b",
@@ -163,20 +171,38 @@ _SUFFIX_PATTERNS = [
     r"\bcisd\b",
     r"\bgisd\b",
     r"\bnisd\b",
+    r"\brsd\b",
+    r"\bccsd\b",
+    r"\bcsd\b",
+    r"\bmusd\b",
+    r"\bpusd\b",
+    r"\bsusd\b",
+    r"\bdisd\b",
+    r"\s+\d+\s*$",   # trailing number e.g. "CUSD 300"
 ]
+
+# Regex to detect "School Name (District Abbrev)" format
+_PAREN_DISTRICT_RE = re.compile(r"^(.+?)\s*\(([^)]+)\)\s*$")
 
 
 def normalize_name(name: str) -> str:
     """
     Return a normalized lowercase key for matching.
-    Strips common school district suffixes, punctuation, and extra whitespace.
+    Strips common school district suffixes, parenthetical district tags,
+    punctuation, and extra whitespace.
 
     Examples:
-      "Medina Valley ISD"          → "medina valley"
-      "AUSTIN INDEPENDENT SCHOOL DISTRICT" → "austin"
-      "Elk Grove Unified School District"  → "elk grove"
+      "Medina Valley ISD"                        → "medina valley"
+      "AUSTIN INDEPENDENT SCHOOL DISTRICT"       → "austin"
+      "Elk Grove Unified School District"        → "elk grove"
+      "Jefferson Elementary (Medina Valley ISD)" → "jefferson elementary"
     """
-    key = name.lower().strip()
+    key = name.strip()
+    # Strip parenthetical district tag before normalizing
+    m = _PAREN_DISTRICT_RE.match(key)
+    if m:
+        key = m.group(1).strip()
+    key = key.lower()
     for pattern in _SUFFIX_PATTERNS:
         key = re.sub(pattern, "", key, flags=re.IGNORECASE)
     # Remove punctuation except spaces
@@ -184,6 +210,105 @@ def normalize_name(name: str) -> str:
     # Collapse whitespace
     key = re.sub(r"\s+", " ", key).strip()
     return key
+
+
+# ─────────────────────────────────────────────
+# ACCOUNT CLASSIFICATION
+# ─────────────────────────────────────────────
+
+# Salesforce Type values that map to each category
+_SF_TYPE_DISTRICT = {"school district"}
+_SF_TYPE_SCHOOL   = {"k-12 school", "charter school", "private school", "public school",
+                     "elementary school", "middle school", "high school", "school"}
+_SF_TYPE_LIBRARY  = {"library", "public library"}
+
+# Name-pattern lists (applied to lowercased name)
+_DISTRICT_NAME_RE = re.compile(
+    r"""
+    \b(
+        independent\s+school\s+district |
+        unified\s+school\s+district     |
+        community\s+(unit\s+)?school\s+district |
+        school\s+district               |
+        public\s+schools                |   # "Chicago Public Schools"
+        isd | usd | cisd | gisd | nisd  |
+        cusd | rsd | ccsd | csd         |
+        musd | pusd | susd | disd       |
+        \w+usd | \w+isd                 |   # LAUSD, CFBISD, etc.
+        district
+    )\b
+    | \b\d+\s*$                             # trailing number "CUSD 300"
+    """,
+    re.IGNORECASE | re.VERBOSE,
+)
+
+_SCHOOL_NAME_RE = re.compile(
+    r"\b(elementary|middle\s+school|high\s+school|junior\s+high|"
+    r"academy|charter|magnet|preparatory|prep\s+school|primary\s+school|k-12)\b",
+    re.IGNORECASE,
+)
+
+_LIBRARY_NAME_RE = re.compile(r"\blibrar(y|ies)\b", re.IGNORECASE)
+
+_COMPANY_NAME_RE = re.compile(
+    r"\b(inc\.?|llc\.?|corp\.?|ltd\.?|foundation|association|university|college)\b",
+    re.IGNORECASE,
+)
+
+
+def classify_account(account_name: str, parent_account: str, sf_type: str) -> str:
+    """
+    Classify an account as 'district', 'school', 'library', or 'company'.
+
+    Priority:
+      1. Salesforce Type field (if recognized)
+      2. Has a parent account → school
+      3. Name contains library keywords → library
+      4. Name is a company/org → company
+      5. Name matches "School Name (District Abbrev)" pattern → school
+      6. Name contains school keywords → school
+      7. Name contains district keywords → district
+      8. Default → company (unknown, treated as non-district to be safe)
+    """
+    name   = (account_name or "").strip()
+    parent = (parent_account or "").strip()
+    sft    = (sf_type or "").strip().lower()
+
+    # 1. Salesforce Type takes priority when it's specific
+    if sft in _SF_TYPE_DISTRICT or "district" in sft:
+        return "district"
+    if sft in _SF_TYPE_SCHOOL:
+        return "school"
+    if sft in _SF_TYPE_LIBRARY or "library" in sft:
+        return "library"
+
+    # 2. Has a parent account → it's a sub-unit (almost always a school)
+    if parent:
+        return "school"
+
+    # 3. Library by name
+    if _LIBRARY_NAME_RE.search(name):
+        return "library"
+
+    # 4. Company/org by name
+    if _COMPANY_NAME_RE.search(name):
+        return "company"
+
+    # 5. "School Name (District Abbrev)" pattern → school
+    m = _PAREN_DISTRICT_RE.match(name)
+    if m:
+        return "school"
+
+    # 6. School keywords in name (no parent → standalone school or charter)
+    if _SCHOOL_NAME_RE.search(name):
+        return "school"
+
+    # 7. District keywords in name
+    if _DISTRICT_NAME_RE.search(name):
+        return "district"
+
+    # 8. Default: unknown → company (safe — won't pollute district reports)
+    return "company"
 
 
 # ─────────────────────────────────────────────
@@ -196,22 +321,23 @@ def import_accounts(csv_text: str) -> dict:
     Clears the tab first (except header), then writes fresh.
 
     Returns:
-      {imported: N, districts: N, schools: N, skipped: N, errors: list[str]}
+      {imported: N, districts: N, schools: N, libraries: N, companies: N,
+       skipped: N, errors: list[str]}
     """
     errors = []
     imported = 0
-    districts = 0
-    schools = 0
+    type_counts: dict[str, int] = {"district": 0, "school": 0, "library": 0, "company": 0}
     skipped = 0
 
     try:
         records = _parse_csv(csv_text)
     except Exception as e:
-        return {"imported": 0, "districts": 0, "schools": 0, "skipped": 0,
-                "errors": [f"CSV parse failed: {e}"]}
+        return {"imported": 0, "districts": 0, "schools": 0, "libraries": 0,
+                "companies": 0, "skipped": 0, "errors": [f"CSV parse failed: {e}"]}
 
     if not records:
-        return {"imported": 0, "districts": 0, "schools": 0, "skipped": 0,
+        return {"imported": 0, "districts": 0, "schools": 0, "libraries": 0,
+                "companies": 0, "skipped": 0,
                 "errors": ["No valid rows found in CSV. Check column headers."]}
 
     rows_to_write = []
@@ -221,15 +347,17 @@ def import_accounts(csv_text: str) -> dict:
             skipped += 1
             continue
 
-        parent = rec.get("parent_account", "").strip()
-        is_district = not bool(parent)
-        name_key = normalize_name(account_name)
+        parent   = rec.get("parent_account", "").strip()
+        sf_type  = rec.get("type", "").strip()
+        acct_type = classify_account(account_name, parent, sf_type)
+        name_key  = normalize_name(account_name)
 
         row = [
             name_key,
             account_name,
             parent,
-            rec.get("type", ""),
+            sf_type,
+            acct_type,
             rec.get("open_renewal", ""),
             rec.get("opportunities", ""),
             rec.get("active_licenses", ""),
@@ -238,14 +366,10 @@ def import_accounts(csv_text: str) -> dict:
             rec.get("last_activity", ""),
             rec.get("last_modified", ""),
             rec.get("state", ""),
-            "TRUE" if is_district else "FALSE",
         ]
         rows_to_write.append(row)
         imported += 1
-        if is_district:
-            districts += 1
-        else:
-            schools += 1
+        type_counts[acct_type] = type_counts.get(acct_type, 0) + 1
 
     try:
         service, sheet_id = _ensure_tab()
@@ -266,18 +390,23 @@ def import_accounts(csv_text: str) -> dict:
                 body={"values": rows_to_write}
             ).execute()
 
-        logger.info(f"Imported {imported} accounts ({districts} districts, {schools} schools)")
+        logger.info(
+            f"Imported {imported} accounts — "
+            + ", ".join(f"{v} {k}s" for k, v in type_counts.items() if v)
+        )
 
     except Exception as e:
         errors.append(f"Sheet write failed: {e}")
         logger.error(f"import_accounts sheet write error: {e}")
 
     return {
-        "imported":  imported,
-        "districts": districts,
-        "schools":   schools,
-        "skipped":   skipped,
-        "errors":    errors,
+        "imported":   imported,
+        "districts":  type_counts.get("district", 0),
+        "schools":    type_counts.get("school", 0),
+        "libraries":  type_counts.get("library", 0),
+        "companies":  type_counts.get("company", 0),
+        "skipped":    skipped,
+        "errors":     errors,
     }
 
 
@@ -339,14 +468,14 @@ def get_districts_with_schools() -> list[dict]:
             if parent not in schools_by_parent:
                 schools_by_parent[parent] = []
             schools_by_parent[parent].append({
-                "display_name":   acct.get("Display Name", ""),
+                "display_name":    acct.get("Display Name", ""),
                 "active_licenses": acct.get("Active Licenses", ""),
             })
 
     # Build districts that appear as parent accounts
     result = []
     for acct in accounts:
-        if acct.get("Is District", "").upper() != "TRUE":
+        if acct.get("Account Type", "").lower() != "district":
             continue
         display = acct.get("Display Name", "")
         children = schools_by_parent.get(display, [])
@@ -373,11 +502,14 @@ def get_import_summary() -> str:
         accounts = _load_all_accounts()
         if not accounts:
             return "Active Accounts tab is empty — send a Salesforce CSV to import."
-        districts = sum(1 for a in accounts if a.get("Is District", "").upper() == "TRUE")
-        schools = len(accounts) - districts
+        counts: dict[str, int] = {}
+        for a in accounts:
+            t = a.get("Account Type", "company").lower()
+            counts[t] = counts.get(t, 0) + 1
+        parts = ", ".join(f"{v} {k}s" for k, v in sorted(counts.items()) if v)
         districts_with_schools = len(get_districts_with_schools())
         return (
-            f"{len(accounts)} total accounts: {districts} districts, {schools} schools. "
+            f"{len(accounts)} total accounts: {parts}. "
             f"{districts_with_schools} districts have active CodeCombat schools."
         )
     except Exception as e:
