@@ -1,53 +1,60 @@
 # SCOUT — Claude Code Reference
-*Last updated: 2026-03-02 — Session 8*
+*Last updated: 2026-03-04 — Session 9*
 
 ---
 
 ## CURRENT STATE — update this after each session
 
-**Phase 6C built ✅. Deploy and verify. Phase 6D is next.**
+**Phase 6C verified ✅. Fireflies auto-processing live ✅. Phase 6D is next.**
 
-### What was built this session (Phase 6C)
-- **`tools/activity_tracker.py`** — new flat module. Logs activities to "Activities" Sheets tab. KPI Goals in "Goals" tab. `log_activity()`, `get_daily_progress()`, `sync_gmail_activities()`, `build_brief_data_block()`. Gmail scan: PandaDoc + Dialpad inbox search with Message ID dedup.
-- **`tools/csv_importer.py`** — new flat module. Accepts Salesforce CSV string. `import_accounts()` clears + rewrites "Active Accounts" tab. `get_districts_with_schools()` for Phase 6D call list. `normalize_name()` strips ISD/USD/etc for matching. `get_import_summary()`.
-- **`tools/sheets_writer.py`** — updated `ensure_sheet_tabs_exist()` to create Activities, Active Accounts, Goals, Salesforce Import tabs.
-- **`agent/main.py`** — Phase 6C: activity hooks on research_job/sequence_built/email_drafted/email_saved/call_logged, `handle_document()` for CSV file upload (Telegram attachment), new commands `/progress` `/sync_activities` `/set_goal`, `send_morning_brief()` and `send_eod_report()` inject real activity data block before sending to Claude. Startup message updated to "Phase 6C active".
-- **`agent/claude_brain.py`** — 4 new tools: `get_activity_summary`, `get_accounts_status`, `set_goal`, `sync_gmail_activities`. Model updated to `claude-sonnet-4-6`.
-- **`prompts/morning_brief.md`** + **`prompts/eod_report.md`** — updated to use injected REAL ACTIVITY DATA block.
+### What was built/fixed this session (Session 9)
+- **Fireflies Gmail polling** (`agent/main.py`) — Scout polls Gmail every 60s for new Fireflies recap emails. On detection: sends Telegram notification + triggers `_process_latest_fireflies_transcript()`. Retries up to 5× (60s apart) with status updates. Startup seeding prevents replaying old meetings on reboot.
+  - `_fireflies_email_triggers` set — dedup by `"subject[:60]|date[:16]"` key
+  - `_fireflies_processed_ids` set — dedup by transcript_id
+  - `_fireflies_gmail_seeded` flag — True after first scan seeds existing emails without processing
+- **Account classifier** (`tools/csv_importer.py`) — replaced `is_district = not bool(parent)` with `classify_account(name, parent, sf_type)`. Returns `district | school | library | company`.
+  - SF Type field → first priority
+  - Has parent → school
+  - Library keywords → library
+  - Company/org keywords → company
+  - Parenthetical `"School Name (District Abbrev)"` → school (checked BEFORE district patterns)
+  - District patterns: ISD/USD/CISD/SD/ends in "schools"/trailing number/"district"/"public schools" → district
+  - School patterns: ends in "school"/contains "school"/contains "sch"/elementary/academy/etc. → school
+  - Default → company (safe: won't pollute district reports)
+- **Column schema change** — `"Is District"` (TRUE/FALSE) replaced by `"Account Type"` (district/school/library/company) and `"SF Type"` (raw Salesforce field). Column count unchanged (13). Header row now always overwritten on import.
+- **`normalize_name()`** — strips parenthetical district tags before normalizing e.g. `"Jefferson Elementary (Medina Valley ISD)"` → `"jefferson elementary"`
 
-### Key design decisions (Phase 6C)
-- **CSV upload via Telegram file attachment** — Steven sends `.csv` directly in Telegram chat. `handle_document()` downloads it, runs `csv_importer.import_accounts()`. No GAS changes needed.
-- **Activity tracker is a flat module** (like sheets_writer) — imported at top of main.py as `import tools.activity_tracker as activity_tracker`
-- **csv_importer is a flat module** — same pattern
-- **KPI goal types**: `calls_made`, `districts_researched`, `emails_drafted` — seeded with 10/2/5 defaults
-- **calls_made** maps to `call_logged` + `dialpad_call` activities combined
-- **emails_drafted** maps to `email_drafted` + `email_saved` activities combined
-- **Morning brief** injects yesterday's data. **EOD report** syncs Gmail first, then injects today's data.
-- **`sync_gmail_activities` is synchronous** inside activity_tracker.py — called via `run_in_executor` from async context in main.py
+### Key design decisions (Session 9)
+- **Gmail polling preferred over webhook** — Fireflies sends recap email the moment transcript is ready; polling Gmail = same timing, no webhook config complexity. Webhook kept as backup.
+- **Startup seeding pattern** — first Gmail scan seeds all existing emails as already-seen without processing. Prevents replaying historical meetings on every reboot. Apply this pattern to any future Gmail poller.
+- **District check before school check in `classify_account`** — district patterns run at step 6, school keywords at step 7. Required so "Austin Independent School District" hits district before the "school" keyword match.
+- **Parenthetical check before district check** — so "(Medina Valley ISD)" inside a school name doesn't trigger the ISD district pattern.
+- **`_ensure_tab()` always overwrites header row** — never skip with `if not values`. Schema changes must propagate immediately on next import.
 
 ### Current status
 - `/recent_calls` ✅
 - `/call [id]` ✅
 - `/brief` (manual) ✅
 - Auto pre-call brief (10-min trigger) ✅
-- Fireflies webhook ⏳ pending first real external call
+- Fireflies webhook ✅ configured (backup trigger)
+- Fireflies Gmail polling ✅ live — auto-processes calls within 60s of recap email
 - `/build_sequence` ✅
-- Phase 6B: ✅ verified end-to-end
-- Phase 6C: ✅ built — deploy + verify next
+- Phase 6B ✅ verified
+- Phase 6C ✅ verified (all 5 steps passed)
+- Account classifier ✅ fixed — district/school/library/company
+- Phase 6D: Daily Call List — **next to build**
 
 ### Next step
-**Deploy Phase 6C to Railway (push to GitHub → auto-deploy) then verify:**
-1. `/progress` — should return KPI progress (all zeros on first run, which is correct)
-2. Send a `.csv` file in Telegram — should import to Active Accounts tab
-3. `/sync_activities` — should scan Gmail for PandaDoc + Dialpad events
-4. Run research on a district → check Activities tab has a new row
-
-**Then build Phase 6D: Daily Call List**
+**Build Phase 6D: Daily Call List**
+- 10 contacts/day
+- Prioritize districts where CodeCombat already has ≥1 active school (from Active Accounts tab)
+- Mini pre-call card per contact: name, title, district, which school(s) are active, suggested talking point
+- Output as Google Doc (same pattern as sequences)
 
 ### Phase 6 plan (expanded)
 - **6A** — Campaign Engine ✅ verified
 - **6B** — Research Engine Expansion ✅ verified
-- **6C** — Activity Tracking + KPI Goals + Salesforce CSV import + Gmail intelligence ✅ built
+- **6C** — Activity Tracking + KPI Goals + Salesforce CSV import + Gmail intelligence ✅ verified
 - **6D** — Daily Call List (10/day, prioritize districts with active CodeCombat schools, mini pre-call cards per contact, Google Doc)
 - **6E** — District Prospecting Queue (Scout suggests districts from territory, Steven approves, auto-research + sequence doc for Outreach)
 - **6F** — Pipeline Snapshot (Salesforce opp CSV → lightweight CRM in Sheets, stale follow-up alerts in EOD)
@@ -105,6 +112,16 @@
 **Outreach handoff pattern for cold sequences.** Scout builds sequence content and formats it into a Google Doc for easy copy-paste into Outreach.io. Outreach.io handles actual sending, open/click tracking, and call logging. Do NOT try to replace Outreach with Gmail for cold prospecting sequences — Outreach is Steven's tool for that workflow.
 
 **No Salesforce or Outreach API access.** Steven cannot obtain integration permissions for Salesforce, Outreach.io, PandaDoc, or Dialpad. All data from these tools enters Scout via CSV export (Salesforce, Outreach) or Gmail notification parsing (PandaDoc, Dialpad). Never design a feature that assumes API access to these tools.
+
+**Fireflies Gmail polling uses startup seeding.** `_check_fireflies_gmail()` sets `_fireflies_gmail_seeded = True` on the first scan, adding all existing emails to `_fireflies_email_triggers` without processing any. Only emails that arrive after startup trigger the workflow. Apply this pattern to any future Gmail poller that auto-triggers actions.
+
+**`classify_account()` checks district patterns BEFORE school keywords.** Reversed order is intentional — "Austin Independent School District" must not match "school" before reaching the district check. Parenthetical check `"Name (District)"` runs before district check so "(Medina Valley ISD)" doesn't trigger district classification.
+
+**`_ensure_tab()` always overwrites the header row.** Never use `if not values` to skip the header write. Column schema changes in code must propagate to the sheet immediately on the next import — not just on first use.
+
+**Active Accounts "Account Type" column values: district | school | library | company.** The old boolean `Is District` column is gone. All downstream code (`get_districts_with_schools`, `get_import_summary`) filters on `Account Type == "district"`. Do not reintroduce TRUE/FALSE logic.
+
+**Name ends in "school" (singular) → school. Name ends in "schools" (plural) → district.** "Springfield School" is a school. "Chicago Public Schools" is a district. "sch" as a standalone word (e.g. "Sch of Excellence") → school. These are explicit rules from Steven — do not override with other heuristics.
 
 ---
 
@@ -280,12 +297,22 @@ activity_tracker.build_brief_data_block(date_str=None) -> str  # injected into m
 ### csv_importer (`tools/csv_importer.py`) — MODULE, NOT A CLASS (Phase 6C)
 ```python
 import tools.csv_importer as csv_importer
-csv_importer.import_accounts(csv_text: str) -> dict  # {imported, districts, schools, skipped, errors}
+csv_importer.import_accounts(csv_text: str) -> dict
+# {imported, districts, schools, libraries, companies, skipped, errors}
 # Clears Active Accounts tab, rewrites fresh from CSV string
+# Column schema: Name Key | Display Name | Parent Account | SF Type | Account Type |
+#                Open Renewal | Opportunities | Active Licenses | 2025 Revenue |
+#                Lifetime Revenue | Last Activity | Last Modified | State
+# Account Type values: district | school | library | company
+
+csv_importer.classify_account(account_name, parent_account, sf_type) -> str
+# Returns "district" | "school" | "library" | "company"
+
 csv_importer.get_active_accounts(state_filter="") -> list[dict]
 csv_importer.get_districts_with_schools() -> list[dict]  # Phase 6D: districts with ≥1 active school
-csv_importer.normalize_name(name: str) -> str  # strips ISD/USD/etc for matching
-csv_importer.get_import_summary() -> str  # one-line status: N accounts, N districts, N with active schools
+# filters on Account Type == "district"
+csv_importer.normalize_name(name: str) -> str  # strips ISD/USD/etc + parenthetical tags
+csv_importer.get_import_summary() -> str  # one-line status: N accounts by type, N districts with schools
 ```
 
 ### VoiceTrainer (`agent/voice_trainer.py`)
