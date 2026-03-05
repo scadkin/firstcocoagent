@@ -1,38 +1,31 @@
 # SCOUT — Claude Code Reference
-*Last updated: 2026-03-04 — Session 10*
+*Last updated: 2026-03-04 — Session 11*
 
 ---
 
 ## CURRENT STATE — update this after each session
 
-**Phase 6D built. Phase 6E is next.**
+**Phase 6D built and fixes deployed. Verification in progress.**
 
-### What was built/fixed this session (Session 10)
-- **Daily Call List** (`tools/daily_call_list.py`) — new flat module. `/call_list` generates a prioritized list of 10 contacts from districts where CodeCombat has active schools.
-  - Two-path matching: lead's District Name OR lead's Account matched against priority districts and their schools
-  - Ranking: email required, title weighted, school_count weighted, email confidence weighted
-  - Max 3 contacts per district for coverage spread
-  - Backfill from any lead with email+title if <10 from priority districts
-  - Template talking points based on school count (1 / 2–3 / 4+)
-  - Google Doc output with full call cards via `gas_bridge.create_google_doc()`
-  - Compact Telegram preview with name, title, district, school count, email
-- **`sheets_writer.get_leads()`** — reads all leads from Leads tab as list[dict], optional state_filter
-- **`activity_tracker`** — added `call_list_generated` activity type + label
-- **`claude_brain.py`** — added `generate_call_list` tool definition (23 tools total)
-- **`main.py`** — `/call_list` direct dispatch (Pattern A) + `generate_call_list` execute_tool handler
+### What was built/fixed this session (Session 11)
+- **call_processor.py — 4 bug fixes deployed:**
+  - `"Scout's Take"` renamed to `"Key Insights"` in `_format_telegram_summary`
+  - Recap email draft now falls back to Claude-extracted `contact_email` when Fireflies attendees have no email (e.g. prospect wasn't on calendar invite)
+  - `_is_valid_email()` added — validates email before calling `gas.create_draft()` to prevent GAS "Invalid To header" crash
+  - When draft not saved, surfaces `⚠️ Recap email not saved: <reason>` in Telegram summary instead of silently dropping it
+- **call_processor.py — model + timeout fix:**
+  - All three `messages.create()` calls updated from `claude-opus-4-5` → `claude-sonnet-4-6` (deprecated model was hanging indefinitely)
+  - Anthropic client initialized with `timeout=90.0` so hangs surface as errors, not silent stalls
+- **`/call` email override** — `/call [id] email@domain.com` lets Steven correct a malformed extracted email and re-run without reprocessing from scratch
+- **Railway deploys** — all fixes pushed to GitHub and auto-deployed. No manual steps needed going forward (no Code.gs changes this session).
 
-### Key design decisions (Session 10)
-- **Template talking points (not Claude-generated)** — fast, free, no API latency. Templates reference specific active school names. Can upgrade to Claude-generated in v2.
-- **Two-path matching** — matches both district_name and school account name against active accounts, catching both district-level and school-level contacts.
-- **Max 3 per district** — spreads coverage across districts instead of stacking contacts from the largest district.
-- **Backfill** — if <10 priority matches, fills remaining slots from any lead with email+title, marked as `is_backfill=True`.
-- **Reuse `SEQUENCES_FOLDER_ID`** — avoids new env var setup. Doc title "Daily Call List — {date}" distinguishes from sequences.
-- **Direct dispatch (Pattern A)** — no clarifying questions needed, just build and send.
-- **`daily_call_list` imported at top of main.py** — flat utility module, not lazy.
+### Key design decisions (Session 11)
+- **Email override on /call** — second argument to `/call` is parsed as email override if it contains `@`. Passed through execute_tool → process_transcript. Takes priority over Fireflies attendees AND extracted contact_email.
+- **Model pinned to claude-sonnet-4-6 everywhere** — claude-opus-4-5 appears deprecated. All Scout modules that call Claude directly must use claude-sonnet-4-6.
 
 ### Current status
 - `/recent_calls` ✅
-- `/call [id]` ✅
+- `/call [id]` ✅ (+ email override: `/call [id] email@domain.com`)
 - `/brief` (manual) ✅
 - Auto pre-call brief (10-min trigger) ✅
 - Fireflies webhook ✅ configured (backup trigger)
@@ -41,18 +34,28 @@
 - Phase 6B ✅ verified
 - Phase 6C ✅ verified (all 5 steps passed)
 - Account classifier ✅ fixed — district/school/library/company
-- Phase 6D: Daily Call List ✅ built — **needs verification**
+- Phase 6D: Daily Call List ✅ built + call_processor fixes deployed — **verification in progress (steps 1–7)**
 
 ### Next step
-**Verify Phase 6D** then **build Phase 6E: District Prospecting Queue**
-- Verify: upload Salesforce CSV → research some districts → `/call_list` → check Telegram + Google Doc + activity log
+**Complete Phase 6D verification**, then **build Phase 6E: District Prospecting Queue**
+
+Verification checklist (resume here next session):
+1. Upload Salesforce CSV in Telegram (if Active Accounts not already populated)
+2. Research ≥1 district that appears in the CSV (so leads exist that match active schools)
+3. Run `/call_list` in Telegram
+4. Check: Telegram preview shows ≤10 contacts with name/title/district/school count/email
+5. Check: Google Doc link in message → open it → confirm full call cards + talking points
+6. Check: `/progress` shows `call_list_generated` activity logged
+7. Edge case: `/call_list` with no leads → confirm "No leads found" message (code-verified, may skip live test)
+
+After verification:
 - 6E: Scout suggests districts from territory, Steven approves, auto-research + sequence doc for Outreach
 
 ### Phase 6 plan (expanded)
 - **6A** — Campaign Engine ✅ verified
 - **6B** — Research Engine Expansion ✅ verified
 - **6C** — Activity Tracking + KPI Goals + Salesforce CSV import + Gmail intelligence ✅ verified
-- **6D** — Daily Call List ✅ built (10/day, prioritize districts with active CodeCombat schools, mini pre-call cards per contact, Google Doc)
+- **6D** — Daily Call List ✅ built + fixes deployed — **verification in progress**
 - **6E** — District Prospecting Queue (Scout suggests districts from territory, Steven approves, auto-research + sequence doc for Outreach)
 - **6F** — Pipeline Snapshot (Salesforce opp CSV → lightweight CRM in Sheets, stale follow-up alerts in EOD)
 
@@ -119,6 +122,14 @@
 **Active Accounts "Account Type" column values: district | school | library | company.** The old boolean `Is District` column is gone. All downstream code (`get_districts_with_schools`, `get_import_summary`) filters on `Account Type == "district"`. Do not reintroduce TRUE/FALSE logic.
 
 **Name ends in "school" (singular) → school. Name ends in "schools" (plural) → district.** "Springfield School" is a school. "Chicago Public Schools" is a district. "sch" as a standalone word (e.g. "Sch of Excellence") → school. These are explicit rules from Steven — do not override with other heuristics.
+
+**call_processor.py must use claude-sonnet-4-6.** `claude-opus-4-5` is deprecated — calling it hangs indefinitely (Anthropic SDK default timeout is 10 minutes). All three `messages.create()` calls in call_processor.py use `claude-sonnet-4-6`. Anthropic client is initialized with `timeout=90.0`. Do not revert this.
+
+**Validate email before calling gas.create_draft().** GAS throws "Invalid argument: Invalid To header" on malformed emails. Always run `_is_valid_email()` before `create_draft()`. If invalid, surface the bad email in the Telegram summary so Steven can correct it with `/call [id] corrected@email.com`.
+
+**`/call` supports optional email override.** Usage: `/call [transcript_id] email@domain.com`. The second token is treated as an email override if it contains `@`. Passed via `tool_input["email_override"]` through execute_tool → `process_transcript(email_override=...)`. Takes priority over Fireflies attendees AND Claude-extracted contact_email. Both the `/call` direct dispatch handler and the `process_call_transcript` execute_tool handler pass it through.
+
+**Post-call summary section is "Key Insights", not "Scout's Take".** Updated in `_format_telegram_summary` in call_processor.py. Do not revert the label.
 
 ---
 
@@ -381,8 +392,9 @@ from agent.call_processor import CallProcessor
 processor = CallProcessor(gas_bridge=gas, memory_manager=memory, fireflies_client=None)
 # Reads PRECALL_BRIEF_FOLDER_ID from os.environ directly
 await processor.build_pre_call_brief(event, attendees, progress_callback=None) -> str
-await processor.process_transcript(transcript_id, progress_callback=None) -> dict
+await processor.process_transcript(transcript_id, progress_callback=None, email_override="") -> dict
 # {telegram_summary, recap_email, salesforce_block, outreach_row, draft_url, error}
+# email_override: if set, skips Fireflies attendee lookup and extracted contact_email — use for malformed emails
 ```
 `_create_brief_doc` returns: `"https://docs.google.com/..."` | `"ERROR:<msg>"` | `""` (folder ID not set)
 
@@ -409,7 +421,7 @@ await processor.process_transcript(transcript_id, progress_callback=None) -> dic
 | `add email: addr@domain.org` | set recipient on pending draft |
 | `/brief [meeting name]` | manual pre-call brief (Phase 5) |
 | `/recent_calls [num]` | recent external calls, optional count 1–20 |
-| `/call [transcript_id or url]` | manual post-call processing (Phase 5) |
+| `/call [transcript_id or url]` | manual post-call processing (Phase 5). Optional email override: `/call [id] correct@email.com` |
 | `/progress` or `/kpi` | show today's activity counts vs KPI goals (direct dispatch) |
 | `/sync_activities` | scan Gmail for PandaDoc + Dialpad events, log new ones (direct dispatch) |
 | `/set_goal [type] [target]` | update KPI daily target e.g. `/set_goal calls_made 15` (direct dispatch) |
