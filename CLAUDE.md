@@ -1,27 +1,37 @@
 # SCOUT — Claude Code Reference
-*Last updated: 2026-03-04 — Session 11*
+*Last updated: 2026-03-06 — Session 12*
 
 ---
 
 ## CURRENT STATE — update this after each session
 
-**Phase 6D built and fixes deployed. Verification in progress.**
+**Phase 6D verification in progress. SoCal CSV uploaded. Ready for Step 2 (research a district).**
 
-### What was built/fixed this session (Session 11)
-- **call_processor.py — 4 bug fixes deployed:**
-  - `"Scout's Take"` renamed to `"Key Insights"` in `_format_telegram_summary`
-  - Recap email draft now falls back to Claude-extracted `contact_email` when Fireflies attendees have no email (e.g. prospect wasn't on calendar invite)
-  - `_is_valid_email()` added — validates email before calling `gas.create_draft()` to prevent GAS "Invalid To header" crash
-  - When draft not saved, surfaces `⚠️ Recap email not saved: <reason>` in Telegram summary instead of silently dropping it
-- **call_processor.py — model + timeout fix:**
-  - All three `messages.create()` calls updated from `claude-opus-4-5` → `claude-sonnet-4-6` (deprecated model was hanging indefinitely)
-  - Anthropic client initialized with `timeout=90.0` so hangs surface as errors, not silent stalls
-- **`/call` email override** — `/call [id] email@domain.com` lets Steven correct a malformed extracted email and re-run without reprocessing from scratch
-- **Railway deploys** — all fixes pushed to GitHub and auto-deployed. No manual steps needed going forward (no Code.gs changes this session).
+### What was built/fixed this session (Session 12)
+- **Layer 15: Email Verification & Discovery** added to `research_engine.py`:
+  - Runs after L10 (dedup+scoring) on the cleaned contact list
+  - Step 1: identifies contacts with INFERRED/UNKNOWN confidence or missing email
+  - Step 2+3: generates candidate emails from L8 pattern, searches quoted email in Serper → VERIFIED if email+name both in snippet, LIKELY if email only
+  - Step 4: enrichment search (`"Name" "District" CS OR STEM OR CTE`) for high-priority contacts → extracts new contacts from snippets
+  - Step 5: discovery searches (`"@domain.org" computer science coordinator`) → finds contacts missed by earlier layers
+  - Hard cap: 30 queries per district; respects global 100-query Serper cap
+  - After L15, L10 runs a second time to dedup/sort any new contacts
+  - Hyphenated last name variants generated automatically
+  - Student email pattern filter (strips `students.`, `stu.`, graduation year patterns)
+- **`contact_extractor.py`** — model updated from `claude-opus-4-5` → `claude-sonnet-4-6`
+- **`csv_importer.get_districts_with_schools()`** — targeting logic corrected (critical fix):
+  - Old: started from `Account Type == "district"` entries → missed most targets
+  - New: starts from school accounts → groups by `Parent Account` → excludes parent districts that already appear as `Account Type == "district"` (already have a deal)
+  - Result: surfaces all parent districts where we have a school foothold but no district deal — sorted by school count descending
+- **`agent/main.py`** — `L15:email-verify` added to layer breakdown order in research completion report
+- **CLAUDE.md** — business model rules added: CodeCombat customer types, multi-site deals, district deal progression, Scout mission expanded, active district account guidance, Leads tab freshness note
 
-### Key design decisions (Session 11)
-- **Email override on /call** — second argument to `/call` is parsed as email override if it contains `@`. Passed through execute_tool → process_transcript. Takes priority over Fireflies attendees AND extracted contact_email.
-- **Model pinned to claude-sonnet-4-6 everywhere** — claude-opus-4-5 appears deprecated. All Scout modules that call Claude directly must use claude-sonnet-4-6.
+### Key design decisions (Session 12)
+- **Targeting logic: start from schools, not districts.** Active school accounts = foothold signal. Active district accounts = already closed, skip for new business. Parent districts with most active schools = highest priority call list targets.
+- **CodeCombat deal progression:** individual school → multi-site deal → full district contract. "District deal" almost always means multi-site (e.g. all middle schools), not fully district-wide. Full district = rare goal.
+- **Scout's mission is force multiplication**, not just assistance. The platform is designed to be taught and trained — every session makes it smarter and more capable across research, sequences, call processing, prioritization, and strategic analysis.
+- **The Leads tab has existing data.** Never assume it is empty. Future feature: periodic freshness check.
+- **Railway 409 Conflict on redeploy is normal.** Old container takes ~30s to die after new one starts. Both briefly poll Telegram simultaneously → Telegram rejects with 409. Resolves automatically once old container stops. Not a bug.
 
 ### Current status
 - `/recent_calls` ✅
@@ -34,14 +44,16 @@
 - Phase 6B ✅ verified
 - Phase 6C ✅ verified (all 5 steps passed)
 - Account classifier ✅ fixed — district/school/library/company
-- Phase 6D: Daily Call List ✅ built + call_processor fixes deployed — **verification in progress (steps 1–7)**
+- Research engine ✅ 15 layers — L15 email verification added
+- Phase 6D: Daily Call List ✅ built + targeting logic fixed + deployed — **verification in progress**
+- SoCal Active Accounts CSV ✅ uploaded (55 accounts: 2 districts, 46 schools, 7 other)
 
 ### Next step
-**Complete Phase 6D verification**, then **build Phase 6E: District Prospecting Queue**
+**Resume Phase 6D verification at Step 2** — research a parent district from the SoCal CSV
 
-Verification checklist (resume here next session):
-1. Upload Salesforce CSV in Telegram (if Active Accounts not already populated)
-2. Research ≥1 district that appears in the CSV (so leads exist that match active schools)
+Verification checklist (resume here):
+1. ✅ Upload Salesforce CSV (done — 55 accounts imported)
+2. ⬅ **Research ≥1 parent district** — open Active Accounts tab, find school with highest Parent Account count, research that district in Telegram: `Research [District Name] CA`
 3. Run `/call_list` in Telegram
 4. Check: Telegram preview shows ≤10 contacts with name/title/district/school count/email
 5. Check: Google Doc link in message → open it → confirm full call cards + talking points
@@ -55,7 +67,7 @@ After verification:
 - **6A** — Campaign Engine ✅ verified
 - **6B** — Research Engine Expansion ✅ verified
 - **6C** — Activity Tracking + KPI Goals + Salesforce CSV import + Gmail intelligence ✅ verified
-- **6D** — Daily Call List ✅ built + fixes deployed — **verification in progress**
+- **6D** — Daily Call List ✅ built + targeting fixed + deployed — **verification in progress (step 2)**
 - **6E** — District Prospecting Queue (Scout suggests districts from territory, Steven approves, auto-research + sequence doc for Outreach)
 - **6F** — Pipeline Snapshot (Salesforce opp CSV → lightweight CRM in Sheets, stale follow-up alerts in EOD)
 
@@ -329,8 +341,9 @@ csv_importer.classify_account(account_name, parent_account, sf_type) -> str
 # Returns "district" | "school" | "library" | "company"
 
 csv_importer.get_active_accounts(state_filter="") -> list[dict]
-csv_importer.get_districts_with_schools() -> list[dict]  # Phase 6D: districts with ≥1 active school
-# filters on Account Type == "district"
+csv_importer.get_districts_with_schools() -> list[dict]  # Phase 6D: parent districts with ≥1 active school account
+# Starts from school accounts → groups by Parent Account → excludes districts already in Active Accounts as "district" type
+# Sorted by school count descending. DO NOT revert to filtering on Account Type == "district".
 csv_importer.normalize_name(name: str) -> str  # strips ISD/USD/etc + parenthetical tags
 csv_importer.get_import_summary() -> str  # one-line status: N accounts by type, N districts with schools
 ```
