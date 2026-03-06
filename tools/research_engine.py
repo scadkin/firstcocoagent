@@ -57,7 +57,7 @@ HEADERS = {
 
 MAX_CRAWL_PAGES = 30          # max pages to crawl on district site
 CRAWL_DELAY = 0.5             # seconds between requests (be polite)
-SERPER_REQUESTS_PER_JOB = int(os.environ.get("SERPER_REQUESTS_PER_JOB", "100"))  # safety cap; ~27 used in normal 14-layer run
+SERPER_REQUESTS_PER_JOB = int(os.environ.get("SERPER_REQUESTS_PER_JOB", "100"))  # safety cap; ~57 used in normal 15-layer run (L15 adds up to 30)
 
 
 # ─────────────────────────────────────────────
