@@ -451,47 +451,61 @@ def get_active_accounts(state_filter: str = "") -> list[dict]:
 
 def get_districts_with_schools() -> list[dict]:
     """
-    Return district-level accounts that have at least one school linked under them.
-    This is the key input for Phase 6D call list prioritization.
+    Return parent districts that have active CodeCombat school accounts.
+    These are the targeting signals for Phase 6D: we already have a foothold
+    in the district via schools, so we pitch a district-wide deal.
+
+    Logic:
+      - Start from school accounts (Account Type == "school")
+      - Group by their Parent Account (the district)
+      - Exclude parent districts that already have a district-level deal
+        (Account Type == "district" in Active Accounts — already owned)
+      - Sort by school count descending — more active schools = higher priority
 
     Returns list of dicts:
-      {display_name, name_key, state, active_licenses, opportunities,
-       school_count, schools: [{display_name, active_licenses}]}
+      {display_name, name_key, state, school_count,
+       schools: [{display_name, active_licenses}]}
     """
     accounts = _load_all_accounts()
 
-    # Build parent → list of schools mapping
+    # Collect districts we already have deals with — exclude from targeting
+    existing_district_keys: set[str] = set()
+    for acct in accounts:
+        if acct.get("Account Type", "").lower() == "district":
+            existing_district_keys.add(normalize_name(acct.get("Display Name", "")))
+
+    # Group school accounts by their Parent Account (the target district)
     schools_by_parent: dict[str, list[dict]] = {}
     for acct in accounts:
-        parent = acct.get("Parent Account", "").strip()
-        if parent:
-            if parent not in schools_by_parent:
-                schools_by_parent[parent] = []
-            schools_by_parent[parent].append({
-                "display_name":    acct.get("Display Name", ""),
-                "active_licenses": acct.get("Active Licenses", ""),
-            })
-
-    # Build districts that appear as parent accounts
-    result = []
-    for acct in accounts:
-        if acct.get("Account Type", "").lower() != "district":
+        if acct.get("Account Type", "").lower() != "school":
             continue
-        display = acct.get("Display Name", "")
-        children = schools_by_parent.get(display, [])
-        if not children:
-            continue  # district exists but no linked schools
-        result.append({
-            "display_name":    display,
-            "name_key":        acct.get("Name Key", ""),
-            "state":           acct.get("State", ""),
+        parent = acct.get("Parent Account", "").strip()
+        if not parent:
+            continue
+        if parent not in schools_by_parent:
+            schools_by_parent[parent] = []
+        schools_by_parent[parent].append({
+            "display_name":    acct.get("Display Name", ""),
             "active_licenses": acct.get("Active Licenses", ""),
-            "opportunities":   acct.get("Opportunities", ""),
-            "school_count":    len(children),
-            "schools":         children,
+            "state":           acct.get("State", ""),
         })
 
-    # Sort by school count descending (most active first)
+    # Build targeting list — one entry per parent district, excluding existing deals
+    result = []
+    for parent_name, children in schools_by_parent.items():
+        name_key = normalize_name(parent_name)
+        if name_key in existing_district_keys:
+            continue  # already have district-level deal — not a target
+        state = next((s.get("state", "") for s in children if s.get("state")), "")
+        result.append({
+            "display_name": parent_name,
+            "name_key":     name_key,
+            "state":        state,
+            "school_count": len(children),
+            "schools":      children,
+        })
+
+    # Sort by school count descending — most active schools = best pitch
     result.sort(key=lambda x: x["school_count"], reverse=True)
     return result
 

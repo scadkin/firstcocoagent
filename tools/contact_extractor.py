@@ -80,7 +80,7 @@ Extract all CS/STEM/CTE/EdTech contacts. Return JSON array only."""
 
     try:
         response = client.messages.create(
-            model="claude-opus-4-5",
+            model="claude-sonnet-4-6",
             max_tokens=2000,
             system=EXTRACT_SYSTEM,
             messages=[{"role": "user", "content": prompt}]

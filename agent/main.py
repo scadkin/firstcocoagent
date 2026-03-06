@@ -126,6 +126,7 @@ async def _on_research_complete(result: dict):
             "L1:direct-title", "L2:title-variations", "L3:linkedin",
             "L4:district-site", "L5:news-grants", "L6:scrape", "L7:deep-crawl",
             "L11:school-staff", "L12:board-agendas", "L13:state-doe", "L14:conference",
+            "L15:email-verify",
         ]
         for layer in layer_order:
             count = layer_counts.get(layer, 0)

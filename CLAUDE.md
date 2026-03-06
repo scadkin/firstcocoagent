@@ -119,7 +119,15 @@ After verification:
 
 **`_ensure_tab()` always overwrites the header row.** Never use `if not values` to skip the header write. Column schema changes in code must propagate to the sheet immediately on the next import — not just on first use.
 
-**Active Accounts "Account Type" column values: district | school | library | company.** The old boolean `Is District` column is gone. All downstream code (`get_districts_with_schools`, `get_import_summary`) filters on `Account Type == "district"`. Do not reintroduce TRUE/FALSE logic.
+**Active Accounts "Account Type" column values: district | school | library | company.** The old boolean `Is District` column is gone. `get_import_summary` filters on `Account Type == "district"`. Do not reintroduce TRUE/FALSE logic.
+
+**`get_districts_with_schools()` targeting logic — DO NOT REVERT.** Active school accounts signal which parent districts to target (we have a foothold → pitch a district-wide deal). Active district accounts = we already have some form of district deal → generally NOT a prospecting target for new business (though they can be expansion targets case by case, and are excellent for referrals/references). The function starts from school accounts, groups by Parent Account, and excludes parent districts that appear as `Account Type == "district"` in Active Accounts. Schools with no Parent Account set are a Salesforce data quality gap and won't appear in call list matching. Sort order: most active schools first (e.g. a district with 10 active schools outranks one with 1).
+
+**CodeCombat's customer types — DO NOT oversimplify.** CodeCombat sells to: school districts, individual schools, libraries, after-school programs, and any organization or individual that wants to teach or learn CS, AI, or coding. "District deals" are not always fully district-wide. The most common structure is a multi-site deal: buying for all middle schools, a subset of high schools, a few elementaries, etc. Fully district-wide contracts are the ultimate goal but relatively rare. Always think in terms of: individual school → multi-site deal → full district contract as the progression.
+
+**Active district accounts: not a primary prospecting target, but not off-limits.** They already have some form of deal. There may be room to expand (e.g. they bought for 7th/8th grade; 9th–12th is untouched). These are case-by-case. Their primary value is as referral sources and references — not cold outreach targets. Scout should not auto-include them in call lists but should surface them as referral/reference candidates when relevant.
+
+**The Leads tab has existing data and must be kept current.** Do not assume the Leads tab is empty. Scout should periodically re-scan and refresh leads data as new research completes. Future feature: scheduled Leads tab freshness check.
 
 **Name ends in "school" (singular) → school. Name ends in "schools" (plural) → district.** "Springfield School" is a school. "Chicago Public Schools" is a district. "sch" as a standalone word (e.g. "Sch of Excellence") → school. These are explicit rules from Steven — do not override with other heuristics.
 
@@ -135,7 +143,9 @@ After verification:
 
 ## WHAT SCOUT IS
 
-Always-on AI assistant running 24/7 on Railway.app. Communicates via Telegram (@coco_scout_bot).
+Scout is Steven's always-on AI sales partner — not just a helper, but a force multiplier. Scout learns Steven's voice, territory, customers, and patterns over time and uses that knowledge to proactively multiply his efforts: researching prospects, building sequences, processing calls, generating daily priorities, surfacing pipeline insights, drafting custom outreach, and executing workflows that would otherwise take hours. The goal is for Scout to handle the operational and analytical heavy lifting so Steven can focus on relationships and closing. Scout is designed to be taught, trained, and expanded — every session makes it smarter and more capable.
+
+Communicates via Telegram (@coco_scout_bot). Runs 24/7 on Railway.app.
 - Morning brief: 9:15am CST | EOD report: 4:30pm CST | Hourly check-in: 10am–4pm CST
 - Persistent memory via GitHub (never cleared)
 - Operator: Steven — steven@codecombat.com — CST timezone

@@ -1,5 +1,5 @@
 """
-research_engine.py — Scout's 14-layer K-12 lead research engine.
+research_engine.py — Scout's 15-layer K-12 lead research engine.
 
 Layers:
   1. Serper: direct title search
@@ -16,6 +16,7 @@ Layers:
   14. Serper: conference presenter search
   9. Claude extraction pass (all raw content from L1-L8 + L11-L14)
   10. Dedup + confidence scoring
+  15. Email verification & discovery via search (runs after L10)
 """
 
 import os
@@ -94,7 +95,7 @@ class ResearchJob:
 
     async def run(self) -> dict:
         """
-        Execute all 14 layers. Returns result summary dict.
+        Execute all 15 layers. Returns result summary dict.
         """
         # Layer 1: Direct title search
         await self._layer1_direct_title_search()
@@ -140,6 +141,12 @@ class ResearchJob:
         await self._layer9_claude_extraction()
 
         # Layer 10: Dedup + confidence scoring
+        await self._layer10_dedup_and_score()
+
+        # Layer 15: Email verification & discovery (operates on cleaned L10 list)
+        await self._layer15_email_verification()
+
+        # Re-run dedup + scoring to incorporate any new contacts from L15
         await self._layer10_dedup_and_score()
 
         layers_str = ", ".join(self.layers_used)
@@ -494,6 +501,220 @@ class ResearchJob:
         ]
         results = await self._serper_batch(queries)
         self._add_raw_from_serper(results, "L14:conference")
+
+    # ─────────────────────────────────────────────
+    # LAYER 15: Email verification & discovery
+    # ─────────────────────────────────────────────
+
+    async def _layer15_email_verification(self):
+        """
+        Layer 15: Email Verification & Discovery via search.
+
+        Runs after L10 on the cleaned, deduplicated contact list.
+
+        Steps:
+          1. Identify candidates: contacts with INFERRED/UNKNOWN confidence or no email
+          2. Generate candidate emails from the L8-detected pattern
+          3. Verify by searching the quoted email string in Serper
+          4. Enrich high-priority contacts via name+district search
+          5. Discovery: search @domain to find new contacts we missed
+        """
+        self.layers_used.append("L15:email-verify")
+
+        _L15_MAX = 30   # hard per-layer query cap
+        _l15_used = 0
+
+        domain = self.district_domain.replace("www.", "") if self.district_domain else ""
+
+        # ── Priority scoring ──────────────────────────────────────────────────
+        _HIGH_PRI_KEYWORDS = [
+            "director", "coordinator", "chief", "officer", "superintendent",
+            "administrator", "specialist", "curriculum", "cte", "stem",
+            "instructional technology", "computer science", "innovation", "lead",
+        ]
+
+        def _priority(contact: dict) -> int:
+            title = contact.get("title", "").lower()
+            for kw in _HIGH_PRI_KEYWORDS:
+                if kw in title:
+                    return 2
+            if any(w in title for w in ("teacher", "instructor", "coach")):
+                return 1
+            if "principal" in title:
+                return 0
+            return -1
+
+        _conf_rank = {"VERIFIED": 4, "LIKELY": 3, "INFERRED": 2, "UNKNOWN": 1, "": 0}
+
+        def _upgrade_confidence(contact: dict, new_conf: str, url: str = ""):
+            """Upgrade email_confidence if new value is higher. Never downgrade."""
+            current = _conf_rank.get(contact.get("email_confidence", "").upper(), 0)
+            if _conf_rank.get(new_conf.upper(), 0) > current:
+                contact["email_confidence"] = new_conf
+                contact["verified_by_l15"] = True
+                if url:
+                    contact["source_url"] = url
+
+        # ── Step 1: Identify candidates ───────────────────────────────────────
+        candidates = [
+            c for c in self.all_contacts
+            if c.get("first_name") and c.get("last_name")
+            and (
+                c.get("email_confidence", "UNKNOWN").upper() in ("INFERRED", "UNKNOWN")
+                or not c.get("email")
+            )
+        ]
+        candidates.sort(key=_priority, reverse=True)
+
+        # ── Steps 2+3: Generate candidate emails + verify via search ──────────
+        if self.email_pattern and domain:
+            for contact in candidates:
+                # Reserve 5 queries for discovery (Step 5)
+                if _l15_used >= _L15_MAX - 5 or self._serper_count >= self._serper_cap:
+                    break
+
+                first = contact.get("first_name", "").lower().strip()
+                last = contact.get("last_name", "").lower().strip()
+                if not first or not last:
+                    continue
+
+                # Build candidate email variants; handle hyphenated last names
+                candidate_emails = []
+                primary = infer_email(first, last, domain, self.email_pattern)
+                if primary:
+                    candidate_emails.append(primary)
+                if "-" in last:
+                    for variant_last in [last.replace("-", ""), last.split("-")[0]]:
+                        v = infer_email(first, variant_last, domain, self.email_pattern)
+                        if v and v not in candidate_emails:
+                            candidate_emails.append(v)
+
+                # Filter student-address patterns
+                candidate_emails = [
+                    e for e in candidate_emails
+                    if not any(s in e for s in ("students.", "stu.", "student."))
+                    and not re.search(r'\d{4}@', e)
+                ]
+                if not candidate_emails:
+                    continue
+
+                email_to_try = candidate_emails[0]
+                results = await self._serper_batch([f'"{email_to_try}"'])
+                _l15_used += 1
+
+                # Evaluate results: VERIFIED if email+name both in snippet, else LIKELY
+                new_conf = None
+                best_url = ""
+                for result in results:
+                    for item in result.get("organic", []):
+                        snippet = (
+                            item.get("snippet", "") + " " + item.get("title", "")
+                        ).lower()
+                        url = item.get("link", "")
+                        email_found = email_to_try.lower() in snippet
+                        name_found = first in snippet and last.split("-")[0] in snippet
+                        if email_found and name_found:
+                            new_conf = "VERIFIED"
+                            best_url = url
+                            break
+                        elif email_found and not new_conf:
+                            new_conf = "LIKELY"
+                            best_url = url
+                    if new_conf == "VERIFIED":
+                        break
+
+                # Assign email if blank, then set/upgrade confidence
+                if not contact.get("email"):
+                    contact["email"] = email_to_try
+                    contact["email_confidence"] = new_conf or "INFERRED"
+                    if best_url:
+                        contact["source_url"] = best_url
+                    if new_conf:
+                        contact["verified_by_l15"] = True
+                elif new_conf:
+                    _upgrade_confidence(contact, new_conf, best_url)
+
+                if best_url:
+                    self._url_to_layer.setdefault(best_url, "L15:email-verify")
+
+                await asyncio.sleep(1.0)  # rate limit between verification queries
+
+        # ── Step 4: Enrichment search for high-priority contacts ──────────────
+        high_pri = [c for c in self.all_contacts if _priority(c) >= 2]
+        for contact in high_pri[:8]:
+            if _l15_used >= _L15_MAX - 5 or self._serper_count >= self._serper_cap:
+                break
+
+            first = contact.get("first_name", "")
+            last = contact.get("last_name", "")
+            if not first or not last:
+                continue
+
+            query = (
+                f'"{first} {last}" "{self.district_name}" '
+                f'computer science OR technology OR STEM OR CTE'
+            )
+            results = await self._serper_batch([query])
+            _l15_used += 1
+
+            enrichment_raw = []
+            for result in results:
+                for item in result.get("organic", []):
+                    url = item.get("link", "")
+                    snippet = item.get("snippet", "")
+                    title_text = item.get("title", "")
+                    if url and snippet:
+                        content = f"Title: {title_text}\nURL: {url}\n{snippet}"
+                        enrichment_raw.append((url, content))
+                        self._url_to_layer.setdefault(url, "L15:email-verify")
+
+            if enrichment_raw:
+                self.raw_pages.extend(enrichment_raw)
+                loop = asyncio.get_event_loop()
+                new_contacts = await loop.run_in_executor(
+                    None, extract_from_multiple, enrichment_raw, self.district_name
+                )
+                self._merge_contacts(new_contacts)
+
+            await asyncio.sleep(1.0)
+
+        # ── Step 5: Discovery searches using @domain pattern ─────────────────
+        if domain and _l15_used < _L15_MAX and self._serper_count < self._serper_cap:
+            remaining = min(_L15_MAX - _l15_used, 5)
+            discovery_queries = [
+                f'"@{domain}" "computer science" coordinator OR director',
+                f'"@{domain}" STEM OR CTE coordinator OR director',
+                f'"@{domain}" "instructional technology"',
+                f'"@{domain}" CS teacher OR "computer science teacher"',
+                f'"@{domain}" curriculum OR "digital learning"',
+            ][:remaining]
+
+            results = await self._serper_batch(discovery_queries)
+            _l15_used += len(discovery_queries)
+
+            discovery_raw = []
+            for result in results:
+                for item in result.get("organic", []):
+                    url = item.get("link", "")
+                    snippet = item.get("snippet", "")
+                    title_text = item.get("title", "")
+                    if url and snippet:
+                        content = f"Title: {title_text}\nURL: {url}\n{snippet}"
+                        discovery_raw.append((url, content))
+                        self._url_to_layer.setdefault(url, "L15:email-verify")
+
+            if discovery_raw:
+                self.raw_pages.extend(discovery_raw)
+                loop = asyncio.get_event_loop()
+                new_contacts = await loop.run_in_executor(
+                    None, extract_from_multiple, discovery_raw, self.district_name
+                )
+                self._merge_contacts(new_contacts)
+
+        logger.info(
+            f"L15 complete for {self.district_name}: {_l15_used} queries used, "
+            f"{sum(1 for c in self.all_contacts if c.get('verified_by_l15'))} contacts verified/updated"
+        )
 
     # ─────────────────────────────────────────────
     # HELPERS
