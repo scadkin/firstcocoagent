@@ -38,6 +38,7 @@ def build_daily_call_list(max_contacts: int = 10) -> dict:
        total_matched: int, error: str}
     """
     try:
+        logger.info(f"[call_list] building — cap={_MAX_PER_DISTRICT}")
         leads = sheets_writer.get_leads()
         if not leads:
             return {
@@ -251,7 +252,7 @@ def _rank_and_select(
         seen_emails.add(email)
         selected.append(_build_call_card(lead, d_info))
 
-    # Backfill if needed — max 3 per district applies here too
+    # Backfill if needed — max _MAX_PER_DISTRICT per district applies here too
     if len(selected) < max_contacts and all_leads:
         for lead in all_leads:
             if len(selected) >= max_contacts:
