@@ -928,7 +928,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await send_message(msg)
         return
 
-    elif user_text.lower().startswith("/call"):
+    elif user_text.lower().startswith("/call") and not user_text.lower().startswith("/call_list"):
         args = user_text[len("/call"):].strip()
         if "fireflies.ai" in args and "/transcript/" in args:
             args = args.split("/transcript/")[-1].split("/")[0].split("?")[0]
