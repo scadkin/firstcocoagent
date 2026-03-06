@@ -159,6 +159,7 @@ _SUFFIX_PATTERNS = [
     r"\bcommunity schools\b",
     r"\bschools\b",
     r"\bdistrict\b",
+    r"\bunified\b",  # "Los Angeles Unified" → "los angeles"
     r"\bisd\b",
     r"\busd\b",
     r"\bcusd\b",
@@ -175,6 +176,42 @@ _SUFFIX_PATTERNS = [
     r"\s+\d+\s*$",   # trailing number e.g. "CUSD 300"
 ]
 
+# Known district abbreviations → canonical expanded name (lowercase).
+# Used by normalize_name so "LAUSD" and "Los Angeles Unified School District"
+# both normalize to the same key ("los angeles").
+_KNOWN_ABBREVIATIONS: dict[str, str] = {
+    "lausd":  "los angeles unified school district",
+    "lausd":  "los angeles unified school district",
+    "hisd":   "houston independent school district",
+    "aisd":   "austin independent school district",
+    "disd":   "dallas independent school district",
+    "pisd":   "plano independent school district",
+    "fisd":   "frisco independent school district",
+    "lisd":   "lewisville independent school district",
+    "cfbisd": "cypress fairbanks independent school district",
+    "neisd":  "north east independent school district",
+    "nwisd":  "northwest independent school district",
+    "misd":   "midland independent school district",
+    "episd":  "el paso independent school district",
+    "saisd":  "san antonio independent school district",
+    "fwisd":  "fort worth independent school district",
+    "bisd":   "beaumont independent school district",
+    "sdusd":  "san diego unified school district",
+    "sfusd":  "san francisco unified school district",
+    "ousd":   "oakland unified school district",
+    "fusd":   "fresno unified school district",
+    "rusd":   "riverside unified school district",
+    "sbusd":  "santa barbara unified school district",
+    "vusd":   "ventura unified school district",
+    "cusd":   "capistrano unified school district",
+    "iusd":   "irvine unified school district",
+    "svusd":  "saddleback valley unified school district",
+    "pvusd":  "pajaro valley unified school district",
+    "cps":    "chicago public schools",
+    "nycdoe": "new york city department of education",
+    "dcps":   "district of columbia public schools",
+}
+
 # Regex to detect "School Name (District Abbrev)" format
 _PAREN_DISTRICT_RE = re.compile(r"^(.+?)\s*\(([^)]+)\)\s*$")
 
@@ -183,12 +220,16 @@ def normalize_name(name: str) -> str:
     """
     Return a normalized lowercase key for matching.
     Strips common school district suffixes, parenthetical district tags,
-    punctuation, and extra whitespace.
+    punctuation, and extra whitespace. Expands known abbreviations first
+    so e.g. "LAUSD" and "Los Angeles Unified School District" produce the
+    same key ("los angeles").
 
     Examples:
       "Medina Valley ISD"                        → "medina valley"
       "AUSTIN INDEPENDENT SCHOOL DISTRICT"       → "austin"
       "Elk Grove Unified School District"        → "elk grove"
+      "Los Angeles Unified"                      → "los angeles"
+      "LAUSD"                                    → "los angeles"
       "Jefferson Elementary (Medina Valley ISD)" → "jefferson elementary"
     """
     key = name.strip()
@@ -197,6 +238,10 @@ def normalize_name(name: str) -> str:
     if m:
         key = m.group(1).strip()
     key = key.lower()
+    # Expand known abbreviations (e.g. "lausd" → full name, then strip suffixes)
+    key_clean = re.sub(r"[^\w\s]", "", key).strip()
+    if key_clean in _KNOWN_ABBREVIATIONS:
+        key = _KNOWN_ABBREVIATIONS[key_clean]
     for pattern in _SUFFIX_PATTERNS:
         key = re.sub(pattern, "", key, flags=re.IGNORECASE)
     # Remove punctuation except spaces

@@ -157,7 +157,40 @@ def _match_leads_to_districts(leads: list[dict], districts: list[dict]) -> list[
 # RANKING + SELECTION
 # ─────────────────────────────────────────────
 
+_MAX_PER_DISTRICT = 2  # max contacts per district per day
+
 _CONFIDENCE_ORDER = {"HIGH": 4, "MEDIUM": 3, "LOW": 2, "UNKNOWN": 1, "": 0}
+
+# Curriculum/CS/CTE keywords that boost title rank
+_CS_KEYWORDS = {
+    "computer science", "cs ", " cs", "cte", "curriculum", "stem",
+    "technology", "academic", "instruction", "learning",
+}
+
+# Title role rank — higher = more decision-making authority
+_TITLE_KEYWORDS = [
+    (3, ["superintendent", "chief academic", "chief technology", "cto", "cao"]),
+    (2, ["director", "coordinator", "administrator", "manager", "supervisor"]),
+    (1, ["principal", "assistant principal", "vice principal", "ap "]),
+    (0, ["teacher", "instructor", "professor", "librarian"]),
+]
+
+
+def _get_title_rank(title: str) -> int:
+    """
+    Return an integer rank for a contact title.
+    CS/CTE/Curriculum titles get a +1 boost.
+    Range: 0 (no title) to 7 (top exec with CS focus).
+    """
+    if not title:
+        return 0
+    tl = title.lower()
+    is_cs = any(kw in tl for kw in _CS_KEYWORDS)
+    for base_rank, keywords in _TITLE_KEYWORDS:
+        if any(kw in tl for kw in keywords):
+            return base_rank * 2 + (1 if is_cs else 0)
+    # Has a title but didn't match any keyword — generic rank
+    return 1 + (1 if is_cs else 0)
 
 
 def _rank_and_select(
@@ -168,25 +201,26 @@ def _rank_and_select(
     """
     Rank matched leads and select top N.
 
-    Ranking factors:
-      1. Has email (required)
-      2. Has title
-      3. District school_count (more schools = higher priority)
-      4. Email confidence (HIGH > MEDIUM > LOW > UNKNOWN)
+    Ranking priority (highest first):
+      1. Email verified (HIGH or MEDIUM confidence)
+      2. Title rank (CS/CTE Director > Director > Coordinator > Teacher)
+      3. District school_count (more schools = stronger pitch)
+      4. Email confidence (tiebreaker)
 
-    Max 3 contacts per district. Dedup by email.
+    Max _MAX_PER_DISTRICT contacts per district. Dedup by email.
     If <max_contacts from priority districts, backfill from any lead with email+title.
     """
 
     def sort_key(item):
         lead = item["lead"]
         d_info = item.get("district_info")
-        has_title = 1 if lead.get("Title", "").strip() else 0
-        school_count = d_info.get("school_count", 0) if d_info else 0
         confidence = _CONFIDENCE_ORDER.get(
             lead.get("Email Confidence", "").upper(), 0
         )
-        return (has_title, school_count, confidence)
+        is_verified = 1 if confidence >= 3 else 0  # HIGH or MEDIUM
+        title_rank = _get_title_rank(lead.get("Title", "").strip())
+        school_count = d_info.get("school_count", 0) if d_info else 0
+        return (is_verified, title_rank, school_count, confidence)
 
     # Sort best candidates first
     matched.sort(key=sort_key, reverse=True)
@@ -207,10 +241,10 @@ def _rank_and_select(
         d_info = item.get("district_info")
         district_name = d_info.get("display_name", "") if d_info else ""
 
-        # Max 3 per district
+        # Max _MAX_PER_DISTRICT per district
         if district_name:
             count = district_counts.get(district_name, 0)
-            if count >= 3:
+            if count >= _MAX_PER_DISTRICT:
                 continue
             district_counts[district_name] = count + 1
 
@@ -229,7 +263,7 @@ def _rank_and_select(
                 continue
             lead_district = (lead.get("District Name") or lead.get("Account") or "").strip()
             if lead_district:
-                if district_counts.get(lead_district, 0) >= 3:
+                if district_counts.get(lead_district, 0) >= _MAX_PER_DISTRICT:
                     continue
                 district_counts[lead_district] = district_counts.get(lead_district, 0) + 1
             seen_emails.add(email)
