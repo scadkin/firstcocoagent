@@ -135,6 +135,18 @@
 
 **Post-call summary section is "Key Insights", not "Scout's Take".** Updated in `_format_telegram_summary` in call_processor.py. Do not revert the label.
 
+**`/call_list` must be guarded in the `/call` startswith handler.** `user_text.lower().startswith("/call")` matches both `/call` and `/call_list`. The `/call` elif must read: `startswith("/call") and not startswith("/call_list")`. If this guard is ever removed, `/call_list` silently routes to Fireflies transcript processing with id `_list`.
+
+**District/school names have many valid forms — normalize aggressively, ask when ambiguous.** "LAUSD", "Los Angeles Unified", "Los Angeles USD", "Los Angeles Unified School District" all refer to the same district. `normalize_name()` handles this via `_KNOWN_ABBREVIATIONS` expansion + suffix stripping (including standalone "unified"). When building any feature that matches district names across two sources (e.g. Leads tab vs Active Accounts), always normalize both sides before comparing. If ever unclear which specific district or school Steven is referring to, ask before proceeding — never assume.
+
+**Call list per-district cap applies to both priority matches AND backfill.** `_MAX_PER_DISTRICT = 2` in `daily_call_list.py`. The selection loop and the backfill loop both check `district_counts`. If you ever rewrite either loop, make sure both enforce the cap — the backfill loop was missing it and produced 7 contacts from one district.
+
+**Call list sort priority: verified email → title rank → school count → confidence.** `_get_title_rank()` in `daily_call_list.py` ranks CS/CTE/Curriculum Director highest. Do not flatten the sort to a single factor. Verified (HIGH/MEDIUM confidence) contacts must always rank above unverified contacts regardless of title.
+
+**Railway build cache can serve stale code despite "deployment successful".** If behavior doesn't match code changes, add a `logger.info(f"[module] key_value={CONSTANT}")` line and redeploy. Check Railway logs for that line — if the expected value doesn't appear, Railway is running a cached build. Trigger a manual redeploy from the Railway dashboard to force a clean build.
+
+**After Railway redeploy, always wait for Scout's "Scout is online" startup message in Telegram before testing.** The startup message only comes from the new container. The 409 Conflict errors in logs (lasting ~30s after each deploy) are normal — old container dying while new one starts. Never send test commands during the 409 window.
+
 ---
 
 ## WHAT SCOUT IS
