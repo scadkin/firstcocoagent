@@ -217,7 +217,7 @@ def _rank_and_select(
         seen_emails.add(email)
         selected.append(_build_call_card(lead, d_info))
 
-    # Backfill if needed
+    # Backfill if needed — max 3 per district applies here too
     if len(selected) < max_contacts and all_leads:
         for lead in all_leads:
             if len(selected) >= max_contacts:
@@ -227,6 +227,11 @@ def _rank_and_select(
                 continue
             if not lead.get("Title", "").strip():
                 continue
+            lead_district = (lead.get("District Name") or lead.get("Account") or "").strip()
+            if lead_district:
+                if district_counts.get(lead_district, 0) >= 3:
+                    continue
+                district_counts[lead_district] = district_counts.get(lead_district, 0) + 1
             seen_emails.add(email)
             selected.append(_build_call_card(lead, district_info=None))
 
