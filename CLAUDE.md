@@ -1,37 +1,30 @@
 # SCOUT — Claude Code Reference
-*Last updated: 2026-03-06 — Session 12*
+*Last updated: 2026-03-06 — Session 13*
 
 ---
 
 ## CURRENT STATE — update this after each session
 
-**Phase 6D verification in progress. SoCal CSV uploaded. Ready for Step 2 (research a district).**
+**Phase 6D verified ✅. Ready for Phase 6E: District Prospecting Queue.**
 
-### What was built/fixed this session (Session 12)
-- **Layer 15: Email Verification & Discovery** added to `research_engine.py`:
-  - Runs after L10 (dedup+scoring) on the cleaned contact list
-  - Step 1: identifies contacts with INFERRED/UNKNOWN confidence or missing email
-  - Step 2+3: generates candidate emails from L8 pattern, searches quoted email in Serper → VERIFIED if email+name both in snippet, LIKELY if email only
-  - Step 4: enrichment search (`"Name" "District" CS OR STEM OR CTE`) for high-priority contacts → extracts new contacts from snippets
-  - Step 5: discovery searches (`"@domain.org" computer science coordinator`) → finds contacts missed by earlier layers
-  - Hard cap: 30 queries per district; respects global 100-query Serper cap
-  - After L15, L10 runs a second time to dedup/sort any new contacts
-  - Hyphenated last name variants generated automatically
-  - Student email pattern filter (strips `students.`, `stu.`, graduation year patterns)
-- **`contact_extractor.py`** — model updated from `claude-opus-4-5` → `claude-sonnet-4-6`
-- **`csv_importer.get_districts_with_schools()`** — targeting logic corrected (critical fix):
-  - Old: started from `Account Type == "district"` entries → missed most targets
-  - New: starts from school accounts → groups by `Parent Account` → excludes parent districts that already appear as `Account Type == "district"` (already have a deal)
-  - Result: surfaces all parent districts where we have a school foothold but no district deal — sorted by school count descending
-- **`agent/main.py`** — `L15:email-verify` added to layer breakdown order in research completion report
-- **CLAUDE.md** — business model rules added: CodeCombat customer types, multi-site deals, district deal progression, Scout mission expanded, active district account guidance, Leads tab freshness note
+### What was built/fixed this session (Session 13)
+- **Phase 6D verified ✅** — full end-to-end: CSV upload → research LAUSD → `/call_list` → Google Doc → activity logged
+- **`/call_list` routing fix** (`agent/main.py`) — `/call` handler used `startswith("/call")` which swallowed `/call_list`; fixed with `not startswith("/call_list")` exclusion
+- **Call list backfill cap** (`daily_call_list.py`) — backfill section was not applying the per-district cap; now uses `_MAX_PER_DISTRICT` throughout
+- **District name normalization** (`csv_importer.py`):
+  - `normalize_name()` now strips standalone `"unified"` so "Los Angeles Unified" → `"los angeles"` (was `"los angeles unified"`)
+  - Added `_KNOWN_ABBREVIATIONS` dict: LAUSD, HISD, AISD, CPS, NYCDOE + 25 others → all expand to full name before suffix stripping, so "LAUSD" and "Los Angeles Unified School District" both produce key `"los angeles"`
+- **Call list priority + cap** (`daily_call_list.py`):
+  - Cap changed 3 → 2 per district (`_MAX_PER_DISTRICT = 2`)
+  - Sort order: verified email (HIGH/MEDIUM) first → title rank → school count → confidence
+  - Title rank: CS/CTE/Curriculum Director (highest) → Director/Coordinator → Principal → Teacher
+  - `_get_title_rank()` function added; CS-keyword boost (+1) applied within tiers
+- **Layer count message fix** (`agent/main.py`) — startup queued message now says "15-layer" not "14-layer"
 
-### Key design decisions (Session 12)
-- **Targeting logic: start from schools, not districts.** Active school accounts = foothold signal. Active district accounts = already closed, skip for new business. Parent districts with most active schools = highest priority call list targets.
-- **CodeCombat deal progression:** individual school → multi-site deal → full district contract. "District deal" almost always means multi-site (e.g. all middle schools), not fully district-wide. Full district = rare goal.
-- **Scout's mission is force multiplication**, not just assistance. The platform is designed to be taught and trained — every session makes it smarter and more capable across research, sequences, call processing, prioritization, and strategic analysis.
-- **The Leads tab has existing data.** Never assume it is empty. Future feature: periodic freshness check.
-- **Railway 409 Conflict on redeploy is normal.** Old container takes ~30s to die after new one starts. Both briefly poll Telegram simultaneously → Telegram rejects with 409. Resolves automatically once old container stops. Not a bug.
+### Key design decisions (Session 13)
+- **District/school names have many valid forms.** "LAUSD", "Los Angeles Unified", "Los Angeles USD", "Los Angeles Unified School District" all mean the same district. `normalize_name()` handles this automatically. When in doubt about which district Steven means, always ask before proceeding.
+- **Railway build cache can serve stale code** despite "deployment successful" showing in dashboard. Diagnosis: add a log line with the config value and check Railway logs to confirm which version is running.
+- **After redeploy, always wait for Scout's startup message in Telegram before testing.** The startup message only comes from the new container — it's the reliable signal the old one is dead.
 
 ### Current status
 - `/recent_calls` ✅
@@ -45,29 +38,20 @@
 - Phase 6C ✅ verified (all 5 steps passed)
 - Account classifier ✅ fixed — district/school/library/company
 - Research engine ✅ 15 layers — L15 email verification added
-- Phase 6D: Daily Call List ✅ built + targeting logic fixed + deployed — **verification in progress**
+- Phase 6D: Daily Call List ✅ **verified** (Session 13)
 - SoCal Active Accounts CSV ✅ uploaded (55 accounts: 2 districts, 46 schools, 7 other)
 
 ### Next step
-**Resume Phase 6D verification at Step 2** — research a parent district from the SoCal CSV
-
-Verification checklist (resume here):
-1. ✅ Upload Salesforce CSV (done — 55 accounts imported)
-2. ⬅ **Research ≥1 parent district** — open Active Accounts tab, find school with highest Parent Account count, research that district in Telegram: `Research [District Name] CA`
-3. Run `/call_list` in Telegram
-4. Check: Telegram preview shows ≤10 contacts with name/title/district/school count/email
-5. Check: Google Doc link in message → open it → confirm full call cards + talking points
-6. Check: `/progress` shows `call_list_generated` activity logged
-7. Edge case: `/call_list` with no leads → confirm "No leads found" message (code-verified, may skip live test)
-
-After verification:
-- 6E: Scout suggests districts from territory, Steven approves, auto-research + sequence doc for Outreach
+**Phase 6E: District Prospecting Queue**
+- Scout suggests districts from Steven's territory that have no current CodeCombat presence
+- Steven approves (or skips) via Telegram
+- Scout auto-researches approved districts + builds Outreach sequence doc
 
 ### Phase 6 plan (expanded)
 - **6A** — Campaign Engine ✅ verified
 - **6B** — Research Engine Expansion ✅ verified
 - **6C** — Activity Tracking + KPI Goals + Salesforce CSV import + Gmail intelligence ✅ verified
-- **6D** — Daily Call List ✅ built + targeting fixed + deployed — **verification in progress (step 2)**
+- **6D** — Daily Call List ✅ **verified** (Session 13)
 - **6E** — District Prospecting Queue (Scout suggests districts from territory, Steven approves, auto-research + sequence doc for Outreach)
 - **6F** — Pipeline Snapshot (Salesforce opp CSV → lightweight CRM in Sheets, stale follow-up alerts in EOD)
 
@@ -344,7 +328,7 @@ csv_importer.get_active_accounts(state_filter="") -> list[dict]
 csv_importer.get_districts_with_schools() -> list[dict]  # Phase 6D: parent districts with ≥1 active school account
 # Starts from school accounts → groups by Parent Account → excludes districts already in Active Accounts as "district" type
 # Sorted by school count descending. DO NOT revert to filtering on Account Type == "district".
-csv_importer.normalize_name(name: str) -> str  # strips ISD/USD/etc + parenthetical tags
+csv_importer.normalize_name(name: str) -> str  # strips ISD/USD/etc + "unified" + parenthetical tags; expands _KNOWN_ABBREVIATIONS (LAUSD→"los angeles", etc.)
 csv_importer.get_import_summary() -> str  # one-line status: N accounts by type, N districts with schools
 ```
 
