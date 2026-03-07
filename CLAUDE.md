@@ -5,12 +5,21 @@
 
 ## CURRENT STATE — update this after each session
 
-**Phase 6E complete (code). All files updated. Needs deploy to Railway + end-to-end verification.**
+**Phase 6E deployed to Railway. "Scout is online — Phase 6E active" confirmed. End-to-end testing NOT yet done.**
 
-### What still needs to be done
-- Deploy to Railway and verify end-to-end
-- Test: `/prospect_discover TX`, `/prospect_upward`, `/prospect`, `/prospect_approve 1`, `/prospect_skip 2`
-- Verify auto-pipeline: approve → research → sequence → mark complete
+### What still needs to be done (Session 16)
+- Test all 7 prospect commands in order:
+  1. `/prospect_discover TX` — verify Serper finds districts, dedupes against Active Accounts, adds to Prospecting Queue tab
+  2. `/prospect_upward` — verify it finds districts from Active Accounts with school foothold
+  3. `/prospect` — verify it shows pending queue with numbered items
+  4. `/prospect_approve 1` — verify it marks approved, queues research, and auto-builds sequence on completion
+  5. `/prospect_skip 2` — verify it marks skipped
+  6. `/prospect_add Austin ISD, TX` — verify manual add
+  7. `/prospect_all` — verify grouped status view
+- Verify auto-pipeline end-to-end: approve → research runs → `_on_prospect_research_complete` fires → sequence auto-builds → Google Doc created → prospect marked complete in queue
+- Verify morning brief shows pending prospects
+- Verify hourly check-in suggests idle research targets
+- If any bugs found, fix and redeploy
 
 ### Current status
 - Phases 1–5: ✅ all verified
@@ -18,10 +27,10 @@
 - Phase 6B (Research Engine — 15 layers): ✅
 - Phase 6C (Activity Tracking + KPI + CSV Import + Gmail Intel): ✅
 - Phase 6D (Daily Call List): ✅
-- Phase 6E (District Prospecting Queue): ✅ code complete — awaiting deploy + verify
+- Phase 6E (District Prospecting Queue): ✅ deployed — awaiting end-to-end verification
 
 ### Phase 6 roadmap
-- **6E** — District Prospecting Queue ✅ (code complete)
+- **6E** — District Prospecting Queue ✅ (deployed, testing next)
 - **6F** — Pipeline Snapshot (Salesforce opp CSV → lightweight CRM in Sheets, stale follow-up alerts)
 
 ---
@@ -85,6 +94,10 @@
 **NEVER fabricate claims about active accounts in sequences.** Only cite verifiable facts: school name, license count. No assumed success/engagement.
 
 **Sequence building rules are in `memory/sequence_building_rules.md`.** Load as context when auto-building sequences.
+
+**`global` declarations go at the TOP of `handle_message()`, not in elif blocks.** Python SyntaxError if `global` appears after first use of the variable. All globals in one line: `global conversation_history, _pending_draft, _last_prospect_batch`.
+
+**`_on_prospect_research_complete` is the auto-pipeline callback.** Runs `_on_research_complete` first (standard flow), then auto-builds a strategy-aware sequence, writes Google Doc, marks prospect complete. Uses `sequence_builder` (lazy import inside the callback). If sequence fails, prospect is still marked complete.
 
 **Two prospecting strategies — upward and cold.** Upward = districts with active school accounts, no district deal. Cold = no CodeCombat presence. Strategy column tracks this. Sequences differ by strategy.
 
@@ -168,7 +181,7 @@ firstcocoagent/
 │   ├── system.md
 │   ├── morning_brief.md
 │   ├── eod_report.md
-│   └── sequence_templates.md   ← 17 archetypes
+│   └── sequence_templates.md   ← 18 archetypes
 ├── memory/
 │   ├── preferences.md
 │   ├── context_summary.md
