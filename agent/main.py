@@ -28,6 +28,7 @@ import tools.sheets_writer as sheets_writer
 import tools.activity_tracker as activity_tracker
 import tools.csv_importer as csv_importer
 import tools.daily_call_list as daily_call_list
+import tools.district_prospector as district_prospector
 from tools.telegram_bot import send_message
 # Phase 4/5 modules imported lazily inside execute_tool() — safe to boot without them
 
@@ -54,6 +55,9 @@ _precall_briefs_sent: set = set()
 _fireflies_email_triggers: set = set()   # keyed by "subject[:60]|date[:16]"
 _fireflies_processed_ids: set = set()    # keyed by transcript_id
 _fireflies_gmail_seeded: bool = False    # True after first scan seeds existing emails
+
+# Phase 6E: Prospecting queue — last shown batch for approve/skip indexing
+_last_prospect_batch: list[dict] = []
 
 
 def get_gas_bridge():
@@ -1019,6 +1023,158 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 pass
         except Exception as e:
             await send_message(f"Call list failed: {e}")
+        return
+
+    # ── Phase 6E commands ──────────────────────────────────────────────────────
+
+    elif user_text.lower().startswith("/prospect_discover"):
+        global _last_prospect_batch
+        args = user_text[len("/prospect_discover"):].strip()
+        if not args:
+            await send_message("Usage: `/prospect_discover Texas` or `/prospect_discover TX`")
+            return
+        await send_message(f"🔍 Searching for school districts in *{args}*...")
+        try:
+            loop = asyncio.get_event_loop()
+            result = await loop.run_in_executor(None, district_prospector.discover_districts, args)
+            if not result["success"]:
+                await send_message(f"Discovery failed: {result['error']}")
+                return
+            msg = (
+                f"Found {result['discovered']} districts in {args}\n"
+                f"Already known: {result['already_known']} | New added to queue: {result['new_added']}"
+            )
+            if result.get("territory_warning"):
+                msg += f"\n⚠️ {result['territory_warning']}"
+            await send_message(msg)
+            pending = await loop.run_in_executor(None, district_prospector.get_pending, 5)
+            if pending:
+                _last_prospect_batch = pending
+                await send_message(district_prospector.format_batch_for_telegram(pending))
+        except Exception as e:
+            await send_message(f"Discovery error: {e}")
+        return
+
+    elif user_text.lower().startswith("/prospect_upward"):
+        global _last_prospect_batch
+        await send_message("🔍 Finding upward targets from your active school accounts...")
+        try:
+            loop = asyncio.get_event_loop()
+            result = await loop.run_in_executor(None, district_prospector.suggest_upward_targets)
+            if not result["success"]:
+                await send_message(f"Error: {result['error']}")
+                return
+            msg = (
+                f"Found {result['new_added'] + result['already_known']} upward targets\n"
+                f"New added to queue: {result['new_added']} | Already queued: {result['already_known']}"
+            )
+            await send_message(msg)
+            pending = await loop.run_in_executor(None, district_prospector.get_pending, 5)
+            if pending:
+                _last_prospect_batch = pending
+                await send_message(district_prospector.format_batch_for_telegram(pending))
+        except Exception as e:
+            await send_message(f"Upward targets error: {e}")
+        return
+
+    elif user_text.lower().startswith("/prospect_approve"):
+        global _last_prospect_batch
+        args = user_text[len("/prospect_approve"):].strip()
+        if not args or not _last_prospect_batch:
+            await send_message("No prospect batch to approve. Use `/prospect` first.")
+            return
+        try:
+            indices = [int(x.strip()) for x in args.split(",")]
+        except ValueError:
+            await send_message("Usage: `/prospect_approve 1,3,5`")
+            return
+        try:
+            loop = asyncio.get_event_loop()
+            approved = await loop.run_in_executor(
+                None, district_prospector.approve_districts, indices, _last_prospect_batch
+            )
+            if not approved:
+                await send_message("No valid indices to approve.")
+                return
+            names = [d.get("District Name", "?") for d in approved]
+            await send_message(f"✅ Approved {len(approved)} districts: {', '.join(names)}\nQueuing research...")
+            for d in approved:
+                name_key = d.get("Name Key", "")
+                district_prospector.mark_researching(name_key)
+                await research_queue.enqueue(
+                    district_name=d.get("District Name", ""),
+                    state=d.get("State", ""),
+                    progress_callback=_on_research_progress,
+                    completion_callback=lambda result, prospect=d: asyncio.ensure_future(
+                        _on_prospect_research_complete(result, prospect)
+                    ),
+                )
+        except Exception as e:
+            await send_message(f"Approve error: {e}")
+        return
+
+    elif user_text.lower().startswith("/prospect_skip"):
+        global _last_prospect_batch
+        args = user_text[len("/prospect_skip"):].strip()
+        if not args or not _last_prospect_batch:
+            await send_message("No prospect batch to skip. Use `/prospect` first.")
+            return
+        try:
+            indices = [int(x.strip()) for x in args.split(",")]
+        except ValueError:
+            await send_message("Usage: `/prospect_skip 2,4`")
+            return
+        try:
+            loop = asyncio.get_event_loop()
+            skipped = await loop.run_in_executor(
+                None, district_prospector.skip_districts, indices, _last_prospect_batch
+            )
+            names = [d.get("District Name", "?") for d in skipped]
+            await send_message(f"⏭ Skipped {len(skipped)} districts: {', '.join(names)}")
+        except Exception as e:
+            await send_message(f"Skip error: {e}")
+        return
+
+    elif user_text.lower().startswith("/prospect_add"):
+        args = user_text[len("/prospect_add"):].strip()
+        parts = [p.strip() for p in args.split(",")]
+        if len(parts) < 2:
+            await send_message("Usage: `/prospect_add Austin ISD, TX`")
+            return
+        name, state = parts[0], parts[1]
+        try:
+            loop = asyncio.get_event_loop()
+            result = await loop.run_in_executor(None, district_prospector.add_district, name, state)
+            await send_message(result["message"])
+        except Exception as e:
+            await send_message(f"Add error: {e}")
+        return
+
+    elif user_text.lower() in ["/prospect_all", "prospect all", "show all prospects"]:
+        try:
+            loop = asyncio.get_event_loop()
+            all_prospects = await loop.run_in_executor(None, district_prospector.get_all_prospects)
+            if not all_prospects:
+                await send_message("Prospecting queue is empty. Use `/prospect_discover [state]` or `/prospect_upward` to populate it.")
+                return
+            await send_message(district_prospector.format_all_for_telegram(all_prospects))
+        except Exception as e:
+            await send_message(f"Queue view error: {e}")
+        return
+
+    elif user_text.lower() in ["/prospect", "/prospects", "prospect", "show prospects",
+                                "prospect queue", "prospecting queue"]:
+        global _last_prospect_batch
+        try:
+            loop = asyncio.get_event_loop()
+            pending = await loop.run_in_executor(None, district_prospector.get_pending, 5)
+            if not pending:
+                await send_message("No pending districts. Use `/prospect_discover [state]` or `/prospect_upward` to find some.")
+                return
+            _last_prospect_batch = pending
+            await send_message(district_prospector.format_batch_for_telegram(pending))
+        except Exception as e:
+            await send_message(f"Prospect queue error: {e}")
         return
 
     elif _pending_draft and any(

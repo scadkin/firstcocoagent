@@ -1,30 +1,41 @@
 # SCOUT — Claude Code Reference
-*Last updated: 2026-03-06 — Session 13*
+*Last updated: 2026-03-07 — Session 14*
 
 ---
 
 ## CURRENT STATE — update this after each session
 
-**Phase 6D verified ✅. Ready for Phase 6E: District Prospecting Queue.**
+**Phase 6E in progress. `district_prospector.py` created, `main.py` partially updated. Need to finish main.py edits, update claude_brain.py, update prompts, and deploy.**
 
-### What was built/fixed this session (Session 13)
-- **Phase 6D verified ✅** — full end-to-end: CSV upload → research LAUSD → `/call_list` → Google Doc → activity logged
-- **`/call_list` routing fix** (`agent/main.py`) — `/call` handler used `startswith("/call")` which swallowed `/call_list`; fixed with `not startswith("/call_list")` exclusion
-- **Call list backfill cap** (`daily_call_list.py`) — backfill section was not applying the per-district cap; now uses `_MAX_PER_DISTRICT` throughout
-- **District name normalization** (`csv_importer.py`):
-  - `normalize_name()` now strips standalone `"unified"` so "Los Angeles Unified" → `"los angeles"` (was `"los angeles unified"`)
-  - Added `_KNOWN_ABBREVIATIONS` dict: LAUSD, HISD, AISD, CPS, NYCDOE + 25 others → all expand to full name before suffix stripping, so "LAUSD" and "Los Angeles Unified School District" both produce key `"los angeles"`
-- **Call list priority + cap** (`daily_call_list.py`):
-  - Cap changed 3 → 2 per district (`_MAX_PER_DISTRICT = 2`)
-  - Sort order: verified email (HIGH/MEDIUM) first → title rank → school count → confidence
-  - Title rank: CS/CTE/Curriculum Director (highest) → Director/Coordinator → Principal → Teacher
-  - `_get_title_rank()` function added; CS-keyword boost (+1) applied within tiers
-- **Layer count message fix** (`agent/main.py`) — startup queued message now says "15-layer" not "14-layer"
+### What was built/fixed this session (Session 14)
+- **Phase 6E planning complete** — two-strategy prospecting queue designed and approved
+- **`tools/district_prospector.py` created** — full module with Serper discovery, upward target suggestion, priority scoring, Google Sheet tab management, approve/skip/status tracking
+- **`agent/main.py` partially updated** — import added, `_last_prospect_batch` global added, 7 new slash commands added in handle_message (discover, upward, approve, skip, add, all, prospect)
+- **Sequence building rules saved** — detailed rules in `memory/sequence_building_rules.md` (pacing, frameworks, role-specific, never fabricate claims about active accounts)
+- **Prospecting priority tiers defined** — 8-tier system from upward (most schools) down to cold (by budget), saved in memory
 
-### Key design decisions (Session 13)
-- **District/school names have many valid forms.** "LAUSD", "Los Angeles Unified", "Los Angeles USD", "Los Angeles Unified School District" all mean the same district. `normalize_name()` handles this automatically. When in doubt about which district Steven means, always ask before proceeding.
-- **Railway build cache can serve stale code** despite "deployment successful" showing in dashboard. Diagnosis: add a log line with the config value and check Railway logs to confirm which version is running.
-- **After redeploy, always wait for Scout's startup message in Telegram before testing.** The startup message only comes from the new container — it's the reliable signal the old one is dead.
+### What still needs to be done (Session 15)
+- **`agent/main.py`**: Add `_on_prospect_research_complete()` callback function (auto-research → auto-sequence pipeline)
+- **`agent/main.py`**: Update `send_morning_brief()` to inject prospect suggestions
+- **`agent/main.py`**: Update `send_checkin()` to suggest idle prospects
+- **`agent/main.py`**: Update `send_eod_report()` to suggest overnight research
+- **`agent/main.py`**: Update startup message to mention Phase 6E commands
+- **`agent/main.py`**: Fix `global _last_prospect_batch` — it appears in multiple elif blocks which will cause SyntaxError (must be at function top)
+- **`agent/claude_brain.py`**: Add `discover_prospects` tool definition (tool count 23 → 24)
+- **`agent/main.py`**: Add `discover_prospects` handler in `execute_tool()`
+- **`prompts/morning_brief.md`**: Add PROSPECT PIPELINE section
+- **`prompts/eod_report.md`**: Add PROSPECTING section
+- **`prompts/sequence_templates.md`**: Add Reference/Upward Prospecting archetype
+- **Deploy to Railway and verify**
+
+### Key design decisions (Session 14)
+- **Two prospecting strategies**: (1) Upward/Reference — districts with active school accounts, pitch district-wide deal; (2) Cold — districts with no CodeCombat presence
+- **Priority tiers (8 levels)**: Most active schools first → highest licenses → small/medium cold → 1-school large districts → (deferred: free usage, proximity) → cold large districts
+- **Small/medium districts always rank above large** within same tier — less red tape, faster sales
+- **Sequence building is strategy-aware**: upward uses warm pacing (3-4 steps, 10-14 days); cold uses standard (4-5 steps, ~4 weeks)
+- **NEVER fabricate claims about active accounts** — only cite verifiable facts (school name, license count). Do not assume success or engagement.
+- **Deferred to future phases**: NCES master lists, free usage data (Tier 5), geographic proximity (Tiers 6-7)
+- **`district_prospector.py` is a top-level import** (not lazy) — same pattern as `activity_tracker`, `csv_importer`, `daily_call_list`
 
 ### Current status
 - `/recent_calls` ✅
@@ -40,12 +51,14 @@
 - Research engine ✅ 15 layers — L15 email verification added
 - Phase 6D: Daily Call List ✅ **verified** (Session 13)
 - SoCal Active Accounts CSV ✅ uploaded (55 accounts: 2 districts, 46 schools, 7 other)
+- Phase 6E: District Prospecting Queue ⏳ **in progress** (Session 14 — module created, main.py partial, needs callback + scheduler + claude_brain + prompts + deploy)
 
 ### Next step
-**Phase 6E: District Prospecting Queue**
-- Scout suggests districts from Steven's territory that have no current CodeCombat presence
-- Steven approves (or skips) via Telegram
-- Scout auto-researches approved districts + builds Outreach sequence doc
+**Finish Phase 6E implementation (Session 15)**
+- Complete `main.py` edits (callback, scheduler hooks, startup message, fix global declarations)
+- Add tool to `claude_brain.py`
+- Update prompt templates
+- Deploy to Railway and verify end-to-end
 
 ### Phase 6 plan (expanded)
 - **6A** — Campaign Engine ✅ verified
@@ -139,6 +152,16 @@
 
 **District/school names have many valid forms — normalize aggressively, ask when ambiguous.** "LAUSD", "Los Angeles Unified", "Los Angeles USD", "Los Angeles Unified School District" all refer to the same district. `normalize_name()` handles this via `_KNOWN_ABBREVIATIONS` expansion + suffix stripping (including standalone "unified"). When building any feature that matches district names across two sources (e.g. Leads tab vs Active Accounts), always normalize both sides before comparing. If ever unclear which specific district or school Steven is referring to, ask before proceeding — never assume.
 
+**`district_prospector.py` is a top-level import, NOT lazy.** Same pattern as `activity_tracker`, `csv_importer`, `daily_call_list`. Import at top of main.py.
+
+**Two prospecting strategies — upward and cold.** Upward = districts with active school accounts but no district deal (pitch expansion). Cold = districts with no CodeCombat presence. The Strategy column in the Prospecting Queue tab tracks this. Sequences are built differently for each strategy.
+
+**NEVER fabricate claims about active accounts in sequences.** When building upward/reference sequences, only state verifiable facts: "[School Name] is using CodeCombat" or "[N] schools have licenses." Do NOT claim success, high engagement, or teacher satisfaction unless backed by real data. If district contacts check with the school and find the claims wrong, Steven looks negligent or dishonest.
+
+**Prospecting priority tiers (8 levels, higher score = more important).** Tier 1 (900+): upward, 3+ schools. Tier 2 (800+): upward, highest licenses. Tier 3 (700+): cold small/medium. Tier 4 (600+): upward, 1 school in large district. Tiers 5-7: deferred. Tier 8 (300+): cold large. Small/medium districts always rank above large within same tier.
+
+**Sequence building rules are in `memory/sequence_building_rules.md`.** Load this file as additional context when auto-building sequences in the prospect pipeline. Contains pacing rules, cold email frameworks, role-specific guidance, Outreach.io variables, and the fabrication prohibition.
+
 **Call list per-district cap applies to both priority matches AND backfill.** `_MAX_PER_DISTRICT = 2` in `daily_call_list.py`. The selection loop and the backfill loop both check `district_counts`. If you ever rewrite either loop, make sure both enforce the cap — the backfill loop was missing it and produced 7 contacts from one district.
 
 **Call list sort priority: verified email → title rank → school count → confidence.** `_get_title_rank()` in `daily_call_list.py` ranks CS/CTE/Curriculum Director highest. Do not flatten the sort to a single factor. Verified (HIGH/MEDIUM confidence) contacts must always rank above unverified contacts regardless of title.
@@ -199,6 +222,7 @@ firstcocoagent/
 │   ├── github_pusher.py        ← push_file(), list_repo_files(), get_file_content()
 │   ├── sequence_builder.py     ← Phase 6A. build_sequence(), write_sequence_to_doc(), format_for_telegram()
 │   ├── daily_call_list.py      ← Phase 6D. build_daily_call_list(), write_call_list_to_doc(), format_for_telegram()
+│   ├── district_prospector.py  ← Phase 6E. discover_districts(), suggest_upward_targets(), approve/skip/status
 │   └── fireflies.py            ← FirefliesClient, FirefliesError
 ├── gas/
 │   └── Code.gs                 ← Deployed at script.google.com as "Scout Bridge"
@@ -363,6 +387,39 @@ daily_call_list.format_for_telegram(cards, doc_url="") -> str
 # school_count, schools: list[str], talking_point, is_backfill
 ```
 
+### district_prospector (`tools/district_prospector.py`) — MODULE, NOT A CLASS (Phase 6E)
+```python
+import tools.district_prospector as district_prospector
+district_prospector.discover_districts(state, max_results=15) -> dict
+# {success, discovered, already_known, new_added, districts, error, territory_warning}
+# Synchronous — call via run_in_executor from async context
+
+district_prospector.suggest_upward_targets() -> dict
+# {success, new_added, already_known, districts, error}
+# Pulls from csv_importer.get_districts_with_schools(), enriches with license data
+
+district_prospector.add_district(name, state, notes="", strategy="cold") -> dict
+# {success, message, already_exists}
+
+district_prospector.get_pending(limit=5) -> list[dict]
+# Returns pending districts sorted by Priority descending
+
+district_prospector.get_all_prospects(status_filter="") -> list[dict]
+district_prospector.approve_districts(indices, batch) -> list[dict]
+district_prospector.skip_districts(indices, batch) -> list[dict]
+district_prospector.mark_researching(name_key)
+district_prospector.mark_complete(name_key, sequence_doc_url="")
+district_prospector.format_batch_for_telegram(districts, label="Prospecting Suggestions") -> str
+district_prospector.format_all_for_telegram(districts) -> str
+
+# Prospecting Queue tab columns:
+# District Name | Name Key | State | Strategy | Source | Status | Priority |
+# Date Added | Date Approved | Sequence Doc URL | Notes | Est. Enrollment |
+# School Count | Total Licenses
+# Strategy values: upward | cold
+# Status values: pending | approved | researching | complete | skipped
+```
+
 ### VoiceTrainer (`agent/voice_trainer.py`)
 ```python
 trainer = VoiceTrainer(gas_bridge=gas, memory_manager=memory)
@@ -445,6 +502,13 @@ await processor.process_transcript(transcript_id, progress_callback=None, email_
 | `/sync_activities` | scan Gmail for PandaDoc + Dialpad events, log new ones (direct dispatch) |
 | `/set_goal [type] [target]` | update KPI daily target e.g. `/set_goal calls_made 15` (direct dispatch) |
 | `/call_list` or `call list` or `who should i call` | generate daily call list — 10 prioritized contacts (direct dispatch) |
+| `/prospect_discover [state]` | search Serper for cold districts in a state, add to queue (direct dispatch) |
+| `/prospect_upward` | find upward targets from active school accounts (direct dispatch) |
+| `/prospect` or `show prospects` | show next 5 pending districts from queue (direct dispatch) |
+| `/prospect_all` or `prospect all` | show full queue grouped by status (direct dispatch) |
+| `/prospect_add [name], [state]` | manually add a district to the queue (direct dispatch) |
+| `/prospect_approve 1,3,5` | approve districts from last shown batch, auto-queue research (direct dispatch) |
+| `/prospect_skip 2,4` | skip districts from last shown batch (direct dispatch) |
 | send a `.csv` file | triggers Salesforce active accounts import via `handle_document()` |
 
 ---
