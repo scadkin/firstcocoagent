@@ -318,12 +318,22 @@ def _clean_district_name(raw_name: str) -> str | None:
     name = re.sub(r'^[\.\,\;\:\-\s]+', '', name)
     name = re.sub(r'[\.\,\;\:\-\s]+$', '', name)
 
+    # If there's a dash/colon separator, take only the part containing the suffix
+    for sep in [" - ", " — ", " – ", ": "]:
+        if sep in name:
+            parts = name.split(sep)
+            # Keep the part that contains a district suffix keyword
+            for part in parts:
+                if re.search(r"(?:School District|Public Schools|ISD|USD|CISD|CUSD|GISD|NISD)\b", part, re.IGNORECASE):
+                    name = part.strip()
+                    break
+
     if len(name) < 8 or len(name) > 80:
         return None
 
-    # Remove leading filler words
+    # Remove leading filler words (strip punctuation from each word before checking)
     words = name.split()
-    while words and words[0].lower() in _BAD_STARTS:
+    while words and re.sub(r'[^a-zA-Z]', '', words[0]).lower() in _BAD_STARTS:
         words.pop(0)
 
     if len(words) < 2:  # Need at least "Name ISD" or similar
