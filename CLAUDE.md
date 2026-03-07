@@ -7,174 +7,112 @@
 
 **Phase 6E in progress. `district_prospector.py` created, `main.py` partially updated. Need to finish main.py edits, update claude_brain.py, update prompts, and deploy.**
 
-### What was built/fixed this session (Session 14)
-- **Phase 6E planning complete** — two-strategy prospecting queue designed and approved
-- **`tools/district_prospector.py` created** — full module with Serper discovery, upward target suggestion, priority scoring, Google Sheet tab management, approve/skip/status tracking
-- **`agent/main.py` partially updated** — import added, `_last_prospect_batch` global added, 7 new slash commands added in handle_message (discover, upward, approve, skip, add, all, prospect)
-- **Sequence building rules saved** — detailed rules in `memory/sequence_building_rules.md` (pacing, frameworks, role-specific, never fabricate claims about active accounts)
-- **Prospecting priority tiers defined** — 8-tier system from upward (most schools) down to cold (by budget), saved in memory
-
 ### What still needs to be done (Session 15)
-- **`agent/main.py`**: Add `_on_prospect_research_complete()` callback function (auto-research → auto-sequence pipeline)
-- **`agent/main.py`**: Update `send_morning_brief()` to inject prospect suggestions
-- **`agent/main.py`**: Update `send_checkin()` to suggest idle prospects
-- **`agent/main.py`**: Update `send_eod_report()` to suggest overnight research
-- **`agent/main.py`**: Update startup message to mention Phase 6E commands
-- **`agent/main.py`**: Fix `global _last_prospect_batch` — it appears in multiple elif blocks which will cause SyntaxError (must be at function top)
-- **`agent/claude_brain.py`**: Add `discover_prospects` tool definition (tool count 23 → 24)
-- **`agent/main.py`**: Add `discover_prospects` handler in `execute_tool()`
-- **`prompts/morning_brief.md`**: Add PROSPECT PIPELINE section
-- **`prompts/eod_report.md`**: Add PROSPECTING section
-- **`prompts/sequence_templates.md`**: Add Reference/Upward Prospecting archetype
-- **Deploy to Railway and verify**
-
-### Key design decisions (Session 14)
-- **Two prospecting strategies**: (1) Upward/Reference — districts with active school accounts, pitch district-wide deal; (2) Cold — districts with no CodeCombat presence
-- **Priority tiers (8 levels)**: Most active schools first → highest licenses → small/medium cold → 1-school large districts → (deferred: free usage, proximity) → cold large districts
-- **Small/medium districts always rank above large** within same tier — less red tape, faster sales
-- **Sequence building is strategy-aware**: upward uses warm pacing (3-4 steps, 10-14 days); cold uses standard (4-5 steps, ~4 weeks)
-- **NEVER fabricate claims about active accounts** — only cite verifiable facts (school name, license count). Do not assume success or engagement.
-- **Deferred to future phases**: NCES master lists, free usage data (Tier 5), geographic proximity (Tiers 6-7)
-- **`district_prospector.py` is a top-level import** (not lazy) — same pattern as `activity_tracker`, `csv_importer`, `daily_call_list`
+- `agent/main.py`: Add `_on_prospect_research_complete()` callback, update `send_morning_brief()`, `send_checkin()`, `send_eod_report()` with prospect suggestions, update startup message, fix `global _last_prospect_batch` (must be at function top, not in elif blocks)
+- `agent/claude_brain.py`: Add `discover_prospects` tool definition (tool count 23 → 24)
+- `agent/main.py`: Add `discover_prospects` handler in `execute_tool()`
+- `prompts/morning_brief.md`: Add PROSPECT PIPELINE section
+- `prompts/eod_report.md`: Add PROSPECTING section
+- `prompts/sequence_templates.md`: Add Reference/Upward Prospecting archetype
+- Deploy to Railway and verify
 
 ### Current status
-- `/recent_calls` ✅
-- `/call [id]` ✅ (+ email override: `/call [id] email@domain.com`)
-- `/brief` (manual) ✅
-- Auto pre-call brief (10-min trigger) ✅
-- Fireflies webhook ✅ configured (backup trigger)
-- Fireflies Gmail polling ✅ live — auto-processes calls within 60s of recap email
-- `/build_sequence` ✅
-- Phase 6B ✅ verified
-- Phase 6C ✅ verified (all 5 steps passed)
-- Account classifier ✅ fixed — district/school/library/company
-- Research engine ✅ 15 layers — L15 email verification added
-- Phase 6D: Daily Call List ✅ **verified** (Session 13)
-- SoCal Active Accounts CSV ✅ uploaded (55 accounts: 2 districts, 46 schools, 7 other)
-- Phase 6E: District Prospecting Queue ⏳ **in progress** (Session 14 — module created, main.py partial, needs callback + scheduler + claude_brain + prompts + deploy)
+- Phases 1–5: ✅ all verified
+- Phase 6A (Campaign Engine): ✅
+- Phase 6B (Research Engine — 15 layers): ✅
+- Phase 6C (Activity Tracking + KPI + CSV Import + Gmail Intel): ✅
+- Phase 6D (Daily Call List): ✅
+- Phase 6E (District Prospecting Queue): ⏳ in progress — module created, main.py partial
 
-### Next step
-**Finish Phase 6E implementation (Session 15)**
-- Complete `main.py` edits (callback, scheduler hooks, startup message, fix global declarations)
-- Add tool to `claude_brain.py`
-- Update prompt templates
-- Deploy to Railway and verify end-to-end
-
-### Phase 6 plan (expanded)
-- **6A** — Campaign Engine ✅ verified
-- **6B** — Research Engine Expansion ✅ verified
-- **6C** — Activity Tracking + KPI Goals + Salesforce CSV import + Gmail intelligence ✅ verified
-- **6D** — Daily Call List ✅ **verified** (Session 13)
-- **6E** — District Prospecting Queue (Scout suggests districts from territory, Steven approves, auto-research + sequence doc for Outreach)
-- **6F** — Pipeline Snapshot (Salesforce opp CSV → lightweight CRM in Sheets, stale follow-up alerts in EOD)
+### Phase 6 roadmap
+- **6E** — District Prospecting Queue (in progress)
+- **6F** — Pipeline Snapshot (Salesforce opp CSV → lightweight CRM in Sheets, stale follow-up alerts)
 
 ---
 
 ## CRITICAL RULES
 
-**Read before write.** Before touching any file that calls an existing module, read that module first. Every crash in this project has been caused by hallucinated method names.
+**Read before write.** Before touching any file that calls an existing module, read that module first. Every crash in this project has been caused by hallucinated method names. Module APIs are documented in `agent/CLAUDE.md` and `tools/CLAUDE.md`.
 
-**Always produce complete replacement files.** Never give partial snippets or "find line X and replace." Steven uploads full files directly.
+**Always produce complete replacement files.** Never give partial snippets or "find line X and replace." Steven uploads full files via GitHub web interface.
 
 **Lazy imports for Phase 4+ modules.** `github_pusher`, `sequence_builder`, `fireflies`, `call_processor` are imported INSIDE `execute_tool()`, never at the top of `main.py`.
 
-**tool_result always follows tool_use.** Wrap every `execute_tool()` call in try/except. A result must always be appended to conversation history, even on error. Missing tool_result causes 400 on the next API call.
+**Top-level imports for flat tool modules.** `activity_tracker`, `csv_importer`, `daily_call_list`, `district_prospector` are imported at the top of main.py like sheets_writer.
 
-**GAS bridge: every Code.gs edit needs a new deployment.** Save → Deploy → Manage deployments → Edit → New version → Deploy → copy URL → update `GAS_WEBHOOK_URL` in Railway.
+**tool_result always follows tool_use.** Wrap every `execute_tool()` call in try/except. A result must always be appended to conversation history, even on error. Missing tool_result → 400 on next API call.
 
-**Never design workflows that require pasting large text through Telegram.** Use fetch-first: Scout reads from GitHub, asks for changes in plain English.
+**Never use `requests` or `time.sleep()` inside async functions.** Use `httpx.AsyncClient` for HTTP and `await asyncio.sleep()` for delays. Both synchronous versions freeze the asyncio event loop.
 
-**Explicit commands must bypass Claude and call execute_tool() directly.** `/brief`, `/call`, `/recent_calls` all call execute_tool() directly and return — never route through Claude's tool dispatch. When conversation history is long, Claude responds with text describing what the tool would do instead of calling it. Direct dispatch is the only reliable pattern for explicit slash commands.
+**Synchronous code called from async context must use `run_in_executor`.** Wrap blocking I/O in `await loop.run_in_executor(None, fn, args...)`. Never call blocking functions directly from async methods.
 
-**`/build_sequence` is a hybrid — questions via Claude, output direct.** The slash command routes through Claude so it can ask clarifying questions. But `execute_tool("build_sequence")` sends the final result via `await send_message()` directly and returns `"✅ Sequence built and sent above."` — a short string that prevents Claude from rewriting the sequence output.
+**Explicit slash commands bypass Claude and call execute_tool() directly.** `/brief`, `/call`, `/recent_calls`, `/progress`, `/sync_activities`, `/call_list`, and all `/prospect_*` commands call execute_tool() directly and return. Direct dispatch is the only reliable pattern — when conversation history is long, Claude responds with descriptive text instead of calling tools.
 
-**`execute_tool` can send directly to Telegram for long outputs.** For tools that return content Claude tends to rewrite (sequences, docs), use `await send_message(full_output)` inside `execute_tool` and return a short ack string. This is the pattern for `build_sequence` and should be used for any future tools with rich structured output.
+**`/build_sequence` is a hybrid.** Routes through Claude for clarifying questions. But `execute_tool("build_sequence")` sends output via `await send_message()` directly and returns a short ack string to prevent Claude from rewriting.
 
-**GAS deployment URL does NOT change when bumping version.** When you edit an existing deployment and increment the version, the Web App URL stays the same. Only Railway update needed is if you create a brand-new deployment (not an edit).
+**`execute_tool` can send directly to Telegram for long outputs.** For tools that return content Claude tends to rewrite, use `await send_message(full_output)` inside `execute_tool` and return a short ack string.
 
-**Suppress `text_response` when tool_calls are present.** In `handle_message`, use `if text_response and not tool_calls:` before sending Claude's text response. When Claude calls a tool, its preamble text ("Got it — building...") is noise — the tool output IS the response. This prevents duplicate/out-of-order messages for any tool that sends output directly to Telegram.
+**Suppress `text_response` when tool_calls are present.** Use `if text_response and not tool_calls:` before sending Claude's text. Tool preamble text is noise.
 
-**Never use `requests` or `time.sleep()` inside async functions.** Both are synchronous and freeze the entire asyncio event loop — blocking all Telegram processing, heartbeats, and scheduled tasks. Always use `httpx.AsyncClient` for HTTP and `await asyncio.sleep()` for delays.
+**Never design workflows that require pasting large text through Telegram.** 4,096 char limit. Use fetch-first: Scout reads from GitHub, asks for changes in plain English.
 
-**Synchronous code called from async context must use `run_in_executor`.** If a module uses synchronous I/O (e.g. `anthropic.Anthropic().messages.create()` in `contact_extractor.py`), wrap calls in `await loop.run_in_executor(None, fn, args...)`. Never call blocking functions directly from an async method — they freeze the event loop even if wrapped in `asyncio.create_task()`.
+**GAS bridge: new Code.gs edits need a new deployment version.** See `gas/CLAUDE.md` for the full checklist.
 
-**Sheet dedup uses email as primary key.** `sheets_writer.write_contacts()` deduplicates by email first (district-agnostic), then falls back to `first|last` name for no-email contacts. Claude's extractor varies district_name spelling across runs so name+district keying caused duplicates.
+**GAS deployment URL does NOT change when bumping version.** Only need to update Railway env var if creating a brand-new deployment (not editing an existing one).
 
-**Research completion always calls `log_research_job`.** `_on_research_complete` in `main.py` must call `sheets_writer.log_research_job()` after every successful job. Failure to log is silent — no error is thrown.
+**Salesforce CSV: Parent Account = always the district.** Account Name can be district/school/library/company. Parent Account filled → sub-unit under that district. Empty → standalone or top-level. One level deep: district → schools.
 
-**Salesforce CSV: Parent Account = always the district.** Account Name can be a district, a school, a library, or any business. When Parent Account is filled, that account is a school (or sub-unit) under that district. When Parent Account is empty, the account is either a standalone entity or a top-level district account. The hierarchy is one level deep: district → schools.
+**Active accounts CSV importer clears and rewrites — not additive.** Each Salesforce export is the full current state.
 
-**Active accounts CSV importer must normalize names.** Salesforce has inconsistent casing (e.g. "Medina Valley Isd" vs "MEDINA VALLEY ISD"). Store a normalized lowercase key alongside the display name for matching against research engine results.
+**CSV uploads decode with utf-8-sig.** Strips BOM from Salesforce/Excel exports.
 
-**Telegram file upload handler is a separate MessageHandler.** `handle_document()` is registered with `filters.Document.ALL` — a distinct handler from `handle_message()` (which only handles TEXT). Never merge file handling into `handle_message`. Registration order: text handler, command handler, document handler.
+**Active Accounts "Account Type" column: district | school | library | company.** Old boolean "Is District" column is gone. Do not reintroduce TRUE/FALSE logic.
 
-**activity_tracker, csv_importer, and daily_call_list are NOT lazy imports.** They are imported at the top of main.py like sheets_writer. Only Phase 4/5 modules are lazy: `github_pusher`, `sequence_builder`, `fireflies`, `call_processor`. Adding a new flat tool module? Import it at the top.
+**Sheet dedup uses email as primary key.** Falls back to `first|last` name for no-email contacts. Don't use name+district — Claude varies district_name spelling.
 
-**sync_gmail_activities() is synchronous — always use run_in_executor.** `activity_tracker.sync_gmail_activities(gas)` makes blocking HTTP calls via gas_bridge. Always call it from async context as: `await loop.run_in_executor(None, activity_tracker.sync_gmail_activities, gas)`. Same rule applies to any blocking sheets/network call inside activity_tracker or csv_importer.
+**Research completion always calls `log_research_job`.** Failure to log is silent.
 
-**CSV file upload decodes with utf-8-sig.** Salesforce (and Excel) exports often include a BOM at the start of the file. Use `file_bytes.decode("utf-8-sig")` — not `"utf-8"` — to silently strip it. Using plain `"utf-8"` causes the first column header to have a garbage prefix.
+**`classify_account()` checks district patterns BEFORE school keywords.** "Austin Independent School District" must not match "school" first.
 
-**import_accounts() clears and rewrites — it is not additive.** `csv_importer.import_accounts()` clears the "Active Accounts" tab (A2:Z) before writing fresh rows. This is intentional — each Salesforce export is the full current state. Do not add an "append" mode unless explicitly asked.
+**Name ends in "school" (singular) → school. "schools" (plural) → district.** Explicit rule from Steven.
 
-**Gmail intelligence hub pattern.** PandaDoc and Dialpad both email Steven when events occur. Use `gas.search_inbox()` with targeted queries to parse these notifications for activity logging — no API permissions needed. Dialpad call summary emails must be enabled by Steven in Dialpad → Settings → Notifications → Call Summary.
+**District/school names: normalize aggressively, ask when ambiguous.** `normalize_name()` handles abbreviation expansion + suffix stripping. Always normalize both sides before comparing across sources.
 
-**Outreach handoff pattern for cold sequences.** Scout builds sequence content and formats it into a Google Doc for easy copy-paste into Outreach.io. Outreach.io handles actual sending, open/click tracking, and call logging. Do NOT try to replace Outreach with Gmail for cold prospecting sequences — Outreach is Steven's tool for that workflow.
+**call_processor.py must use claude-sonnet-4-6.** claude-opus-4-5 hangs indefinitely. Anthropic client timeout=90.0.
 
-**No Salesforce or Outreach API access.** Steven cannot obtain integration permissions for Salesforce, Outreach.io, PandaDoc, or Dialpad. All data from these tools enters Scout via CSV export (Salesforce, Outreach) or Gmail notification parsing (PandaDoc, Dialpad). Never design a feature that assumes API access to these tools.
+**Validate email before calling gas.create_draft().** GAS throws on malformed emails.
 
-**Fireflies Gmail polling uses startup seeding.** `_check_fireflies_gmail()` sets `_fireflies_gmail_seeded = True` on the first scan, adding all existing emails to `_fireflies_email_triggers` without processing any. Only emails that arrive after startup trigger the workflow. Apply this pattern to any future Gmail poller that auto-triggers actions.
+**`/call_list` must be guarded in the `/call` handler.** `startswith("/call")` matches both. Use `startswith("/call") and not startswith("/call_list")`.
 
-**`classify_account()` checks district patterns BEFORE school keywords.** Reversed order is intentional — "Austin Independent School District" must not match "school" before reaching the district check. Parenthetical check `"Name (District)"` runs before district check so "(Medina Valley ISD)" doesn't trigger district classification.
+**Call list per-district cap (_MAX_PER_DISTRICT = 2) applies to BOTH priority matches AND backfill.**
 
-**`_ensure_tab()` always overwrites the header row.** Never use `if not values` to skip the header write. Column schema changes in code must propagate to the sheet immediately on the next import — not just on first use.
+**NEVER fabricate claims about active accounts in sequences.** Only cite verifiable facts: school name, license count. No assumed success/engagement.
 
-**Active Accounts "Account Type" column values: district | school | library | company.** The old boolean `Is District` column is gone. `get_import_summary` filters on `Account Type == "district"`. Do not reintroduce TRUE/FALSE logic.
+**Sequence building rules are in `memory/sequence_building_rules.md`.** Load as context when auto-building sequences.
 
-**`get_districts_with_schools()` targeting logic — DO NOT REVERT.** Active school accounts signal which parent districts to target (we have a foothold → pitch a district-wide deal). Active district accounts = we already have some form of district deal → generally NOT a prospecting target for new business (though they can be expansion targets case by case, and are excellent for referrals/references). The function starts from school accounts, groups by Parent Account, and excludes parent districts that appear as `Account Type == "district"` in Active Accounts. Schools with no Parent Account set are a Salesforce data quality gap and won't appear in call list matching. Sort order: most active schools first (e.g. a district with 10 active schools outranks one with 1).
+**Two prospecting strategies — upward and cold.** Upward = districts with active school accounts, no district deal. Cold = no CodeCombat presence. Strategy column tracks this. Sequences differ by strategy.
 
-**CodeCombat's customer types — DO NOT oversimplify.** CodeCombat sells to: school districts, individual schools, libraries, after-school programs, and any organization or individual that wants to teach or learn CS, AI, or coding. "District deals" are not always fully district-wide. The most common structure is a multi-site deal: buying for all middle schools, a subset of high schools, a few elementaries, etc. Fully district-wide contracts are the ultimate goal but relatively rare. Always think in terms of: individual school → multi-site deal → full district contract as the progression.
+**Prospecting priority tiers (8 levels).** Tier 1 (900+): upward 3+ schools. Tier 2 (800+): upward highest licenses. Tier 3 (700+): cold small/medium. Tier 4 (600+): upward 1 school large district. Tiers 5-7: deferred. Tier 8 (300+): cold large. Small/medium always above large in same tier.
 
-**Active district accounts: not a primary prospecting target, but not off-limits.** They already have some form of deal. There may be room to expand (e.g. they bought for 7th/8th grade; 9th–12th is untouched). These are case-by-case. Their primary value is as referral sources and references — not cold outreach targets. Scout should not auto-include them in call lists but should surface them as referral/reference candidates when relevant.
+**No Salesforce or Outreach API access.** All data enters Scout via CSV export or Gmail notification parsing. Never design features assuming API access to Salesforce, Outreach, PandaDoc, or Dialpad.
 
-**The Leads tab has existing data and must be kept current.** Do not assume the Leads tab is empty. Scout should periodically re-scan and refresh leads data as new research completes. Future feature: scheduled Leads tab freshness check.
+**Outreach handoff pattern for cold sequences.** Scout builds content → Google Doc → Steven copy-pastes into Outreach.io. Do NOT try to replace Outreach with Gmail for cold sequences.
 
-**Name ends in "school" (singular) → school. Name ends in "schools" (plural) → district.** "Springfield School" is a school. "Chicago Public Schools" is a district. "sch" as a standalone word (e.g. "Sch of Excellence") → school. These are explicit rules from Steven — do not override with other heuristics.
+**Fireflies Gmail polling uses startup seeding.** First scan adds all existing emails to set without processing. Only post-startup emails trigger workflows.
 
-**call_processor.py must use claude-sonnet-4-6.** `claude-opus-4-5` is deprecated — calling it hangs indefinitely (Anthropic SDK default timeout is 10 minutes). All three `messages.create()` calls in call_processor.py use `claude-sonnet-4-6`. Anthropic client is initialized with `timeout=90.0`. Do not revert this.
+**`_ensure_tab()` always overwrites the header row.** Column schema changes must propagate immediately.
 
-**Validate email before calling gas.create_draft().** GAS throws "Invalid argument: Invalid To header" on malformed emails. Always run `_is_valid_email()` before `create_draft()`. If invalid, surface the bad email in the Telegram summary so Steven can correct it with `/call [id] corrected@email.com`.
+**Telegram file upload handler is separate.** `handle_document()` uses `filters.Document.ALL`. Never merge into `handle_message`.
 
-**`/call` supports optional email override.** Usage: `/call [transcript_id] email@domain.com`. The second token is treated as an email override if it contains `@`. Passed via `tool_input["email_override"]` through execute_tool → `process_transcript(email_override=...)`. Takes priority over Fireflies attendees AND Claude-extracted contact_email. Both the `/call` direct dispatch handler and the `process_call_transcript` execute_tool handler pass it through.
+**Railway build cache can serve stale code.** If behavior doesn't match, add a logger.info line and check logs after redeploy. If value doesn't appear, trigger manual redeploy.
 
-**Post-call summary section is "Key Insights", not "Scout's Take".** Updated in `_format_telegram_summary` in call_processor.py. Do not revert the label.
-
-**`/call_list` must be guarded in the `/call` startswith handler.** `user_text.lower().startswith("/call")` matches both `/call` and `/call_list`. The `/call` elif must read: `startswith("/call") and not startswith("/call_list")`. If this guard is ever removed, `/call_list` silently routes to Fireflies transcript processing with id `_list`.
-
-**District/school names have many valid forms — normalize aggressively, ask when ambiguous.** "LAUSD", "Los Angeles Unified", "Los Angeles USD", "Los Angeles Unified School District" all refer to the same district. `normalize_name()` handles this via `_KNOWN_ABBREVIATIONS` expansion + suffix stripping (including standalone "unified"). When building any feature that matches district names across two sources (e.g. Leads tab vs Active Accounts), always normalize both sides before comparing. If ever unclear which specific district or school Steven is referring to, ask before proceeding — never assume.
-
-**`district_prospector.py` is a top-level import, NOT lazy.** Same pattern as `activity_tracker`, `csv_importer`, `daily_call_list`. Import at top of main.py.
-
-**Two prospecting strategies — upward and cold.** Upward = districts with active school accounts but no district deal (pitch expansion). Cold = districts with no CodeCombat presence. The Strategy column in the Prospecting Queue tab tracks this. Sequences are built differently for each strategy.
-
-**NEVER fabricate claims about active accounts in sequences.** When building upward/reference sequences, only state verifiable facts: "[School Name] is using CodeCombat" or "[N] schools have licenses." Do NOT claim success, high engagement, or teacher satisfaction unless backed by real data. If district contacts check with the school and find the claims wrong, Steven looks negligent or dishonest.
-
-**Prospecting priority tiers (8 levels, higher score = more important).** Tier 1 (900+): upward, 3+ schools. Tier 2 (800+): upward, highest licenses. Tier 3 (700+): cold small/medium. Tier 4 (600+): upward, 1 school in large district. Tiers 5-7: deferred. Tier 8 (300+): cold large. Small/medium districts always rank above large within same tier.
-
-**Sequence building rules are in `memory/sequence_building_rules.md`.** Load this file as additional context when auto-building sequences in the prospect pipeline. Contains pacing rules, cold email frameworks, role-specific guidance, Outreach.io variables, and the fabrication prohibition.
-
-**Call list per-district cap applies to both priority matches AND backfill.** `_MAX_PER_DISTRICT = 2` in `daily_call_list.py`. The selection loop and the backfill loop both check `district_counts`. If you ever rewrite either loop, make sure both enforce the cap — the backfill loop was missing it and produced 7 contacts from one district.
-
-**Call list sort priority: verified email → title rank → school count → confidence.** `_get_title_rank()` in `daily_call_list.py` ranks CS/CTE/Curriculum Director highest. Do not flatten the sort to a single factor. Verified (HIGH/MEDIUM confidence) contacts must always rank above unverified contacts regardless of title.
-
-**Railway build cache can serve stale code despite "deployment successful".** If behavior doesn't match code changes, add a `logger.info(f"[module] key_value={CONSTANT}")` line and redeploy. Check Railway logs for that line — if the expected value doesn't appear, Railway is running a cached build. Trigger a manual redeploy from the Railway dashboard to force a clean build.
-
-**After Railway redeploy, always wait for Scout's "Scout is online" startup message in Telegram before testing.** The startup message only comes from the new container. The 409 Conflict errors in logs (lasting ~30s after each deploy) are normal — old container dying while new one starts. Never send test commands during the 409 window.
+**After Railway redeploy, wait for "Scout is online" in Telegram before testing.** 409 Conflict errors during ~30s overlap are normal.
 
 ---
 
 ## WHAT SCOUT IS
 
-Scout is Steven's always-on AI sales partner — not just a helper, but a force multiplier. Scout learns Steven's voice, territory, customers, and patterns over time and uses that knowledge to proactively multiply his efforts: researching prospects, building sequences, processing calls, generating daily priorities, surfacing pipeline insights, drafting custom outreach, and executing workflows that would otherwise take hours. The goal is for Scout to handle the operational and analytical heavy lifting so Steven can focus on relationships and closing. Scout is designed to be taught, trained, and expanded — every session makes it smarter and more capable.
+Scout is Steven's always-on AI sales partner — a force multiplier that learns his voice, territory, customers, and patterns. Handles operational/analytical heavy lifting so Steven focuses on relationships and closing.
 
 Communicates via Telegram (@coco_scout_bot). Runs 24/7 on Railway.app.
 - Morning brief: 9:15am CST | EOD report: 4:30pm CST | Hourly check-in: 10am–4pm CST
@@ -190,8 +128,7 @@ Telegram → agent/main.py (asyncio poll loop)
     tools/ + GAS bridge + GitHub memory
 ```
 
-**GAS bridge:** Scout (Railway) → HTTPS POST + secret token → Google Apps Script Web App → Gmail/Calendar/Slides/Docs
-Reason: work Google Workspace blocks third-party OAuth; GAS runs inside Google as Steven, no IT approval needed.
+**GAS bridge:** Scout (Railway) → HTTPS POST + secret token → Google Apps Script Web App → Gmail/Calendar/Slides/Docs. Work Google Workspace blocks third-party OAuth; GAS runs inside Google as Steven.
 
 ---
 
@@ -199,43 +136,53 @@ Reason: work Google Workspace blocks third-party OAuth; GAS runs inside Google a
 
 ```
 firstcocoagent/
-├── CLAUDE.md
+├── CLAUDE.md                   ← This file (project-wide rules)
 ├── SCOUT_HISTORY.md            ← Bug log + changelog (not loaded each session)
 ├── Procfile                    ← "web: python -m agent.main"
 ├── requirements.txt
 ├── agent/
-│   ├── main.py                 ← Entry point. Scheduler poll loop. All tool dispatch. _parse_guests().
-│   ├── config.py               ← Env vars (GAS_WEBHOOK_URL, GAS_SECRET_TOKEN, etc.)
-│   ├── claude_brain.py         ← Claude API + tool definitions + memory injection. 18 tools.
+│   ├── CLAUDE.md               ← Module APIs for agent/ files
+│   ├── main.py                 ← Entry point. Scheduler poll loop. All tool dispatch.
+│   ├── config.py               ← Env vars
+│   ├── claude_brain.py         ← Claude API + tool definitions + memory injection
 │   ├── memory_manager.py       ← Persistent memory: read/write/GitHub commit
 │   ├── scheduler.py            ← CST-aware Scheduler class, check() only
 │   ├── keywords.py             ← Lead research title/keyword list
 │   ├── voice_trainer.py        ← Paginated email fetch + paired context analysis
-│   ├── call_processor.py       ← Phase 5: transcript → summary → Google Doc
-│   └── webhook_server.py       ← Phase 5: aiohttp server for Fireflies webhook
+│   ├── call_processor.py       ← Transcript → summary → Google Doc
+│   └── webhook_server.py       ← aiohttp server for Fireflies webhook
 ├── tools/
+│   ├── CLAUDE.md               ← Module APIs for tools/ files
 │   ├── telegram_bot.py
-│   ├── research_engine.py      ← ResearchJob, ResearchQueue classes. Singleton: research_queue.
+│   ├── research_engine.py      ← ResearchJob, ResearchQueue (singleton: research_queue)
 │   ├── contact_extractor.py
-│   ├── sheets_writer.py        ← MODULE (not class). write_contacts(), count_leads(), etc.
+│   ├── sheets_writer.py        ← MODULE not class. write_contacts(), count_leads(), etc.
 │   ├── gas_bridge.py           ← GASBridge class
 │   ├── github_pusher.py        ← push_file(), list_repo_files(), get_file_content()
-│   ├── sequence_builder.py     ← Phase 6A. build_sequence(), write_sequence_to_doc(), format_for_telegram()
-│   ├── daily_call_list.py      ← Phase 6D. build_daily_call_list(), write_call_list_to_doc(), format_for_telegram()
-│   ├── district_prospector.py  ← Phase 6E. discover_districts(), suggest_upward_targets(), approve/skip/status
+│   ├── sequence_builder.py     ← build_sequence(), write_sequence_to_doc()
+│   ├── activity_tracker.py     ← MODULE not class. log_activity(), sync_gmail_activities()
+│   ├── csv_importer.py         ← MODULE not class. import_accounts(), classify_account()
+│   ├── daily_call_list.py      ← MODULE not class. build_daily_call_list()
+│   ├── district_prospector.py  ← MODULE not class. discover_districts(), suggest_upward_targets()
 │   └── fireflies.py            ← FirefliesClient, FirefliesError
 ├── gas/
+│   ├── CLAUDE.md               ← GAS deployment checklist and gotchas
 │   └── Code.gs                 ← Deployed at script.google.com as "Scout Bridge"
 ├── prompts/
 │   ├── system.md
 │   ├── morning_brief.md
 │   ├── eod_report.md
-│   ├── email_draft.md
-│   └── sequence_templates.md   ← Phase 6A. 17 archetypes: 6 role-based + 11 scenario-based
-└── memory/
-    ├── preferences.md          ← Corrections/preferences. GitHub-committed on every write.
-    ├── context_summary.md      ← EOD summaries. Never deleted.
-    └── voice_profile.md        ← Built from 273 paired emails.
+│   └── sequence_templates.md   ← 17 archetypes
+├── memory/
+│   ├── preferences.md
+│   ├── context_summary.md
+│   ├── voice_profile.md
+│   └── sequence_building_rules.md
+└── docs/
+    ├── CHANGELOG.md
+    ├── DECISIONS.md
+    ├── SETUP.md
+    └── SETUP_PHASE5.md
 ```
 
 ---
@@ -258,275 +205,48 @@ firstcocoagent/
 | SERPER_API_KEY | serper.dev |
 | GOOGLE_SHEETS_ID | From Sheet URL |
 | GOOGLE_SERVICE_ACCOUNT_JSON | Full JSON string, personal account |
-| GAS_WEBHOOK_URL | **Update every time Code.gs is redeployed** |
+| GAS_WEBHOOK_URL | **Update every time Code.gs gets new deployment** |
 | GAS_SECRET_TOKEN | Must match Code.gs |
 | FIREFLIES_API_KEY | app.fireflies.ai → Account → API |
 | FIREFLIES_WEBHOOK_SECRET | Must match Fireflies webhook config |
-| PRECALL_BRIEF_FOLDER_ID | Google Drive folder ID — confirmed set |
-| SEQUENCES_FOLDER_ID | Phase 6A. Google Drive folder ID for sequence docs. Paste full browser URL — query params stripped automatically. Set to "Scout Built Sequences" folder. |
+| PRECALL_BRIEF_FOLDER_ID | Google Drive folder ID |
+| SEQUENCES_FOLDER_ID | Google Drive folder ID. Paste full browser URL — query params stripped automatically. |
 
-**Note:** Phase 5+ env vars (`FIREFLIES_API_KEY`, `FIREFLIES_WEBHOOK_SECRET`, `PRECALL_BRIEF_FOLDER_ID`, `SEQUENCES_FOLDER_ID`) are read via `os.environ.get()` directly in the files that need them — they are NOT in `config.py`.
-
----
-
-## MODULE API REFERENCE
-
-### MemoryManager (`agent/memory_manager.py`)
-```python
-memory_manager.load_preferences() -> str
-memory_manager.load_recent_summary() -> str
-memory_manager.build_memory_context() -> str
-memory_manager.save_preference(entry: str)
-memory_manager.append_to_summary(text: str)
-memory_manager.clear_preferences()
-memory_manager._commit_to_github(filepath, content, message)
-memory_manager.extract_memory_update(response) -> tuple  # static
-# NO .load() — NO .compress_history()
-```
-
-### Scheduler (`agent/scheduler.py`)
-```python
-scheduler = Scheduler()  # NO arguments
-event = scheduler.check()  # returns "morning_brief" | "eod_report" | "checkin" | None
-# NO .run() method
-```
-
-### GASBridge (`tools/gas_bridge.py`)
-```python
-gas = GASBridge(webhook_url=GAS_WEBHOOK_URL, secret_token=GAS_SECRET_TOKEN)
-gas.ping() -> dict
-gas.get_sent_emails(months_back=6, max_results=200, page_start=0, page_size=200) -> list[dict]
-gas.get_sent_emails_page(months_back=6, page_size=200, page_start=0) -> dict  # has_more field
-gas.create_draft(to, subject, body) -> dict
-gas.search_inbox(query, max_results=10) -> list[dict]
-gas.get_calendar_events(days_ahead=7) -> list[dict]
-gas.log_call(contact_name, title, district, date_iso, duration_minutes, notes, outcome, next_steps) -> dict
-gas.create_district_deck(district_name, state, contact_name, contact_title, student_count, key_pain_points, products_to_highlight, case_study) -> dict
-gas.create_google_doc(title, content, folder_id) -> dict  # {success, doc_id, url, title}
-```
-**GAS returns calendar `guests` as plain email strings, NOT dicts. Use `_parse_guests()` in main.py to normalize.**
-
-### ResearchQueue (`tools/research_engine.py`)
-```python
-from tools.research_engine import research_queue  # use the singleton
-await research_queue.enqueue(district_name, state, progress_callback, completion_callback)
-research_queue.current_job   # property, no ()
-research_queue.queue_size    # property, no ()
-# NEVER instantiate ResearchJob directly
-```
-
-### sheets_writer (`tools/sheets_writer.py`) — MODULE, NOT A CLASS
-```python
-import tools.sheets_writer as sheets_writer
-sheets_writer.write_contacts(contacts, state="")
-sheets_writer.count_leads()
-sheets_writer.get_leads(state_filter="") -> list[dict]  # Phase 6D: all leads from Leads tab
-sheets_writer.get_master_sheet_url()
-sheets_writer.log_research_job(district, state, layers_used, total_found, with_email, no_email, notes)
-sheets_writer.ensure_sheet_tabs_exist()
-# Tabs created: Leads, No Email, Research Log, Activities, Active Accounts, Goals, Salesforce Import
-# from tools.sheets_writer import SheetsWriter  ← CRASHES — class does not exist
-```
-
-### activity_tracker (`tools/activity_tracker.py`) — MODULE, NOT A CLASS (Phase 6C)
-```python
-import tools.activity_tracker as activity_tracker
-activity_tracker.log_activity(activity_type, district="", contact="", notes="", source="scout", message_id="")
-# activity_type: "research_job" | "sequence_built" | "email_drafted" | "email_saved" | "call_logged" | "pandadoc_event" | "dialpad_call" | "call_list_generated"
-activity_tracker.get_today_activities(date_str=None) -> list[dict]
-activity_tracker.get_activity_summary(date_str=None) -> dict  # {research_job: N, ..., summary_text: str}
-activity_tracker.get_goals() -> list[dict]
-activity_tracker.set_goal(goal_type, daily_target, description="")
-activity_tracker.get_daily_progress(date_str=None) -> dict  # {calls_made: {target, actual, pct}, ..., progress_text: str}
-activity_tracker.is_activity_logged(message_id) -> bool
-activity_tracker.scan_pandadoc_notifications(gas_bridge) -> list[dict]
-activity_tracker.scan_dialpad_summaries(gas_bridge) -> list[dict]
-activity_tracker.sync_gmail_activities(gas_bridge) -> dict  # {pandadoc_logged, dialpad_logged, already_seen}
-activity_tracker.build_brief_data_block(date_str=None) -> str  # injected into morning/EOD prompts
-# SYNC function — call via run_in_executor from async context
-```
-
-### csv_importer (`tools/csv_importer.py`) — MODULE, NOT A CLASS (Phase 6C)
-```python
-import tools.csv_importer as csv_importer
-csv_importer.import_accounts(csv_text: str) -> dict
-# {imported, districts, schools, libraries, companies, skipped, errors}
-# Clears Active Accounts tab, rewrites fresh from CSV string
-# Column schema: Name Key | Display Name | Parent Account | SF Type | Account Type |
-#                Open Renewal | Opportunities | Active Licenses | 2025 Revenue |
-#                Lifetime Revenue | Last Activity | Last Modified | State
-# Account Type values: district | school | library | company
-
-csv_importer.classify_account(account_name, parent_account, sf_type) -> str
-# Returns "district" | "school" | "library" | "company"
-
-csv_importer.get_active_accounts(state_filter="") -> list[dict]
-csv_importer.get_districts_with_schools() -> list[dict]  # Phase 6D: parent districts with ≥1 active school account
-# Starts from school accounts → groups by Parent Account → excludes districts already in Active Accounts as "district" type
-# Sorted by school count descending. DO NOT revert to filtering on Account Type == "district".
-csv_importer.normalize_name(name: str) -> str  # strips ISD/USD/etc + "unified" + parenthetical tags; expands _KNOWN_ABBREVIATIONS (LAUSD→"los angeles", etc.)
-csv_importer.get_import_summary() -> str  # one-line status: N accounts by type, N districts with schools
-```
-
-### daily_call_list (`tools/daily_call_list.py`) — MODULE, NOT A CLASS (Phase 6D)
-```python
-import tools.daily_call_list as daily_call_list
-daily_call_list.build_daily_call_list(max_contacts=10) -> dict
-# {success, cards: list[dict], district_count, total_matched, error}
-# Synchronous — call via run_in_executor from async context
-
-daily_call_list.write_call_list_to_doc(cards, gas_bridge, folder_id=None) -> dict
-# {success, url, error} — creates Google Doc via GAS bridge
-# Uses CALL_LIST_FOLDER_ID env var, falls back to SEQUENCES_FOLDER_ID
-
-daily_call_list.format_for_telegram(cards, doc_url="") -> str
-# Compact preview: name, title, district, school count, email
-
-# Card dict keys:
-# contact_name, title, email, phone, district, state,
-# school_count, schools: list[str], talking_point, is_backfill
-```
-
-### district_prospector (`tools/district_prospector.py`) — MODULE, NOT A CLASS (Phase 6E)
-```python
-import tools.district_prospector as district_prospector
-district_prospector.discover_districts(state, max_results=15) -> dict
-# {success, discovered, already_known, new_added, districts, error, territory_warning}
-# Synchronous — call via run_in_executor from async context
-
-district_prospector.suggest_upward_targets() -> dict
-# {success, new_added, already_known, districts, error}
-# Pulls from csv_importer.get_districts_with_schools(), enriches with license data
-
-district_prospector.add_district(name, state, notes="", strategy="cold") -> dict
-# {success, message, already_exists}
-
-district_prospector.get_pending(limit=5) -> list[dict]
-# Returns pending districts sorted by Priority descending
-
-district_prospector.get_all_prospects(status_filter="") -> list[dict]
-district_prospector.approve_districts(indices, batch) -> list[dict]
-district_prospector.skip_districts(indices, batch) -> list[dict]
-district_prospector.mark_researching(name_key)
-district_prospector.mark_complete(name_key, sequence_doc_url="")
-district_prospector.format_batch_for_telegram(districts, label="Prospecting Suggestions") -> str
-district_prospector.format_all_for_telegram(districts) -> str
-
-# Prospecting Queue tab columns:
-# District Name | Name Key | State | Strategy | Source | Status | Priority |
-# Date Added | Date Approved | Sequence Doc URL | Notes | Est. Enrollment |
-# School Count | Total Licenses
-# Strategy values: upward | cold
-# Status values: pending | approved | researching | complete | skipped
-```
-
-### VoiceTrainer (`agent/voice_trainer.py`)
-```python
-trainer = VoiceTrainer(gas_bridge=gas, memory_manager=memory)
-trainer.train(months_back=24, progress_callback=None) -> str
-trainer.load_profile() -> Optional[str]
-trainer.update_profile_from_feedback(feedback: str) -> bool
-```
-
-### github_pusher (`tools/github_pusher.py`) — lazy import only
-```python
-import tools.github_pusher as github_pusher
-github_pusher.push_file(filepath, content, commit_message=None) -> dict  # {success, url, message}
-github_pusher.list_repo_files(path="") -> list[str]
-github_pusher.get_file_content(filepath) -> str | None
-```
-
-### sequence_builder (`tools/sequence_builder.py`) — lazy import only
-```python
-import tools.sequence_builder as sequence_builder
-sequence_builder.build_sequence(campaign_name, target_role, focus_product="CodeCombat AI Suite", num_steps=5, voice_profile=None, additional_context="", ab_variants=True) -> dict
-# {success, steps: [{step, day, label, subject, body, variant_b_subject, variant_b_body}], raw, error}
-# Uses prompts/sequence_templates.md for 17 archetypes. Calls claude-sonnet-4-6.
-sequence_builder.write_sequence_to_doc(campaign_name, steps, gas_bridge, folder_id=None) -> dict
-# {success, url, error} — creates Google Doc via GAS bridge. folder_id defaults to SEQUENCES_FOLDER_ID env var.
-sequence_builder.format_for_telegram(campaign_name, steps) -> str
-# Compact preview: subject + first ~150 chars of body per step. A/B variant subject shown inline.
-# SEQUENCES_FOLDER_ID env var: strip ?query params automatically — safe to paste full browser URL
-```
-
-### FirefliesClient (`tools/fireflies.py`) — lazy import only
-```python
-from tools.fireflies import FirefliesClient, FirefliesError
-client = FirefliesClient(api_key=FIREFLIES_API_KEY)
-client.get_transcript(transcript_id) -> dict
-# {id, title, date, duration, attendees: [{name, email}], transcript, summary, action_items, keywords}
-client.get_recent_transcripts(limit=5, filter_internal=True) -> list[dict]
-# Fetches 4x limit, filters internal, sorts most-recent-first
-client.format_recent_for_telegram(transcripts) -> str
-```
-**Fireflies schema is camelCase:** `dateString`, `speakerName`, `meeting_attendees` (for email filtering), `participants` (name strings only).
-**Internal filter:** skip if ALL `meeting_attendees` emails are @codecombat.com. Keep if ANY external email present.
-
-### CallProcessor (`agent/call_processor.py`) — lazy import only
-```python
-from agent.call_processor import CallProcessor
-processor = CallProcessor(gas_bridge=gas, memory_manager=memory, fireflies_client=None)
-# Reads PRECALL_BRIEF_FOLDER_ID from os.environ directly
-await processor.build_pre_call_brief(event, attendees, progress_callback=None) -> str
-await processor.process_transcript(transcript_id, progress_callback=None, email_override="") -> dict
-# {telegram_summary, recap_email, salesforce_block, outreach_row, draft_url, error}
-# email_override: if set, skips Fireflies attendee lookup and extracted contact_email — use for malformed emails
-```
-`_create_brief_doc` returns: `"https://docs.google.com/..."` | `"ERROR:<msg>"` | `""` (folder ID not set)
+**Note:** Phase 5+ env vars (`FIREFLIES_API_KEY`, `FIREFLIES_WEBHOOK_SECRET`, `PRECALL_BRIEF_FOLDER_ID`, `SEQUENCES_FOLDER_ID`) are read via `os.environ.get()` directly — NOT in `config.py`.
 
 ---
 
-## CLAUDE TOOLS (23 total, all in claude_brain.py + handled in main.py)
+## CLAUDE TOOLS (23 total, defined in claude_brain.py, handled in main.py)
 
 `research_district`, `get_sheet_status`, `get_research_queue_status`, `train_voice`, `draft_email`, `save_draft_to_gmail`, `get_calendar`, `log_call`, `create_district_deck`, `push_code`, `list_repo_files`, `get_file_content`, `build_sequence`, `ping_gas_bridge`, `grade_draft`, `add_template`, `process_call_transcript`, `get_pre_call_brief`, `get_activity_summary`, `get_accounts_status`, `set_goal`, `sync_gmail_activities`, `generate_call_list`
 
 ---
 
-## SHORTHAND COMMANDS (`handle_message` in main.py)
+## SHORTHAND COMMANDS (handle_message in main.py)
 
 | Command | Action |
 |---------|--------|
 | `/ping_gas`, `ping gas`, `test gas` | ping GAS bridge |
-| `/train_voice`, `train voice`, `learn my style` | train voice from Gmail (24 months) |
-| `/grade_draft`, `grade draft`, `rate that draft` | feedback on last draft → updates voice_profile.md |
+| `/train_voice`, `train voice` | train voice from Gmail (24 months) |
+| `/grade_draft`, `grade draft` | feedback on last draft → updates voice_profile.md |
 | `/add_template [content]` | add template to voice profile |
-| `/list_files`, `/ls`, `list files` | list repo files |
+| `/list_files`, `/ls` | list repo files |
 | `/push_code [filepath]` | fetch-first: read file, ask for changes, edit + push |
-| `/build_sequence [campaign name]` | Routes through Claude to ask 4 clarifying questions, then builds. execute_tool sends result directly to Telegram. |
-| `looks good`, `save it`, `approved`, `use this` | save pending draft to Gmail |
+| `/build_sequence [name]` | hybrid: Claude asks questions, then builds + sends directly |
+| `looks good`, `save it`, `approved` | save pending draft to Gmail |
 | `add email: addr@domain.org` | set recipient on pending draft |
-| `/brief [meeting name]` | manual pre-call brief (Phase 5) |
-| `/recent_calls [num]` | recent external calls, optional count 1–20 |
-| `/call [transcript_id or url]` | manual post-call processing (Phase 5). Optional email override: `/call [id] correct@email.com` |
-| `/progress` or `/kpi` | show today's activity counts vs KPI goals (direct dispatch) |
-| `/sync_activities` | scan Gmail for PandaDoc + Dialpad events, log new ones (direct dispatch) |
-| `/set_goal [type] [target]` | update KPI daily target e.g. `/set_goal calls_made 15` (direct dispatch) |
-| `/call_list` or `call list` or `who should i call` | generate daily call list — 10 prioritized contacts (direct dispatch) |
-| `/prospect_discover [state]` | search Serper for cold districts in a state, add to queue (direct dispatch) |
-| `/prospect_upward` | find upward targets from active school accounts (direct dispatch) |
-| `/prospect` or `show prospects` | show next 5 pending districts from queue (direct dispatch) |
-| `/prospect_all` or `prospect all` | show full queue grouped by status (direct dispatch) |
-| `/prospect_add [name], [state]` | manually add a district to the queue (direct dispatch) |
-| `/prospect_approve 1,3,5` | approve districts from last shown batch, auto-queue research (direct dispatch) |
-| `/prospect_skip 2,4` | skip districts from last shown batch (direct dispatch) |
-| send a `.csv` file | triggers Salesforce active accounts import via `handle_document()` |
-
----
-
-## GAS DEPLOYMENT CHECKLIST
-
-Every time `Code.gs` changes:
-1. script.google.com → Scout Bridge → Code.gs → edit + save
-2. Deploy → Manage deployments → pencil icon → Version: New version → Deploy
-3. Copy new URL
-4. Railway dashboard → Variables → update `GAS_WEBHOOK_URL`
-5. Railway redeploys automatically
-6. Run `/ping_gas` to verify
-
-**Gotchas:**
-- `SECRET_TOKEN` placeholder in Code.gs must be replaced with actual token before deploying
-- `Session.getActiveUser().getEmail()` returns `""` for anonymous callers — hardcode `"steven@codecombat.com"` in ping handler
-- Never use `Session.getEffectiveUser()` — throws permission error
-- Bumping version on an existing deployment keeps the same URL — no Railway update needed
-- DriveApp `getFolderById` throws "Unexpected error" if DriveApp is not authorized OR if called during a deployment that hasn't re-authed. Wrap in try/catch so doc creation never fails due to folder move.
-- `SEQUENCES_FOLDER_ID` (and any Drive folder ID env var) may be pasted as full browser URL with `?ths=true`. Strip with `.split("?")[0]` before use.
+| `/brief [meeting name]` | manual pre-call brief |
+| `/recent_calls [num]` | recent external calls (1–20) |
+| `/call [id] [email]` | post-call processing. Optional email override. |
+| `/progress` or `/kpi` | today's activity vs KPI goals |
+| `/sync_activities` | scan Gmail for PandaDoc + Dialpad events |
+| `/set_goal [type] [target]` | update KPI target |
+| `/call_list` | generate daily call list (10 contacts) |
+| `/prospect_discover [state]` | cold district search via Serper |
+| `/prospect_upward` | upward targets from active accounts |
+| `/prospect` | show next 5 pending districts |
+| `/prospect_all` | full queue grouped by status |
+| `/prospect_add [name], [state]` | manually add district to queue |
+| `/prospect_approve 1,3,5` | approve from last batch, auto-queue research |
+| `/prospect_skip 2,4` | skip from last batch |
+| send a `.csv` file | Salesforce active accounts import |
