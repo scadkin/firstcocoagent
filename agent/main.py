@@ -1252,6 +1252,16 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await send_message(f"Add error: {e}")
         return
 
+    elif user_text.lower() == "/prospect_clear":
+        try:
+            loop = asyncio.get_event_loop()
+            await loop.run_in_executor(None, district_prospector.clear_queue)
+            _last_prospect_batch = []
+            await send_message("Prospecting queue cleared.")
+        except Exception as e:
+            await send_message(f"Clear error: {e}")
+        return
+
     elif user_text.lower() in ["/prospect_all", "prospect all", "show all prospects"]:
         try:
             loop = asyncio.get_event_loop()

@@ -65,13 +65,26 @@ _STATE_NAME_TO_ABBR = {
 }
 
 # Regex for district name extraction from search results
+# Limit prefix to 1-5 words to avoid capturing entire sentences
+_SUFFIX_PATTERN = (
+    r"(?:Independent\s+School\s+District|Unified\s+School\s+District|"
+    r"Community\s+Unit\s+School\s+District|Community\s+School\s+District|"
+    r"School\s+District|Public\s+Schools|CISD|CUSD|GISD|NISD|ISD|USD)"
+)
 _DISTRICT_RE = re.compile(
-    r"([\w\s\-\.]+(?:"
-    r"School District|Independent School District|Unified School District|"
-    r"Public Schools|Community School District|Community Unit School District|"
-    r"ISD|USD|CISD|CUSD|GISD|NISD))",
+    r"\b((?:[\w\-\'\.]+\s+){1,5}" + _SUFFIX_PATTERN + r")\b",
     re.IGNORECASE,
 )
+
+# Words that cannot start a real district name
+_BAD_STARTS = {
+    "high", "middle", "elementary", "schools", "school", "in", "the", "a", "an",
+    "of", "and", "or", "for", "from", "with", "other", "staff", "are", "is",
+    "all", "best", "top", "new", "our", "their", "your", "this", "that",
+    "about", "many", "some", "most", "every", "each", "any", "no", "more",
+    "has", "have", "had", "was", "were", "been", "being", "its", "it",
+    "tx", "ca", "oh", "pa", "il", "mi", "ct", "ok", "ma", "nv", "tn", "ne",
+}
 
 # Google Sheets credentials (shared pattern with csv_importer)
 SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
@@ -144,6 +157,16 @@ def _load_all_prospects() -> list[dict]:
     except Exception as e:
         logger.error(f"_load_all_prospects error: {e}")
         return []
+
+
+def clear_queue():
+    """Delete all data rows from the Prospecting Queue tab (keeps header)."""
+    service, sheet_id = _ensure_tab()
+    service.spreadsheets().values().clear(
+        spreadsheetId=sheet_id,
+        range=f"'{TAB_PROSPECT_QUEUE}'!A2:N9999",
+    ).execute()
+    logger.info("Prospecting Queue cleared")
 
 
 def _write_rows(rows: list[list]):
@@ -288,6 +311,35 @@ def _search_districts_serper(state: str) -> list[dict]:
     return _extract_district_names(all_results, state)
 
 
+def _clean_district_name(raw_name: str) -> str | None:
+    """Clean an extracted district name. Returns None if it's garbage."""
+    name = raw_name.strip()
+    # Strip leading/trailing punctuation
+    name = re.sub(r'^[\.\,\;\:\-\s]+', '', name)
+    name = re.sub(r'[\.\,\;\:\-\s]+$', '', name)
+
+    if len(name) < 8 or len(name) > 80:
+        return None
+
+    # Remove leading filler words
+    words = name.split()
+    while words and words[0].lower() in _BAD_STARTS:
+        words.pop(0)
+
+    if len(words) < 2:  # Need at least "Name ISD" or similar
+        return None
+
+    name = " ".join(words)
+
+    # Reject if multiple lowercase words at start (looks like a sentence, not a name)
+    name_words = name.split()
+    lowercase_start = sum(1 for w in name_words[:3] if w[0].islower() and w.lower() not in ("of", "de", "la", "del"))
+    if lowercase_start >= 2:
+        return None
+
+    return name
+
+
 def _extract_district_names(serper_results: list[dict], state: str) -> list[dict]:
     """Extract district names from Serper organic results."""
     found: dict[str, dict] = {}  # name_key → {name, state, est_enrollment}
@@ -298,8 +350,8 @@ def _extract_district_names(serper_results: list[dict], state: str) -> list[dict
         # Find district name patterns
         matches = _DISTRICT_RE.findall(text)
         for match in matches:
-            name = match.strip()
-            if len(name) < 5:
+            name = _clean_district_name(match)
+            if not name:
                 continue
             name_key = csv_importer.normalize_name(name)
             if not name_key or len(name_key) < 3:
@@ -316,7 +368,7 @@ def _extract_district_names(serper_results: list[dict], state: str) -> list[dict
                     except ValueError:
                         pass
                 found[name_key] = {
-                    "name": name.strip(),
+                    "name": name,
                     "state": _normalize_state(state),
                     "est_enrollment": enrollment,
                 }
