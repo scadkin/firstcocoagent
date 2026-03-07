@@ -30,6 +30,9 @@ Format:
 **NEEDS YOUR INPUT:**
 [Questions or decisions that require Steven before Scout can proceed. If none: omit.]
 
+**PROSPECT PIPELINE:**
+[If there are pending or approved districts in the prospecting queue, mention the count. If approved districts are waiting for research, suggest running them. If nothing: omit this section.]
+
 **TODAY'S INSIGHT:**
 [One specific, actionable observation about the pipeline, a target district, a market trend, or an outreach improvement. Make it genuinely useful.]
 

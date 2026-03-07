@@ -29,8 +29,11 @@ Format:
 **PANDADOC / DIALPAD ACTIVITY:**
 [Only if pandadoc_event or dialpad_call > 0. What happened. If none: omit.]
 
+**PROSPECTING:**
+[If any districts were discovered, approved, researched, or had sequences built today, mention them. If nothing: omit this section.]
+
 **PENDING / TOMORROW:**
-[Unfinished tasks or queued items carrying over. If none: "Clean slate for tomorrow."]
+[Unfinished tasks or queued items carrying over. Include approved districts awaiting research. If none: "Clean slate for tomorrow."]
 
 **ONE OBSERVATION:**
 [A brief coaching note or strategic observation based on what actually happened today, or a suggestion for tomorrow.]

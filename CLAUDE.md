@@ -1,20 +1,16 @@
 # SCOUT — Claude Code Reference
-*Last updated: 2026-03-07 — Session 14*
+*Last updated: 2026-03-07 — Session 15*
 
 ---
 
 ## CURRENT STATE — update this after each session
 
-**Phase 6E in progress. `district_prospector.py` created, `main.py` partially updated. Need to finish main.py edits, update claude_brain.py, update prompts, and deploy.**
+**Phase 6E complete (code). All files updated. Needs deploy to Railway + end-to-end verification.**
 
-### What still needs to be done (Session 15)
-- `agent/main.py`: Add `_on_prospect_research_complete()` callback, update `send_morning_brief()`, `send_checkin()`, `send_eod_report()` with prospect suggestions, update startup message, fix `global _last_prospect_batch` (must be at function top, not in elif blocks)
-- `agent/claude_brain.py`: Add `discover_prospects` tool definition (tool count 23 → 24)
-- `agent/main.py`: Add `discover_prospects` handler in `execute_tool()`
-- `prompts/morning_brief.md`: Add PROSPECT PIPELINE section
-- `prompts/eod_report.md`: Add PROSPECTING section
-- `prompts/sequence_templates.md`: Add Reference/Upward Prospecting archetype
-- Deploy to Railway and verify
+### What still needs to be done
+- Deploy to Railway and verify end-to-end
+- Test: `/prospect_discover TX`, `/prospect_upward`, `/prospect`, `/prospect_approve 1`, `/prospect_skip 2`
+- Verify auto-pipeline: approve → research → sequence → mark complete
 
 ### Current status
 - Phases 1–5: ✅ all verified
@@ -22,10 +18,10 @@
 - Phase 6B (Research Engine — 15 layers): ✅
 - Phase 6C (Activity Tracking + KPI + CSV Import + Gmail Intel): ✅
 - Phase 6D (Daily Call List): ✅
-- Phase 6E (District Prospecting Queue): ⏳ in progress — module created, main.py partial
+- Phase 6E (District Prospecting Queue): ✅ code complete — awaiting deploy + verify
 
 ### Phase 6 roadmap
-- **6E** — District Prospecting Queue (in progress)
+- **6E** — District Prospecting Queue ✅ (code complete)
 - **6F** — Pipeline Snapshot (Salesforce opp CSV → lightweight CRM in Sheets, stale follow-up alerts)
 
 ---
@@ -216,9 +212,9 @@ firstcocoagent/
 
 ---
 
-## CLAUDE TOOLS (23 total, defined in claude_brain.py, handled in main.py)
+## CLAUDE TOOLS (24 total, defined in claude_brain.py, handled in main.py)
 
-`research_district`, `get_sheet_status`, `get_research_queue_status`, `train_voice`, `draft_email`, `save_draft_to_gmail`, `get_calendar`, `log_call`, `create_district_deck`, `push_code`, `list_repo_files`, `get_file_content`, `build_sequence`, `ping_gas_bridge`, `grade_draft`, `add_template`, `process_call_transcript`, `get_pre_call_brief`, `get_activity_summary`, `get_accounts_status`, `set_goal`, `sync_gmail_activities`, `generate_call_list`
+`research_district`, `get_sheet_status`, `get_research_queue_status`, `train_voice`, `draft_email`, `save_draft_to_gmail`, `get_calendar`, `log_call`, `create_district_deck`, `push_code`, `list_repo_files`, `get_file_content`, `build_sequence`, `ping_gas_bridge`, `grade_draft`, `add_template`, `process_call_transcript`, `get_pre_call_brief`, `get_activity_summary`, `get_accounts_status`, `set_goal`, `sync_gmail_activities`, `generate_call_list`, `discover_prospects`
 
 ---
 

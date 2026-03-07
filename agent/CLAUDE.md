@@ -47,6 +47,6 @@ await processor.process_transcript(transcript_id, progress_callback=None, email_
 **IMPORTANT:** Uses claude-sonnet-4-6 with timeout=90.0. Do NOT use claude-opus-4-5 (hangs indefinitely).
 
 ## claude_brain.py
-- 23 tool definitions (see root CLAUDE.md for full list)
+- 24 tool definitions (see root CLAUDE.md for full list)
 - Memory injection via memory_manager.build_memory_context()
 - All tool calls dispatched to execute_tool() in main.py

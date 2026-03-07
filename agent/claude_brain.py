@@ -342,6 +342,25 @@ TOOLS = [
             "required": [],
         },
     },
+    # Phase 6E: District Prospecting
+    {
+        "name": "discover_prospects",
+        "description": (
+            "Search for new school districts in a state to add to the prospecting queue. "
+            "Use when Steven says 'find districts in Texas', 'prospect in Ohio', "
+            "'discover prospects', or asks about new districts to target."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "state": {
+                    "type": "string",
+                    "description": "US state name or abbreviation, e.g. 'Texas' or 'TX'",
+                },
+            },
+            "required": ["state"],
+        },
+    },
     # Phase 5: Call Intelligence
     {
         "name": "process_call_transcript",

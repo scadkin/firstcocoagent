@@ -1,6 +1,6 @@
 """
 agent/main.py
-Scout's entry point. Phase 6D: Daily Call List + all previous phases.
+Scout's entry point. Phase 6E: District Prospecting Queue + all previous phases.
 """
 
 import asyncio
@@ -192,6 +192,90 @@ async def _on_research_complete(result: dict):
     except Exception as e:
         logger.error(f"Research completion handler failed: {e}")
         await send_message(f"❌ Research finished but sheet write failed: {e}")
+
+
+async def _on_prospect_research_complete(result: dict, prospect: dict):
+    """Runs after research finishes for an approved prospect. Logs research, then auto-builds a sequence and marks complete."""
+    # Run the standard research-complete flow first (writes to Sheets, sends Telegram summary)
+    await _on_research_complete(result)
+
+    district_name = prospect.get("District Name", result.get("district_name", ""))
+    name_key = prospect.get("Name Key", "")
+    strategy = prospect.get("Strategy", "cold")
+    state = prospect.get("State", result.get("state", ""))
+    school_count = prospect.get("School Count", "")
+    notes = prospect.get("Notes", "")
+
+    # Auto-build a sequence for this prospect
+    try:
+        import tools.sequence_builder as sequence_builder
+        campaign_name = f"{district_name} — {'Upward' if strategy == 'upward' else 'Cold'} Prospecting"
+        target_role = "CS/CTE Director"
+
+        # Build context based on strategy
+        extra_context = f"State: {state}. Strategy: {strategy}."
+        if strategy == "upward" and school_count:
+            extra_context += (
+                f" This district has {school_count} schools already using CodeCombat."
+                f" CRITICAL: Do NOT fabricate claims about these accounts — do not assume"
+                f" how the schools are doing, how many students use it, or what products they have."
+                f" Only cite verifiable facts: school name and that they are active customers."
+            )
+            if notes:
+                extra_context += f" {notes}"
+        elif strategy == "cold":
+            extra_context += " No existing CodeCombat presence in this district."
+
+        voice_profile = None
+        try:
+            with open("memory/voice_profile.md", "r", encoding="utf-8") as f:
+                voice_profile = f.read()
+        except FileNotFoundError:
+            pass
+
+        await send_message(f"✍️ Auto-building sequence for *{district_name}*...")
+        seq_result = sequence_builder.build_sequence(
+            campaign_name=campaign_name,
+            target_role=target_role,
+            num_steps=4 if strategy == "upward" else 5,
+            voice_profile=voice_profile,
+            additional_context=extra_context,
+        )
+
+        doc_url = ""
+        if seq_result["success"]:
+            gas = get_gas_bridge()
+            if gas:
+                doc_result = sequence_builder.write_sequence_to_doc(campaign_name, seq_result["steps"], gas)
+                doc_url = doc_result.get("url", "")
+            tg_text = sequence_builder.format_for_telegram(campaign_name, seq_result["steps"])
+            if doc_url:
+                await send_message(f"📄 [Sequence — {campaign_name}]({doc_url})\n\n{tg_text}")
+            else:
+                await send_message(tg_text)
+
+            try:
+                activity_tracker.log_activity(
+                    activity_type="sequence_built",
+                    district=district_name,
+                    contact=target_role,
+                    notes=f"Auto-built from prospecting queue | {strategy}",
+                    source="scout",
+                )
+            except Exception:
+                pass
+        else:
+            await send_message(f"⚠️ Sequence generation failed for {district_name}: {seq_result.get('error', '?')}")
+
+        # Mark prospect complete in the queue
+        district_prospector.mark_complete(name_key, sequence_doc_url=doc_url)
+        await send_message(f"✅ *{district_name}* — research + sequence complete. Marked done in prospecting queue.")
+
+    except Exception as e:
+        logger.error(f"Prospect auto-sequence failed for {district_name}: {e}")
+        await send_message(f"⚠️ Research done for {district_name} but sequence auto-build failed: {e}")
+        # Still mark complete even if sequence fails
+        district_prospector.mark_complete(name_key)
 
 
 # ── Tool execution ─────────────────────────────────────────────────────────────
@@ -719,6 +803,28 @@ async def execute_tool(tool_name: str, tool_input: dict) -> str:
         except Exception as e:
             return f"Call list failed: {e}"
 
+    # ── Phase 6E: Prospect Discovery ─────────────────────────────────────────
+
+    elif tool_name == "discover_prospects":
+        state = tool_input.get("state", "")
+        if not state:
+            return "❌ Need a state. Example: 'discover prospects in Texas'"
+        await send_message(f"🔍 Searching for school districts in *{state}*...")
+        try:
+            loop = asyncio.get_event_loop()
+            result = await loop.run_in_executor(None, district_prospector.discover_districts, state)
+            if not result["success"]:
+                return f"Discovery failed: {result['error']}"
+            msg = (
+                f"Found {result['discovered']} districts in {state}\n"
+                f"Already known: {result['already_known']} | New added: {result['new_added']}"
+            )
+            if result.get("territory_warning"):
+                msg += f"\n⚠️ {result['territory_warning']}"
+            return msg
+        except Exception as e:
+            return f"Discovery error: {e}"
+
     return f"❓ Unknown tool: {tool_name}"
 
 
@@ -817,7 +923,7 @@ def _parse_draft(draft_text: str) -> tuple:
 # ── Telegram message handler ───────────────────────────────────────────────────
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    global conversation_history, _pending_draft
+    global conversation_history, _pending_draft, _last_prospect_batch
 
     if str(update.effective_chat.id) != str(TELEGRAM_CHAT_ID):
         return
@@ -1028,7 +1134,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # ── Phase 6E commands ──────────────────────────────────────────────────────
 
     elif user_text.lower().startswith("/prospect_discover"):
-        global _last_prospect_batch
         args = user_text[len("/prospect_discover"):].strip()
         if not args:
             await send_message("Usage: `/prospect_discover Texas` or `/prospect_discover TX`")
@@ -1056,7 +1161,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     elif user_text.lower().startswith("/prospect_upward"):
-        global _last_prospect_batch
         await send_message("🔍 Finding upward targets from your active school accounts...")
         try:
             loop = asyncio.get_event_loop()
@@ -1078,7 +1182,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     elif user_text.lower().startswith("/prospect_approve"):
-        global _last_prospect_batch
         args = user_text[len("/prospect_approve"):].strip()
         if not args or not _last_prospect_batch:
             await send_message("No prospect batch to approve. Use `/prospect` first.")
@@ -1114,7 +1217,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     elif user_text.lower().startswith("/prospect_skip"):
-        global _last_prospect_batch
         args = user_text[len("/prospect_skip"):].strip()
         if not args or not _last_prospect_batch:
             await send_message("No prospect batch to skip. Use `/prospect` first.")
@@ -1164,7 +1266,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     elif user_text.lower() in ["/prospect", "/prospects", "prospect", "show prospects",
                                 "prospect queue", "prospecting queue"]:
-        global _last_prospect_batch
         try:
             loop = asyncio.get_event_loop()
             pending = await loop.run_in_executor(None, district_prospector.get_pending, 5)
@@ -1290,6 +1391,17 @@ async def send_morning_brief():
 
         text, _, _ = process_message(prompt, [], memory)
         await send_message(f"☀️ *Good morning, Steven!*\n\n{text}")
+
+        # Show pending prospects if any
+        try:
+            loop = asyncio.get_event_loop()
+            pending = await loop.run_in_executor(None, district_prospector.get_pending, 5)
+            if pending:
+                await send_message(
+                    district_prospector.format_batch_for_telegram(pending, label="Pending Prospects")
+                )
+        except Exception as pq_err:
+            logger.warning(f"Could not load prospect queue for morning brief: {pq_err}")
     except Exception as e:
         logger.error(f"Morning brief failed: {e}")
 
@@ -1317,6 +1429,23 @@ async def send_eod_report():
 
         text, _, _ = process_message(prompt, conversation_history, memory)
         await send_message(f"🌙 *EOD Report*\n\n{text}")
+
+        # Suggest approved districts for overnight research
+        try:
+            loop = asyncio.get_event_loop()
+            approved = await loop.run_in_executor(
+                None, district_prospector.get_all_prospects, "approved"
+            )
+            if approved:
+                names = [d.get("District Name", "?") for d in approved[:3]]
+                await send_message(
+                    f"🌙 *Prospecting:* {len(approved)} approved district(s) waiting for research.\n"
+                    f"Top: {', '.join(names)}\n"
+                    f"I can run these overnight — just say the word."
+                )
+        except Exception as pq_err:
+            logger.warning(f"Could not load prospect queue for EOD: {pq_err}")
+
         memory.append_to_summary(text)
         conversation_history.clear()
     except Exception as e:
@@ -1324,7 +1453,18 @@ async def send_eod_report():
 
 
 async def send_checkin():
-    await send_message("📊 Hourly check-in — anything you need, Steven?")
+    msg = "📊 Hourly check-in — anything you need, Steven?"
+    # Suggest pending prospects when research queue is idle
+    try:
+        if not research_queue.current_job:
+            loop = asyncio.get_event_loop()
+            pending = await loop.run_in_executor(None, district_prospector.get_pending, 2)
+            if pending:
+                names = [f"*{d.get('District Name', '?')}*" for d in pending]
+                msg += f"\n\n💡 Ready to research: {', '.join(names)}\nApprove with `/prospect_approve` or see all with `/prospect`"
+    except Exception:
+        pass
+    await send_message(msg)
 
 
 # ── Phase 5: Webhook transcript callback ──────────────────────────────────────
@@ -1541,10 +1681,11 @@ async def _run_telegram_and_scheduler():
     gas_status = "GAS bridge ready" if gas_bridge_configured() else "GAS bridge not configured"
     ff_status = "Fireflies ready" if FIREFLIES_API_KEY else "FIREFLIES_API_KEY not set"
     await send_message(
-        f"Scout is online — Phase 6D active.\n"
+        f"Scout is online — Phase 6E active.\n"
         f"{gas_status} | {ff_status}\n"
-        f"Commands: /brief | /recent_calls [num] | /call [id] | /push_code [file]\n"
-        f"/call_list | /progress | /sync_activities | /set_goal [type] [target] | send CSV to import"
+        f"Commands: /brief | /recent_calls | /call [id] | /push_code [file]\n"
+        f"/call_list | /progress | /sync_activities | /set_goal [type] [target]\n"
+        f"/prospect | /prospect_discover [state] | /prospect_upward | send CSV to import"
     )
 
     fireflies_gmail_last_check: float = 0.0
@@ -1572,7 +1713,7 @@ async def _run_telegram_and_scheduler():
 
 
 async def main():
-    logger.info(f"Starting {AGENT_NAME} — Phase 6D...")
+    logger.info(f"Starting {AGENT_NAME} — Phase 6E...")
     port = int(os.environ.get("PORT", 8080))
     if os.environ.get("PORT"):
         from agent.webhook_server import start_webhook_server

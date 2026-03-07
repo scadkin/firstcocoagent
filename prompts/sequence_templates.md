@@ -384,6 +384,42 @@ needs this. Find their specific pain point with a question.
 
 ---
 
+## ARCHETYPE: Reference / Upward Prospecting (School → District)
+
+**Trigger:** The district has one or more schools already using CodeCombat, but there is no
+district-level deal. Goal is to leverage the school foothold to pitch the parent district
+for a multi-site or district-wide contract.
+
+**CRITICAL RULE — DO NOT FABRICATE:**
+Never claim a school is "seeing great results," "loves CodeCombat," or has specific engagement
+metrics unless you have verified data. You may ONLY cite: (1) that the school is an active
+CodeCombat customer, (2) the school's name, and (3) the number of active licenses if known.
+Do NOT assume satisfaction, usage levels, or student outcomes. Making unverifiable claims
+about existing customers destroys credibility.
+
+**Core angle:** "You already have schools in your district using CodeCombat — there may be
+an opportunity to coordinate and get better pricing district-wide." The pitch is about
+efficiency, visibility, and alignment — not about re-selling the product.
+
+**Sequence structure:**
+- Step 1 (Day 0): Name-drop the specific school(s) in the district that are already customers.
+  Keep it factual: "[School Name] is already using CodeCombat." Ask whether the district is
+  aware and whether there's interest in coordinating across schools. CTA: quick call to explore.
+- Step 2 (Day 3): Value of district-level coordination — consistent curriculum, volume pricing,
+  centralized reporting, easier teacher onboarding across schools. No hard sell.
+- Step 3 (Day 7): Introduce the multi-site or district license model. "Here's what this
+  typically looks like for a district with X schools." Keep it directional, not a formal quote.
+- Step 4 (Day 14): Soft close or delegate. "Is this something your office handles, or should
+  I connect with someone on the curriculum or purchasing side?"
+
+**Tone:** Collegial and informed. You're not cold-calling — you're connecting dots the district
+may not know about. Be a helpful informer, not a pushy vendor. Short emails (3-4 sentences max).
+
+**Pacing:** 3-4 steps over 10-14 days. These are warm leads — don't let them cool off,
+but also don't over-contact.
+
+---
+
 ## ARCHETYPE: District Penetration (Existing Interest / Usage / Sales)
 
 **Trigger:** The district already has some CodeCombat presence — a pilot, an existing license,
