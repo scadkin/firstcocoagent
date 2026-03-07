@@ -78,11 +78,11 @@ _DISTRICT_RE = re.compile(
 
 # Words that cannot start a real district name
 _BAD_STARTS = {
-    "high", "middle", "elementary", "schools", "school", "in", "the", "a", "an",
-    "of", "and", "or", "for", "from", "with", "other", "staff", "are", "is",
-    "all", "best", "top", "new", "our", "their", "your", "this", "that",
-    "about", "many", "some", "most", "every", "each", "any", "no", "more",
-    "has", "have", "had", "was", "were", "been", "being", "its", "it",
+    "high", "middle", "elementary", "schools", "school", "district", "districts",
+    "in", "the", "a", "an", "of", "and", "or", "for", "from", "with", "other",
+    "staff", "are", "is", "all", "best", "top", "new", "our", "their", "your",
+    "this", "that", "about", "many", "some", "most", "every", "each", "any",
+    "no", "more", "has", "have", "had", "was", "were", "been", "being", "its", "it",
     "tx", "ca", "oh", "pa", "il", "mi", "ct", "ok", "ma", "nv", "tn", "ne",
 }
 
@@ -335,6 +335,18 @@ def _clean_district_name(raw_name: str) -> str | None:
     words = name.split()
     while words and re.sub(r'[^a-zA-Z]', '', words[0]).lower() in _BAD_STARTS:
         words.pop(0)
+
+    # Strip leading words that look like website names or concatenated text
+    # e.g. "SATXtoday" — mixed case beyond normal title case or abbreviation
+    while words:
+        first_clean = re.sub(r'[^a-zA-Z]', '', words[0])
+        if not first_clean:
+            words.pop(0)
+            continue
+        if len(first_clean) > 5 and not first_clean.isupper() and not first_clean.istitle():
+            words.pop(0)
+            continue
+        break
 
     if len(words) < 2:  # Need at least "Name ISD" or similar
         return None
