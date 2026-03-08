@@ -76,8 +76,10 @@ _OPP_COL_MAP = {
 # Stages considered closed — these opps are not "open"
 _CLOSED_STAGES = {"closed won", "closed lost", "closed - lost", "closed - won"}
 
-# Default stale threshold (days since last activity)
-PIPELINE_STALE_DAYS = int(os.environ.get("PIPELINE_STALE_DAYS", "14"))
+# Stale tiers (days since last activity)
+TIER_NEEDS_UPDATE = 14    # "Needs Update"
+TIER_GOING_STALE = 30     # "Needs Check-In / Going Stale"
+TIER_GOING_COLD = 45      # "Risk Going Cold!"
 
 
 # ─────────────────────────────────────────────
@@ -415,28 +417,36 @@ def get_open_opps() -> list[dict]:
     return [o for o in opps if o.get("Stage", "").lower().strip() not in _CLOSED_STAGES]
 
 
-def get_stale_opps(stale_days: int = None) -> list[dict]:
+def get_stale_opps() -> list[dict]:
     """
-    Return open opps that are stale:
-    - Last Activity > stale_days ago, OR
-    - Close Date is in the past.
-    Adds a 'stale_reason' field to each.
+    Return open opps that need attention, grouped by tier:
+    - 14+ days: "Needs Update"
+    - 30+ days: "Needs Check-In / Going Stale"
+    - 45+ days: "Risk Going Cold!"
+    - Close Date in the past also flagged.
+    Adds 'stale_tier', 'stale_reason', and 'days_since_activity' fields.
     """
-    if stale_days is None:
-        stale_days = PIPELINE_STALE_DAYS
-
     today = date.today()
     open_opps = get_open_opps()
     stale = []
 
     for opp in open_opps:
         reasons = []
+        tier = None
+        days_since = 0
 
         # Check last activity staleness (skip if field is empty — no data ≠ stale)
         last_activity = _parse_date(opp.get("Last Activity", ""))
         if last_activity:
             days_since = (today - last_activity).days
-            if days_since > stale_days:
+            if days_since >= TIER_GOING_COLD:
+                tier = "Risk Going Cold!"
+                reasons.append(f"No activity in {days_since} days")
+            elif days_since >= TIER_GOING_STALE:
+                tier = "Needs Check-In / Going Stale"
+                reasons.append(f"No activity in {days_since} days")
+            elif days_since >= TIER_NEEDS_UPDATE:
+                tier = "Needs Update"
                 reasons.append(f"No activity in {days_since} days")
 
         # Check past-due close date
@@ -444,16 +454,18 @@ def get_stale_opps(stale_days: int = None) -> list[dict]:
         if close_date and close_date < today:
             days_past = (today - close_date).days
             reasons.append(f"Close date {days_past} days past due")
+            # Escalate tier if close date is past due
+            if not tier:
+                tier = "Needs Update"
 
-        if reasons:
+        if reasons and tier:
+            opp["stale_tier"] = tier
             opp["stale_reason"] = "; ".join(reasons)
+            opp["days_since_activity"] = days_since
             stale.append(opp)
 
     # Sort by most stale first
-    def staleness_key(o):
-        la = _parse_date(o.get("Last Activity", ""))
-        return (today - la).days if la else 9999
-    stale.sort(key=staleness_key, reverse=True)
+    stale.sort(key=lambda o: o.get("days_since_activity", 0), reverse=True)
 
     return stale
 
@@ -484,12 +496,19 @@ def get_pipeline_summary() -> dict:
 
     closed_count = len(all_opps) - len(open_opps)
 
+    # Group stale opps by tier
+    tier_counts = {}
+    for opp in stale:
+        t = opp.get("stale_tier", "Unknown")
+        tier_counts[t] = tier_counts.get(t, 0) + 1
+
     return {
         "total_open": len(open_opps),
         "total_value": total_value,
         "by_stage": by_stage,
         "stale_count": len(stale),
         "stale_opps": stale,
+        "tier_counts": tier_counts,
         "total_closed": closed_count,
     }
 
@@ -528,20 +547,37 @@ def format_pipeline_for_telegram(summary: dict) -> str:
     for stage, data in sorted(by_stage.items(), key=lambda x: x[1]["value"], reverse=True):
         lines.append(f"  • {stage}: {data['count']} opp{'s' if data['count'] != 1 else ''} (${data['value']:,.0f})")
 
-    # Stale alerts
+    # Stale alerts by tier
+    tier_counts = summary.get("tier_counts", {})
     if stale_count > 0:
         lines.append("")
-        lines.append(f"⚠️ *{stale_count} stale opp{'s' if stale_count != 1 else ''}:*")
-        for opp in stale_opps[:5]:
-            name = opp.get("Opportunity Name", "?")
-            acct = opp.get("Account Name", "")
-            reason = opp.get("stale_reason", "")
-            label = f"{name}"
-            if acct and acct.lower() != name.lower():
-                label += f" ({acct})"
-            lines.append(f"  • {label} — {reason}")
-        if stale_count > 5:
-            lines.append(f"  ... and {stale_count - 5} more")
+        lines.append(f"⚠️ *{stale_count} opps need attention:*")
+
+        # Show tiers in order of severity (worst first)
+        tier_order = ["Risk Going Cold!", "Needs Check-In / Going Stale", "Needs Update"]
+        for tier_name in tier_order:
+            tier_opps = [o for o in stale_opps if o.get("stale_tier") == tier_name]
+            if not tier_opps:
+                continue
+
+            if tier_name == "Risk Going Cold!":
+                emoji = "🔴"
+            elif tier_name == "Needs Check-In / Going Stale":
+                emoji = "🟡"
+            else:
+                emoji = "🟠"
+
+            lines.append(f"\n{emoji} *{tier_name}* ({len(tier_opps)}):")
+            for opp in tier_opps[:5]:
+                name = opp.get("Opportunity Name", "?")
+                acct = opp.get("Account Name", "")
+                days = opp.get("days_since_activity", 0)
+                label = f"{name}"
+                if acct and acct.lower() != name.lower():
+                    label += f" ({acct})"
+                lines.append(f"  • {label} — {days}d")
+            if len(tier_opps) > 5:
+                lines.append(f"  ... and {len(tier_opps) - 5} more")
 
     sheet_id = os.environ.get("GOOGLE_SHEETS_ID", "")
     if sheet_id:
@@ -561,24 +597,28 @@ def build_pipeline_alerts() -> str:
             return ""
 
         lines = ["PIPELINE ALERT DATA:"]
-        lines.append(f"{len(stale)} stale/past-due opportunities:")
-        for opp in stale[:10]:
-            name = opp.get("Opportunity Name", "?")
-            acct = opp.get("Account Name", "")
-            stage = opp.get("Stage", "")
-            amount = opp.get("Amount", "")
-            reason = opp.get("stale_reason", "")
-            parts = [name]
-            if acct:
-                parts.append(f"Account: {acct}")
-            if stage:
-                parts.append(f"Stage: {stage}")
-            if amount:
-                parts.append(f"${amount}")
-            parts.append(reason)
-            lines.append(f"  - {' | '.join(parts)}")
-        if len(stale) > 10:
-            lines.append(f"  ... and {len(stale) - 10} more")
+        lines.append(f"{len(stale)} opportunities need attention:")
+
+        tier_order = ["Risk Going Cold!", "Needs Check-In / Going Stale", "Needs Update"]
+        for tier_name in tier_order:
+            tier_opps = [o for o in stale if o.get("stale_tier") == tier_name]
+            if not tier_opps:
+                continue
+            lines.append(f"\n{tier_name} ({len(tier_opps)}):")
+            for opp in tier_opps[:5]:
+                name = opp.get("Opportunity Name", "?")
+                stage = opp.get("Stage", "")
+                amount = opp.get("Amount", "")
+                reason = opp.get("stale_reason", "")
+                parts = [name]
+                if stage:
+                    parts.append(f"Stage: {stage}")
+                if amount:
+                    parts.append(f"${amount}")
+                parts.append(reason)
+                lines.append(f"  - {' | '.join(parts)}")
+            if len(tier_opps) > 5:
+                lines.append(f"  ... and {len(tier_opps) - 5} more")
         return "\n".join(lines)
     except Exception as e:
         logger.warning(f"build_pipeline_alerts error: {e}")
