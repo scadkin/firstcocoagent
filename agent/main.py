@@ -59,6 +59,9 @@ _fireflies_gmail_seeded: bool = False    # True after first scan seeds existing 
 # Phase 6E: Prospecting queue — last shown batch for approve/skip indexing
 _last_prospect_batch: list[dict] = []
 
+# CSV import mode: "merge" (default) or "clear"
+_csv_import_mode: str = "merge"
+
 
 def get_gas_bridge():
     """Lazy-init GAS bridge. Returns None if not configured."""
@@ -850,7 +853,10 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
 
-    await send_message(f"📥 Got `{filename}` — importing Salesforce accounts...")
+    global _csv_import_mode
+    mode = _csv_import_mode
+    mode_label = "merge" if mode == "merge" else "clear & rewrite"
+    await send_message(f"📥 Got `{filename}` — importing Salesforce accounts ({mode_label} mode)...")
 
     try:
         tg_file = await doc.get_file()
@@ -862,7 +868,11 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     try:
         loop = asyncio.get_event_loop()
-        result = await loop.run_in_executor(None, csv_importer.import_accounts, csv_text)
+        if mode == "clear":
+            result = await loop.run_in_executor(None, csv_importer.import_accounts, csv_text)
+            _csv_import_mode = "merge"  # reset to merge after a clear import
+        else:
+            result = await loop.run_in_executor(None, csv_importer.merge_accounts, csv_text)
     except Exception as e:
         await send_message(f"❌ Import failed: {e}")
         return
@@ -873,6 +883,8 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
     libraries = result.get("libraries", 0)
     companies = result.get("companies", 0)
     skipped   = result.get("skipped", 0)
+    updated   = result.get("updated", 0)
+    added     = result.get("added", 0)
     errors    = result.get("errors", [])
     sheet_url = sheets_writer.get_master_sheet_url()
 
@@ -882,11 +894,18 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if companies:
         breakdown += f"  • {companies} other (companies/orgs)\n"
 
-    msg = (
-        f"✅ *Salesforce import complete!*\n\n"
-        f"📊 {imported} accounts imported\n"
-        f"{breakdown}"
-    )
+    if mode == "merge" and (updated or added):
+        msg = (
+            f"✅ *Salesforce merge complete!*\n\n"
+            f"📊 {imported} accounts processed ({updated} updated, {added} new)\n"
+            f"{breakdown}"
+        )
+    else:
+        msg = (
+            f"✅ *Salesforce import complete!*\n\n"
+            f"📊 {imported} accounts imported\n"
+            f"{breakdown}"
+        )
     if skipped:
         msg += f"⚠️ {skipped} rows skipped (blank account name)\n"
     if errors:
@@ -923,7 +942,7 @@ def _parse_draft(draft_text: str) -> tuple:
 # ── Telegram message handler ───────────────────────────────────────────────────
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    global conversation_history, _pending_draft, _last_prospect_batch
+    global conversation_history, _pending_draft, _last_prospect_batch, _csv_import_mode
 
     if str(update.effective_chat.id) != str(TELEGRAM_CHAT_ID):
         return
@@ -1129,6 +1148,18 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 pass
         except Exception as e:
             await send_message(f"Call list failed: {e}")
+        return
+
+    # ── CSV import mode commands ─────────────────────────────────────────────
+
+    elif user_text.lower() == "/import_clear":
+        _csv_import_mode = "clear"
+        await send_message("🔄 Import mode set to *clear & rewrite*. Next CSV upload will wipe existing accounts and replace with new data.\nSend `/import_merge` to switch back.")
+        return
+
+    elif user_text.lower() == "/import_merge":
+        _csv_import_mode = "merge"
+        await send_message("✅ Import mode set to *merge* (default). Next CSV upload will add new accounts and update existing ones without wiping.")
         return
 
     # ── Phase 6E commands ──────────────────────────────────────────────────────

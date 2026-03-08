@@ -456,6 +456,135 @@ def import_accounts(csv_text: str) -> dict:
 
 
 # ─────────────────────────────────────────────
+# IMPORT — MERGE (add new / update existing)
+# ─────────────────────────────────────────────
+
+def merge_accounts(csv_text: str) -> dict:
+    """
+    Parse Salesforce CSV and merge into Active Accounts tab.
+    - Existing rows matched by Name Key are updated in place.
+    - New rows are appended.
+    - Rows not in the CSV are left untouched.
+
+    Returns same shape as import_accounts().
+    """
+    errors = []
+    type_counts: dict[str, int] = {"district": 0, "school": 0, "library": 0, "company": 0}
+    skipped = 0
+    updated = 0
+    added = 0
+
+    try:
+        records = _parse_csv(csv_text)
+    except Exception as e:
+        return {"imported": 0, "districts": 0, "schools": 0, "libraries": 0,
+                "companies": 0, "skipped": 0, "updated": 0, "added": 0,
+                "errors": [f"CSV parse failed: {e}"]}
+
+    if not records:
+        return {"imported": 0, "districts": 0, "schools": 0, "libraries": 0,
+                "companies": 0, "skipped": 0, "updated": 0, "added": 0,
+                "errors": ["No valid rows found in CSV. Check column headers."]}
+
+    # Build new rows from CSV
+    new_rows_by_key: dict[str, list] = {}  # name_key → row list
+    for rec in records:
+        account_name = rec.get("account_name", "").strip()
+        if not account_name:
+            skipped += 1
+            continue
+
+        parent   = rec.get("parent_account", "").strip()
+        sf_type  = rec.get("type", "").strip()
+        acct_type = classify_account(account_name, parent, sf_type)
+        name_key  = normalize_name(account_name)
+
+        row = [
+            name_key,
+            account_name,
+            parent,
+            sf_type,
+            acct_type,
+            rec.get("open_renewal", ""),
+            rec.get("opportunities", ""),
+            rec.get("active_licenses", ""),
+            rec.get("revenue_2025", ""),
+            rec.get("lifetime_revenue", ""),
+            rec.get("last_activity", ""),
+            rec.get("last_modified", ""),
+            rec.get("state", ""),
+        ]
+        new_rows_by_key[name_key] = row
+        type_counts[acct_type] = type_counts.get(acct_type, 0) + 1
+
+    try:
+        service, sheet_id = _ensure_tab()
+
+        # Load existing rows
+        result = service.spreadsheets().values().get(
+            spreadsheetId=sheet_id,
+            range=f"'{TAB_ACTIVE_ACCOUNTS}'!A:M"
+        ).execute()
+        existing_rows = result.get("values", [])
+        headers = existing_rows[0] if existing_rows else ACTIVE_ACCOUNTS_COLUMNS
+        data_rows = existing_rows[1:] if len(existing_rows) > 1 else []
+
+        # Build index of existing rows by Name Key (column 0)
+        existing_by_key: dict[str, int] = {}  # name_key → index in data_rows
+        for i, row in enumerate(data_rows):
+            if row:
+                existing_by_key[row[0]] = i
+
+        # Update existing, collect new
+        append_rows = []
+        for name_key, new_row in new_rows_by_key.items():
+            if name_key in existing_by_key:
+                idx = existing_by_key[name_key]
+                data_rows[idx] = new_row
+                updated += 1
+            else:
+                append_rows.append(new_row)
+                added += 1
+
+        # Write back updated rows (overwrite all data rows)
+        all_rows = [headers] + data_rows + append_rows
+        service.spreadsheets().values().update(
+            spreadsheetId=sheet_id,
+            range=f"'{TAB_ACTIVE_ACCOUNTS}'!A1",
+            valueInputOption="RAW",
+            body={"values": all_rows}
+        ).execute()
+
+        # Clear any leftover rows below (in case old sheet had more rows)
+        total_written = len(all_rows)
+        service.spreadsheets().values().clear(
+            spreadsheetId=sheet_id,
+            range=f"'{TAB_ACTIVE_ACCOUNTS}'!A{total_written + 1}:Z",
+        ).execute()
+
+        logger.info(
+            f"Merged {updated + added} accounts ({updated} updated, {added} new) — "
+            + ", ".join(f"{v} {k}s" for k, v in type_counts.items() if v)
+        )
+
+    except Exception as e:
+        errors.append(f"Sheet write failed: {e}")
+        logger.error(f"merge_accounts sheet write error: {e}")
+
+    return {
+        "imported":   updated + added,
+        "districts":  type_counts.get("district", 0),
+        "schools":    type_counts.get("school", 0),
+        "libraries":  type_counts.get("library", 0),
+        "companies":  type_counts.get("company", 0),
+        "skipped":    skipped,
+        "updated":    updated,
+        "added":      added,
+        "errors":     errors,
+    }
+
+
+# ─────────────────────────────────────────────
 # QUERIES
 # ─────────────────────────────────────────────
 
