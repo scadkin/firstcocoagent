@@ -83,8 +83,7 @@ csv_importer.replace_accounts_by_state(csv_text: str, state_code: str) -> dict
 
 csv_importer.dedup_accounts() -> dict
 # {total_before, total_after, duplicates_removed, duplicate_names, errors}
-# ⚠️ BROKEN — groups by Name Key only (no state). Will merge same-named schools
-# from different states. Must fix to use Name Key + State composite key before using.
+# Uses Name Key + State as composite key (fixed Session 18). Safe to use.
 
 csv_importer.classify_account(account_name, parent_account, sf_type) -> str
 csv_importer.get_active_accounts(state_filter="") -> list[dict]

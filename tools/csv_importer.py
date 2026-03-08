@@ -767,13 +767,18 @@ def dedup_accounts() -> dict:
         data_rows = existing_rows[1:]
         total_before = len(data_rows)
 
-        # Group rows by Name Key (column 0)
+        # Find State column index so we can use Name Key + State as composite key
+        state_col_idx = headers.index("State") if "State" in headers else -1
+
+        # Group rows by composite key: Name Key (col 0) + "|" + State
         seen: dict[str, list[int]] = {}
         for i, row in enumerate(data_rows):
             name_key = row[0].strip().lower() if row and row[0] else f"__blank_{i}"
-            if name_key not in seen:
-                seen[name_key] = []
-            seen[name_key].append(i)
+            state_val = row[state_col_idx].strip().upper() if state_col_idx >= 0 and len(row) > state_col_idx else ""
+            composite_key = f"{name_key}|{state_val}"
+            if composite_key not in seen:
+                seen[composite_key] = []
+            seen[composite_key].append(i)
 
         # For each group, pick the row with the most non-empty cells
         keep_indices: set[int] = set()

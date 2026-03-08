@@ -1,5 +1,5 @@
 # SCOUT — Claude Code Reference
-*Last updated: 2026-03-08 — Session 17*
+*Last updated: 2026-03-08 — Session 18*
 
 ---
 
@@ -20,7 +20,7 @@
 - Verify morning brief shows pending prospects
 - Verify hourly check-in suggests idle research targets
 - After 6E verified, start Phase 6F (Pipeline Snapshot)
-- **Fix `/dedup_accounts` before using again** — current version groups by Name Key only, which collapses same-named schools across states. Must use Name Key + State as composite key. Function exists but is BROKEN — do not run until fixed.
+- `/dedup_accounts` **fixed** (Session 18) — now uses Name Key + State as composite key. Safe to use.
 
 ### Current status
 - Phases 1–5: ✅ all verified
@@ -70,7 +70,7 @@
 
 **CSV import default mode is MERGE (non-destructive).** Matches by Name Key: updates existing rows, appends new ones, leaves unmatched rows untouched. `/import_clear` switches to clear-and-rewrite for the next upload only. `/import_merge` switches back explicitly. `/import_replace_state CA` replaces only rows matching that state — all other states untouched.
 
-**`/dedup_accounts` is BROKEN — do not use until fixed.** Groups by Name Key only, which merges same-named schools from different states (e.g. "Columbus Middle School" in NE and OH). Must use Name Key + State as composite key. Destroyed 288 of 301 rows in Session 17 — had to restore from Google Sheets version history.
+**`/dedup_accounts` uses Name Key + State as composite key (fixed Session 18).** Safe to use — will not merge same-named schools from different states.
 
 **CSV importer preserves ALL columns from the Salesforce export.** Known columns are mapped to internal keys via `_SF_COL_MAP`. Unknown columns pass through with their original CSV header name. The sheet header row extends dynamically.
 
