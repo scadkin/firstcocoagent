@@ -74,7 +74,7 @@ TAB_LOG = "Research Log"
 TAB_ACTIVITIES = "Activities"
 TAB_ACTIVE_ACCOUNTS = "Active Accounts"
 TAB_GOALS = "Goals"
-TAB_SF_IMPORT = "Salesforce Import"
+# TAB_SF_IMPORT removed — was created but never used
 
 ACTIVITY_COLUMNS = [
     "Date", "Time", "Type", "District/Account", "Contact", "Notes", "Source", "Message ID",
@@ -131,7 +131,7 @@ def ensure_sheet_tabs_exist():
     requests = []
     all_tabs = [
         TAB_LEADS, TAB_NO_EMAIL, TAB_LOG,
-        TAB_ACTIVITIES, TAB_ACTIVE_ACCOUNTS, TAB_GOALS, TAB_SF_IMPORT,
+        TAB_ACTIVITIES, TAB_ACTIVE_ACCOUNTS, TAB_GOALS,
     ]
     for tab_name in all_tabs:
         if tab_name not in existing_tabs:
@@ -173,6 +173,82 @@ def _ensure_headers(service, sheet_id: str, tab: str, columns: list[str]):
             body={"values": [columns]}
         ).execute()
         logger.info(f"Wrote headers to tab: {tab}")
+
+
+def cleanup_and_format_sheets():
+    """
+    One-time cleanup: remove unused tabs (Sheet1, Salesforce Import)
+    and apply alternating row colors (banding) to all data tabs.
+    Safe to call on every startup — skips tabs that don't exist,
+    skips banding that's already applied.
+    """
+    service = _get_service()
+    sheet_id = _get_sheet_id()
+
+    meta = service.spreadsheets().get(spreadsheetId=sheet_id).execute()
+    sheets = meta.get("sheets", [])
+
+    # Build lookup: tab name → sheet GID
+    tab_gids = {}
+    for s in sheets:
+        props = s["properties"]
+        tab_gids[props["title"]] = props["sheetId"]
+
+    # Collect existing banded range IDs to avoid duplicates
+    existing_banding_sheet_ids = set()
+    for s in sheets:
+        for br in s.get("bandedRanges", []):
+            rng = br.get("range", {})
+            existing_banding_sheet_ids.add(rng.get("sheetId"))
+
+    requests = []
+
+    # ── Delete unused tabs ──
+    tabs_to_delete = ["Sheet1", "Salesforce Import"]
+    for tab_name in tabs_to_delete:
+        if tab_name in tab_gids:
+            requests.append({
+                "deleteSheet": {"sheetId": tab_gids[tab_name]}
+            })
+            logger.info(f"Queued deletion of unused tab: {tab_name}")
+
+    # ── Apply alternating row colors (banding) ──
+    # Light blue header, white/light gray alternating rows
+    header_color = {"red": 0.22, "green": 0.46, "blue": 0.69, "alpha": 1.0}
+    first_band = {"red": 1.0, "green": 1.0, "blue": 1.0, "alpha": 1.0}       # white
+    second_band = {"red": 0.93, "green": 0.95, "blue": 0.97, "alpha": 1.0}    # light gray-blue
+
+    for tab_name, gid in tab_gids.items():
+        if tab_name in tabs_to_delete:
+            continue  # skip tabs we're deleting
+        if gid in existing_banding_sheet_ids:
+            continue  # banding already applied
+
+        requests.append({
+            "addBanding": {
+                "bandedRange": {
+                    "range": {
+                        "sheetId": gid,
+                        "startRowIndex": 0,
+                        "startColumnIndex": 0,
+                    },
+                    "rowProperties": {
+                        "headerColor": header_color,
+                        "firstBandColor": first_band,
+                        "secondBandColor": second_band,
+                    },
+                }
+            }
+        })
+
+    if requests:
+        service.spreadsheets().batchUpdate(
+            spreadsheetId=sheet_id,
+            body={"requests": requests}
+        ).execute()
+        logger.info(f"Sheet cleanup/formatting: {len(requests)} operations applied")
+    else:
+        logger.info("Sheet cleanup/formatting: nothing to do")
 
 
 # ─────────────────────────────────────────────

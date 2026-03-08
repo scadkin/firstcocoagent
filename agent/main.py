@@ -1974,6 +1974,13 @@ async def _run_telegram_and_scheduler():
     await app.start()
     await app.updater.start_polling()
 
+    # One-time sheet cleanup: remove unused tabs + apply alternating row colors
+    try:
+        loop = asyncio.get_event_loop()
+        await loop.run_in_executor(None, sheets_writer.cleanup_and_format_sheets)
+    except Exception as e:
+        logger.warning(f"Sheet cleanup/formatting failed (non-fatal): {e}")
+
     gas_status = "GAS bridge ready" if gas_bridge_configured() else "GAS bridge not configured"
     ff_status = "Fireflies ready" if FIREFLIES_API_KEY else "FIREFLIES_API_KEY not set"
     await send_message(
