@@ -613,6 +613,130 @@ def merge_accounts(csv_text: str) -> dict:
 
 
 # ─────────────────────────────────────────────
+# IMPORT — REPLACE BY STATE
+# ─────────────────────────────────────────────
+
+def replace_accounts_by_state(csv_text: str, state_code: str) -> dict:
+    """
+    Replace all accounts for a given state with data from the CSV.
+    - Removes all existing rows where State == state_code (case-insensitive).
+    - Inserts all rows from the CSV (which should already be filtered to that state).
+    - Accounts from all other states are left completely untouched.
+    - New CSV columns not already in the sheet are appended as extra columns.
+
+    Returns same shape as merge_accounts() plus replaced count.
+    """
+    state_upper = state_code.strip().upper()
+    errors = []
+    type_counts: dict[str, int] = {"district": 0, "school": 0, "library": 0, "company": 0}
+    skipped = 0
+    replaced = 0
+    added = 0
+
+    try:
+        records, extra_cols = _parse_csv(csv_text)
+    except Exception as e:
+        return {"imported": 0, "districts": 0, "schools": 0, "libraries": 0,
+                "companies": 0, "skipped": 0, "replaced": 0, "added": 0,
+                "errors": [f"CSV parse failed: {e}"]}
+
+    if not records:
+        return {"imported": 0, "districts": 0, "schools": 0, "libraries": 0,
+                "companies": 0, "skipped": 0, "replaced": 0, "added": 0,
+                "errors": ["No valid rows found in CSV. Check column headers."]}
+
+    try:
+        service = _get_service()
+        sheet_id = _get_sheet_id()
+
+        # Load existing sheet (all columns)
+        result = service.spreadsheets().values().get(
+            spreadsheetId=sheet_id,
+            range=f"'{TAB_ACTIVE_ACCOUNTS}'!A1:ZZ"
+        ).execute()
+        existing_rows = result.get("values", [])
+        existing_headers = existing_rows[0] if existing_rows else ACTIVE_ACCOUNTS_COLUMNS
+        data_rows = existing_rows[1:] if len(existing_rows) > 1 else []
+
+        # Find State column index in existing sheet
+        state_col_idx = existing_headers.index("State") if "State" in existing_headers else -1
+
+        # Keep rows that are NOT the target state
+        kept_rows = []
+        for row in data_rows:
+            padded = row + [""] * (len(existing_headers) - len(row))
+            row_state = padded[state_col_idx].strip().upper() if state_col_idx >= 0 else ""
+            if row_state != state_upper:
+                kept_rows.append(padded)
+            else:
+                replaced += 1
+
+        # Extend headers with any new columns from the CSV
+        full_headers = list(existing_headers)
+        for col in extra_cols:
+            if col not in full_headers:
+                full_headers.append(col)
+
+        # Pad kept rows to new header length
+        for i, row in enumerate(kept_rows):
+            kept_rows[i] = row + [""] * (len(full_headers) - len(row))
+
+        # Build new rows from CSV
+        new_rows = []
+        for rec in records:
+            account_name = rec.get("account_name", "").strip()
+            if not account_name:
+                skipped += 1
+                continue
+            parent   = rec.get("parent_account", "").strip()
+            sf_type  = rec.get("type", "").strip()
+            acct_type = classify_account(account_name, parent, sf_type)
+            name_key  = normalize_name(account_name)
+            row = _build_row_for_headers(full_headers, rec, name_key, acct_type)
+            new_rows.append(row)
+            added += 1
+            type_counts[acct_type] = type_counts.get(acct_type, 0) + 1
+
+        # Write back: header + kept rows (other states) + new rows (this state)
+        all_rows = [full_headers] + kept_rows + new_rows
+        service.spreadsheets().values().update(
+            spreadsheetId=sheet_id,
+            range=f"'{TAB_ACTIVE_ACCOUNTS}'!A1",
+            valueInputOption="RAW",
+            body={"values": all_rows}
+        ).execute()
+
+        # Clear any leftover rows below
+        total_written = len(all_rows)
+        service.spreadsheets().values().clear(
+            spreadsheetId=sheet_id,
+            range=f"'{TAB_ACTIVE_ACCOUNTS}'!A{total_written + 1}:ZZ",
+        ).execute()
+
+        logger.info(
+            f"State-replace {state_upper}: removed {replaced} old rows, "
+            f"added {added} new — "
+            + ", ".join(f"{v} {k}s" for k, v in type_counts.items() if v)
+        )
+
+    except Exception as e:
+        errors.append(f"Sheet write failed: {e}")
+        logger.error(f"replace_accounts_by_state error: {e}")
+
+    return {
+        "imported":   added,
+        "districts":  type_counts.get("district", 0),
+        "schools":    type_counts.get("school", 0),
+        "libraries":  type_counts.get("library", 0),
+        "companies":  type_counts.get("company", 0),
+        "skipped":    skipped,
+        "replaced":   replaced,
+        "added":      added,
+        "errors":     errors,
+    }
+
+
+# ─────────────────────────────────────────────
 # QUERIES
 # ─────────────────────────────────────────────
 

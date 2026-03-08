@@ -61,6 +61,8 @@ _last_prospect_batch: list[dict] = []
 
 # CSV import mode: "merge" (default) or "clear"
 _csv_import_mode: str = "merge"
+# CSV state-replace mode: when set (e.g. "CA"), next upload replaces only that state's rows
+_csv_import_state: str = ""
 
 
 def get_gas_bridge():
@@ -853,9 +855,15 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
 
-    global _csv_import_mode
+    global _csv_import_mode, _csv_import_state
     mode = _csv_import_mode
-    mode_label = "merge" if mode == "merge" else "clear & rewrite"
+    state_replace = _csv_import_state
+    if state_replace:
+        mode_label = f"state-replace ({state_replace})"
+    elif mode == "clear":
+        mode_label = "clear & rewrite"
+    else:
+        mode_label = "merge"
     await send_message(f"📥 Got `{filename}` — importing Salesforce accounts ({mode_label} mode)...")
 
     try:
@@ -868,7 +876,12 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     try:
         loop = asyncio.get_event_loop()
-        if mode == "clear":
+        if state_replace:
+            result = await loop.run_in_executor(
+                None, csv_importer.replace_accounts_by_state, csv_text, state_replace
+            )
+            _csv_import_state = ""  # reset after use
+        elif mode == "clear":
             result = await loop.run_in_executor(None, csv_importer.import_accounts, csv_text)
             _csv_import_mode = "merge"  # reset to merge after a clear import
         else:
@@ -885,6 +898,7 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
     skipped   = result.get("skipped", 0)
     updated   = result.get("updated", 0)
     added     = result.get("added", 0)
+    replaced  = result.get("replaced", 0)
     errors    = result.get("errors", [])
     sheet_url = sheets_writer.get_master_sheet_url()
 
@@ -894,7 +908,13 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if companies:
         breakdown += f"  • {companies} other (companies/orgs)\n"
 
-    if mode == "merge" and (updated or added):
+    if state_replace:
+        msg = (
+            f"✅ *{state_replace} accounts replaced!*\n\n"
+            f"📊 Removed {replaced} old {state_replace} rows, added {added} new\n"
+            f"{breakdown}"
+        )
+    elif mode == "merge" and (updated or added):
         msg = (
             f"✅ *Salesforce merge complete!*\n\n"
             f"📊 {imported} accounts processed ({updated} updated, {added} new)\n"
@@ -942,7 +962,7 @@ def _parse_draft(draft_text: str) -> tuple:
 # ── Telegram message handler ───────────────────────────────────────────────────
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    global conversation_history, _pending_draft, _last_prospect_batch, _csv_import_mode
+    global conversation_history, _pending_draft, _last_prospect_batch, _csv_import_mode, _csv_import_state
 
     if str(update.effective_chat.id) != str(TELEGRAM_CHAT_ID):
         return
@@ -1159,7 +1179,23 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     elif user_text.lower() == "/import_merge":
         _csv_import_mode = "merge"
+        _csv_import_state = ""
         await send_message("✅ Import mode set to *merge* (default). Next CSV upload will add new accounts and update existing ones without wiping.")
+        return
+
+    elif user_text.lower().startswith("/import_replace_state"):
+        parts = user_text.strip().split()
+        if len(parts) < 2:
+            await send_message("Usage: `/import_replace_state CA` — replaces all accounts for that state, leaves all other states untouched.")
+            return
+        _csv_import_state = parts[1].upper()
+        _csv_import_mode = "merge"  # ensure normal mode doesn't interfere
+        await send_message(
+            f"🔄 State-replace mode set for *{_csv_import_state}*.\n"
+            f"Next CSV upload will remove all existing {_csv_import_state} accounts and replace with new data.\n"
+            f"All other states will be untouched.\n"
+            f"Send the CSV now, or `/import_merge` to cancel."
+        )
         return
 
     # ── Phase 6E commands ──────────────────────────────────────────────────────
