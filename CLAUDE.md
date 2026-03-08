@@ -5,22 +5,23 @@
 
 ## CURRENT STATE — update this after each session
 
-**Active Accounts tab freshly rebuilt with 180-account complete Salesforce export (all states + SoCal with County column). State-replace import mode added. Phase 6E testing paused — 5 of 7 prospect commands still need testing.**
+**Phase 6E testing at 4/7 commands verified. Sequence builder JSON fix deployed. Active customer conflict check added to `/prospect_approve`. `/dedup_accounts` fixed. Session 19 picks up at re-testing approve (full pipeline) + skip + add + all.**
 
-### What still needs to be done (Session 18)
-- Continue Phase 6E testing from where we left off:
+### What still needs to be done (Session 19)
+- Continue Phase 6E testing:
   1. `/prospect_discover TX` — PASSED (Session 16)
   2. `/prospect_upward` — PASSED (Session 16)
-  3. `/prospect` — NOT YET TESTED (show pending queue)
-  4. `/prospect_approve 1` — NOT YET TESTED (approve → research → auto-sequence → Google Doc → complete)
+  3. `/prospect` — PASSED (Session 18)
+  4. `/prospect_approve 1` — PARTIAL (Session 18): research ran ✅, sequence failed ❌ (JSON bug fixed — retest needed)
   5. `/prospect_skip 2` — NOT YET TESTED
   6. `/prospect_add Austin ISD, TX` — NOT YET TESTED
   7. `/prospect_all` — NOT YET TESTED
-- Verify auto-pipeline end-to-end: approve → research runs → `_on_prospect_research_complete` fires → sequence auto-builds → Google Doc created → prospect marked complete in queue
+- Re-verify `/prospect_approve` end-to-end: approve → research → sequence builds (JSON fix) → Google Doc → marked complete in queue
+- Test active customer conflict warning (approve a district that IS in Active Accounts as "district" type — should warn and ask yes/no)
+- Test `/prospect_skip`, `/prospect_add`, `/prospect_all`
 - Verify morning brief shows pending prospects
 - Verify hourly check-in suggests idle research targets
 - After 6E verified, start Phase 6F (Pipeline Snapshot)
-- `/dedup_accounts` **fixed** (Session 18) — now uses Name Key + State as composite key. Safe to use.
 
 ### Current status
 - Phases 1–5: ✅ all verified
@@ -28,7 +29,7 @@
 - Phase 6B (Research Engine — 15 layers): ✅
 - Phase 6C (Activity Tracking + KPI + CSV Import + Gmail Intel): ✅
 - Phase 6D (Daily Call List): ✅
-- Phase 6E (District Prospecting Queue): partially verified — 2/7 commands passed, 5 remaining
+- Phase 6E (District Prospecting Queue): partially verified — 3/7 commands fully passed, approve partially passed (research ✅, sequence fix deployed but not re-verified)
 
 ### Phase 6 roadmap
 - **6E** — District Prospecting Queue (partially verified, testing continues next session)
@@ -100,9 +101,15 @@
 
 **Sequence building rules are in `memory/sequence_building_rules.md`.** Load as context when auto-building sequences.
 
-**`global` declarations go at the TOP of `handle_message()`, not in elif blocks.** Python SyntaxError if `global` appears after first use of the variable. All globals in one line: `global conversation_history, _pending_draft, _last_prospect_batch, _csv_import_mode, _csv_import_state`.
+**`global` declarations go at the TOP of `handle_message()`, not in elif blocks.** Python SyntaxError if `global` appears after first use of the variable. All globals in one line: `global conversation_history, _pending_draft, _last_prospect_batch, _pending_approve_force, _csv_import_mode, _csv_import_state`.
 
 **`_on_prospect_research_complete` is the auto-pipeline callback.** Runs `_on_research_complete` first (standard flow), then auto-builds a strategy-aware sequence, writes Google Doc, marks prospect complete. Uses `sequence_builder` (lazy import inside the callback). If sequence fails, prospect is still marked complete.
+
+**`sequence_builder.build_sequence()` uses max_tokens=6000 and retries once on JSON parse failure.** First attempt uses A/B variants. If JSON parse fails, retries with `ab_variants=False` (simpler, smaller response). Large districts (LAUSD etc.) can produce malformed JSON on first attempt due to long email bodies.
+
+**`/prospect_approve` checks Active Accounts before queuing research.** If any approved district is already an active customer (Account Type == "district"), Scout warns and asks yes/no. `_pending_approve_force` global holds flagged districts awaiting confirmation. Replying "yes"/"confirm"/"proceed" queues them anyway; "no"/"skip"/"cancel" clears them. Clean districts (not active customers) are queued immediately without interruption.
+
+**`_last_prospect_batch` is in-memory only — lost on bot restart.** Always run `/prospect` before `/prospect_approve` or `/prospect_skip` in a new session or after any Railway redeploy. The batch is not persisted to disk or Sheets.
 
 **Two prospecting strategies — upward and cold.** Upward = districts with active school accounts, no district deal. Cold = no CodeCombat presence. Strategy column tracks this. Sequences differ by strategy.
 
@@ -267,5 +274,5 @@ firstcocoagent/
 | `/import_clear` | next CSV upload will clear & rewrite (then resets to merge) |
 | `/import_merge` | switch CSV upload back to merge mode (default) |
 | `/import_replace_state CA` | next CSV upload replaces only that state's rows; all other states untouched (then resets) |
-| `/dedup_accounts` | **BROKEN — DO NOT USE.** Remove duplicate rows (needs Name Key + State fix) |
+| `/dedup_accounts` | Remove duplicate rows from Active Accounts tab (uses Name Key + State composite key — fixed Session 18) |
 | send a `.csv` file | Salesforce active accounts import (merge by default) |
