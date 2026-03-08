@@ -432,14 +432,12 @@ def get_stale_opps(stale_days: int = None) -> list[dict]:
     for opp in open_opps:
         reasons = []
 
-        # Check last activity staleness
+        # Check last activity staleness (skip if field is empty — no data ≠ stale)
         last_activity = _parse_date(opp.get("Last Activity", ""))
         if last_activity:
             days_since = (today - last_activity).days
             if days_since > stale_days:
                 reasons.append(f"No activity in {days_since} days")
-        elif not opp.get("Last Activity", "").strip():
-            reasons.append("No last activity date")
 
         # Check past-due close date
         close_date = _parse_date(opp.get("Close Date", ""))
@@ -539,7 +537,7 @@ def format_pipeline_for_telegram(summary: dict) -> str:
             acct = opp.get("Account Name", "")
             reason = opp.get("stale_reason", "")
             label = f"{name}"
-            if acct:
+            if acct and acct.lower() != name.lower():
                 label += f" ({acct})"
             lines.append(f"  • {label} — {reason}")
         if stale_count > 5:
