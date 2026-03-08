@@ -141,47 +141,80 @@ Primary product to highlight: {focus_product}
 - Day offsets should feel natural (not every 3 days mechanically)
 """
 
-    try:
-        response = client.messages.create(
-            model="claude-sonnet-4-6",
-            max_tokens=4000,
-            system=SEQUENCE_SYSTEM,
-            messages=[{"role": "user", "content": user_prompt}],
-        )
-        raw = response.content[0].text.strip()
+    raw = ""
+    last_error = ""
 
-        # Strip markdown fences if Claude added them despite instructions
-        if raw.startswith("```"):
-            raw = raw.split("```", 2)[1]
-            if raw.startswith("json"):
-                raw = raw[4:]
-            raw = raw.strip()
-        if raw.endswith("```"):
-            raw = raw[:-3].strip()
+    for attempt in range(2):
+        # On retry: drop A/B variants to produce a simpler, smaller response
+        if attempt == 1:
+            ab_instruction = "Leave variant_b_subject and variant_b_body as empty strings for all steps."
+            user_prompt = f"""Build a {num_steps}-step cold email sequence.
 
-        steps = json.loads(raw)
+Campaign: {campaign_name}
+Target role: {target_role}
+Primary product to highlight: {focus_product}
+{f'Additional context: {additional_context}' if additional_context else ''}
 
-        # Normalize: ensure all required fields exist
-        normalized = []
-        for s in steps:
-            normalized.append({
-                "step": int(s.get("step", len(normalized) + 1)),
-                "day": int(s.get("day", 0)),
-                "label": str(s.get("label", "")),
-                "subject": str(s.get("subject", "")),
-                "body": str(s.get("body", "")),
-                "variant_b_subject": str(s.get("variant_b_subject", "")),
-                "variant_b_body": str(s.get("variant_b_body", "")),
-            })
+## CodeCombat Products
+{PRODUCTS_REFERENCE}
 
-        return {"success": True, "steps": normalized, "raw": raw, "error": ""}
+## Sequence Templates (structural guidance)
+{templates}
+{voice_section}
 
-    except json.JSONDecodeError as e:
-        logger.error(f"sequence_builder: JSON parse error: {e}\nRaw: {raw[:500]}")
-        return {"success": False, "steps": [], "raw": raw, "error": f"JSON parse error: {e}"}
-    except Exception as e:
-        logger.error(f"sequence_builder: build_sequence failed: {e}")
-        return {"success": False, "steps": [], "raw": "", "error": str(e)}
+## Instructions
+- Pick the archetype from the templates that best fits "{target_role}" and follow its structure
+- If {num_steps} is more than the archetype steps, extend with nurture/re-engagement steps
+- {ab_instruction}
+- Return exactly {num_steps} step objects in a JSON array
+- Day offsets should feel natural (not every 3 days mechanically)
+"""
+        try:
+            response = client.messages.create(
+                model="claude-sonnet-4-6",
+                max_tokens=6000,
+                system=SEQUENCE_SYSTEM,
+                messages=[{"role": "user", "content": user_prompt}],
+            )
+            raw = response.content[0].text.strip()
+
+            # Strip markdown fences if Claude added them despite instructions
+            if raw.startswith("```"):
+                raw = raw.split("```", 2)[1]
+                if raw.startswith("json"):
+                    raw = raw[4:]
+                raw = raw.strip()
+            if raw.endswith("```"):
+                raw = raw[:-3].strip()
+
+            steps = json.loads(raw)
+
+            # Normalize: ensure all required fields exist
+            normalized = []
+            for s in steps:
+                normalized.append({
+                    "step": int(s.get("step", len(normalized) + 1)),
+                    "day": int(s.get("day", 0)),
+                    "label": str(s.get("label", "")),
+                    "subject": str(s.get("subject", "")),
+                    "body": str(s.get("body", "")),
+                    "variant_b_subject": str(s.get("variant_b_subject", "")),
+                    "variant_b_body": str(s.get("variant_b_body", "")),
+                })
+
+            return {"success": True, "steps": normalized, "raw": raw, "error": ""}
+
+        except json.JSONDecodeError as e:
+            last_error = f"JSON parse error: {e}"
+            logger.warning(f"sequence_builder: attempt {attempt + 1} JSON parse error: {e}\nRaw: {raw[:500]}")
+            if attempt == 0:
+                logger.info("sequence_builder: retrying without A/B variants")
+                continue
+        except Exception as e:
+            logger.error(f"sequence_builder: build_sequence failed: {e}")
+            return {"success": False, "steps": [], "raw": raw, "error": str(e)}
+
+    return {"success": False, "steps": [], "raw": raw, "error": last_error}
 
 
 def write_sequence_to_doc(
