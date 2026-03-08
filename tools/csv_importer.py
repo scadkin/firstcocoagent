@@ -916,7 +916,7 @@ def get_districts_with_schools() -> list[dict]:
         name_key = normalize_name(parent_name)
         if name_key in existing_district_keys:
             continue  # already have district-level deal — not a target
-        state = next((s.get("state", "") for s in children if s.get("state")), "")
+        state = next((s.get("State", "") for s in children if s.get("State")), "")
         result.append({
             "display_name": parent_name,
             "name_key":     name_key,
