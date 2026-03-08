@@ -269,13 +269,24 @@ def _parse_opp_csv(csv_text: str) -> list[dict]:
 def is_opp_csv(csv_text: str) -> bool:
     """
     Check if a CSV looks like an opportunity export (not accounts).
-    Returns True if the header row contains 2+ of {stage, close date, opportunity name}.
+    Returns True if the header row contains 2+ of {stage, close date, opportunity name}
+    AND does NOT contain account-specific columns (# of Active Licenses, # of Opportunities).
+
+    Steven's "active accounts" Salesforce report includes opp columns (Stage, Close Date,
+    Opportunity Name) because it's a joined report. Account-specific columns like
+    "# of Active Licenses" and "# of Opportunities" distinguish it from a pure opp export.
     """
     try:
         reader = csv.DictReader(io.StringIO(csv_text.strip()))
         if not reader.fieldnames:
             return False
         headers_lower = {h.strip().lower() for h in reader.fieldnames}
+
+        # Account-specific columns — if present, this is an account CSV, not opps
+        account_signals = {"# of active licenses", "# of opportunities"}
+        if account_signals & headers_lower:
+            return False
+
         opp_signals = {"stage", "close date", "close date (2)", "opportunity name"}
         matches = opp_signals & headers_lower
         return len(matches) >= 2
