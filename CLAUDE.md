@@ -1,16 +1,14 @@
 # SCOUT — Claude Code Reference
-*Last updated: 2026-03-08 — Session 20*
+*Last updated: 2026-03-08 — Session 21*
 
 ---
 
 ## CURRENT STATE — update this after each session
 
-**Phase 6F (Pipeline Snapshot) partially verified. Tests 1–2 passed. 5 tests remain. 3-tier stale alerts working.**
+**Phase 6F (Pipeline Snapshot) mostly verified. Tests 1–4 passed. 3 tests remain. Multiple CSV import quality fixes shipped.**
 
-### What still needs to be done (Session 21)
-- Finish Phase 6F verification (Tests 3–7):
-  3. `/pipeline_import` → set flag, upload CSV, verify it goes to Pipeline tab
-  4. Upload an account CSV → verify it still goes to Active Accounts (no false positive from auto-detect)
+### What still needs to be done (Session 22)
+- Finish Phase 6F verification (Tests 5–7):
   5. `/import_clear` then upload opp CSV → verify it goes to Active Accounts (explicit override)
   6. EOD report → verify stale alerts appear when pipeline has stale opps (wait for 4:30pm or trigger manually)
   7. Empty pipeline → `/pipeline` shows "No open opportunities"
@@ -24,11 +22,11 @@
 - Phase 6C (Activity Tracking + KPI + CSV Import + Gmail Intel): ✅
 - Phase 6D (Daily Call List): ✅
 - Phase 6E (District Prospecting Queue): ✅ fully verified (Session 19)
-- Phase 6F (Pipeline Snapshot): ✅ Tests 1–2 passed, 5 remain
+- Phase 6F (Pipeline Snapshot): ✅ Tests 1–4 passed, 3 remain
 
 ### Phase 6 roadmap
 - **6E** — District Prospecting Queue ✅ complete
-- **6F** — Pipeline Snapshot — partially verified (Session 20)
+- **6F** — Pipeline Snapshot — mostly verified (Session 21)
 
 ---
 
@@ -70,6 +68,10 @@
 
 **`/dedup_accounts` uses Name Key + State as composite key (fixed Session 18).** Safe to use — will not merge same-named schools from different states.
 
+**`merge_accounts()` auto-deduplicates existing rows before merging.** If multiple rows share the same Name Key, keeps only the last one. Prevents duplicate buildup from repeated uploads (fixed Session 21).
+
+**`cleanup_and_format_sheets()` runs on startup.** Deletes unused tabs (Sheet1, Salesforce Import), applies alternating row banding (white/light gray-blue) to all tabs. Safe to call repeatedly — skips already-banded tabs.
+
 **`get_districts_with_schools()` state key is `"State"` (capital S).** Active Accounts sheet rows use capital-S key. Using `s.get("state")` returns empty string — always use `s.get("State")`. Fixed Session 19.
 
 **CSV importer preserves ALL columns from the Salesforce export.** Known columns are mapped to internal keys via `_SF_COL_MAP`. Unknown columns pass through with their original CSV header name. The sheet header row extends dynamically.
@@ -79,6 +81,8 @@
 **CSV uploads decode with utf-8-sig.** Strips BOM from Salesforce/Excel exports.
 
 **Pipeline tab uses REPLACE ALL on import — not merge.** Pipeline is a point-in-time snapshot. Every opp CSV upload clears and rewrites the entire Pipeline tab.
+
+**Pipeline importer preserves ALL CSV columns.** Known columns mapped via `_OPP_COL_MAP`, unknown columns pass through with original header name. Same dynamic header pattern as csv_importer.
 
 **Auto-detect opp CSV by Stage + Close Date headers (with account exclusion).** If CSV header contains 2+ of {Stage, Close Date, Opportunity Name} AND does NOT contain account-specific columns (# of Active Licenses, # of Opportunities), it routes to Pipeline tab. Explicit `/import_clear` or `/import_replace_state` overrides auto-detect and forces account import.
 
@@ -110,7 +114,7 @@
 
 **Sequence building rules are in `memory/sequence_building_rules.md`.** Load as context when auto-building sequences.
 
-**`global` declarations go at the TOP of `handle_message()`, not in elif blocks.** Python SyntaxError if `global` appears after first use of the variable. All globals in one line: `global conversation_history, _pending_draft, _last_prospect_batch, _pending_approve_force, _csv_import_mode, _csv_import_state, _pipeline_import_mode`.
+**`global` declarations go at the TOP of `handle_message()`, not in elif blocks.** Python SyntaxError if `global` appears after first use of the variable. All globals in one line: `global conversation_history, _pending_draft, _last_prospect_batch, _pending_approve_force, _csv_import_mode, _csv_import_state, _pipeline_import_mode, _pending_csv_intent`.
 
 **`_on_prospect_research_complete` is the auto-pipeline callback.** Runs `_on_research_complete` first (standard flow), then auto-builds a strategy-aware sequence, writes Google Doc, marks prospect complete. Uses `sequence_builder` (lazy import inside the callback). If sequence fails, prospect is still marked complete.
 
