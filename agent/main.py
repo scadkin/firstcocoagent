@@ -58,6 +58,8 @@ _fireflies_gmail_seeded: bool = False    # True after first scan seeds existing 
 
 # Phase 6E: Prospecting queue — last shown batch for approve/skip indexing
 _last_prospect_batch: list[dict] = []
+# Districts flagged as existing customers during approve — awaiting confirmation to proceed
+_pending_approve_force: list[dict] = []
 
 # CSV import mode: "merge" (default) or "clear"
 _csv_import_mode: str = "merge"
@@ -962,7 +964,7 @@ def _parse_draft(draft_text: str) -> tuple:
 # ── Telegram message handler ───────────────────────────────────────────────────
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    global conversation_history, _pending_draft, _last_prospect_batch, _csv_import_mode, _csv_import_state
+    global conversation_history, _pending_draft, _last_prospect_batch, _pending_approve_force, _csv_import_mode, _csv_import_state
 
     if str(update.effective_chat.id) != str(TELEGRAM_CHAT_ID):
         return
@@ -1289,19 +1291,54 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             if not approved:
                 await send_message("No valid indices to approve.")
                 return
-            names = [d.get("District Name", "?") for d in approved]
-            await send_message(f"✅ Approved {len(approved)} districts: {', '.join(names)}\nQueuing research...")
+
+            # Check approved districts against Active Accounts — warn if already a customer
+            active_accounts = await loop.run_in_executor(None, csv_importer.get_active_accounts)
+            active_district_keys = {
+                csv_importer.normalize_name(a.get("Display Name", ""))
+                for a in active_accounts
+                if a.get("Account Type", "").lower() == "district"
+            }
+
+            clean = []
+            flagged = []
             for d in approved:
-                name_key = d.get("Name Key", "")
-                district_prospector.mark_researching(name_key)
-                await research_queue.enqueue(
-                    district_name=d.get("District Name", ""),
-                    state=d.get("State", ""),
-                    progress_callback=_on_research_progress,
-                    completion_callback=lambda result, prospect=d: asyncio.ensure_future(
-                        _on_prospect_research_complete(result, prospect)
-                    ),
+                nk = d.get("Name Key", "") or csv_importer.normalize_name(d.get("District Name", ""))
+                if nk in active_district_keys:
+                    flagged.append(d)
+                else:
+                    clean.append(d)
+
+            # Queue research for clean districts immediately
+            if clean:
+                names = [d.get("District Name", "?") for d in clean]
+                await send_message(f"✅ Approved {len(clean)} district(s): {', '.join(names)}\nQueuing research...")
+                for d in clean:
+                    district_prospector.mark_researching(d.get("Name Key", ""))
+                    await research_queue.enqueue(
+                        district_name=d.get("District Name", ""),
+                        state=d.get("State", ""),
+                        progress_callback=_on_research_progress,
+                        completion_callback=lambda result, prospect=d: asyncio.ensure_future(
+                            _on_prospect_research_complete(result, prospect)
+                        ),
+                    )
+
+            # Warn about flagged districts and ask for confirmation
+            if flagged:
+                _pending_approve_force = flagged
+                flag_names = "\n".join(
+                    f"  • *{d.get('District Name', '?')}* — already an active customer (district-level deal)"
+                    for d in flagged
                 )
+                await send_message(
+                    f"⚠️ *Active customer conflict detected:*\n{flag_names}\n\n"
+                    f"These districts already have a district-level deal in Active Accounts. "
+                    f"Prospecting them is usually not the priority — expansion or referral outreach "
+                    f"would be handled differently.\n\n"
+                    f"Reply *yes* to approve them anyway, or *no* to skip them."
+                )
+
         except Exception as e:
             await send_message(f"Approve error: {e}")
         return
@@ -1376,6 +1413,32 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await send_message(district_prospector.format_batch_for_telegram(pending))
         except Exception as e:
             await send_message(f"Prospect queue error: {e}")
+        return
+
+    elif _pending_approve_force and user_text.lower() in ["yes", "approve anyway", "confirm", "continue", "proceed"]:
+        districts_to_force = _pending_approve_force
+        _pending_approve_force = []
+        try:
+            names = [d.get("District Name", "?") for d in districts_to_force]
+            await send_message(f"✅ Approved {len(districts_to_force)} district(s) anyway: {', '.join(names)}\nQueuing research...")
+            for d in districts_to_force:
+                district_prospector.mark_researching(d.get("Name Key", ""))
+                await research_queue.enqueue(
+                    district_name=d.get("District Name", ""),
+                    state=d.get("State", ""),
+                    progress_callback=_on_research_progress,
+                    completion_callback=lambda result, prospect=d: asyncio.ensure_future(
+                        _on_prospect_research_complete(result, prospect)
+                    ),
+                )
+        except Exception as e:
+            await send_message(f"Force-approve error: {e}")
+        return
+
+    elif _pending_approve_force and user_text.lower() in ["no", "skip", "cancel"]:
+        skipped_names = [d.get("District Name", "?") for d in _pending_approve_force]
+        _pending_approve_force = []
+        await send_message(f"Skipped: {', '.join(skipped_names)}. No research queued.")
         return
 
     elif _pending_draft and any(
