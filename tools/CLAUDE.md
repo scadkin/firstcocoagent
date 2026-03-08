@@ -161,9 +161,10 @@ pipeline_tracker.format_pipeline_for_telegram(summary: dict) -> str
 pipeline_tracker.build_pipeline_alerts() -> str
 # EOD injection text. Empty string if no alerts.
 
-# Pipeline tab columns:
+# Pipeline tab columns (base — extra CSV columns preserved dynamically):
 # Opportunity Name | Account Name | Parent Account | Stage | Amount | Close Date |
-# Next Step | Age (days) | Last Activity | State | Created Date | Date Imported
+# Next Step | Age (days) | Last Activity | State | Created Date | Date Imported |
+# Type | Primary Contact | Probability (%) | Description | Opportunity Owner
 # Closed stages: "closed won", "closed lost", "closed - lost", "closed - won"
 # Stale threshold: PIPELINE_STALE_DAYS env var (default 14)
 ```

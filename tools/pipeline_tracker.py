@@ -50,6 +50,11 @@ PIPELINE_COLUMNS = [
     "State",
     "Created Date",
     "Date Imported",
+    "Type",
+    "Primary Contact",
+    "Probability (%)",
+    "Description",
+    "Opportunity Owner",
 ]
 
 # Salesforce opp CSV headers → internal keys (case-insensitive match)
@@ -191,6 +196,50 @@ def _smart_title_case(name: str) -> str:
     return " ".join(result)
 
 
+# Map from internal keys back to Pipeline column headers
+_KEY_TO_COLUMN = {
+    "opp_name":        "Opportunity Name",
+    "account_name":    "Account Name",
+    "parent_account":  "Parent Account",
+    "stage":           "Stage",
+    "amount":          "Amount",
+    "close_date":      "Close Date",
+    "next_step":       "Next Step",
+    "age":             "Age (days)",
+    "last_activity":   "Last Activity",
+    "state":           "State",
+    "created_date":    "Created Date",
+    "opp_type":        "Type",
+    "primary_contact": "Primary Contact",
+    "probability":     "Probability (%)",
+    "description":     "Description",
+    "owner":           "Opportunity Owner",
+}
+
+
+def _build_pipeline_row(headers: list[str], rec: dict, date_imported: str) -> list:
+    """Build a sheet row matching the given headers from a parsed opp record."""
+    row = []
+    for h in headers:
+        if h == "Date Imported":
+            row.append(date_imported)
+            continue
+        # Find internal key for this header
+        internal_key = None
+        for k, v in _KEY_TO_COLUMN.items():
+            if v == h:
+                internal_key = k
+                break
+        if internal_key and internal_key in rec:
+            row.append(rec[internal_key])
+        elif h in rec:
+            # Extra column — stored under original CSV header name
+            row.append(rec[h])
+        else:
+            row.append("")
+    return row
+
+
 def _clean_amount(val: str) -> str:
     """Strip $ and commas from amount, return clean number string."""
     if not val:
@@ -218,15 +267,23 @@ def _parse_amount_float(val: str) -> float:
 # CSV PARSING
 # ─────────────────────────────────────────────
 
-def _parse_opp_csv(csv_text: str) -> list[dict]:
+def _parse_opp_csv(csv_text: str) -> tuple[list[dict], list[str]]:
     """
     Parse Salesforce opp CSV into normalized dicts.
     Computes Age from Created Date if not already present.
     Cleans Amount field.
+    Returns (records, extra_cols) — extra_cols are CSV columns not in _OPP_COL_MAP.
     """
     reader = csv.DictReader(io.StringIO(csv_text.strip()))
     if not reader.fieldnames:
-        return []
+        return [], []
+
+    # Identify extra columns not covered by _OPP_COL_MAP
+    extra_cols = []
+    for h in reader.fieldnames:
+        h_clean = h.strip()
+        if h_clean and h_clean.lower() not in _OPP_COL_MAP:
+            extra_cols.append(h_clean)
 
     records = []
     today = date.today()
@@ -246,7 +303,7 @@ def _parse_opp_csv(csv_text: str) -> list[dict]:
             continue
 
         # Normalize ALL CAPS names to sentence case
-        for key in ("opp_name", "account_name", "parent_account"):
+        for key in ("opp_name", "account_name", "parent_account", "primary_contact"):
             if row.get(key):
                 row[key] = _smart_title_case(row[key])
 
@@ -263,7 +320,7 @@ def _parse_opp_csv(csv_text: str) -> list[dict]:
 
         records.append(row)
 
-    return records
+    return records, extra_cols
 
 
 def is_opp_csv(csv_text: str) -> bool:
@@ -314,7 +371,7 @@ def import_pipeline(csv_text: str) -> dict:
     skipped = 0
 
     try:
-        records = _parse_opp_csv(csv_text)
+        records, extra_cols = _parse_opp_csv(csv_text)
     except Exception as e:
         return {"imported": 0, "open": 0, "closed": 0, "total_value": 0,
                 "skipped": 0, "errors": [f"CSV parse failed: {e}"]}
@@ -323,6 +380,12 @@ def import_pipeline(csv_text: str) -> dict:
         return {"imported": 0, "open": 0, "closed": 0, "total_value": 0,
                 "skipped": 0,
                 "errors": ["No valid rows found in CSV. Check column headers."]}
+
+    # Build full headers: base columns + any extra CSV columns
+    full_headers = list(PIPELINE_COLUMNS)
+    for col in extra_cols:
+        if col not in full_headers:
+            full_headers.append(col)
 
     today_str = date.today().strftime("%m/%d/%Y")
     rows_to_write = []
@@ -343,41 +406,36 @@ def import_pipeline(csv_text: str) -> dict:
             open_count += 1
             total_value += _parse_amount_float(amount)
 
-        row = [
-            opp_name,
-            rec.get("account_name", ""),
-            rec.get("parent_account", ""),
-            stage,
-            amount,
-            rec.get("close_date", ""),
-            rec.get("next_step", ""),
-            rec.get("age", ""),
-            rec.get("last_activity", ""),
-            rec.get("state", ""),
-            rec.get("created_date", ""),
-            today_str,
-        ]
+        row = _build_pipeline_row(full_headers, rec, today_str)
         rows_to_write.append(row)
         imported += 1
 
     try:
-        service, sheet_id = _ensure_tab()
+        service = _get_service()
+        sheet_id = _get_sheet_id()
 
-        # Clear existing data (keep header)
+        # Ensure tab exists
+        meta = service.spreadsheets().get(spreadsheetId=sheet_id).execute()
+        existing = {s["properties"]["title"] for s in meta.get("sheets", [])}
+        if TAB_PIPELINE not in existing:
+            service.spreadsheets().batchUpdate(
+                spreadsheetId=sheet_id,
+                body={"requests": [{"addSheet": {"properties": {"title": TAB_PIPELINE}}}]}
+            ).execute()
+
+        # Clear entire tab and rewrite with headers + data
         service.spreadsheets().values().clear(
             spreadsheetId=sheet_id,
-            range=f"'{TAB_PIPELINE}'!A2:ZZ",
+            range=f"'{TAB_PIPELINE}'!A1:ZZ",
         ).execute()
 
-        # Write new data
-        if rows_to_write:
-            service.spreadsheets().values().append(
-                spreadsheetId=sheet_id,
-                range=f"'{TAB_PIPELINE}'!A2",
-                valueInputOption="RAW",
-                insertDataOption="INSERT_ROWS",
-                body={"values": rows_to_write}
-            ).execute()
+        all_rows = [full_headers] + rows_to_write
+        service.spreadsheets().values().update(
+            spreadsheetId=sheet_id,
+            range=f"'{TAB_PIPELINE}'!A1",
+            valueInputOption="RAW",
+            body={"values": all_rows}
+        ).execute()
 
         logger.info(f"Pipeline import: {imported} opps ({open_count} open, {closed_count} closed, ${total_value:,.0f} pipeline value)")
 
