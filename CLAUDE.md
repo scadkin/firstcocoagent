@@ -1,22 +1,21 @@
 # SCOUT — Claude Code Reference
-*Last updated: 2026-03-08 — Session 19*
+*Last updated: 2026-03-08 — Session 20*
 
 ---
 
 ## CURRENT STATE — update this after each session
 
-**Phase 6F (Pipeline Snapshot) implemented. Ready for verification.**
+**Phase 6F (Pipeline Snapshot) partially verified. Tests 1–2 passed. 5 tests remain. 3-tier stale alerts working.**
 
-### What still needs to be done (Session 20)
-- Verify Phase 6F: Pipeline Snapshot
-  1. Upload a Salesforce opp CSV → verify auto-detection routes to Pipeline tab (not Active Accounts)
-  2. `/pipeline` → verify summary shows in Telegram with stage breakdown + stale alerts
+### What still needs to be done (Session 21)
+- Finish Phase 6F verification (Tests 3–7):
   3. `/pipeline_import` → set flag, upload CSV, verify it goes to Pipeline tab
-  4. Upload an account CSV → verify it still goes to Active Accounts (no false positive)
+  4. Upload an account CSV → verify it still goes to Active Accounts (no false positive from auto-detect)
   5. `/import_clear` then upload opp CSV → verify it goes to Active Accounts (explicit override)
-  6. EOD report → verify stale alerts appear when pipeline has stale opps
+  6. EOD report → verify stale alerts appear when pipeline has stale opps (wait for 4:30pm or trigger manually)
   7. Empty pipeline → `/pipeline` shows "No open opportunities"
 - Optionally test morning brief prospect display + hourly check-in prospect suggestion (deferred from 6E)
+- After 6F is verified, plan next phase or enhancements
 
 ### Current status
 - Phases 1–5: ✅ all verified
@@ -25,11 +24,11 @@
 - Phase 6C (Activity Tracking + KPI + CSV Import + Gmail Intel): ✅
 - Phase 6D (Daily Call List): ✅
 - Phase 6E (District Prospecting Queue): ✅ fully verified (Session 19)
-- Phase 6F (Pipeline Snapshot): implemented, needs verification
+- Phase 6F (Pipeline Snapshot): ✅ Tests 1–2 passed, 5 remain
 
 ### Phase 6 roadmap
 - **6E** — District Prospecting Queue ✅ complete
-- **6F** — Pipeline Snapshot (Salesforce opp CSV → Sheets, stale follow-up alerts in EOD) — implemented
+- **6F** — Pipeline Snapshot — partially verified (Session 20)
 
 ---
 
@@ -51,7 +50,7 @@
 
 **Synchronous code called from async context must use `run_in_executor`.** Wrap blocking I/O in `await loop.run_in_executor(None, fn, args...)`. Never call blocking functions directly from async methods.
 
-**Explicit slash commands bypass Claude and call execute_tool() directly.** `/brief`, `/call`, `/recent_calls`, `/progress`, `/sync_activities`, `/call_list`, and all `/prospect_*` commands call execute_tool() directly and return. Direct dispatch is the only reliable pattern — when conversation history is long, Claude responds with descriptive text instead of calling tools.
+**Explicit slash commands bypass Claude and call execute_tool() directly.** `/brief`, `/call`, `/recent_calls`, `/progress`, `/sync_activities`, `/call_list`, `/pipeline`, `/pipeline_import`, and all `/prospect_*` commands call execute_tool() directly and return. Direct dispatch is the only reliable pattern — when conversation history is long, Claude responds with descriptive text instead of calling tools.
 
 **`/build_sequence` is a hybrid.** Routes through Claude for clarifying questions. But `execute_tool("build_sequence")` sends output via `await send_message()` directly and returns a short ack string to prevent Claude from rewriting.
 
@@ -83,7 +82,7 @@
 
 **Auto-detect opp CSV by Stage + Close Date headers.** If CSV header contains 2+ of {Stage, Close Date, Opportunity Name}, it routes to Pipeline tab. Explicit `/import_clear` or `/import_replace_state` overrides auto-detect and forces account import.
 
-**Pipeline stale threshold is 14 days (configurable via PIPELINE_STALE_DAYS env var).** Opps with no Last Activity in 14+ days or past Close Date get flagged in `/pipeline` and EOD report.
+**Pipeline uses 3-tier stale alerts.** 🟠 Needs Update (14+ days), 🟡 Needs Check-In / Going Stale (30+ days), 🔴 Risk Going Cold! (45+ days). Past-due Close Date also triggers. Empty Last Activity is NOT flagged (no data ≠ stale). Thresholds are constants in pipeline_tracker.py (TIER_NEEDS_UPDATE, TIER_GOING_STALE, TIER_GOING_COLD).
 
 **Active Accounts "Account Type" column: district | school | library | company.** Old boolean "Is District" column is gone. Do not reintroduce TRUE/FALSE logic.
 
