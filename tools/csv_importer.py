@@ -541,10 +541,28 @@ def merge_accounts(csv_text: str) -> dict:
             data_rows[i] = row + [""] * (len(full_headers) - len(row))
 
         # Build index of existing rows by Name Key (column 0)
+        # Also deduplicate: if multiple rows share the same Name Key, keep only the
+        # last one (most recently imported) and mark earlier duplicates for removal.
         existing_by_key: dict[str, int] = {}
+        duplicate_indices: set[int] = set()
         for i, row in enumerate(data_rows):
             if row and row[0]:
-                existing_by_key[row[0]] = i
+                key = row[0].strip().lower() if row[0] else ""
+                if key in existing_by_key:
+                    # Mark the previous index as a duplicate to remove
+                    duplicate_indices.add(existing_by_key[key])
+                existing_by_key[key] = i
+
+        # Remove duplicate rows before merge (iterate in reverse to preserve indices)
+        if duplicate_indices:
+            data_rows = [row for i, row in enumerate(data_rows) if i not in duplicate_indices]
+            # Rebuild index after removal
+            existing_by_key = {}
+            for i, row in enumerate(data_rows):
+                if row and row[0]:
+                    key = row[0].strip().lower() if row[0] else ""
+                    existing_by_key[key] = i
+            logger.info(f"Removed {len(duplicate_indices)} duplicate rows during merge")
 
         # Build new rows from CSV
         new_rows_by_key: dict[str, list] = {}
