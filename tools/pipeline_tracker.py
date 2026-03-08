@@ -60,11 +60,17 @@ _OPP_COL_MAP = {
     "stage":                   "stage",
     "amount":                  "amount",
     "close date":              "close_date",
+    "close date (2)":          "close_date",
     "next step":               "next_step",
     "last activity":           "last_activity",
     "created date":            "created_date",
     "billing state/province":  "state",
     "age":                     "age",
+    "primary contact":         "primary_contact",
+    "probability (%)":         "probability",
+    "description":             "description",
+    "type":                    "opp_type",
+    "opportunity owner":       "owner",
 }
 
 # Stages considered closed — these opps are not "open"
@@ -211,7 +217,7 @@ def is_opp_csv(csv_text: str) -> bool:
         if not reader.fieldnames:
             return False
         headers_lower = {h.strip().lower() for h in reader.fieldnames}
-        opp_signals = {"stage", "close date", "opportunity name"}
+        opp_signals = {"stage", "close date", "close date (2)", "opportunity name"}
         matches = opp_signals & headers_lower
         return len(matches) >= 2
     except Exception:
