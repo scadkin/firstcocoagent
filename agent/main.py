@@ -907,8 +907,8 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
     pre_intent = _pending_csv_intent
     _pending_csv_intent = None  # consume after use
 
-    if _csv_import_state or _csv_import_mode == "clear":
-        # Explicit account import modes override everything
+    if _csv_import_state:
+        # State-replace is account-specific — always route to Active Accounts
         is_opp = False
     elif _pipeline_import_mode:
         is_opp = True
@@ -924,6 +924,7 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if is_opp:
         # ── Pipeline import path (REPLACE ALL) ──
+        _csv_import_mode = "merge"  # reset in case /import_clear was set (pipeline is always replace-all anyway)
         await send_message(f"📊 Got `{filename}` — importing pipeline opportunities...")
         try:
             loop = asyncio.get_event_loop()
@@ -1287,7 +1288,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     elif user_text.lower() == "/import_clear":
         _csv_import_mode = "clear"
-        await send_message("🔄 Import mode set to *clear & rewrite*. Next CSV upload will wipe existing accounts and replace with new data.\nSend `/import_merge` to switch back.")
+        await send_message("🔄 Import mode set to *clear & rewrite*. Next CSV upload will wipe and replace the target tab (accounts or pipeline — auto-detected from CSV headers).\nSend `/import_merge` to switch back.")
         return
 
     elif user_text.lower() == "/import_merge":
