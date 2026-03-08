@@ -1198,6 +1198,29 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
 
+    elif user_text.lower() == "/dedup_accounts":
+        await send_message("🔍 Scanning Active Accounts for duplicates...")
+        try:
+            loop = asyncio.get_event_loop()
+            result = await loop.run_in_executor(None, csv_importer.dedup_accounts)
+            removed = result.get("duplicates_removed", 0)
+            dupes = result.get("duplicate_names", [])
+            errors = result.get("errors", [])
+            if errors:
+                await send_message(f"❌ Dedup error: {errors[0]}")
+            elif removed == 0:
+                await send_message("✅ No duplicates found — Active Accounts tab is clean.")
+            else:
+                dupe_list = "\n".join(f"  • {d}" for d in dupes[:20])
+                await send_message(
+                    f"✅ *Removed {removed} duplicate rows*\n\n"
+                    f"{result['total_before']} → {result['total_after']} rows\n\n"
+                    f"Duplicates found:\n{dupe_list}"
+                )
+        except Exception as e:
+            await send_message(f"❌ Dedup failed: {e}")
+        return
+
     # ── Phase 6E commands ──────────────────────────────────────────────────────
 
     elif user_text.lower().startswith("/prospect_discover"):

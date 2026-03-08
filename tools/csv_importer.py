@@ -737,6 +737,95 @@ def replace_accounts_by_state(csv_text: str, state_code: str) -> dict:
 
 
 # ─────────────────────────────────────────────
+# DEDUP
+# ─────────────────────────────────────────────
+
+def dedup_accounts() -> dict:
+    """
+    Remove duplicate rows from Active Accounts tab.
+    Groups by Name Key (column 0). When duplicates exist, keeps the row
+    with the most non-empty cells. Returns diagnostic info.
+
+    Returns:
+      {total_before, total_after, duplicates_removed, duplicate_names, errors}
+    """
+    errors = []
+    try:
+        service = _get_service()
+        sheet_id = _get_sheet_id()
+
+        result = service.spreadsheets().values().get(
+            spreadsheetId=sheet_id,
+            range=f"'{TAB_ACTIVE_ACCOUNTS}'!A1:ZZ"
+        ).execute()
+        existing_rows = result.get("values", [])
+        if len(existing_rows) < 2:
+            return {"total_before": 0, "total_after": 0,
+                    "duplicates_removed": 0, "duplicate_names": [], "errors": []}
+
+        headers = existing_rows[0]
+        data_rows = existing_rows[1:]
+        total_before = len(data_rows)
+
+        # Group rows by Name Key (column 0)
+        seen: dict[str, list[int]] = {}
+        for i, row in enumerate(data_rows):
+            name_key = row[0].strip().lower() if row and row[0] else f"__blank_{i}"
+            if name_key not in seen:
+                seen[name_key] = []
+            seen[name_key].append(i)
+
+        # For each group, pick the row with the most non-empty cells
+        keep_indices: set[int] = set()
+        duplicate_names: list[str] = []
+        for name_key, indices in seen.items():
+            if len(indices) == 1:
+                keep_indices.add(indices[0])
+            else:
+                # Pick best row (most non-empty cells)
+                best_idx = max(indices, key=lambda i: sum(1 for c in data_rows[i] if c.strip()))
+                keep_indices.add(best_idx)
+                # Get display name from the best row for reporting
+                best_row = data_rows[best_idx]
+                display = best_row[1] if len(best_row) > 1 and best_row[1] else name_key
+                duplicate_names.append(f"{display} ({len(indices)} copies)")
+
+        # Build deduped output preserving order
+        deduped = [data_rows[i] for i in sorted(keep_indices)]
+        total_after = len(deduped)
+        removed = total_before - total_after
+
+        if removed > 0:
+            all_rows = [headers] + deduped
+            service.spreadsheets().values().update(
+                spreadsheetId=sheet_id,
+                range=f"'{TAB_ACTIVE_ACCOUNTS}'!A1",
+                valueInputOption="RAW",
+                body={"values": all_rows}
+            ).execute()
+            # Clear leftover rows
+            service.spreadsheets().values().clear(
+                spreadsheetId=sheet_id,
+                range=f"'{TAB_ACTIVE_ACCOUNTS}'!A{len(all_rows) + 1}:ZZ",
+            ).execute()
+            logger.info(f"Dedup: removed {removed} duplicates ({total_before} → {total_after})")
+
+        return {
+            "total_before": total_before,
+            "total_after": total_after,
+            "duplicates_removed": removed,
+            "duplicate_names": duplicate_names,
+            "errors": errors,
+        }
+
+    except Exception as e:
+        errors.append(str(e))
+        logger.error(f"dedup_accounts error: {e}")
+        return {"total_before": 0, "total_after": 0,
+                "duplicates_removed": 0, "duplicate_names": [], "errors": errors}
+
+
+# ─────────────────────────────────────────────
 # QUERIES
 # ─────────────────────────────────────────────
 
