@@ -140,6 +140,34 @@ district_prospector.format_all_for_telegram(districts) -> str
 # Status values: pending | approved | researching | complete | skipped
 ```
 
+## pipeline_tracker (`tools/pipeline_tracker.py`) — MODULE, NOT A CLASS
+```python
+import tools.pipeline_tracker as pipeline_tracker
+pipeline_tracker.import_pipeline(csv_text: str) -> dict
+# {imported, open, closed, total_value, skipped, errors}
+# REPLACE ALL — clears Pipeline tab and rewrites from CSV. Point-in-time snapshot.
+
+pipeline_tracker.is_opp_csv(csv_text: str) -> bool
+# Auto-detect: True if CSV header has 2+ of {stage, close date, opportunity name}
+
+pipeline_tracker.get_open_opps() -> list[dict]
+pipeline_tracker.get_stale_opps(stale_days=14) -> list[dict]
+# Open opps with Last Activity > stale_days ago OR Close Date in past. Adds stale_reason field.
+
+pipeline_tracker.get_pipeline_summary() -> dict
+# {total_open, total_value, by_stage: {stage: {count, value}}, stale_count, stale_opps, total_closed}
+
+pipeline_tracker.format_pipeline_for_telegram(summary: dict) -> str
+pipeline_tracker.build_pipeline_alerts() -> str
+# EOD injection text. Empty string if no alerts.
+
+# Pipeline tab columns:
+# Opportunity Name | Account Name | Parent Account | Stage | Amount | Close Date |
+# Next Step | Age (days) | Last Activity | State | Created Date | Date Imported
+# Closed stages: "closed won", "closed lost", "closed - lost", "closed - won"
+# Stale threshold: PIPELINE_STALE_DAYS env var (default 14)
+```
+
 ## github_pusher (`tools/github_pusher.py`) — lazy import only
 ```python
 import tools.github_pusher as github_pusher

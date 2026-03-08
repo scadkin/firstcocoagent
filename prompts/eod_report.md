@@ -32,6 +32,9 @@ Format:
 **PROSPECTING:**
 [If any districts were discovered, approved, researched, or had sequences built today, mention them. If nothing: omit this section.]
 
+**PIPELINE ALERTS:**
+[If PIPELINE ALERT DATA is provided above, list stale opps and past-due close dates. If no pipeline data or no alerts: omit this section entirely.]
+
 **PENDING / TOMORROW:**
 [Unfinished tasks or queued items carrying over. Include approved districts awaiting research. If none: "Clean slate for tomorrow."]
 

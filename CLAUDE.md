@@ -5,15 +5,17 @@
 
 ## CURRENT STATE — update this after each session
 
-**Phase 6E fully verified ✅. All 7 commands passed. State column bug fixed in csv_importer.py. Session 20 starts Phase 6F (Pipeline Snapshot).**
+**Phase 6F (Pipeline Snapshot) implemented. Ready for verification.**
 
 ### What still needs to be done (Session 20)
-- Start Phase 6F: Pipeline Snapshot
-  - Salesforce opp CSV → lightweight pipeline view in a new "Pipeline" Sheets tab
-  - Columns: Account, Stage, Amount, Close Date, Next Step, Age (days since created), Last Activity
-  - Stale follow-up alerts in EOD report (opps with no activity in X days)
-  - New slash command: `/pipeline` — show current open opps summary
-  - New slash command: `/pipeline_import` or just send CSV — import opp CSV
+- Verify Phase 6F: Pipeline Snapshot
+  1. Upload a Salesforce opp CSV → verify auto-detection routes to Pipeline tab (not Active Accounts)
+  2. `/pipeline` → verify summary shows in Telegram with stage breakdown + stale alerts
+  3. `/pipeline_import` → set flag, upload CSV, verify it goes to Pipeline tab
+  4. Upload an account CSV → verify it still goes to Active Accounts (no false positive)
+  5. `/import_clear` then upload opp CSV → verify it goes to Active Accounts (explicit override)
+  6. EOD report → verify stale alerts appear when pipeline has stale opps
+  7. Empty pipeline → `/pipeline` shows "No open opportunities"
 - Optionally test morning brief prospect display + hourly check-in prospect suggestion (deferred from 6E)
 
 ### Current status
@@ -23,10 +25,11 @@
 - Phase 6C (Activity Tracking + KPI + CSV Import + Gmail Intel): ✅
 - Phase 6D (Daily Call List): ✅
 - Phase 6E (District Prospecting Queue): ✅ fully verified (Session 19)
+- Phase 6F (Pipeline Snapshot): implemented, needs verification
 
 ### Phase 6 roadmap
 - **6E** — District Prospecting Queue ✅ complete
-- **6F** — Pipeline Snapshot (Salesforce opp CSV → Sheets, stale follow-up alerts in EOD)
+- **6F** — Pipeline Snapshot (Salesforce opp CSV → Sheets, stale follow-up alerts in EOD) — implemented
 
 ---
 
@@ -40,7 +43,7 @@
 
 **Lazy imports for Phase 4+ modules.** `github_pusher`, `sequence_builder`, `fireflies`, `call_processor` are imported INSIDE `execute_tool()`, never at the top of `main.py`.
 
-**Top-level imports for flat tool modules.** `activity_tracker`, `csv_importer`, `daily_call_list`, `district_prospector` are imported at the top of main.py like sheets_writer.
+**Top-level imports for flat tool modules.** `activity_tracker`, `csv_importer`, `daily_call_list`, `district_prospector`, `pipeline_tracker` are imported at the top of main.py like sheets_writer.
 
 **tool_result always follows tool_use.** Wrap every `execute_tool()` call in try/except. A result must always be appended to conversation history, even on error. Missing tool_result → 400 on next API call.
 
@@ -74,6 +77,12 @@
 
 **CSV uploads decode with utf-8-sig.** Strips BOM from Salesforce/Excel exports.
 
+**Pipeline tab uses REPLACE ALL on import — not merge.** Pipeline is a point-in-time snapshot. Every opp CSV upload clears and rewrites the entire Pipeline tab.
+
+**Auto-detect opp CSV by Stage + Close Date headers.** If CSV header contains 2+ of {Stage, Close Date, Opportunity Name}, it routes to Pipeline tab. Explicit `/import_clear` or `/import_replace_state` overrides auto-detect and forces account import.
+
+**Pipeline stale threshold is 14 days (configurable via PIPELINE_STALE_DAYS env var).** Opps with no Last Activity in 14+ days or past Close Date get flagged in `/pipeline` and EOD report.
+
 **Active Accounts "Account Type" column: district | school | library | company.** Old boolean "Is District" column is gone. Do not reintroduce TRUE/FALSE logic.
 
 **Sheet dedup uses email as primary key.** Falls back to `first|last` name for no-email contacts. Don't use name+district — Claude varies district_name spelling.
@@ -98,7 +107,7 @@
 
 **Sequence building rules are in `memory/sequence_building_rules.md`.** Load as context when auto-building sequences.
 
-**`global` declarations go at the TOP of `handle_message()`, not in elif blocks.** Python SyntaxError if `global` appears after first use of the variable. All globals in one line: `global conversation_history, _pending_draft, _last_prospect_batch, _pending_approve_force, _csv_import_mode, _csv_import_state`.
+**`global` declarations go at the TOP of `handle_message()`, not in elif blocks.** Python SyntaxError if `global` appears after first use of the variable. All globals in one line: `global conversation_history, _pending_draft, _last_prospect_batch, _pending_approve_force, _csv_import_mode, _csv_import_state, _pipeline_import_mode`.
 
 **`_on_prospect_research_complete` is the auto-pipeline callback.** Runs `_on_research_complete` first (standard flow), then auto-builds a strategy-aware sequence, writes Google Doc, marks prospect complete. Uses `sequence_builder` (lazy import inside the callback). If sequence fails, prospect is still marked complete.
 
@@ -272,4 +281,6 @@ firstcocoagent/
 | `/import_merge` | switch CSV upload back to merge mode (default) |
 | `/import_replace_state CA` | next CSV upload replaces only that state's rows; all other states untouched (then resets) |
 | `/dedup_accounts` | Remove duplicate rows from Active Accounts tab (uses Name Key + State composite key — fixed Session 18) |
-| send a `.csv` file | Salesforce active accounts import (merge by default) |
+| `/pipeline` | show open pipeline summary with stale alerts |
+| `/pipeline_import` | next CSV upload imports as opportunities (Pipeline tab) |
+| send a `.csv` file | Auto-detects opp vs account CSV; or Salesforce active accounts import (merge by default) |

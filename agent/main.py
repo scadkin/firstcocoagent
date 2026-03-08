@@ -29,6 +29,7 @@ import tools.activity_tracker as activity_tracker
 import tools.csv_importer as csv_importer
 import tools.daily_call_list as daily_call_list
 import tools.district_prospector as district_prospector
+import tools.pipeline_tracker as pipeline_tracker
 from tools.telegram_bot import send_message
 # Phase 4/5 modules imported lazily inside execute_tool() — safe to boot without them
 
@@ -65,6 +66,8 @@ _pending_approve_force: list[dict] = []
 _csv_import_mode: str = "merge"
 # CSV state-replace mode: when set (e.g. "CA"), next upload replaces only that state's rows
 _csv_import_state: str = ""
+# Pipeline import mode: when True, next CSV upload goes to Pipeline tab
+_pipeline_import_mode: bool = False
 
 
 def get_gas_bridge():
@@ -838,7 +841,7 @@ async def execute_tool(tool_name: str, tool_input: dict) -> str:
 # ── CSV file upload handler ────────────────────────────────────────────────────
 
 async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handle CSV file uploads from Steven. Triggers Salesforce active accounts import."""
+    """Handle CSV file uploads from Steven. Auto-detects opp CSV vs account CSV."""
     if str(update.effective_chat.id) != str(TELEGRAM_CHAT_ID):
         return
 
@@ -857,7 +860,60 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
 
-    global _csv_import_mode, _csv_import_state
+    global _csv_import_mode, _csv_import_state, _pipeline_import_mode
+
+    try:
+        tg_file = await doc.get_file()
+        file_bytes = await tg_file.download_as_bytearray()
+        csv_text = file_bytes.decode("utf-8-sig")  # utf-8-sig handles BOM from Excel/Salesforce exports
+    except Exception as e:
+        await send_message(f"❌ Could not download file: {e}")
+        return
+
+    # ── Auto-detect: opportunity CSV vs account CSV ──
+    # Explicit account import modes override auto-detection
+    if _csv_import_state or _csv_import_mode == "clear":
+        is_opp = False
+    elif _pipeline_import_mode:
+        is_opp = True
+        _pipeline_import_mode = False
+    else:
+        is_opp = pipeline_tracker.is_opp_csv(csv_text)
+
+    if is_opp:
+        # ── Pipeline import path (REPLACE ALL) ──
+        await send_message(f"📊 Got `{filename}` — importing pipeline opportunities...")
+        try:
+            loop = asyncio.get_event_loop()
+            result = await loop.run_in_executor(None, pipeline_tracker.import_pipeline, csv_text)
+        except Exception as e:
+            await send_message(f"❌ Pipeline import failed: {e}")
+            return
+
+        imported = result.get("imported", 0)
+        open_count = result.get("open", 0)
+        closed_count = result.get("closed", 0)
+        total_value = result.get("total_value", 0)
+        skipped = result.get("skipped", 0)
+        errors = result.get("errors", [])
+        sheet_id = os.environ.get("GOOGLE_SHEETS_ID", "")
+
+        msg = (
+            f"✅ *Pipeline import complete!*\n\n"
+            f"📊 {imported} opportunities imported\n"
+            f"  • {open_count} open (${total_value:,.0f} pipeline value)\n"
+            f"  • {closed_count} closed\n"
+        )
+        if skipped:
+            msg += f"  • {skipped} skipped (no opp name)\n"
+        if errors:
+            msg += f"\n⚠️ Errors: {'; '.join(errors)}"
+        if sheet_id:
+            msg += f"\n📋 [Pipeline Sheet](https://docs.google.com/spreadsheets/d/{sheet_id})"
+        await send_message(msg)
+        return
+
+    # ── Account import path ──
     mode = _csv_import_mode
     state_replace = _csv_import_state
     if state_replace:
@@ -867,14 +923,6 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         mode_label = "merge"
     await send_message(f"📥 Got `{filename}` — importing Salesforce accounts ({mode_label} mode)...")
-
-    try:
-        tg_file = await doc.get_file()
-        file_bytes = await tg_file.download_as_bytearray()
-        csv_text = file_bytes.decode("utf-8-sig")  # utf-8-sig handles BOM from Excel/Salesforce exports
-    except Exception as e:
-        await send_message(f"❌ Could not download file: {e}")
-        return
 
     try:
         loop = asyncio.get_event_loop()
@@ -964,7 +1012,7 @@ def _parse_draft(draft_text: str) -> tuple:
 # ── Telegram message handler ───────────────────────────────────────────────────
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    global conversation_history, _pending_draft, _last_prospect_batch, _pending_approve_force, _csv_import_mode, _csv_import_state
+    global conversation_history, _pending_draft, _last_prospect_batch, _pending_approve_force, _csv_import_mode, _csv_import_state, _pipeline_import_mode
 
     if str(update.effective_chat.id) != str(TELEGRAM_CHAT_ID):
         return
@@ -1170,6 +1218,27 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 pass
         except Exception as e:
             await send_message(f"Call list failed: {e}")
+        return
+
+    # ── Pipeline commands ──────────────────────────────────────────────────
+
+    elif user_text.lower() in ["/pipeline", "pipeline", "show pipeline"]:
+        await send_message("Loading pipeline summary...")
+        try:
+            loop = asyncio.get_event_loop()
+            summary = await loop.run_in_executor(None, pipeline_tracker.get_pipeline_summary)
+            tg_text = pipeline_tracker.format_pipeline_for_telegram(summary)
+            await send_message(tg_text)
+        except Exception as e:
+            await send_message(f"Pipeline summary failed: {e}")
+        return
+
+    elif user_text.lower() == "/pipeline_import":
+        _pipeline_import_mode = True
+        await send_message(
+            "📊 Pipeline import mode set. Next CSV upload will import as opportunities (replacing existing pipeline data).\n"
+            "Send the Salesforce opp CSV now."
+        )
         return
 
     # ── CSV import mode commands ─────────────────────────────────────────────
@@ -1589,6 +1658,14 @@ async def send_eod_report():
         except Exception as data_err:
             logger.warning(f"Could not load activity data for EOD: {data_err}")
             prompt = prompt_template
+
+        # Phase 6F: inject pipeline alerts if any stale opps exist
+        try:
+            pipeline_alerts = pipeline_tracker.build_pipeline_alerts()
+            if pipeline_alerts:
+                prompt = f"{prompt}\n\n{pipeline_alerts}"
+        except Exception as pipe_err:
+            logger.warning(f"Could not load pipeline alerts for EOD: {pipe_err}")
 
         text, _, _ = process_message(prompt, conversation_history, memory)
         await send_message(f"🌙 *EOD Report*\n\n{text}")
