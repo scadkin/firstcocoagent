@@ -1,27 +1,20 @@
 # SCOUT — Claude Code Reference
-*Last updated: 2026-03-08 — Session 18*
+*Last updated: 2026-03-08 — Session 19*
 
 ---
 
 ## CURRENT STATE — update this after each session
 
-**Phase 6E testing at 4/7 commands verified. Sequence builder JSON fix deployed. Active customer conflict check added to `/prospect_approve`. `/dedup_accounts` fixed. Session 19 picks up at re-testing approve (full pipeline) + skip + add + all.**
+**Phase 6E fully verified ✅. All 7 commands passed. State column bug fixed in csv_importer.py. Session 20 starts Phase 6F (Pipeline Snapshot).**
 
-### What still needs to be done (Session 19)
-- Continue Phase 6E testing:
-  1. `/prospect_discover TX` — PASSED (Session 16)
-  2. `/prospect_upward` — PASSED (Session 16)
-  3. `/prospect` — PASSED (Session 18)
-  4. `/prospect_approve 1` — PARTIAL (Session 18): research ran ✅, sequence failed ❌ (JSON bug fixed — retest needed)
-  5. `/prospect_skip 2` — NOT YET TESTED
-  6. `/prospect_add Austin ISD, TX` — NOT YET TESTED
-  7. `/prospect_all` — NOT YET TESTED
-- Re-verify `/prospect_approve` end-to-end: approve → research → sequence builds (JSON fix) → Google Doc → marked complete in queue
-- Test active customer conflict warning (approve a district that IS in Active Accounts as "district" type — should warn and ask yes/no)
-- Test `/prospect_skip`, `/prospect_add`, `/prospect_all`
-- Verify morning brief shows pending prospects
-- Verify hourly check-in suggests idle research targets
-- After 6E verified, start Phase 6F (Pipeline Snapshot)
+### What still needs to be done (Session 20)
+- Start Phase 6F: Pipeline Snapshot
+  - Salesforce opp CSV → lightweight pipeline view in a new "Pipeline" Sheets tab
+  - Columns: Account, Stage, Amount, Close Date, Next Step, Age (days since created), Last Activity
+  - Stale follow-up alerts in EOD report (opps with no activity in X days)
+  - New slash command: `/pipeline` — show current open opps summary
+  - New slash command: `/pipeline_import` or just send CSV — import opp CSV
+- Optionally test morning brief prospect display + hourly check-in prospect suggestion (deferred from 6E)
 
 ### Current status
 - Phases 1–5: ✅ all verified
@@ -29,15 +22,17 @@
 - Phase 6B (Research Engine — 15 layers): ✅
 - Phase 6C (Activity Tracking + KPI + CSV Import + Gmail Intel): ✅
 - Phase 6D (Daily Call List): ✅
-- Phase 6E (District Prospecting Queue): partially verified — 3/7 commands fully passed, approve partially passed (research ✅, sequence fix deployed but not re-verified)
+- Phase 6E (District Prospecting Queue): ✅ fully verified (Session 19)
 
 ### Phase 6 roadmap
-- **6E** — District Prospecting Queue (partially verified, testing continues next session)
-- **6F** — Pipeline Snapshot (Salesforce opp CSV → lightweight CRM in Sheets, stale follow-up alerts)
+- **6E** — District Prospecting Queue ✅ complete
+- **6F** — Pipeline Snapshot (Salesforce opp CSV → Sheets, stale follow-up alerts in EOD)
 
 ---
 
 ## CRITICAL RULES
+
+**Always push code changes from Claude Code via git — never tell Steven to use `/push_code` in Telegram.** Scout's `/push_code` dumps entire file contents into Telegram (4,096-char limit) causing truncation and confusion. Always `git add`, `git commit`, `git push` directly from the Claude Code terminal. This is a hard rule established Session 19.
 
 **Read before write.** Before touching any file that calls an existing module, read that module first. Every crash in this project has been caused by hallucinated method names. Module APIs are documented in `agent/CLAUDE.md` and `tools/CLAUDE.md`.
 
@@ -72,6 +67,8 @@
 **CSV import default mode is MERGE (non-destructive).** Matches by Name Key: updates existing rows, appends new ones, leaves unmatched rows untouched. `/import_clear` switches to clear-and-rewrite for the next upload only. `/import_merge` switches back explicitly. `/import_replace_state CA` replaces only rows matching that state — all other states untouched.
 
 **`/dedup_accounts` uses Name Key + State as composite key (fixed Session 18).** Safe to use — will not merge same-named schools from different states.
+
+**`get_districts_with_schools()` state key is `"State"` (capital S).** Active Accounts sheet rows use capital-S key. Using `s.get("state")` returns empty string — always use `s.get("State")`. Fixed Session 19.
 
 **CSV importer preserves ALL columns from the Salesforce export.** Known columns are mapped to internal keys via `_SF_COL_MAP`. Unknown columns pass through with their original CSV header name. The sheet header row extends dynamically.
 
