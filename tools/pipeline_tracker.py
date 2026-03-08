@@ -137,6 +137,58 @@ def _parse_date(date_str: str):
     return None
 
 
+# Words that should stay uppercase when converting from ALL CAPS
+_UPPERCASE_WORDS = {
+    "hs", "ms", "es", "isd", "usd", "cisd", "cusd", "gisd", "nisd",
+    "sd", "rsd", "csd", "ccsd", "musd", "pusd", "susd", "disd",
+    "ii", "iii", "iv", "stem", "pk", "jh",
+    "ilt", "lausd", "hisd", "aisd", "episd", "saisd", "fwisd",
+}
+
+# Words that should stay lowercase (articles, prepositions, conjunctions)
+_LOWERCASE_WORDS = {"of", "the", "and", "in", "at", "for", "to", "a", "an", "on"}
+
+
+def _smart_title_case(name: str) -> str:
+    """
+    Convert ALL CAPS names to natural sentence case for use in emails/sequences.
+    - Preserves known acronyms (ISD, HS, STEM, etc.)
+    - Preserves parenthetical acronyms like (ILT)
+    - Lowercases articles/prepositions mid-name
+    - Only converts if the name appears to be ALL CAPS (len > 3)
+    """
+    if not name or not name.strip():
+        return name
+    stripped = name.strip()
+    # Only convert if it looks ALL CAPS (ignore short strings like "CA")
+    if stripped != stripped.upper() or len(stripped) <= 3:
+        return stripped
+
+    words = stripped.split()
+    result = []
+    for i, word in enumerate(words):
+        # Handle parenthetical like "(ILT)"
+        if word.startswith("(") and word.endswith(")"):
+            inner = word[1:-1]
+            if inner.lower() in _UPPERCASE_WORDS or len(inner) <= 4:
+                result.append(word)  # keep as-is
+            else:
+                result.append("(" + inner.capitalize() + ")")
+            continue
+
+        word_lower = word.lower()
+        # Known acronyms stay uppercase
+        if word_lower in _UPPERCASE_WORDS:
+            result.append(word.upper())
+        # Articles/prepositions lowercase (unless first word)
+        elif i > 0 and word_lower in _LOWERCASE_WORDS:
+            result.append(word_lower)
+        else:
+            result.append(word.capitalize())
+
+    return " ".join(result)
+
+
 def _clean_amount(val: str) -> str:
     """Strip $ and commas from amount, return clean number string."""
     if not val:
@@ -190,6 +242,11 @@ def _parse_opp_csv(csv_text: str) -> list[dict]:
         # Must have at least an opp name or account name
         if not row.get("opp_name") and not row.get("account_name"):
             continue
+
+        # Normalize ALL CAPS names to sentence case
+        for key in ("opp_name", "account_name", "parent_account"):
+            if row.get(key):
+                row[key] = _smart_title_case(row[key])
 
         # Clean amount
         row["amount"] = _clean_amount(row.get("amount", ""))
