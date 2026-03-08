@@ -1,19 +1,16 @@
 # SCOUT — Claude Code Reference
-*Last updated: 2026-03-08 — Session 21*
+*Last updated: 2026-03-08 — Session 22*
 
 ---
 
 ## CURRENT STATE — update this after each session
 
-**Phase 6F (Pipeline Snapshot) mostly verified. Tests 1–4 passed. 3 tests remain. Multiple CSV import quality fixes shipped.**
+**Phase 6F (Pipeline Snapshot) fully verified. All phases 1–6F complete. Ready to plan next phase or enhancements.**
 
-### What still needs to be done (Session 22)
-- Finish Phase 6F verification (Tests 5–7):
-  5. `/import_clear` then upload opp CSV → verify it goes to Active Accounts (explicit override)
-  6. EOD report → verify stale alerts appear when pipeline has stale opps (wait for 4:30pm or trigger manually)
-  7. Empty pipeline → `/pipeline` shows "No open opportunities"
+### What still needs to be done (Session 23)
+- Plan next phase or enhancements (all 6A–6F verified)
 - Optionally test morning brief prospect display + hourly check-in prospect suggestion (deferred from 6E)
-- After 6F is verified, plan next phase or enhancements
+- Re-upload pipeline opp CSV to repopulate Pipeline tab (was cleared for Test 7)
 
 ### Current status
 - Phases 1–5: ✅ all verified
@@ -22,11 +19,11 @@
 - Phase 6C (Activity Tracking + KPI + CSV Import + Gmail Intel): ✅
 - Phase 6D (Daily Call List): ✅
 - Phase 6E (District Prospecting Queue): ✅ fully verified (Session 19)
-- Phase 6F (Pipeline Snapshot): ✅ Tests 1–4 passed, 3 remain
+- Phase 6F (Pipeline Snapshot): ✅ fully verified (Session 22)
 
 ### Phase 6 roadmap
 - **6E** — District Prospecting Queue ✅ complete
-- **6F** — Pipeline Snapshot — mostly verified (Session 21)
+- **6F** — Pipeline Snapshot ✅ complete (Session 22)
 
 ---
 
@@ -64,7 +61,7 @@
 
 **Salesforce CSV: Parent Account = always the district.** Account Name can be district/school/library/company. Parent Account filled → sub-unit under that district. Empty → standalone or top-level. One level deep: district → schools.
 
-**CSV import default mode is MERGE (non-destructive).** Matches by Name Key: updates existing rows, appends new ones, leaves unmatched rows untouched. `/import_clear` switches to clear-and-rewrite for the next upload only. `/import_merge` switches back explicitly. `/import_replace_state CA` replaces only rows matching that state — all other states untouched.
+**CSV import default mode is MERGE (non-destructive).** Matches by Name Key: updates existing rows, appends new ones, leaves unmatched rows untouched. `/import_clear` switches to clear-and-rewrite mode for the next upload only — but still respects auto-detect routing (accounts vs pipeline). `/import_merge` switches back explicitly. `/import_replace_state CA` replaces only rows matching that state — all other states untouched (always routes to Active Accounts).
 
 **`/dedup_accounts` uses Name Key + State as composite key (fixed Session 18).** Safe to use — will not merge same-named schools from different states.
 
@@ -84,7 +81,7 @@
 
 **Pipeline importer preserves ALL CSV columns.** Known columns mapped via `_OPP_COL_MAP`, unknown columns pass through with original header name. Same dynamic header pattern as csv_importer.
 
-**Auto-detect opp CSV by Stage + Close Date headers (with account exclusion).** If CSV header contains 2+ of {Stage, Close Date, Opportunity Name} AND does NOT contain account-specific columns (# of Active Licenses, # of Opportunities), it routes to Pipeline tab. Explicit `/import_clear` or `/import_replace_state` overrides auto-detect and forces account import.
+**Auto-detect opp CSV by Stage + Close Date headers (with account exclusion).** If CSV header contains 2+ of {Stage, Close Date, Opportunity Name} AND does NOT contain account-specific columns (# of Active Licenses, # of Opportunities), it routes to Pipeline tab. `/import_replace_state` overrides auto-detect and forces account import. `/import_clear` sets clear mode but still respects auto-detect routing.
 
 **Natural language CSV description overrides auto-detect.** Steven can describe what a CSV is before uploading (or as a caption on the file). `_parse_csv_intent()` detects keywords: pipeline/opportunity → Pipeline tab; account/customer/lead/contact → Active Accounts. Priority: slash commands > caption > pre-message description > auto-detect.
 
