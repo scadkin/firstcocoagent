@@ -1,16 +1,16 @@
 # SCOUT — Claude Code Reference
-*Last updated: 2026-03-07 — Session 16*
+*Last updated: 2026-03-08 — Session 17*
 
 ---
 
 ## CURRENT STATE — update this after each session
 
-**Phase 6E partially verified. `/prospect_discover` and `/prospect_upward` working. CSV merge import working. 5 of 7 prospect commands still need testing.**
+**Active Accounts tab freshly rebuilt with 180-account complete Salesforce export (all states + SoCal with County column). State-replace import mode added. Phase 6E testing paused — 5 of 7 prospect commands still need testing.**
 
-### What still needs to be done (Session 17)
+### What still needs to be done (Session 18)
 - Continue Phase 6E testing from where we left off:
-  1. `/prospect_discover TX` — PASSED (clean district names after 3 regex iterations)
-  2. `/prospect_upward` — PASSED (24 upward targets found, state column empty for some — Salesforce data quality)
+  1. `/prospect_discover TX` — PASSED (Session 16)
+  2. `/prospect_upward` — PASSED (Session 16)
   3. `/prospect` — NOT YET TESTED (show pending queue)
   4. `/prospect_approve 1` — NOT YET TESTED (approve → research → auto-sequence → Google Doc → complete)
   5. `/prospect_skip 2` — NOT YET TESTED
@@ -20,6 +20,7 @@
 - Verify morning brief shows pending prospects
 - Verify hourly check-in suggests idle research targets
 - After 6E verified, start Phase 6F (Pipeline Snapshot)
+- **Fix `/dedup_accounts` before using again** — current version groups by Name Key only, which collapses same-named schools across states. Must use Name Key + State as composite key. Function exists but is BROKEN — do not run until fixed.
 
 ### Current status
 - Phases 1–5: ✅ all verified
@@ -67,7 +68,9 @@
 
 **Salesforce CSV: Parent Account = always the district.** Account Name can be district/school/library/company. Parent Account filled → sub-unit under that district. Empty → standalone or top-level. One level deep: district → schools.
 
-**CSV import default mode is MERGE (non-destructive).** Matches by Name Key: updates existing rows, appends new ones, leaves unmatched rows untouched. `/import_clear` switches to clear-and-rewrite for the next upload only. `/import_merge` switches back explicitly.
+**CSV import default mode is MERGE (non-destructive).** Matches by Name Key: updates existing rows, appends new ones, leaves unmatched rows untouched. `/import_clear` switches to clear-and-rewrite for the next upload only. `/import_merge` switches back explicitly. `/import_replace_state CA` replaces only rows matching that state — all other states untouched.
+
+**`/dedup_accounts` is BROKEN — do not use until fixed.** Groups by Name Key only, which merges same-named schools from different states (e.g. "Columbus Middle School" in NE and OH). Must use Name Key + State as composite key. Destroyed 288 of 301 rows in Session 17 — had to restore from Google Sheets version history.
 
 **CSV importer preserves ALL columns from the Salesforce export.** Known columns are mapped to internal keys via `_SF_COL_MAP`. Unknown columns pass through with their original CSV header name. The sheet header row extends dynamically.
 
@@ -97,7 +100,7 @@
 
 **Sequence building rules are in `memory/sequence_building_rules.md`.** Load as context when auto-building sequences.
 
-**`global` declarations go at the TOP of `handle_message()`, not in elif blocks.** Python SyntaxError if `global` appears after first use of the variable. All globals in one line: `global conversation_history, _pending_draft, _last_prospect_batch`.
+**`global` declarations go at the TOP of `handle_message()`, not in elif blocks.** Python SyntaxError if `global` appears after first use of the variable. All globals in one line: `global conversation_history, _pending_draft, _last_prospect_batch, _csv_import_mode, _csv_import_state`.
 
 **`_on_prospect_research_complete` is the auto-pipeline callback.** Runs `_on_research_complete` first (standard flow), then auto-builds a strategy-aware sequence, writes Google Doc, marks prospect complete. Uses `sequence_builder` (lazy import inside the callback). If sequence fails, prospect is still marked complete.
 
@@ -263,4 +266,6 @@ firstcocoagent/
 | `/prospect_clear` | wipe all entries from Prospecting Queue tab |
 | `/import_clear` | next CSV upload will clear & rewrite (then resets to merge) |
 | `/import_merge` | switch CSV upload back to merge mode (default) |
+| `/import_replace_state CA` | next CSV upload replaces only that state's rows; all other states untouched (then resets) |
+| `/dedup_accounts` | **BROKEN — DO NOT USE.** Remove duplicate rows (needs Name Key + State fix) |
 | send a `.csv` file | Salesforce active accounts import (merge by default) |

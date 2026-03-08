@@ -76,6 +76,16 @@ csv_importer.merge_accounts(csv_text: str) -> dict
 # Known columns mapped via _SF_COL_MAP; unknown columns kept with original header name.
 # _build_row_for_headers(headers, rec, name_key, acct_type) builds rows for any header list.
 
+csv_importer.replace_accounts_by_state(csv_text: str, state_code: str) -> dict
+# {imported, districts, schools, libraries, companies, skipped, replaced, added, errors}
+# Removes ALL existing rows where State == state_code, inserts all CSV rows.
+# Other states untouched. Use /import_replace_state [STATE] to activate.
+
+csv_importer.dedup_accounts() -> dict
+# {total_before, total_after, duplicates_removed, duplicate_names, errors}
+# ⚠️ BROKEN — groups by Name Key only (no state). Will merge same-named schools
+# from different states. Must fix to use Name Key + State composite key before using.
+
 csv_importer.classify_account(account_name, parent_account, sf_type) -> str
 csv_importer.get_active_accounts(state_filter="") -> list[dict]
 csv_importer.get_districts_with_schools() -> list[dict]
