@@ -68,6 +68,36 @@ _csv_import_mode: str = "merge"
 _csv_import_state: str = ""
 # Pipeline import mode: when True, next CSV upload goes to Pipeline tab
 _pipeline_import_mode: bool = False
+# Natural language CSV description — set by pre-upload message or file caption
+_pending_csv_intent: dict | None = None
+
+
+def _parse_csv_intent(text: str) -> dict | None:
+    """
+    Parse natural language CSV description into routing intent.
+    Returns {"target": "pipeline"|"accounts", "label": str} or None.
+    """
+    if not text:
+        return None
+    lower = text.lower()
+
+    # Pipeline / opportunity signals
+    opp_patterns = ["pipeline", "opportunit", " opp ", " opps", "open opp",
+                    "closed lost", "closed won", "closed-lost"]
+    if any(p in f" {lower} " for p in opp_patterns):
+        return {"target": "pipeline", "label": "pipeline opportunities"}
+
+    # Account / customer signals
+    acct_patterns = ["account", "customer"]
+    if any(p in lower for p in acct_patterns):
+        return {"target": "accounts", "label": "active accounts"}
+
+    # Lead / contact / prospect signals → route to accounts
+    lead_patterns = ["lead", "contact", "prospect"]
+    if any(p in lower for p in lead_patterns):
+        return {"target": "accounts", "label": "accounts"}
+
+    return None
 
 
 def get_gas_bridge():
@@ -860,7 +890,7 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
 
-    global _csv_import_mode, _csv_import_state, _pipeline_import_mode
+    global _csv_import_mode, _csv_import_state, _pipeline_import_mode, _pending_csv_intent
 
     try:
         tg_file = await doc.get_file()
@@ -870,13 +900,25 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await send_message(f"❌ Could not download file: {e}")
         return
 
-    # ── Auto-detect: opportunity CSV vs account CSV ──
-    # Explicit account import modes override auto-detection
+    # ── Resolve CSV routing intent ──
+    # Priority: explicit slash commands > caption > pre-message description > auto-detect
+    caption = (update.message.caption or "").strip()
+    caption_intent = _parse_csv_intent(caption) if caption else None
+    pre_intent = _pending_csv_intent
+    _pending_csv_intent = None  # consume after use
+
     if _csv_import_state or _csv_import_mode == "clear":
+        # Explicit account import modes override everything
         is_opp = False
     elif _pipeline_import_mode:
         is_opp = True
         _pipeline_import_mode = False
+    elif caption_intent:
+        is_opp = (caption_intent["target"] == "pipeline")
+        logger.info(f"CSV routed via caption: {caption_intent['label']}")
+    elif pre_intent:
+        is_opp = (pre_intent["target"] == "pipeline")
+        logger.info(f"CSV routed via pre-message: {pre_intent['label']}")
     else:
         is_opp = pipeline_tracker.is_opp_csv(csv_text)
 
@@ -1012,7 +1054,7 @@ def _parse_draft(draft_text: str) -> tuple:
 # ── Telegram message handler ───────────────────────────────────────────────────
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    global conversation_history, _pending_draft, _last_prospect_batch, _pending_approve_force, _csv_import_mode, _csv_import_state, _pipeline_import_mode
+    global conversation_history, _pending_draft, _last_prospect_batch, _pending_approve_force, _csv_import_mode, _csv_import_state, _pipeline_import_mode, _pending_csv_intent
 
     if str(update.effective_chat.id) != str(TELEGRAM_CHAT_ID):
         return
@@ -1526,6 +1568,20 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         _pending_draft["to"] = email_addr
         await send_message(f"✅ Recipient set to `{email_addr}`. Say *looks good* to save.")
         return
+
+    # ── CSV upload description (pre-message before file upload) ─────────────
+    # Steven can describe what a CSV is before uploading it, e.g.:
+    # "this is a list of all the open opps in my pipeline"
+    # "uploading my active accounts from Salesforce"
+    _csv_intent_check = _parse_csv_intent(user_text)
+    if _csv_intent_check:
+        file_context = ["csv", "file", "upload", "report", "export", "spreadsheet",
+                        "sending", "importing", "here", "this is", "list of", "data"]
+        if any(fc in user_text.lower() for fc in file_context):
+            _pending_csv_intent = _csv_intent_check
+            label = _csv_intent_check["label"]
+            await send_message(f"👍 Got it — I'll import the next CSV as *{label}*. Send the file whenever you're ready.")
+            return
 
     # Behavioral correction detection
     correction_signals = [

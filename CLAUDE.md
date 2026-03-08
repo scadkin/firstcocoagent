@@ -80,7 +80,9 @@
 
 **Pipeline tab uses REPLACE ALL on import — not merge.** Pipeline is a point-in-time snapshot. Every opp CSV upload clears and rewrites the entire Pipeline tab.
 
-**Auto-detect opp CSV by Stage + Close Date headers.** If CSV header contains 2+ of {Stage, Close Date, Opportunity Name}, it routes to Pipeline tab. Explicit `/import_clear` or `/import_replace_state` overrides auto-detect and forces account import.
+**Auto-detect opp CSV by Stage + Close Date headers (with account exclusion).** If CSV header contains 2+ of {Stage, Close Date, Opportunity Name} AND does NOT contain account-specific columns (# of Active Licenses, # of Opportunities), it routes to Pipeline tab. Explicit `/import_clear` or `/import_replace_state` overrides auto-detect and forces account import.
+
+**Natural language CSV description overrides auto-detect.** Steven can describe what a CSV is before uploading (or as a caption on the file). `_parse_csv_intent()` detects keywords: pipeline/opportunity → Pipeline tab; account/customer/lead/contact → Active Accounts. Priority: slash commands > caption > pre-message description > auto-detect.
 
 **Pipeline uses 3-tier stale alerts.** 🟠 Needs Update (14+ days), 🟡 Needs Check-In / Going Stale (30+ days), 🔴 Risk Going Cold! (45+ days). Past-due Close Date also triggers. Empty Last Activity is NOT flagged (no data ≠ stale). Thresholds are constants in pipeline_tracker.py (TIER_NEEDS_UPDATE, TIER_GOING_STALE, TIER_GOING_COLD).
 
@@ -285,3 +287,5 @@ firstcocoagent/
 | `/pipeline` | show open pipeline summary with stale alerts |
 | `/pipeline_import` | next CSV upload imports as opportunities (Pipeline tab) |
 | send a `.csv` file | Auto-detects opp vs account CSV; or Salesforce active accounts import (merge by default) |
+| describe CSV before upload | "this is my pipeline opps" / "these are my active accounts" — sets routing for next CSV upload |
+| caption on CSV upload | Same as above — type description as caption when sending the file |
