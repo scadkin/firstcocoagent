@@ -1,25 +1,25 @@
 # SCOUT — Claude Code Reference
-*Last updated: 2026-03-07 — Session 15*
+*Last updated: 2026-03-07 — Session 16*
 
 ---
 
 ## CURRENT STATE — update this after each session
 
-**Phase 6E deployed to Railway. "Scout is online — Phase 6E active" confirmed. End-to-end testing NOT yet done.**
+**Phase 6E partially verified. `/prospect_discover` and `/prospect_upward` working. CSV merge import working. 5 of 7 prospect commands still need testing.**
 
-### What still needs to be done (Session 16)
-- Test all 7 prospect commands in order:
-  1. `/prospect_discover TX` — verify Serper finds districts, dedupes against Active Accounts, adds to Prospecting Queue tab
-  2. `/prospect_upward` — verify it finds districts from Active Accounts with school foothold
-  3. `/prospect` — verify it shows pending queue with numbered items
-  4. `/prospect_approve 1` — verify it marks approved, queues research, and auto-builds sequence on completion
-  5. `/prospect_skip 2` — verify it marks skipped
-  6. `/prospect_add Austin ISD, TX` — verify manual add
-  7. `/prospect_all` — verify grouped status view
+### What still needs to be done (Session 17)
+- Continue Phase 6E testing from where we left off:
+  1. `/prospect_discover TX` — PASSED (clean district names after 3 regex iterations)
+  2. `/prospect_upward` — PASSED (24 upward targets found, state column empty for some — Salesforce data quality)
+  3. `/prospect` — NOT YET TESTED (show pending queue)
+  4. `/prospect_approve 1` — NOT YET TESTED (approve → research → auto-sequence → Google Doc → complete)
+  5. `/prospect_skip 2` — NOT YET TESTED
+  6. `/prospect_add Austin ISD, TX` — NOT YET TESTED
+  7. `/prospect_all` — NOT YET TESTED
 - Verify auto-pipeline end-to-end: approve → research runs → `_on_prospect_research_complete` fires → sequence auto-builds → Google Doc created → prospect marked complete in queue
 - Verify morning brief shows pending prospects
 - Verify hourly check-in suggests idle research targets
-- If any bugs found, fix and redeploy
+- After 6E verified, start Phase 6F (Pipeline Snapshot)
 
 ### Current status
 - Phases 1–5: ✅ all verified
@@ -27,10 +27,10 @@
 - Phase 6B (Research Engine — 15 layers): ✅
 - Phase 6C (Activity Tracking + KPI + CSV Import + Gmail Intel): ✅
 - Phase 6D (Daily Call List): ✅
-- Phase 6E (District Prospecting Queue): ✅ deployed — awaiting end-to-end verification
+- Phase 6E (District Prospecting Queue): partially verified — 2/7 commands passed, 5 remaining
 
 ### Phase 6 roadmap
-- **6E** — District Prospecting Queue ✅ (deployed, testing next)
+- **6E** — District Prospecting Queue (partially verified, testing continues next session)
 - **6F** — Pipeline Snapshot (Salesforce opp CSV → lightweight CRM in Sheets, stale follow-up alerts)
 
 ---
@@ -67,7 +67,9 @@
 
 **Salesforce CSV: Parent Account = always the district.** Account Name can be district/school/library/company. Parent Account filled → sub-unit under that district. Empty → standalone or top-level. One level deep: district → schools.
 
-**Active accounts CSV importer clears and rewrites — not additive.** Each Salesforce export is the full current state.
+**CSV import default mode is MERGE (non-destructive).** Matches by Name Key: updates existing rows, appends new ones, leaves unmatched rows untouched. `/import_clear` switches to clear-and-rewrite for the next upload only. `/import_merge` switches back explicitly.
+
+**CSV importer preserves ALL columns from the Salesforce export.** Known columns are mapped to internal keys via `_SF_COL_MAP`. Unknown columns pass through with their original CSV header name. The sheet header row extends dynamically.
 
 **CSV uploads decode with utf-8-sig.** Strips BOM from Salesforce/Excel exports.
 
@@ -258,4 +260,7 @@ firstcocoagent/
 | `/prospect_add [name], [state]` | manually add district to queue |
 | `/prospect_approve 1,3,5` | approve from last batch, auto-queue research |
 | `/prospect_skip 2,4` | skip from last batch |
-| send a `.csv` file | Salesforce active accounts import |
+| `/prospect_clear` | wipe all entries from Prospecting Queue tab |
+| `/import_clear` | next CSV upload will clear & rewrite (then resets to merge) |
+| `/import_merge` | switch CSV upload back to merge mode (default) |
+| send a `.csv` file | Salesforce active accounts import (merge by default) |

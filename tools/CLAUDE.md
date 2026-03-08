@@ -64,8 +64,17 @@ activity_tracker.build_brief_data_block(date_str=None) -> str
 import tools.csv_importer as csv_importer
 csv_importer.import_accounts(csv_text: str) -> dict
 # {imported, districts, schools, libraries, companies, skipped, errors}
-# Clears Active Accounts tab, rewrites fresh from CSV
+# CLEARS Active Accounts tab, rewrites fresh from CSV. Use /import_clear to activate.
+
+csv_importer.merge_accounts(csv_text: str) -> dict
+# {imported, districts, schools, libraries, companies, skipped, updated, added, errors}
+# DEFAULT mode. Updates existing rows by Name Key, appends new ones, leaves others untouched.
+# Dynamically extends sheet headers with new CSV columns not already present.
 # Account Type values: district | school | library | company
+
+# _parse_csv returns (records, extra_cols) — preserves ALL CSV columns, not just mapped ones.
+# Known columns mapped via _SF_COL_MAP; unknown columns kept with original header name.
+# _build_row_for_headers(headers, rec, name_key, acct_type) builds rows for any header list.
 
 csv_importer.classify_account(account_name, parent_account, sf_type) -> str
 csv_importer.get_active_accounts(state_filter="") -> list[dict]
@@ -110,6 +119,7 @@ district_prospector.approve_districts(indices, batch) -> list[dict]
 district_prospector.skip_districts(indices, batch) -> list[dict]
 district_prospector.mark_researching(name_key)
 district_prospector.mark_complete(name_key, sequence_doc_url="")
+district_prospector.clear_queue()  # Wipes all data rows, keeps header
 district_prospector.format_batch_for_telegram(districts, label="Prospecting Suggestions") -> str
 district_prospector.format_all_for_telegram(districts) -> str
 
