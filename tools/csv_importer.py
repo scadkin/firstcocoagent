@@ -101,7 +101,10 @@ def _get_sheet_id():
     return sheet_id
 
 
-def _ensure_tab():
+def _ensure_tab(headers: list[str] | None = None):
+    """Create Active Accounts tab if missing. Write header row.
+    If headers is None, uses ACTIVE_ACCOUNTS_COLUMNS (base columns only).
+    """
     service = _get_service()
     sheet_id = _get_sheet_id()
 
@@ -114,33 +117,71 @@ def _ensure_tab():
             body={"requests": [{"addSheet": {"properties": {"title": TAB_ACTIVE_ACCOUNTS}}}]}
         ).execute()
 
-    # Always write headers so they stay in sync with ACTIVE_ACCOUNTS_COLUMNS
+    header_row = headers if headers else ACTIVE_ACCOUNTS_COLUMNS
     service.spreadsheets().values().update(
         spreadsheetId=sheet_id,
         range=f"'{TAB_ACTIVE_ACCOUNTS}'!A1",
         valueInputOption="RAW",
-        body={"values": [ACTIVE_ACCOUNTS_COLUMNS]}
+        body={"values": [header_row]}
     ).execute()
 
     return service, sheet_id
 
 
-def _parse_csv(csv_text: str) -> list[dict]:
+def _parse_csv(csv_text: str) -> tuple[list[dict], list[str]]:
     """
-    Parse Salesforce CSV text into a list of normalized dicts.
-    Keys are normalized using _SF_COL_MAP.
+    Parse Salesforce CSV text into normalized dicts.
+    Known columns get mapped keys via _SF_COL_MAP; unknown columns keep
+    their original CSV header name so they pass through to the sheet.
+
+    Returns (records, extra_col_names) where extra_col_names are CSV headers
+    not in _SF_COL_MAP (preserved for dynamic sheet columns).
     """
     reader = csv.DictReader(io.StringIO(csv_text.strip()))
+    csv_headers = [h.strip() for h in (reader.fieldnames or [])]
+    mapped_lower = set(_SF_COL_MAP.keys())
+    extra_cols = [h for h in csv_headers if h and h.strip().lower() not in mapped_lower]
+
     records = []
     for raw_row in reader:
         row = {}
         for col, val in raw_row.items():
-            key = _SF_COL_MAP.get(col.strip().lower())
-            if key:
-                row[key] = (val or "").strip()
+            col_clean = col.strip()
+            mapped = _SF_COL_MAP.get(col_clean.lower())
+            if mapped:
+                row[mapped] = (val or "").strip()
+            elif col_clean:
+                row[col_clean] = (val or "").strip()
         if row.get("account_name"):
             records.append(row)
-    return records
+    return records, extra_cols
+
+
+def _build_row_for_headers(headers: list[str], rec: dict, name_key: str, acct_type: str) -> list:
+    """Build a sheet row matching the given headers from a parsed CSV record."""
+    base_map = {
+        "Name Key": name_key,
+        "Display Name": rec.get("account_name", ""),
+        "Parent Account": rec.get("parent_account", ""),
+        "SF Type": rec.get("type", ""),
+        "Account Type": acct_type,
+        "Open Renewal": rec.get("open_renewal", ""),
+        "Opportunities": rec.get("opportunities", ""),
+        "Active Licenses": rec.get("active_licenses", ""),
+        "2025 Revenue": rec.get("revenue_2025", ""),
+        "Lifetime Revenue": rec.get("lifetime_revenue", ""),
+        "Last Activity": rec.get("last_activity", ""),
+        "Last Modified": rec.get("last_modified", ""),
+        "State": rec.get("state", ""),
+    }
+    row = []
+    for h in headers:
+        if h in base_map:
+            row.append(base_map[h])
+        else:
+            # Extra column — value stored under original CSV header name
+            row.append(rec.get(h, ""))
+    return row
 
 
 # ─────────────────────────────────────────────
@@ -364,6 +405,7 @@ def import_accounts(csv_text: str) -> dict:
     """
     Parse Salesforce active accounts CSV and write to the "Active Accounts" tab.
     Clears the tab first (except header), then writes fresh.
+    Preserves ALL CSV columns — base columns first, then extras.
 
     Returns:
       {imported: N, districts: N, schools: N, libraries: N, companies: N,
@@ -375,7 +417,7 @@ def import_accounts(csv_text: str) -> dict:
     skipped = 0
 
     try:
-        records = _parse_csv(csv_text)
+        records, extra_cols = _parse_csv(csv_text)
     except Exception as e:
         return {"imported": 0, "districts": 0, "schools": 0, "libraries": 0,
                 "companies": 0, "skipped": 0, "errors": [f"CSV parse failed: {e}"]}
@@ -384,6 +426,8 @@ def import_accounts(csv_text: str) -> dict:
         return {"imported": 0, "districts": 0, "schools": 0, "libraries": 0,
                 "companies": 0, "skipped": 0,
                 "errors": ["No valid rows found in CSV. Check column headers."]}
+
+    full_headers = ACTIVE_ACCOUNTS_COLUMNS + [c for c in extra_cols if c not in ACTIVE_ACCOUNTS_COLUMNS]
 
     rows_to_write = []
     for rec in records:
@@ -397,32 +441,18 @@ def import_accounts(csv_text: str) -> dict:
         acct_type = classify_account(account_name, parent, sf_type)
         name_key  = normalize_name(account_name)
 
-        row = [
-            name_key,
-            account_name,
-            parent,
-            sf_type,
-            acct_type,
-            rec.get("open_renewal", ""),
-            rec.get("opportunities", ""),
-            rec.get("active_licenses", ""),
-            rec.get("revenue_2025", ""),
-            rec.get("lifetime_revenue", ""),
-            rec.get("last_activity", ""),
-            rec.get("last_modified", ""),
-            rec.get("state", ""),
-        ]
+        row = _build_row_for_headers(full_headers, rec, name_key, acct_type)
         rows_to_write.append(row)
         imported += 1
         type_counts[acct_type] = type_counts.get(acct_type, 0) + 1
 
     try:
-        service, sheet_id = _ensure_tab()
+        service, sheet_id = _ensure_tab(full_headers)
 
         # Clear existing data (keep header)
         service.spreadsheets().values().clear(
             spreadsheetId=sheet_id,
-            range=f"'{TAB_ACTIVE_ACCOUNTS}'!A2:Z",
+            range=f"'{TAB_ACTIVE_ACCOUNTS}'!A2:ZZ",
         ).execute()
 
         # Write new data
@@ -465,8 +495,9 @@ def merge_accounts(csv_text: str) -> dict:
     - Existing rows matched by Name Key are updated in place.
     - New rows are appended.
     - Rows not in the CSV are left untouched.
+    - New CSV columns not already in the sheet are appended as extra columns.
 
-    Returns same shape as import_accounts().
+    Returns same shape as import_accounts() plus updated/added counts.
     """
     errors = []
     type_counts: dict[str, int] = {"district": 0, "school": 0, "library": 0, "company": 0}
@@ -475,7 +506,7 @@ def merge_accounts(csv_text: str) -> dict:
     added = 0
 
     try:
-        records = _parse_csv(csv_text)
+        records, extra_cols = _parse_csv(csv_text)
     except Exception as e:
         return {"imported": 0, "districts": 0, "schools": 0, "libraries": 0,
                 "companies": 0, "skipped": 0, "updated": 0, "added": 0,
@@ -486,54 +517,51 @@ def merge_accounts(csv_text: str) -> dict:
                 "companies": 0, "skipped": 0, "updated": 0, "added": 0,
                 "errors": ["No valid rows found in CSV. Check column headers."]}
 
-    # Build new rows from CSV
-    new_rows_by_key: dict[str, list] = {}  # name_key → row list
-    for rec in records:
-        account_name = rec.get("account_name", "").strip()
-        if not account_name:
-            skipped += 1
-            continue
-
-        parent   = rec.get("parent_account", "").strip()
-        sf_type  = rec.get("type", "").strip()
-        acct_type = classify_account(account_name, parent, sf_type)
-        name_key  = normalize_name(account_name)
-
-        row = [
-            name_key,
-            account_name,
-            parent,
-            sf_type,
-            acct_type,
-            rec.get("open_renewal", ""),
-            rec.get("opportunities", ""),
-            rec.get("active_licenses", ""),
-            rec.get("revenue_2025", ""),
-            rec.get("lifetime_revenue", ""),
-            rec.get("last_activity", ""),
-            rec.get("last_modified", ""),
-            rec.get("state", ""),
-        ]
-        new_rows_by_key[name_key] = row
-        type_counts[acct_type] = type_counts.get(acct_type, 0) + 1
-
     try:
-        service, sheet_id = _ensure_tab()
+        service = _get_service()
+        sheet_id = _get_sheet_id()
 
-        # Load existing rows
+        # Load existing sheet (all columns)
         result = service.spreadsheets().values().get(
             spreadsheetId=sheet_id,
-            range=f"'{TAB_ACTIVE_ACCOUNTS}'!A:M"
+            range=f"'{TAB_ACTIVE_ACCOUNTS}'!A1:ZZ"
         ).execute()
         existing_rows = result.get("values", [])
-        headers = existing_rows[0] if existing_rows else ACTIVE_ACCOUNTS_COLUMNS
+        existing_headers = existing_rows[0] if existing_rows else ACTIVE_ACCOUNTS_COLUMNS
         data_rows = existing_rows[1:] if len(existing_rows) > 1 else []
 
-        # Build index of existing rows by Name Key (column 0)
-        existing_by_key: dict[str, int] = {}  # name_key → index in data_rows
+        # Compute full headers: existing + any new extras not already present
+        full_headers = list(existing_headers)
+        for col in extra_cols:
+            if col not in full_headers:
+                full_headers.append(col)
+
+        # Pad existing data rows to match full_headers length
         for i, row in enumerate(data_rows):
-            if row:
+            data_rows[i] = row + [""] * (len(full_headers) - len(row))
+
+        # Build index of existing rows by Name Key (column 0)
+        existing_by_key: dict[str, int] = {}
+        for i, row in enumerate(data_rows):
+            if row and row[0]:
                 existing_by_key[row[0]] = i
+
+        # Build new rows from CSV
+        new_rows_by_key: dict[str, list] = {}
+        for rec in records:
+            account_name = rec.get("account_name", "").strip()
+            if not account_name:
+                skipped += 1
+                continue
+
+            parent   = rec.get("parent_account", "").strip()
+            sf_type  = rec.get("type", "").strip()
+            acct_type = classify_account(account_name, parent, sf_type)
+            name_key  = normalize_name(account_name)
+
+            row = _build_row_for_headers(full_headers, rec, name_key, acct_type)
+            new_rows_by_key[name_key] = row
+            type_counts[acct_type] = type_counts.get(acct_type, 0) + 1
 
         # Update existing, collect new
         append_rows = []
@@ -546,8 +574,8 @@ def merge_accounts(csv_text: str) -> dict:
                 append_rows.append(new_row)
                 added += 1
 
-        # Write back updated rows (overwrite all data rows)
-        all_rows = [headers] + data_rows + append_rows
+        # Write back everything (headers + updated rows + new rows)
+        all_rows = [full_headers] + data_rows + append_rows
         service.spreadsheets().values().update(
             spreadsheetId=sheet_id,
             range=f"'{TAB_ACTIVE_ACCOUNTS}'!A1",
@@ -555,11 +583,11 @@ def merge_accounts(csv_text: str) -> dict:
             body={"values": all_rows}
         ).execute()
 
-        # Clear any leftover rows below (in case old sheet had more rows)
+        # Clear any leftover rows below
         total_written = len(all_rows)
         service.spreadsheets().values().clear(
             spreadsheetId=sheet_id,
-            range=f"'{TAB_ACTIVE_ACCOUNTS}'!A{total_written + 1}:Z",
+            range=f"'{TAB_ACTIVE_ACCOUNTS}'!A{total_written + 1}:ZZ",
         ).execute()
 
         logger.info(
@@ -595,7 +623,7 @@ def _load_all_accounts() -> list[dict]:
         sheet_id = _get_sheet_id()
         result = service.spreadsheets().values().get(
             spreadsheetId=sheet_id,
-            range=f"'{TAB_ACTIVE_ACCOUNTS}'!A:M"
+            range=f"'{TAB_ACTIVE_ACCOUNTS}'!A1:ZZ"
         ).execute()
         rows = result.get("values", [])
         if len(rows) < 2:
