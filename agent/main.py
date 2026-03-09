@@ -45,6 +45,7 @@ logging.basicConfig(level=logging.INFO)
 
 memory = MemoryManager()
 conversation_history = []
+scheduler = Scheduler()
 
 # Pending draft — stores last unconfirmed draft
 _pending_draft = None
@@ -2033,7 +2034,6 @@ async def _run_telegram_and_scheduler():
     app.add_handler(MessageHandler(filters.COMMAND, handle_message))
     app.add_handler(MessageHandler(filters.Document.ALL, handle_document))
 
-    scheduler = Scheduler()
     gas = get_gas_bridge() if gas_bridge_configured() else None
 
     await app.initialize()
