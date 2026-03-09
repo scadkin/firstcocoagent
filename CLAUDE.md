@@ -1,5 +1,5 @@
 # SCOUT — Claude Code Reference
-*Last updated: 2026-03-08 — Session 23*
+*Last updated: 2026-03-09 — Session 23*
 
 ---
 
@@ -33,6 +33,19 @@
 ### Phase 6 roadmap
 - **6E** — District Prospecting Queue ✅ complete
 - **6F** — Pipeline Snapshot ✅ complete (Session 22)
+
+### Weekend scheduler (B1, Session 23)
+- Saturday: greeting at 11:00am CST, Sunday: greeting at 1:00pm CST
+- No auto check-ins or auto EOD on weekends
+- `/eod` command triggers EOD report manually (works any day)
+- `scheduler.mark_user_active_today()` called from `handle_message()` on weekends — suppresses auto-greeting if Steven messages first
+- `_is_user_active_today()` resets daily (compares against current date)
+
+### Lead row coloring (A3, Session 23)
+- `_color_leads_by_confidence()` auto-runs after `write_contacts()` appends to Leads tab
+- `/color_leads` command recolors all existing rows (one-time cleanup)
+- Colors: VERIFIED/HIGH = light green, LIKELY/MEDIUM = yellowish-green, INFERRED/LOW = light yellow, UNKNOWN = light grey
+- Batches in chunks of 500 requests for Sheets API safety
 
 ---
 
@@ -119,6 +132,8 @@
 **NEVER fabricate claims about active accounts in sequences.** Only cite verifiable facts: school name, license count. No assumed success/engagement.
 
 **Sequence building rules are in `memory/sequence_building_rules.md`.** Load as context when auto-building sequences.
+
+**`scheduler` is a module-level global in main.py.** It must be instantiated at module scope (alongside `memory` and `conversation_history`), not inside `_run_telegram_and_scheduler()`. If it's local to that function, `handle_message()` can't access it and all message handling silently dies. Fixed Session 23.
 
 **`global` declarations go at the TOP of `handle_message()`, not in elif blocks.** Python SyntaxError if `global` appears after first use of the variable. All globals in one line: `global conversation_history, _pending_draft, _last_prospect_batch, _pending_approve_force, _csv_import_mode, _csv_import_state, _pipeline_import_mode, _pending_csv_intent`.
 
