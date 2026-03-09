@@ -74,7 +74,8 @@ TAB_LOG = "Research Log"
 TAB_ACTIVITIES = "Activities"
 TAB_ACTIVE_ACCOUNTS = "Active Accounts"
 TAB_GOALS = "Goals"
-# TAB_SF_IMPORT removed — was created but never used
+TAB_SF_LEADS = "SF Leads"
+TAB_SF_CONTACTS = "SF Contacts"
 
 ACTIVITY_COLUMNS = [
     "Date", "Time", "Type", "District/Account", "Contact", "Notes", "Source", "Message ID",
@@ -132,6 +133,7 @@ def ensure_sheet_tabs_exist():
     all_tabs = [
         TAB_LEADS, TAB_NO_EMAIL, TAB_LOG,
         TAB_ACTIVITIES, TAB_ACTIVE_ACCOUNTS, TAB_GOALS,
+        TAB_SF_LEADS, TAB_SF_CONTACTS,
     ]
     for tab_name in all_tabs:
         if tab_name not in existing_tabs:

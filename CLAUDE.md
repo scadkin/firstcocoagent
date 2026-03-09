@@ -1,20 +1,24 @@
 # SCOUT — Claude Code Reference
-*Last updated: 2026-03-09 — Session 23*
+*Last updated: 2026-03-08 — Session 24*
 
 ---
 
 ## CURRENT STATE — update this after each session
 
-**Session 23: Quick wins + weekend scheduler implemented. Phases 1–6F complete. Enhancement pass A1-A3 + B1 done.**
+**Session 24: B2 Leads & Contacts CSV import + enrichment implemented. Phases 1–6F complete. All enhancements through B2 done.**
 
-### What was done (Session 23)
-- A1: `/call_list [N]` — custom contact count (1-50, default 10)
-- A2: Command cheat sheet appended to morning brief
-- A3: Lead row coloring by confidence (auto on research, `/color_leads` for existing)
-- B1: Weekend scheduler (Sat 11am / Sun 1pm greeting, no auto check-ins/EOD, `/eod` manual trigger)
+### What was done (Session 24)
+- B2: Salesforce Leads & Contacts CSV import + enrichment pipeline
+  - Two new tabs: SF Leads, SF Contacts (separate from research-generated Leads tab)
+  - Auto-detect lead CSV (Lead Source + Lead Status + Company headers) and contact CSV (Account Name + Department + Contact Owner headers)
+  - `/import_leads`, `/import_contacts` explicit routing commands
+  - Cross-checks each record against Active Accounts (email domain, account name, district name)
+  - Enrichment columns: Verified School/District/State/County, Active Account Match, Enrichment Status/Notes
+  - `/enrich_leads` triggers Serper-based web search enrichment for unenriched records
+  - Dedup by email (primary) or first|last name (secondary)
+  - Natural language CSV description updated: "salesforce leads" / "contacts" routes correctly
 
-### What still needs to be done (Session 24+)
-- B2: Leads & Contacts CSV import + enrichment pipeline
+### What still needs to be done (Session 25+)
 - C1: Master territory list (NCES data)
 - C3: Closed-lost winback strategy
 - Optionally test morning brief prospect display + hourly check-in prospect suggestion
@@ -29,6 +33,7 @@
 - Phase 6E (District Prospecting Queue): ✅ fully verified (Session 19)
 - Phase 6F (Pipeline Snapshot): ✅ fully verified (Session 22)
 - Enhancements A1-A3 + B1: ✅ implemented (Session 23)
+- Enhancement B2: ✅ implemented (Session 24)
 
 ### Phase 6 roadmap
 - **6E** — District Prospecting Queue ✅ complete
@@ -47,6 +52,19 @@
 - Colors: VERIFIED/HIGH = light green, LIKELY/MEDIUM = yellowish-green, INFERRED/LOW = light yellow, UNKNOWN = light grey
 - Batches in chunks of 500 requests for Sheets API safety
 
+### SF Leads & Contacts import (B2, Session 24)
+- Two new tabs: **SF Leads** (from Salesforce Leads report) and **SF Contacts** (from Salesforce Contacts report)
+- SEPARATE from the existing Leads tab (which is research-generated contacts)
+- `/import_leads` — next CSV goes to SF Leads tab; `/import_contacts` — next CSV goes to SF Contacts tab
+- Auto-detect: lead CSV has 2+ of {Lead Source, Lead Status, Company}; contact CSV has 2+ of {Account Name, Department, Contact Owner} + name columns
+- Auto-detect priority: pipeline > sf_leads > sf_contacts > accounts
+- Natural language: "salesforce leads" / "my leads" routes to SF Leads; "contacts" / "sf contacts" routes to SF Contacts
+- Cross-checks each record against Active Accounts by email domain, account/company name, and district name
+- Enrichment columns: Verified School, Verified District, Verified State, Verified County (CA only), Active Account Match, Enrichment Status, Enrichment Notes, Last Enriched, Date Imported
+- `/enrich_leads` runs Serper web search on unenriched records (up to 20 at a time); `/enrich_leads contacts` for SF Contacts tab
+- `_leads_import_mode` global: None | "leads" | "contacts" — resets after use (same pattern as `_pipeline_import_mode`)
+- `lead_importer` is a flat module imported at top of main.py (NOT lazy)
+
 ---
 
 ## CRITICAL RULES
@@ -59,7 +77,7 @@
 
 **Lazy imports for Phase 4+ modules.** `github_pusher`, `sequence_builder`, `fireflies`, `call_processor` are imported INSIDE `execute_tool()`, never at the top of `main.py`.
 
-**Top-level imports for flat tool modules.** `activity_tracker`, `csv_importer`, `daily_call_list`, `district_prospector`, `pipeline_tracker` are imported at the top of main.py like sheets_writer.
+**Top-level imports for flat tool modules.** `activity_tracker`, `csv_importer`, `daily_call_list`, `district_prospector`, `pipeline_tracker`, `lead_importer` are imported at the top of main.py like sheets_writer.
 
 **tool_result always follows tool_use.** Wrap every `execute_tool()` call in try/except. A result must always be appended to conversation history, even on error. Missing tool_result → 400 on next API call.
 
@@ -67,7 +85,7 @@
 
 **Synchronous code called from async context must use `run_in_executor`.** Wrap blocking I/O in `await loop.run_in_executor(None, fn, args...)`. Never call blocking functions directly from async methods.
 
-**Explicit slash commands bypass Claude and call execute_tool() directly.** `/brief`, `/call`, `/recent_calls`, `/progress`, `/sync_activities`, `/call_list`, `/pipeline`, `/pipeline_import`, and all `/prospect_*` commands call execute_tool() directly and return. Direct dispatch is the only reliable pattern — when conversation history is long, Claude responds with descriptive text instead of calling tools.
+**Explicit slash commands bypass Claude and call execute_tool() directly.** `/brief`, `/call`, `/recent_calls`, `/progress`, `/sync_activities`, `/call_list`, `/pipeline`, `/pipeline_import`, `/import_leads`, `/import_contacts`, `/enrich_leads`, and all `/prospect_*` commands call execute_tool() directly and return. Direct dispatch is the only reliable pattern — when conversation history is long, Claude responds with descriptive text instead of calling tools.
 
 **`/build_sequence` is a hybrid.** Routes through Claude for clarifying questions. But `execute_tool("build_sequence")` sends output via `await send_message()` directly and returns a short ack string to prevent Claude from rewriting.
 
@@ -103,9 +121,9 @@
 
 **Pipeline importer preserves ALL CSV columns.** Known columns mapped via `_OPP_COL_MAP`, unknown columns pass through with original header name. Same dynamic header pattern as csv_importer.
 
-**Auto-detect opp CSV by Stage + Close Date headers (with account exclusion).** If CSV header contains 2+ of {Stage, Close Date, Opportunity Name} AND does NOT contain account-specific columns (# of Active Licenses, # of Opportunities), it routes to Pipeline tab. `/import_replace_state` overrides auto-detect and forces account import. `/import_clear` sets clear mode but still respects auto-detect routing.
+**Auto-detect CSV routing by headers.** Priority: pipeline > sf_leads > sf_contacts > accounts. Pipeline: 2+ of {Stage, Close Date, Opportunity Name} without account-only columns. SF Leads: 2+ of {Lead Source, Lead Status, Company} without account-only columns. SF Contacts: 2+ of {Account Name, Department, Contact Owner} + name columns without account-only columns. Everything else → Active Accounts. `/import_replace_state` overrides auto-detect and forces account import. `/import_clear` sets clear mode but still respects auto-detect routing. `/import_leads` and `/import_contacts` force SF Leads/Contacts routing.
 
-**Natural language CSV description overrides auto-detect.** Steven can describe what a CSV is before uploading (or as a caption on the file). `_parse_csv_intent()` detects keywords: pipeline/opportunity → Pipeline tab; account/customer/lead/contact → Active Accounts. Priority: slash commands > caption > pre-message description > auto-detect.
+**Natural language CSV description overrides auto-detect.** Steven can describe what a CSV is before uploading (or as a caption on the file). `_parse_csv_intent()` detects keywords: pipeline/opportunity → Pipeline tab; lead/salesforce lead → SF Leads tab; contact/salesforce contact → SF Contacts tab; account/customer → Active Accounts; prospect → Active Accounts. Priority: slash commands > caption > pre-message description > auto-detect.
 
 **Pipeline uses 3-tier stale alerts.** 🟠 Needs Update (14+ days), 🟡 Needs Check-In / Going Stale (30+ days), 🔴 Risk Going Cold! (45+ days). Past-due Close Date also triggers. Empty Last Activity is NOT flagged (no data ≠ stale). Thresholds are constants in pipeline_tracker.py (TIER_NEEDS_UPDATE, TIER_GOING_STALE, TIER_GOING_COLD).
 
@@ -219,6 +237,7 @@ firstcocoagent/
 │   ├── csv_importer.py         ← MODULE not class. import_accounts(), classify_account()
 │   ├── daily_call_list.py      ← MODULE not class. build_daily_call_list()
 │   ├── district_prospector.py  ← MODULE not class. discover_districts(), suggest_upward_targets()
+│   ├── lead_importer.py        ← MODULE not class. import_leads(), import_contacts(), enrich
 │   └── fireflies.py            ← FirefliesClient, FirefliesError
 ├── gas/
 │   ├── CLAUDE.md               ← GAS deployment checklist and gotchas
@@ -311,8 +330,11 @@ firstcocoagent/
 | `/import_merge` | switch CSV upload back to merge mode (default) |
 | `/import_replace_state CA` | next CSV upload replaces only that state's rows; all other states untouched (then resets) |
 | `/dedup_accounts` | Remove duplicate rows from Active Accounts tab (uses Name Key + State composite key — fixed Session 18) |
+| `/import_leads` | next CSV upload imports as Salesforce leads (SF Leads tab) |
+| `/import_contacts` | next CSV upload imports as Salesforce contacts (SF Contacts tab) |
+| `/enrich_leads` | run Serper enrichment on unenriched SF Leads (add `contacts` arg for SF Contacts) |
 | `/pipeline` | show open pipeline summary with stale alerts |
 | `/pipeline_import` | next CSV upload imports as opportunities (Pipeline tab) |
-| send a `.csv` file | Auto-detects opp vs account CSV; or Salesforce active accounts import (merge by default) |
-| describe CSV before upload | "this is my pipeline opps" / "these are my active accounts" — sets routing for next CSV upload |
+| send a `.csv` file | Auto-detects opp vs lead vs contact vs account CSV; or Salesforce active accounts import (merge by default) |
+| describe CSV before upload | "these are my salesforce leads" / "contacts from salesforce" / "pipeline opps" — sets routing for next CSV upload |
 | caption on CSV upload | Same as above — type description as caption when sending the file |

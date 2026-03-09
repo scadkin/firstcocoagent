@@ -30,6 +30,7 @@ import tools.csv_importer as csv_importer
 import tools.daily_call_list as daily_call_list
 import tools.district_prospector as district_prospector
 import tools.pipeline_tracker as pipeline_tracker
+import tools.lead_importer as lead_importer
 from tools.telegram_bot import send_message
 # Phase 4/5 modules imported lazily inside execute_tool() — safe to boot without them
 
@@ -71,6 +72,8 @@ _csv_import_state: str = ""
 _pipeline_import_mode: bool = False
 # Natural language CSV description — set by pre-upload message or file caption
 _pending_csv_intent: dict | None = None
+# SF Leads/Contacts import mode: None | "leads" | "contacts"
+_leads_import_mode: str | None = None
 
 # ── Command cheat sheet (appended to morning brief) ──────────────────────────
 _COMMAND_CHEAT_SHEET = """
@@ -90,7 +93,10 @@ _COMMAND_CHEAT_SHEET = """
 `/build_sequence [name]` — build outreach sequence
 `/dedup_accounts` — deduplicate Active Accounts
 `/color_leads` — recolor Leads tab by confidence
-Send a `.csv` — import accounts or pipeline
+`/import_leads` — next CSV imports as SF leads
+`/import_contacts` — next CSV imports as SF contacts
+`/enrich_leads` — enrich unenriched SF leads
+Send a `.csv` — import accounts, leads, or pipeline
 """.strip()
 
 
@@ -114,9 +120,19 @@ def _parse_csv_intent(text: str) -> dict | None:
     if any(p in lower for p in acct_patterns):
         return {"target": "accounts", "label": "active accounts"}
 
-    # Lead / contact / prospect signals → route to accounts
-    lead_patterns = ["lead", "contact", "prospect"]
-    if any(p in lower for p in lead_patterns):
+    # Salesforce leads signals → route to SF Leads tab
+    lead_patterns = ["lead", "salesforce lead", "sf lead"]
+    if any(p in lower for p in lead_patterns) and "contact" not in lower:
+        return {"target": "sf_leads", "label": "Salesforce leads"}
+
+    # Salesforce contacts signals → route to SF Contacts tab
+    contact_patterns = ["contact", "salesforce contact", "sf contact"]
+    if any(p in lower for p in contact_patterns):
+        return {"target": "sf_contacts", "label": "Salesforce contacts"}
+
+    # Prospect signals → route to accounts
+    prospect_patterns = ["prospect"]
+    if any(p in lower for p in prospect_patterns):
         return {"target": "accounts", "label": "accounts"}
 
     return None
@@ -912,7 +928,7 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
 
-    global _csv_import_mode, _csv_import_state, _pipeline_import_mode, _pending_csv_intent
+    global _csv_import_mode, _csv_import_state, _pipeline_import_mode, _pending_csv_intent, _leads_import_mode
 
     try:
         tg_file = await doc.get_file()
@@ -924,27 +940,125 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # ── Resolve CSV routing intent ──
     # Priority: explicit slash commands > caption > pre-message description > auto-detect
+    # Targets: "pipeline" | "sf_leads" | "sf_contacts" | "accounts"
     caption = (update.message.caption or "").strip()
     caption_intent = _parse_csv_intent(caption) if caption else None
     pre_intent = _pending_csv_intent
     _pending_csv_intent = None  # consume after use
 
+    csv_target = "accounts"  # default
     if _csv_import_state:
         # State-replace is account-specific — always route to Active Accounts
-        is_opp = False
+        csv_target = "accounts"
+    elif _leads_import_mode == "leads":
+        csv_target = "sf_leads"
+        _leads_import_mode = None
+    elif _leads_import_mode == "contacts":
+        csv_target = "sf_contacts"
+        _leads_import_mode = None
     elif _pipeline_import_mode:
-        is_opp = True
+        csv_target = "pipeline"
         _pipeline_import_mode = False
     elif caption_intent:
-        is_opp = (caption_intent["target"] == "pipeline")
+        csv_target = caption_intent["target"]
         logger.info(f"CSV routed via caption: {caption_intent['label']}")
     elif pre_intent:
-        is_opp = (pre_intent["target"] == "pipeline")
+        csv_target = pre_intent["target"]
         logger.info(f"CSV routed via pre-message: {pre_intent['label']}")
     else:
-        is_opp = pipeline_tracker.is_opp_csv(csv_text)
+        # Auto-detect: pipeline > sf_leads > sf_contacts > accounts
+        if pipeline_tracker.is_opp_csv(csv_text):
+            csv_target = "pipeline"
+        elif lead_importer.is_lead_csv(csv_text):
+            csv_target = "sf_leads"
+        elif lead_importer.is_contact_csv(csv_text):
+            csv_target = "sf_contacts"
 
-    if is_opp:
+    # ── SF Leads import path ──
+    if csv_target == "sf_leads":
+        await send_message(f"👤 Got `{filename}` — importing Salesforce leads...")
+        try:
+            loop = asyncio.get_event_loop()
+            result = await loop.run_in_executor(None, lead_importer.import_leads, csv_text)
+        except Exception as e:
+            await send_message(f"❌ Leads import failed: {e}")
+            return
+
+        imported = result.get("imported", 0)
+        dupes = result.get("duplicates_skipped", 0)
+        cross = result.get("cross_checked", 0)
+        total = result.get("total_in_csv", 0)
+        errors = result.get("errors", [])
+        sheet_url = sheets_writer.get_master_sheet_url()
+
+        msg = (
+            f"✅ *SF Leads import complete!*\n\n"
+            f"📊 {imported} leads imported (of {total} in CSV)\n"
+        )
+        if dupes:
+            msg += f"  • {dupes} duplicates skipped\n"
+        if cross:
+            msg += f"  • {cross} matched to active accounts\n"
+        if errors:
+            msg += f"\n⚠️ Errors: {'; '.join(errors[:3])}\n"
+        msg += f"\n[View SF Leads tab]({sheet_url})"
+
+        try:
+            activity_tracker.log_activity(
+                activity_type="research_job",
+                district="SF Leads Import",
+                notes=f"Imported {imported} leads from {filename}",
+                source="manual",
+            )
+        except Exception:
+            pass
+
+        await send_message(msg)
+        return
+
+    # ── SF Contacts import path ──
+    if csv_target == "sf_contacts":
+        await send_message(f"👥 Got `{filename}` — importing Salesforce contacts...")
+        try:
+            loop = asyncio.get_event_loop()
+            result = await loop.run_in_executor(None, lead_importer.import_contacts, csv_text)
+        except Exception as e:
+            await send_message(f"❌ Contacts import failed: {e}")
+            return
+
+        imported = result.get("imported", 0)
+        dupes = result.get("duplicates_skipped", 0)
+        cross = result.get("cross_checked", 0)
+        total = result.get("total_in_csv", 0)
+        errors = result.get("errors", [])
+        sheet_url = sheets_writer.get_master_sheet_url()
+
+        msg = (
+            f"✅ *SF Contacts import complete!*\n\n"
+            f"📊 {imported} contacts imported (of {total} in CSV)\n"
+        )
+        if dupes:
+            msg += f"  • {dupes} duplicates skipped\n"
+        if cross:
+            msg += f"  • {cross} matched to active accounts\n"
+        if errors:
+            msg += f"\n⚠️ Errors: {'; '.join(errors[:3])}\n"
+        msg += f"\n[View SF Contacts tab]({sheet_url})"
+
+        try:
+            activity_tracker.log_activity(
+                activity_type="research_job",
+                district="SF Contacts Import",
+                notes=f"Imported {imported} contacts from {filename}",
+                source="manual",
+            )
+        except Exception:
+            pass
+
+        await send_message(msg)
+        return
+
+    if csv_target == "pipeline":
         # ── Pipeline import path (REPLACE ALL) ──
         _csv_import_mode = "merge"  # reset in case /import_clear was set (pipeline is always replace-all anyway)
         await send_message(f"📊 Got `{filename}` — importing pipeline opportunities...")
@@ -1077,7 +1191,7 @@ def _parse_draft(draft_text: str) -> tuple:
 # ── Telegram message handler ───────────────────────────────────────────────────
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    global conversation_history, _pending_draft, _last_prospect_batch, _pending_approve_force, _csv_import_mode, _csv_import_state, _pipeline_import_mode, _pending_csv_intent
+    global conversation_history, _pending_draft, _last_prospect_batch, _pending_approve_force, _csv_import_mode, _csv_import_state, _pipeline_import_mode, _pending_csv_intent, _leads_import_mode
 
     if str(update.effective_chat.id) != str(TELEGRAM_CHAT_ID):
         return
@@ -1313,6 +1427,62 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 await send_message(f"✅ Colored {result.get('colored', 0)} lead rows by confidence level.")
         except Exception as e:
             await send_message(f"Color leads failed: {e}")
+        return
+
+    # ── SF Leads/Contacts import commands ─────────────────────────────────
+
+    elif user_text.lower() == "/import_leads":
+        _leads_import_mode = "leads"
+        await send_message(
+            "👤 Leads import mode set. Next CSV upload will import as Salesforce leads into the *SF Leads* tab.\n"
+            "Send the Salesforce leads CSV now."
+        )
+        return
+
+    elif user_text.lower() == "/import_contacts":
+        _leads_import_mode = "contacts"
+        await send_message(
+            "👥 Contacts import mode set. Next CSV upload will import as Salesforce contacts into the *SF Contacts* tab.\n"
+            "Send the Salesforce contacts CSV now."
+        )
+        return
+
+    elif user_text.lower().startswith("/enrich_leads"):
+        args = user_text[len("/enrich_leads"):].strip()
+        tab_name = lead_importer.TAB_SF_LEADS  # default to SF Leads
+        if args.lower() == "contacts":
+            tab_name = lead_importer.TAB_SF_CONTACTS
+        await send_message(f"🔍 Checking {tab_name} for unenriched records...")
+        try:
+            loop = asyncio.get_event_loop()
+            unenriched = await loop.run_in_executor(None, lead_importer.get_unenriched, tab_name, 20)
+            if not unenriched:
+                await send_message(f"✅ All records in {tab_name} are already enriched!")
+                return
+            await send_message(f"Found {len(unenriched)} unenriched records. Running enrichment (this may take a moment)...")
+            enriched_count = 0
+            errors_count = 0
+            for rec in unenriched:
+                row_idx = rec.get("_row_index")
+                tab_type = "leads" if tab_name == lead_importer.TAB_SF_LEADS else "contacts"
+                enrichment = await loop.run_in_executor(
+                    None, lead_importer.enrich_record_via_serper, rec, tab_type
+                )
+                if enrichment.get("enrichment_status") == "error":
+                    errors_count += 1
+                    continue
+                await loop.run_in_executor(
+                    None, lead_importer.update_enrichment, tab_name, row_idx, enrichment
+                )
+                enriched_count += 1
+            msg = f"✅ *Enrichment complete!*\n\n📊 {enriched_count} records enriched"
+            if errors_count:
+                msg += f"\n⚠️ {errors_count} errors"
+            sheet_url = sheets_writer.get_master_sheet_url()
+            msg += f"\n\n[View {tab_name} tab]({sheet_url})"
+            await send_message(msg)
+        except Exception as e:
+            await send_message(f"❌ Enrichment failed: {e}")
         return
 
     # ── Pipeline commands ──────────────────────────────────────────────────

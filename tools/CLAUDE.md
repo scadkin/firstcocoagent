@@ -170,6 +170,41 @@ pipeline_tracker.build_pipeline_alerts() -> str
 # Stale threshold: PIPELINE_STALE_DAYS env var (default 14)
 ```
 
+## lead_importer (`tools/lead_importer.py`) — MODULE, NOT A CLASS
+```python
+import tools.lead_importer as lead_importer
+lead_importer.import_leads(csv_text: str) -> dict
+# {imported, duplicates_skipped, cross_checked, total_in_csv, errors}
+# Imports Salesforce Leads CSV into SF Leads tab. Dedup by email/name. Cross-checks Active Accounts.
+
+lead_importer.import_contacts(csv_text: str) -> dict
+# {imported, duplicates_skipped, cross_checked, total_in_csv, errors}
+# Imports Salesforce Contacts CSV into SF Contacts tab. Same dedup + cross-check.
+
+lead_importer.is_lead_csv(csv_text: str) -> bool
+# Auto-detect: True if CSV has 2+ of {Lead Source, Lead Status, Company}
+
+lead_importer.is_contact_csv(csv_text: str) -> bool
+# Auto-detect: True if CSV has 2+ of {Account Name, Department, Contact Owner} + name columns
+
+lead_importer.get_unenriched(tab_name: str, limit=20) -> list[dict]
+# Records with Enrichment Status = not_started/cross_checked/blank. Includes _row_index.
+
+lead_importer.update_enrichment(tab_name: str, row_index: int, enrichment: dict)
+# Update enrichment columns in-place for a specific row.
+
+lead_importer.enrich_record_via_serper(record: dict, tab_type: str) -> dict
+# Web search to verify role/school. Returns enrichment dict. Synchronous — call via run_in_executor.
+
+lead_importer.get_import_summary(tab_name: str) -> str
+# Returns count summary string.
+
+# Tabs: SF Leads, SF Contacts (separate from existing Leads tab)
+# Enrichment columns: Verified School, Verified District, Verified State, Verified County,
+#   Active Account Match, Enrichment Status, Enrichment Notes, Last Enriched, Date Imported
+# TAB_SF_LEADS = "SF Leads", TAB_SF_CONTACTS = "SF Contacts"
+```
+
 ## github_pusher (`tools/github_pusher.py`) — lazy import only
 ```python
 import tools.github_pusher as github_pusher
