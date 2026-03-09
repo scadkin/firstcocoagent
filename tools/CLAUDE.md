@@ -37,7 +37,8 @@ sheets_writer.get_leads(state_filter="") -> list[dict]
 sheets_writer.get_master_sheet_url()
 sheets_writer.log_research_job(district, state, layers_used, total_found, with_email, no_email, notes)
 sheets_writer.ensure_sheet_tabs_exist()
-# Tabs: Leads, No Email, Research Log, Activities, Active Accounts, Goals, Salesforce Import
+sheets_writer.color_all_leads() -> dict  # {colored: int} — recolors all Leads rows by Email Confidence
+# Tabs: Leads, No Email, Research Log, Activities, Active Accounts, Goals
 # from tools.sheets_writer import SheetsWriter  ← CRASHES — class does not exist
 ```
 

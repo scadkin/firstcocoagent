@@ -71,6 +71,27 @@ _pipeline_import_mode: bool = False
 # Natural language CSV description — set by pre-upload message or file caption
 _pending_csv_intent: dict | None = None
 
+# ── Command cheat sheet (appended to morning brief) ──────────────────────────
+_COMMAND_CHEAT_SHEET = """
+📋 *Quick Commands*
+`/call_list [N]` — daily call list (default 10, max 50)
+`/progress` — today's KPI dashboard
+`/pipeline` — open pipeline + stale alerts
+`/brief [meeting]` — pre-call brief
+`/call [id] [email]` — process a call transcript
+`/recent_calls [N]` — recent external calls
+`/sync_activities` — scan Gmail for PandaDoc/Dialpad
+`/set_goal [type] [target]` — update KPI target
+`/prospect` — next 5 pending districts
+`/prospect_discover [state]` — cold district search
+`/prospect_upward` — upward targets from accounts
+`/prospect_approve 1,3` — approve from last batch
+`/build_sequence [name]` — build outreach sequence
+`/dedup_accounts` — deduplicate Active Accounts
+`/color_leads` — recolor Leads tab by confidence
+Send a `.csv` — import accounts or pipeline
+""".strip()
+
 
 def _parse_csv_intent(text: str) -> dict | None:
     """
@@ -1063,6 +1084,11 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_text = update.message.text.strip()
     logger.info(f"Received: {user_text}")
 
+    # On weekends, mark user as active to suppress auto-greeting
+    now = datetime.now(CST)
+    if now.weekday() >= 5:  # Saturday or Sunday
+        scheduler.mark_user_active_today()
+
     _ack_sent = False
 
     # ── Command routing ────────────────────────────────────────────────────────
@@ -1195,6 +1221,10 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await send_message("Give me the transcript ID, or use /recent_calls to find one.")
         return
 
+    elif user_text.lower() in ["/eod", "eod", "end of day", "eod report"]:
+        asyncio.create_task(send_eod_report())
+        return
+
     # ── Phase 6C commands ──────────────────────────────────────────────────────
 
     elif user_text.lower() in ["/progress", "/kpi", "kpi", "my progress", "how am i doing"]:
@@ -1229,13 +1259,21 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # ── Phase 6D commands ──────────────────────────────────────────────────────
 
-    elif user_text.lower() in ["/call_list", "/daily_list", "call list",
-                               "daily call list", "who should i call today",
-                               "who should i call"]:
-        await send_message("Building your daily call list...")
+    elif user_text.lower().startswith("/call_list") or user_text.lower().startswith("/daily_list") or user_text.lower() in [
+                               "call list", "daily call list",
+                               "who should i call today", "who should i call"]:
+        # Parse optional count: /call_list 20
+        max_contacts = 10  # default
+        parts = user_text.strip().split()
+        if len(parts) >= 2:
+            try:
+                max_contacts = max(1, min(50, int(parts[-1])))
+            except ValueError:
+                pass
+        await send_message(f"Building your daily call list ({max_contacts} contacts)...")
         try:
             loop = asyncio.get_event_loop()
-            result = await loop.run_in_executor(None, daily_call_list.build_daily_call_list)
+            result = await loop.run_in_executor(None, daily_call_list.build_daily_call_list, max_contacts)
             if not result["success"]:
                 await send_message(f"Could not build call list: {result['error']}")
                 return
@@ -1261,6 +1299,19 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 pass
         except Exception as e:
             await send_message(f"Call list failed: {e}")
+        return
+
+    elif user_text.lower() in ["/color_leads", "color leads"]:
+        await send_message("Recoloring Leads tab by confidence...")
+        try:
+            loop = asyncio.get_event_loop()
+            result = await loop.run_in_executor(None, sheets_writer.color_all_leads)
+            if result.get("error"):
+                await send_message(f"❌ Color leads failed: {result['error']}")
+            else:
+                await send_message(f"✅ Colored {result.get('colored', 0)} lead rows by confidence level.")
+        except Exception as e:
+            await send_message(f"Color leads failed: {e}")
         return
 
     # ── Pipeline commands ──────────────────────────────────────────────────
@@ -1681,6 +1732,9 @@ async def send_morning_brief():
         text, _, _ = process_message(prompt, [], memory)
         await send_message(f"☀️ *Good morning, Steven!*\n\n{text}")
 
+        # Send command cheat sheet as separate message to avoid 4K limit
+        await send_message(_COMMAND_CHEAT_SHEET)
+
         # Show pending prospects if any
         try:
             loop = asyncio.get_event_loop()
@@ -1762,6 +1816,17 @@ async def send_checkin():
     except Exception:
         pass
     await send_message(msg)
+
+
+async def send_weekend_greeting():
+    """Casual weekend greeting — Saturday 11am or Sunday 1pm CST."""
+    now = datetime.now(CST)
+    day_name = "Saturday" if now.weekday() == 5 else "Sunday"
+    await send_message(
+        f"👋 Happy {day_name}, Steven! What do you want to work on today?\n\n"
+        f"I'm here if you need anything — research, sequences, pipeline review, whatever.\n"
+        f"No auto check-ins today. Use `/eod` if you want an end-of-day summary."
+    )
 
 
 # ── Phase 5: Webhook transcript callback ──────────────────────────────────────
@@ -1985,10 +2050,10 @@ async def _run_telegram_and_scheduler():
     gas_status = "GAS bridge ready" if gas_bridge_configured() else "GAS bridge not configured"
     ff_status = "Fireflies ready" if FIREFLIES_API_KEY else "FIREFLIES_API_KEY not set"
     await send_message(
-        f"Scout is online — Phase 6E active.\n"
+        f"Scout is online — Phase 6F+ active.\n"
         f"{gas_status} | {ff_status}\n"
         f"Commands: /brief | /recent_calls | /call [id] | /push_code [file]\n"
-        f"/call_list | /progress | /sync_activities | /set_goal [type] [target]\n"
+        f"/call_list [N] | /progress | /pipeline | /eod\n"
         f"/prospect | /prospect_discover [state] | /prospect_upward | send CSV to import"
     )
 
@@ -2003,6 +2068,8 @@ async def _run_telegram_and_scheduler():
                 asyncio.create_task(send_eod_report())
             elif sched_event == "checkin":
                 asyncio.create_task(send_checkin())
+            elif sched_event == "weekend_greeting":
+                asyncio.create_task(send_weekend_greeting())
             if gas and FIREFLIES_API_KEY:
                 asyncio.create_task(_check_precall_briefs(gas))
                 now_ts = time.time()

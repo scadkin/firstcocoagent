@@ -1,16 +1,24 @@
 # SCOUT — Claude Code Reference
-*Last updated: 2026-03-08 — Session 22*
+*Last updated: 2026-03-08 — Session 23*
 
 ---
 
 ## CURRENT STATE — update this after each session
 
-**Phase 6F (Pipeline Snapshot) fully verified. All phases 1–6F complete. Ready to plan next phase or enhancements.**
+**Session 23: Quick wins + weekend scheduler implemented. Phases 1–6F complete. Enhancement pass A1-A3 + B1 done.**
 
-### What still needs to be done (Session 23)
-- Plan next phase or enhancements (all 6A–6F verified)
-- Optionally test morning brief prospect display + hourly check-in prospect suggestion (deferred from 6E)
-- Re-upload pipeline opp CSV to repopulate Pipeline tab (was cleared for Test 7)
+### What was done (Session 23)
+- A1: `/call_list [N]` — custom contact count (1-50, default 10)
+- A2: Command cheat sheet appended to morning brief
+- A3: Lead row coloring by confidence (auto on research, `/color_leads` for existing)
+- B1: Weekend scheduler (Sat 11am / Sun 1pm greeting, no auto check-ins/EOD, `/eod` manual trigger)
+
+### What still needs to be done (Session 24+)
+- B2: Leads & Contacts CSV import + enrichment pipeline
+- C1: Master territory list (NCES data)
+- C3: Closed-lost winback strategy
+- Optionally test morning brief prospect display + hourly check-in prospect suggestion
+- Re-upload pipeline opp CSV to repopulate Pipeline tab
 
 ### Current status
 - Phases 1–5: ✅ all verified
@@ -20,6 +28,7 @@
 - Phase 6D (Daily Call List): ✅
 - Phase 6E (District Prospecting Queue): ✅ fully verified (Session 19)
 - Phase 6F (Pipeline Snapshot): ✅ fully verified (Session 22)
+- Enhancements A1-A3 + B1: ✅ implemented (Session 23)
 
 ### Phase 6 roadmap
 - **6E** — District Prospecting Queue ✅ complete
@@ -272,7 +281,9 @@ firstcocoagent/
 | `/progress` or `/kpi` | today's activity vs KPI goals |
 | `/sync_activities` | scan Gmail for PandaDoc + Dialpad events |
 | `/set_goal [type] [target]` | update KPI target |
-| `/call_list` | generate daily call list (10 contacts) |
+| `/call_list [N]` | generate daily call list (default 10, max 50) |
+| `/color_leads` | recolor Leads tab rows by email confidence |
+| `/eod` | manually trigger end-of-day report (useful on weekends) |
 | `/prospect_discover [state]` | cold district search via Serper |
 | `/prospect_upward` | upward targets from active accounts |
 | `/prospect` | show next 5 pending districts |

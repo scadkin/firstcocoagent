@@ -387,11 +387,121 @@ def write_contacts(contacts: list[dict], state: str = "") -> dict:
         ).execute()
         logger.info(f"Appended {len(no_email_rows)} rows to No Email tab")
 
+    # Color-code newly appended lead rows by confidence
+    if leads_rows:
+        try:
+            _color_leads_by_confidence(service, sheet_id)
+        except Exception as color_err:
+            logger.warning(f"Could not color lead rows: {color_err}")
+
     return {
         "leads_added": len(leads_rows),
         "no_email_added": len(no_email_rows),
         "duplicates_skipped": duplicates,
     }
+
+
+# ─────────────────────────────────────────────
+# LEAD ROW COLORING BY CONFIDENCE
+# ─────────────────────────────────────────────
+
+# Confidence → background color (RGB 0-1 floats)
+_CONFIDENCE_COLORS = {
+    "VERIFIED": {"red": 0.85, "green": 0.93, "blue": 0.83},  # light green
+    "HIGH":     {"red": 0.85, "green": 0.93, "blue": 0.83},  # light green
+    "LIKELY":   {"red": 0.91, "green": 0.95, "blue": 0.81},  # yellowish-green
+    "MEDIUM":   {"red": 0.91, "green": 0.95, "blue": 0.81},  # yellowish-green
+    "INFERRED": {"red": 1.0,  "green": 0.97, "blue": 0.80},  # light yellow
+    "LOW":      {"red": 1.0,  "green": 0.97, "blue": 0.80},  # light yellow
+    "UNKNOWN":  {"red": 0.94, "green": 0.94, "blue": 0.94},  # light grey
+}
+
+
+def _color_leads_by_confidence(service=None, sheet_id=None):
+    """
+    Apply background colors to all Leads tab rows based on Email Confidence column.
+    Safe to call repeatedly — overwrites existing colors.
+    """
+    if service is None:
+        service = _get_service()
+    if sheet_id is None:
+        sheet_id = _get_sheet_id()
+
+    # Read all data from Leads tab
+    result = service.spreadsheets().values().get(
+        spreadsheetId=sheet_id,
+        range=f"'{TAB_LEADS}'!A:K"
+    ).execute()
+    rows = result.get("values", [])
+    if len(rows) < 2:
+        return {"colored": 0}
+
+    headers = rows[0]
+    try:
+        conf_idx = headers.index("Email Confidence")
+    except ValueError:
+        logger.warning("Email Confidence column not found in Leads tab")
+        return {"colored": 0}
+
+    # Get the Leads tab GID
+    meta = service.spreadsheets().get(spreadsheetId=sheet_id).execute()
+    leads_gid = None
+    for s in meta.get("sheets", []):
+        if s["properties"]["title"] == TAB_LEADS:
+            leads_gid = s["properties"]["sheetId"]
+            break
+    if leads_gid is None:
+        logger.warning("Leads tab not found for coloring")
+        return {"colored": 0}
+
+    # Build batch update requests — one per row
+    requests = []
+    colored = 0
+    for row_idx, row in enumerate(rows[1:], start=1):  # skip header
+        confidence = row[conf_idx].strip().upper() if conf_idx < len(row) else "UNKNOWN"
+        color = _CONFIDENCE_COLORS.get(confidence, _CONFIDENCE_COLORS["UNKNOWN"])
+
+        requests.append({
+            "repeatCell": {
+                "range": {
+                    "sheetId": leads_gid,
+                    "startRowIndex": row_idx,
+                    "endRowIndex": row_idx + 1,
+                    "startColumnIndex": 0,
+                    "endColumnIndex": len(headers),
+                },
+                "cell": {
+                    "userEnteredFormat": {
+                        "backgroundColor": color,
+                    }
+                },
+                "fields": "userEnteredFormat.backgroundColor",
+            }
+        })
+        colored += 1
+
+    if requests:
+        # Batch in chunks of 500 to avoid API limits
+        for i in range(0, len(requests), 500):
+            service.spreadsheets().batchUpdate(
+                spreadsheetId=sheet_id,
+                body={"requests": requests[i:i+500]}
+            ).execute()
+        logger.info(f"Colored {colored} lead rows by confidence")
+
+    return {"colored": colored}
+
+
+def color_all_leads() -> dict:
+    """
+    Public function: recolor ALL existing Leads tab rows by confidence.
+    Used by /color_leads command for one-time cleanup.
+    """
+    try:
+        return _color_leads_by_confidence()
+    except Exception as e:
+        logger.error(f"color_all_leads error: {e}")
+        return {"colored": 0, "error": str(e)}
 
 
 # ─────────────────────────────────────────────
