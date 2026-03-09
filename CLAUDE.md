@@ -5,7 +5,7 @@
 
 ## CURRENT STATE — update this after each session
 
-**Session 24: B2 Leads & Contacts CSV import + enrichment implemented. Phases 1–6F complete. All enhancements through B2 done.**
+**Session 24: B2 Leads & Contacts CSV import + enrichment implemented (NOT YET VERIFIED). Phases 1–6F complete. All enhancements through B2 done.**
 
 ### What was done (Session 24)
 - B2: Salesforce Leads & Contacts CSV import + enrichment pipeline
@@ -19,6 +19,13 @@
   - Natural language CSV description updated: "salesforce leads" / "contacts" routes correctly
 
 ### What still needs to be done (Session 25+)
+- **B2 VERIFICATION (must do first):**
+  - Upload a Salesforce leads CSV → verify routes to SF Leads tab, cross-checking works
+  - Upload a Salesforce contacts CSV → verify routes to SF Contacts tab
+  - Test `/import_leads` and `/import_contacts` explicit routing
+  - Test `/enrich_leads` enrichment on imported records
+  - Test natural language routing: "these are my salesforce leads" caption
+  - Verify existing account/pipeline CSV routing is NOT broken by the new auto-detect
 - C1: Master territory list (NCES data)
 - C3: Closed-lost winback strategy
 - Optionally test morning brief prospect display + hourly check-in prospect suggestion
@@ -33,7 +40,7 @@
 - Phase 6E (District Prospecting Queue): ✅ fully verified (Session 19)
 - Phase 6F (Pipeline Snapshot): ✅ fully verified (Session 22)
 - Enhancements A1-A3 + B1: ✅ implemented (Session 23)
-- Enhancement B2: ✅ implemented (Session 24)
+- Enhancement B2: ⏳ implemented, NOT YET VERIFIED (Session 24)
 
 ### Phase 6 roadmap
 - **6E** — District Prospecting Queue ✅ complete
