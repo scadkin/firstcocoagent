@@ -1,27 +1,33 @@
 # SCOUT — Claude Code Reference
-*Last updated: 2026-03-08 — Session 24*
+*Last updated: 2026-03-10 — Session 25*
 
 ---
 
 ## CURRENT STATE — update this after each session
 
-**Session 24: B2 Leads & Contacts CSV import + enrichment implemented (NOT YET VERIFIED). Phases 1–6F complete. All enhancements through B2 done.**
+**Session 25: SoCal lead/contact filtering (offline data cleaning). B2 still NOT YET VERIFIED in Scout. Phases 1–6F complete.**
 
-### What was done (Session 24)
-- B2: Salesforce Leads & Contacts CSV import + enrichment pipeline
-  - Two new tabs: SF Leads, SF Contacts (separate from research-generated Leads tab)
-  - Auto-detect lead CSV (Lead Source + Lead Status + Company headers) and contact CSV (Account Name + Department + Contact Owner headers)
-  - `/import_leads`, `/import_contacts` explicit routing commands
-  - Cross-checks each record against Active Accounts (email domain, account name, district name)
-  - Enrichment columns: Verified School/District/State/County, Active Account Match, Enrichment Status/Notes
-  - `/enrich_leads` triggers Serper-based web search enrichment for unenriched records
-  - Dedup by email (primary) or first|last name (secondary)
-  - Natural language CSV description updated: "salesforce leads" / "contacts" routes correctly
+### What was done (Session 25)
+- SoCal lead/contact CSV filtering — offline data cleaning (NOT Scout feature code)
+  - Downloaded CDE public school directory (18,415 schools, 1,060 districts with county)
+  - Downloaded CDE private school directory (2,781 schools with county)
+  - Downloaded NCES private school data (2,269 CA schools with county via FIPS codes)
+  - Built 3-pass Python filtering pipeline in `scripts/socal_filter.py`, `socal_filter_pass2.py`, `socal_filter_pass3.py`
+  - Pass 1: School/district name matching + zip + city + email domain → resolved 89-94%
+  - Pass 2: Parent account matching, city names in school names, deeper email domain → resolved 585 more
+  - Pass 3: CDE + NCES private school databases → resolved 256 more
+  - Results: Leads 10,478 SoCal + 1,613 uncertain (of 20,737). Contacts 4,100 SoCal + 212 uncertain (of 8,040)
+  - Output files in ~/Downloads/: `Leads_SoCal_Filtered.csv`, `Contacts_SoCal_Filtered.csv` + NorCal removed files
+  - B2 code review: no bugs found, implementation looks solid
 
-### What still needs to be done (Session 25+)
-- **B2 VERIFICATION (must do first):**
-  - Upload a Salesforce leads CSV → verify routes to SF Leads tab, cross-checking works
-  - Upload a Salesforce contacts CSV → verify routes to SF Contacts tab
+### What still needs to be done (Session 26+)
+- **FINISH SOCAL FILTERING (in progress):**
+  - Run Serper web searches on ~530 remaining uncertain records with school/academy keywords
+  - Then optionally Serper the remaining ~1,295 non-school uncertain records
+  - Output final cleaned SoCal-only CSVs
+- **B2 VERIFICATION (must do after SoCal filtering or independently):**
+  - Upload filtered SoCal leads CSV to Scout → verify routes to SF Leads tab, cross-checking works
+  - Upload filtered SoCal contacts CSV to Scout → verify routes to SF Contacts tab
   - Test `/import_leads` and `/import_contacts` explicit routing
   - Test `/enrich_leads` enrichment on imported records
   - Test natural language routing: "these are my salesforce leads" caption
@@ -41,6 +47,7 @@
 - Phase 6F (Pipeline Snapshot): ✅ fully verified (Session 22)
 - Enhancements A1-A3 + B1: ✅ implemented (Session 23)
 - Enhancement B2: ⏳ implemented, NOT YET VERIFIED (Session 24)
+- SoCal CSV filtering: ⏳ 3 passes done offline, ~530 school records need Serper (Session 25)
 
 ### Phase 6 roadmap
 - **6E** — District Prospecting Queue ✅ complete
@@ -71,6 +78,20 @@
 - `/enrich_leads` runs Serper web search on unenriched records (up to 20 at a time); `/enrich_leads contacts` for SF Contacts tab
 - `_leads_import_mode` global: None | "leads" | "contacts" — resets after use (same pattern as `_pipeline_import_mode`)
 - `lead_importer` is a flat module imported at top of main.py (NOT lazy)
+
+### SoCal Lead/Contact Filtering (Session 25)
+- **Offline data cleaning scripts** in `scripts/` — NOT Scout feature code
+- `scripts/socal_filter.py` — Pass 1: CDE public school/district name matching + zip + city + email domain
+- `scripts/socal_filter_pass2.py` — Pass 2: Parent account matching, city names embedded in school names, deeper email domain
+- `scripts/socal_filter_pass3.py` — Pass 3: CDE + NCES private school database matching
+- Data sources cached in `/tmp/`: `cde_schools.txt` (CDE public schools), `cde_districts.txt` (CDE districts), `cde_private_schools.xlsx` (CDE private), `nces_private/pss2122_pu.csv` (NCES private)
+- Download URLs: CDE public = `https://www.cde.ca.gov/schooldirectory/report?rid=dl1&tp=txt`, CDE districts = `rid=dl2`, CDE private = `https://www.cde.ca.gov/ds/si/ps/documents/privateschooldata2425.xlsx`, NCES = `https://nces.ed.gov/surveys/pss/zip/pss2122_pu_csv.zip`
+- Input: `~/Downloads/My Leads - SoCal Only.csv` (20,737 records) and `~/Downloads/My Contacts - SoCal Only.csv` (8,040 records)
+- Output: `~/Downloads/Leads_SoCal_Filtered.csv` and `~/Downloads/Contacts_SoCal_Filtered.csv` (SoCal + Uncertain kept, NorCal removed)
+- Each output has 3 added columns: County, SoCal (Yes/No/Uncertain), County_Method
+- SoCal counties: Los Angeles, San Diego, Orange, Riverside, San Bernardino, Kern, Ventura, Santa Barbara, San Luis Obispo, Imperial
+- Remaining: ~530 uncertain with school/academy keywords need Serper web searches, then ~1,295 non-school uncertain
+- Salesforce CSV files use latin-1 encoding (not utf-8)
 
 ---
 
