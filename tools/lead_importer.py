@@ -43,6 +43,20 @@ logger = logging.getLogger(__name__)
 SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
 
 # ─────────────────────────────────────────────
+# HELPERS
+# ─────────────────────────────────────────────
+
+def _col_to_letter(col_idx: int) -> str:
+    """Convert 0-based column index to spreadsheet letter (0=A, 25=Z, 26=AA, ...)."""
+    result = ""
+    idx = col_idx
+    while idx >= 0:
+        result = chr(idx % 26 + ord("A")) + result
+        idx = idx // 26 - 1
+    return result
+
+
+# ─────────────────────────────────────────────
 # TAB + COLUMN DEFINITIONS
 # ─────────────────────────────────────────────
 
@@ -108,10 +122,12 @@ _SF_LEAD_COL_MAP = {
     "last name":            "last_name",
     "title":                "title",
     "company":              "company",
+    "company / account":    "company",
     "email":                "email",
     "phone":                "phone",
     "lead source":          "lead_source",
     "lead status":          "lead_status",
+    "lead owner":           "lead_owner",
     "state/province":       "state",
     "state":                "state",
     "street":               "street",
@@ -120,6 +136,9 @@ _SF_LEAD_COL_MAP = {
     "zip/postal code":      "zip",
     "description":          "description",
     "created date":         "created_date",
+    "create date":          "created_date",
+    "district name":        "district_name",
+    "last activity":        "last_activity",
 }
 
 _SF_CONTACT_COL_MAP = {
@@ -128,13 +147,23 @@ _SF_CONTACT_COL_MAP = {
     "title":                    "title",
     "account name":             "account_name",
     "email":                    "email",
+    "secondary email":          "secondary_email",
     "phone":                    "phone",
+    "mobile":                   "mobile",
     "mailing state/province":   "mailing_state",
+    "mailing state/province (text only)": "mailing_state",
     "mailing state":            "mailing_state",
     "mailing city":             "mailing_city",
+    "mailing street":           "mailing_street",
+    "mailing zip/postal code":  "mailing_zip",
     "department":               "department",
     "contact owner":            "contact_owner",
+    "account owner":            "account_owner",
+    "parent account":           "parent_account",
+    "district name":            "district_name",
     "created date":             "created_date",
+    "last activity":            "last_activity",
+    "billing state/province":   "billing_state",
 }
 
 # Headers that indicate an ACCOUNT csv (not leads/contacts)
@@ -371,7 +400,7 @@ def is_lead_csv(csv_text: str) -> bool:
     if headers_lower & _ACCOUNT_ONLY_HEADERS:
         return False
 
-    lead_signals = {"lead source", "lead status", "company"}
+    lead_signals = {"lead source", "lead status", "company", "company / account", "lead owner"}
     return len(headers_lower & lead_signals) >= 2
 
 
@@ -391,7 +420,7 @@ def is_contact_csv(csv_text: str) -> bool:
     if headers_lower & _ACCOUNT_ONLY_HEADERS:
         return False
 
-    contact_signals = {"account name", "department", "contact owner"}
+    contact_signals = {"account name", "department", "contact owner", "account owner", "parent account"}
     name_signals = {"first name", "last name"}
     return len(headers_lower & contact_signals) >= 2 and len(headers_lower & name_signals) >= 1
 
@@ -469,7 +498,7 @@ def import_leads(csv_text: str) -> dict:
         try:
             service.spreadsheets().values().append(
                 spreadsheetId=sheet_id,
-                range=f"'{TAB_SF_LEADS}'!A:Z",
+                range=f"'{TAB_SF_LEADS}'!A:AZ",
                 valueInputOption="RAW",
                 insertDataOption="INSERT_ROWS",
                 body={"values": rows_to_append}
@@ -556,7 +585,7 @@ def import_contacts(csv_text: str) -> dict:
         try:
             service.spreadsheets().values().append(
                 spreadsheetId=sheet_id,
-                range=f"'{TAB_SF_CONTACTS}'!A:Z",
+                range=f"'{TAB_SF_CONTACTS}'!A:AZ",
                 valueInputOption="RAW",
                 insertDataOption="INSERT_ROWS",
                 body={"values": rows_to_append}
@@ -722,7 +751,7 @@ def update_enrichment(tab_name: str, row_index: int, enrichment: dict):
     for col_name, value in field_map.items():
         if col_name in headers and value:
             col_idx = headers.index(col_name)
-            col_letter = chr(ord("A") + col_idx) if col_idx < 26 else f"A{chr(ord('A') + col_idx - 26)}"
+            col_letter = _col_to_letter(col_idx)
             updates.append({
                 "range": f"'{tab_name}'!{col_letter}{row_index}",
                 "values": [[value]],
