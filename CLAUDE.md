@@ -1,31 +1,30 @@
 # SCOUT — Claude Code Reference
-*Last updated: 2026-03-10 — Session 25*
+*Last updated: 2026-03-10 — Session 26*
 
 ---
 
 ## CURRENT STATE — update this after each session
 
-**Session 25: SoCal lead/contact filtering (offline data cleaning). B2 still NOT YET VERIFIED in Scout. Phases 1–6F complete.**
+**Session 26: SoCal filtering complete (5 passes). Confirmed SoCal + Uncertain now in separate files. B2 still NOT YET VERIFIED. Phases 1–6F complete.**
 
-### What was done (Session 25)
-- SoCal lead/contact CSV filtering — offline data cleaning (NOT Scout feature code)
-  - Downloaded CDE public school directory (18,415 schools, 1,060 districts with county)
-  - Downloaded CDE private school directory (2,781 schools with county)
-  - Downloaded NCES private school data (2,269 CA schools with county via FIPS codes)
-  - Built 3-pass Python filtering pipeline in `scripts/socal_filter.py`, `socal_filter_pass2.py`, `socal_filter_pass3.py`
-  - Pass 1: School/district name matching + zip + city + email domain → resolved 89-94%
-  - Pass 2: Parent account matching, city names in school names, deeper email domain → resolved 585 more
-  - Pass 3: CDE + NCES private school databases → resolved 256 more
-  - Results: Leads 10,478 SoCal + 1,613 uncertain (of 20,737). Contacts 4,100 SoCal + 212 uncertain (of 8,040)
-  - Output files in ~/Downloads/: `Leads_SoCal_Filtered.csv`, `Contacts_SoCal_Filtered.csv` + NorCal removed files
-  - B2 code review: no bugs found, implementation looks solid
+### What was done (Session 26)
+- SoCal lead/contact CSV filtering — completed passes 4 and 5
+  - Pass 4: Serper web search on ~504 uncertain records with school/academy keywords → resolved 165 leads + 69 contacts
+  - Pass 5: Free lookups (email domain→district→county, phone area codes, city field, District Name field) → resolved 370 leads + 118 contacts at zero Serper cost
+  - Web-verified 5 ambiguous school district email domains (rbgusd.org→Kern, hcsd.k12.ca.us→San Mateo, lmusd.org→SLO, eesd.org→Santa Clara, frjusd.org→Shasta)
+  - Split uncertain records into separate files (removed from filtered SoCal lists)
+  - Total Serper credits used: ~819 (504 first run + 315 re-run after rebuild). ~1,140 remaining.
+  - Bug fix: Pass 5 accidentally dropped uncertain leads when overwriting file with latin-1 encoding. Rebuilt from original source by replaying passes 1-3, then 5, then 4.
+- Final output files in ~/Downloads/:
+  - `Leads_SoCal_Filtered.csv` — 10,677 confirmed SoCal leads
+  - `Contacts_SoCal_Filtered.csv` — 4,170 confirmed SoCal contacts
+  - `Leads_SoCal_Uncertain.csv` — 1,128 uncertain leads (separate file)
+  - `Contacts_SoCal_Uncertain.csv` — 69 uncertain contacts (separate file)
+  - `*_NORCAL_REMOVED.csv` — NorCal/non-CA records removed (for audit)
 
-### What still needs to be done (Session 26+)
-- **FINISH SOCAL FILTERING (in progress):**
-  - Run Serper web searches on ~530 remaining uncertain records with school/academy keywords
-  - Then optionally Serper the remaining ~1,295 non-school uncertain records
-  - Output final cleaned SoCal-only CSVs
-- **B2 VERIFICATION (must do after SoCal filtering or independently):**
+### What still needs to be done (Session 27+)
+- **OPTIONAL: Serper remaining uncertain records** (~1,128 leads + 69 contacts) — mostly generic gmail signups with no searchable company name, low expected hit rate
+- **B2 VERIFICATION (next priority):**
   - Upload filtered SoCal leads CSV to Scout → verify routes to SF Leads tab, cross-checking works
   - Upload filtered SoCal contacts CSV to Scout → verify routes to SF Contacts tab
   - Test `/import_leads` and `/import_contacts` explicit routing
@@ -47,7 +46,7 @@
 - Phase 6F (Pipeline Snapshot): ✅ fully verified (Session 22)
 - Enhancements A1-A3 + B1: ✅ implemented (Session 23)
 - Enhancement B2: ⏳ implemented, NOT YET VERIFIED (Session 24)
-- SoCal CSV filtering: ⏳ 3 passes done offline, ~530 school records need Serper (Session 25)
+- SoCal CSV filtering: ✅ 5 passes complete, confirmed SoCal split from uncertain (Session 26)
 
 ### Phase 6 roadmap
 - **6E** — District Prospecting Queue ✅ complete
@@ -79,19 +78,28 @@
 - `_leads_import_mode` global: None | "leads" | "contacts" — resets after use (same pattern as `_pipeline_import_mode`)
 - `lead_importer` is a flat module imported at top of main.py (NOT lazy)
 
-### SoCal Lead/Contact Filtering (Session 25)
+### SoCal Lead/Contact Filtering (Sessions 25-26)
 - **Offline data cleaning scripts** in `scripts/` — NOT Scout feature code
 - `scripts/socal_filter.py` — Pass 1: CDE public school/district name matching + zip + city + email domain
 - `scripts/socal_filter_pass2.py` — Pass 2: Parent account matching, city names embedded in school names, deeper email domain
 - `scripts/socal_filter_pass3.py` — Pass 3: CDE + NCES private school database matching
+- `scripts/socal_filter_pass4.py` — Pass 4: Serper web search on uncertain school-keyword records
+- `scripts/socal_filter_pass5.py` — Pass 5: Free lookups (email domain→district→county, phone area codes, city/District Name fields)
+- `scripts/socal_rebuild_leads.py` — Utility: replays passes 1-4 from original source (used for recovery)
 - Data sources cached in `/tmp/`: `cde_schools.txt` (CDE public schools), `cde_districts.txt` (CDE districts), `cde_private_schools.xlsx` (CDE private), `nces_private/pss2122_pu.csv` (NCES private)
 - Download URLs: CDE public = `https://www.cde.ca.gov/schooldirectory/report?rid=dl1&tp=txt`, CDE districts = `rid=dl2`, CDE private = `https://www.cde.ca.gov/ds/si/ps/documents/privateschooldata2425.xlsx`, NCES = `https://nces.ed.gov/surveys/pss/zip/pss2122_pu_csv.zip`
 - Input: `~/Downloads/My Leads - SoCal Only.csv` (20,737 records) and `~/Downloads/My Contacts - SoCal Only.csv` (8,040 records)
-- Output: `~/Downloads/Leads_SoCal_Filtered.csv` and `~/Downloads/Contacts_SoCal_Filtered.csv` (SoCal + Uncertain kept, NorCal removed)
+- Final output (4 files):
+  - `~/Downloads/Leads_SoCal_Filtered.csv` — 10,677 confirmed SoCal leads
+  - `~/Downloads/Contacts_SoCal_Filtered.csv` — 4,170 confirmed SoCal contacts
+  - `~/Downloads/Leads_SoCal_Uncertain.csv` — 1,128 uncertain leads (separate)
+  - `~/Downloads/Contacts_SoCal_Uncertain.csv` — 69 uncertain contacts (separate)
+  - `*_NORCAL_REMOVED.csv` — NorCal/non-CA records removed (for audit)
 - Each output has 3 added columns: County, SoCal (Yes/No/Uncertain), County_Method
 - SoCal counties: Los Angeles, San Diego, Orange, Riverside, San Bernardino, Kern, Ventura, Santa Barbara, San Luis Obispo, Imperial
-- Remaining: ~530 uncertain with school/academy keywords need Serper web searches, then ~1,295 non-school uncertain
 - Salesforce CSV files use latin-1 encoding (not utf-8)
+- Pass order matters: run 1→2→3→5→4 (pass 5 before 4 saves Serper credits)
+- Serper credits used: ~819 total. Steven has ~1,140 remaining.
 
 ---
 
