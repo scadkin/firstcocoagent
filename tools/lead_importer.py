@@ -494,21 +494,27 @@ def import_leads(csv_text: str) -> dict:
         row = _build_lead_row(headers, rec, account_match, today)
         rows_to_append.append(row)
 
-    if rows_to_append:
+    # Append in chunks to avoid Sheets API payload limits
+    CHUNK_SIZE = 5000
+    appended = 0
+    for i in range(0, len(rows_to_append), CHUNK_SIZE):
+        chunk = rows_to_append[i : i + CHUNK_SIZE]
         try:
             service.spreadsheets().values().append(
                 spreadsheetId=sheet_id,
                 range=f"'{TAB_SF_LEADS}'!A:AZ",
                 valueInputOption="RAW",
                 insertDataOption="INSERT_ROWS",
-                body={"values": rows_to_append}
+                body={"values": chunk}
             ).execute()
-            logger.info(f"Appended {len(rows_to_append)} rows to {TAB_SF_LEADS}")
+            appended += len(chunk)
+            logger.info(f"Appended chunk {i // CHUNK_SIZE + 1} ({len(chunk)} rows) to {TAB_SF_LEADS}")
         except Exception as e:
-            errors.append(str(e))
+            errors.append(f"Chunk {i // CHUNK_SIZE + 1}: {e}")
+            logger.error(f"Chunk {i // CHUNK_SIZE + 1} failed: {e}")
 
     return {
-        "imported": len(rows_to_append),
+        "imported": appended,
         "duplicates_skipped": duplicates,
         "cross_checked": cross_checked,
         "total_in_csv": len(records),
@@ -581,21 +587,27 @@ def import_contacts(csv_text: str) -> dict:
         row = _build_contact_row(headers, rec, account_match, today)
         rows_to_append.append(row)
 
-    if rows_to_append:
+    # Append in chunks to avoid Sheets API payload limits
+    CHUNK_SIZE = 5000
+    appended = 0
+    for i in range(0, len(rows_to_append), CHUNK_SIZE):
+        chunk = rows_to_append[i : i + CHUNK_SIZE]
         try:
             service.spreadsheets().values().append(
                 spreadsheetId=sheet_id,
                 range=f"'{TAB_SF_CONTACTS}'!A:AZ",
                 valueInputOption="RAW",
                 insertDataOption="INSERT_ROWS",
-                body={"values": rows_to_append}
+                body={"values": chunk}
             ).execute()
-            logger.info(f"Appended {len(rows_to_append)} rows to {TAB_SF_CONTACTS}")
+            appended += len(chunk)
+            logger.info(f"Appended chunk {i // CHUNK_SIZE + 1} ({len(chunk)} rows) to {TAB_SF_CONTACTS}")
         except Exception as e:
-            errors.append(str(e))
+            errors.append(f"Chunk {i // CHUNK_SIZE + 1}: {e}")
+            logger.error(f"Chunk {i // CHUNK_SIZE + 1} failed: {e}")
 
     return {
-        "imported": len(rows_to_append),
+        "imported": appended,
         "duplicates_skipped": duplicates,
         "cross_checked": cross_checked,
         "total_in_csv": len(records),
