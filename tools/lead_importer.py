@@ -56,12 +56,43 @@ def _col_to_letter(col_idx: int) -> str:
     return result
 
 
+def _append_in_chunks(service, sheet_id: str, tab_name: str, rows: list, errors: list,
+                      chunk_size: int = 2000):
+    """Append rows to a Sheets tab in chunks with retry."""
+    import time
+    appended = 0
+    for i in range(0, len(rows), chunk_size):
+        chunk = rows[i : i + chunk_size]
+        chunk_num = i // chunk_size + 1
+        for attempt in range(3):
+            try:
+                service.spreadsheets().values().append(
+                    spreadsheetId=sheet_id,
+                    range=f"'{tab_name}'!A:AZ",
+                    valueInputOption="RAW",
+                    insertDataOption="INSERT_ROWS",
+                    body={"values": chunk}
+                ).execute()
+                appended += len(chunk)
+                logger.info(f"Appended chunk {chunk_num} ({len(chunk)} rows) to {tab_name}")
+                break
+            except Exception as e:
+                logger.warning(f"{tab_name} chunk {chunk_num} attempt {attempt + 1} failed: {e}")
+                if attempt < 2:
+                    time.sleep(2 * (attempt + 1))
+                else:
+                    errors.append(f"{tab_name} chunk {chunk_num}: {e}")
+    return appended
+
+
 # ─────────────────────────────────────────────
 # TAB + COLUMN DEFINITIONS
 # ─────────────────────────────────────────────
 
 TAB_SF_LEADS = "SF Leads"
 TAB_SF_CONTACTS = "SF Contacts"
+TAB_LEADS_ACTIVE = "Leads Assoc Active Accounts"
+TAB_CONTACTS_ACTIVE = "Contacts Assoc Active Accounts"
 
 # Base columns from Salesforce Leads report
 SF_LEADS_COLUMNS = [
@@ -457,6 +488,7 @@ def import_leads(csv_text: str) -> dict:
     active_accounts = _load_active_accounts()
 
     rows_to_append = []
+    active_rows = []  # Cross-checked rows for separate tab
     duplicates = 0
     cross_checked = 0
     errors = []
@@ -493,35 +525,20 @@ def import_leads(csv_text: str) -> dict:
         # Build row matching headers
         row = _build_lead_row(headers, rec, account_match, today)
         rows_to_append.append(row)
+        if account_match:
+            active_rows.append(row)
 
     # Append in chunks to avoid Sheets API payload limits
-    CHUNK_SIZE = 2000
-    appended = 0
-    for i in range(0, len(rows_to_append), CHUNK_SIZE):
-        chunk = rows_to_append[i : i + CHUNK_SIZE]
-        chunk_num = i // CHUNK_SIZE + 1
-        success = False
-        for attempt in range(3):
-            try:
-                service.spreadsheets().values().append(
-                    spreadsheetId=sheet_id,
-                    range=f"'{TAB_SF_LEADS}'!A:AZ",
-                    valueInputOption="RAW",
-                    insertDataOption="INSERT_ROWS",
-                    body={"values": chunk}
-                ).execute()
-                appended += len(chunk)
-                logger.info(f"Appended chunk {chunk_num} ({len(chunk)} rows) to {TAB_SF_LEADS}")
-                success = True
-                break
-            except Exception as e:
-                logger.warning(f"Chunk {chunk_num} attempt {attempt + 1} failed: {e}")
-                if attempt < 2:
-                    import time
-                    time.sleep(2 * (attempt + 1))
-                else:
-                    errors.append(f"Chunk {chunk_num}: {e}")
-                    logger.error(f"Chunk {chunk_num} failed after 3 attempts: {e}")
+    appended = _append_in_chunks(service, sheet_id, TAB_SF_LEADS, rows_to_append, errors)
+
+    # Write cross-checked rows to separate tab
+    if active_rows:
+        try:
+            _ensure_tab(TAB_LEADS_ACTIVE, headers)
+            _append_in_chunks(service, sheet_id, TAB_LEADS_ACTIVE, active_rows, errors)
+            logger.info(f"Wrote {len(active_rows)} cross-checked leads to {TAB_LEADS_ACTIVE}")
+        except Exception as e:
+            errors.append(f"Active tab: {e}")
 
     return {
         "imported": appended,
@@ -560,6 +577,7 @@ def import_contacts(csv_text: str) -> dict:
     active_accounts = _load_active_accounts()
 
     rows_to_append = []
+    active_rows = []  # Cross-checked rows for separate tab
     duplicates = 0
     cross_checked = 0
     errors = []
@@ -596,33 +614,20 @@ def import_contacts(csv_text: str) -> dict:
         # Build row matching headers
         row = _build_contact_row(headers, rec, account_match, today)
         rows_to_append.append(row)
+        if account_match:
+            active_rows.append(row)
 
     # Append in chunks to avoid Sheets API payload limits
-    CHUNK_SIZE = 2000
-    appended = 0
-    for i in range(0, len(rows_to_append), CHUNK_SIZE):
-        chunk = rows_to_append[i : i + CHUNK_SIZE]
-        chunk_num = i // CHUNK_SIZE + 1
-        for attempt in range(3):
-            try:
-                service.spreadsheets().values().append(
-                    spreadsheetId=sheet_id,
-                    range=f"'{TAB_SF_CONTACTS}'!A:AZ",
-                    valueInputOption="RAW",
-                    insertDataOption="INSERT_ROWS",
-                    body={"values": chunk}
-                ).execute()
-                appended += len(chunk)
-                logger.info(f"Appended chunk {chunk_num} ({len(chunk)} rows) to {TAB_SF_CONTACTS}")
-                break
-            except Exception as e:
-                logger.warning(f"Chunk {chunk_num} attempt {attempt + 1} failed: {e}")
-                if attempt < 2:
-                    import time
-                    time.sleep(2 * (attempt + 1))
-                else:
-                    errors.append(f"Chunk {chunk_num}: {e}")
-                    logger.error(f"Chunk {chunk_num} failed after 3 attempts: {e}")
+    appended = _append_in_chunks(service, sheet_id, TAB_SF_CONTACTS, rows_to_append, errors)
+
+    # Write cross-checked rows to separate tab
+    if active_rows:
+        try:
+            _ensure_tab(TAB_CONTACTS_ACTIVE, headers)
+            _append_in_chunks(service, sheet_id, TAB_CONTACTS_ACTIVE, active_rows, errors)
+            logger.info(f"Wrote {len(active_rows)} cross-checked contacts to {TAB_CONTACTS_ACTIVE}")
+        except Exception as e:
+            errors.append(f"Active tab: {e}")
 
     return {
         "imported": appended,
