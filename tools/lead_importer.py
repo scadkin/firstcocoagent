@@ -57,9 +57,18 @@ def _col_to_letter(col_idx: int) -> str:
 
 
 def _append_in_chunks(service, sheet_id: str, tab_name: str, rows: list, errors: list,
-                      chunk_size: int = 2000):
-    """Append rows to a Sheets tab in chunks with retry."""
+                      chunk_size: int = 2000, num_cols: int = 0):
+    """Append rows to a Sheets tab in chunks with retry.
+
+    num_cols: if provided, uses a tight column range (A:{last_col}) to minimize
+    cell allocation and avoid hitting the 10M cell limit.
+    """
     import time
+    if num_cols > 0:
+        last_col = _col_to_letter(num_cols - 1)
+        append_range = f"'{tab_name}'!A:{last_col}"
+    else:
+        append_range = f"'{tab_name}'!A:AZ"
     appended = 0
     for i in range(0, len(rows), chunk_size):
         chunk = rows[i : i + chunk_size]
@@ -68,7 +77,7 @@ def _append_in_chunks(service, sheet_id: str, tab_name: str, rows: list, errors:
             try:
                 service.spreadsheets().values().append(
                     spreadsheetId=sheet_id,
-                    range=f"'{tab_name}'!A:AZ",
+                    range=append_range,
                     valueInputOption="RAW",
                     insertDataOption="INSERT_ROWS",
                     body={"values": chunk}
@@ -687,13 +696,15 @@ def import_leads(csv_text: str) -> dict:
             active_rows.append(row)
 
     # Append in chunks to avoid Sheets API payload limits
-    appended = _append_in_chunks(service, sheet_id, TAB_SF_LEADS, rows_to_append, errors)
+    appended = _append_in_chunks(service, sheet_id, TAB_SF_LEADS, rows_to_append, errors,
+                                  num_cols=len(headers))
 
     # Write cross-checked rows to separate tab
     if active_rows:
         try:
             _ensure_tab(TAB_LEADS_ACTIVE, headers)
-            _append_in_chunks(service, sheet_id, TAB_LEADS_ACTIVE, active_rows, errors)
+            _append_in_chunks(service, sheet_id, TAB_LEADS_ACTIVE, active_rows, errors,
+                              num_cols=len(headers))
             logger.info(f"Wrote {len(active_rows)} cross-checked leads to {TAB_LEADS_ACTIVE}")
         except Exception as e:
             errors.append(f"Active tab: {e}")
@@ -777,13 +788,15 @@ def import_contacts(csv_text: str) -> dict:
             active_rows.append(row)
 
     # Append in chunks to avoid Sheets API payload limits
-    appended = _append_in_chunks(service, sheet_id, TAB_SF_CONTACTS, rows_to_append, errors)
+    appended = _append_in_chunks(service, sheet_id, TAB_SF_CONTACTS, rows_to_append, errors,
+                                  num_cols=len(headers))
 
     # Write cross-checked rows to separate tab
     if active_rows:
         try:
             _ensure_tab(TAB_CONTACTS_ACTIVE, headers)
-            _append_in_chunks(service, sheet_id, TAB_CONTACTS_ACTIVE, active_rows, errors)
+            _append_in_chunks(service, sheet_id, TAB_CONTACTS_ACTIVE, active_rows, errors,
+                              num_cols=len(headers))
             logger.info(f"Wrote {len(active_rows)} cross-checked contacts to {TAB_CONTACTS_ACTIVE}")
         except Exception as e:
             errors.append(f"Active tab: {e}")
@@ -1038,28 +1051,82 @@ def enrich_record_via_serper(record: dict, tab_type: str) -> dict:
 
 
 def clear_tab(tab_name: str) -> dict:
-    """Clear all data rows from a tab (keep header). Returns {cleared, error}."""
+    """Clear all data rows from a tab AND delete excess rows/columns.
+
+    This truly frees cells (not just values) to stay under the 10M cell limit.
+    Keeps header row and shrinks the grid to just 1 row × header columns.
+    """
     try:
         service = _get_service()
         sheet_id = _get_sheet_id()
 
-        # Read to get row count
+        # Get sheet metadata to find the sheetId and current grid size
+        meta = service.spreadsheets().get(spreadsheetId=sheet_id).execute()
+        tab_meta = None
+        for s in meta.get("sheets", []):
+            if s["properties"]["title"] == tab_name:
+                tab_meta = s
+                break
+
+        if not tab_meta:
+            return {"cleared": 0, "error": f"Tab '{tab_name}' not found"}
+
+        tab_id = tab_meta["properties"]["sheetId"]
+        grid = tab_meta["properties"].get("gridProperties", {})
+        current_rows = grid.get("rowCount", 1)
+        current_cols = grid.get("columnCount", 26)
+
+        # Read header to know target column count
         result = service.spreadsheets().values().get(
             spreadsheetId=sheet_id,
-            range=f"'{tab_name}'!A:A"
+            range=f"'{tab_name}'!1:1"
         ).execute()
-        rows = result.get("values", [])
-        data_rows = max(0, len(rows) - 1)
+        headers = result.get("values", [[]])[0]
+        target_cols = max(len(headers), 1)
 
-        if data_rows == 0:
+        data_rows = max(0, current_rows - 1)
+        if data_rows == 0 and current_cols <= target_cols:
             return {"cleared": 0, "error": ""}
 
-        # Clear everything below header (row 2 onward)
-        service.spreadsheets().values().clear(
-            spreadsheetId=sheet_id,
-            range=f"'{tab_name}'!A2:ZZ"
-        ).execute()
-        logger.info(f"Cleared {data_rows} rows from {tab_name}")
+        requests = []
+
+        # Delete data rows (keep row 1 = header)
+        if data_rows > 0:
+            requests.append({
+                "deleteDimension": {
+                    "range": {
+                        "sheetId": tab_id,
+                        "dimension": "ROWS",
+                        "startIndex": 1,  # row 2 (0-indexed)
+                        "endIndex": current_rows,
+                    }
+                }
+            })
+
+        # Shrink columns to match header width (frees empty column cells)
+        if current_cols > target_cols:
+            requests.append({
+                "deleteDimension": {
+                    "range": {
+                        "sheetId": tab_id,
+                        "dimension": "COLUMNS",
+                        "startIndex": target_cols,
+                        "endIndex": current_cols,
+                    }
+                }
+            })
+
+        if requests:
+            service.spreadsheets().batchUpdate(
+                spreadsheetId=sheet_id,
+                body={"requests": requests}
+            ).execute()
+
+        freed_cells = data_rows * current_cols
+        if current_cols > target_cols:
+            freed_cells += (current_cols - target_cols)  # header row excess
+        logger.info(f"Cleared {data_rows} rows + trimmed to {target_cols} cols in {tab_name} "
+                     f"(freed ~{freed_cells} cells)")
         return {"cleared": data_rows, "error": ""}
     except Exception as e:
         return {"cleared": 0, "error": str(e)}
