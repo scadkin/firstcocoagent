@@ -196,6 +196,15 @@ lead_importer.update_enrichment(tab_name: str, row_index: int, enrichment: dict)
 lead_importer.enrich_record_via_serper(record: dict, tab_type: str) -> dict
 # Web search to verify role/school. Returns enrichment dict. Synchronous — call via run_in_executor.
 
+lead_importer.clear_tab(tab_name: str) -> dict
+# {cleared, error} — clears data rows + resizes grid to free cells
+
+lead_importer.clear_leads_tabs() -> dict
+# {sf_leads_cleared, leads_active_cleared, errors} — clears SF Leads + Leads Assoc Active Accounts
+
+lead_importer.clear_contacts_tabs() -> dict
+# {sf_contacts_cleared, contacts_active_cleared, errors} — clears SF Contacts + Contacts Assoc Active Accounts
+
 lead_importer.get_import_summary(tab_name: str) -> str
 # Returns count summary string.
 

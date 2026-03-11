@@ -1,39 +1,25 @@
 # SCOUT — Claude Code Reference
-*Last updated: 2026-03-10 — Session 27*
+*Last updated: 2026-03-11 — Session 28*
 
 ---
 
 ## CURRENT STATE — update this after each session
 
-**Session 27: B2 SF Leads import working (86,670 leads imported). Cross-check logic redesigned with precise match types. Contacts import + remaining B2 tests still pending.**
+**Session 28: B2 leads import fully working with clean cross-check (937 matches, no false positives). Fixed Google Sheets 10M cell limit. Added `/clear_leads` and `/clear_contacts` commands. Contacts import + remaining B2 tests still pending.**
 
-### What was done (Session 27)
-- Merged SoCal filtered CSVs with rest-of-territory CSVs:
-  - `My merged leads list - Including SoCal - as of 3-7-26.csv` — 86,993 leads (10,677 SoCal + 76,316 other states)
-  - `My merged contacts list - Including SoCal - as of 3-7-26.csv` — 19,775 contacts (4,170 SoCal + 15,605 other states)
-- Fixed B2 auto-detect to match Steven's actual Salesforce CSV headers:
-  - Lead signals expanded: added "Company / Account", "Lead Owner"
-  - Contact signals expanded: added "Account Owner", "Parent Account"
-  - Column mappings added: District Name, Create Date, Mailing State/Province (text only), Secondary Email, Mobile, Account Owner, etc.
-- Fixed column letter calculation bug (columns beyond Z crashed)
-- Fixed append range (A:Z → A:AZ for 38+ column CSVs)
-- Fixed large CSV import: chunked writes (2,000 rows per batch) with 3-attempt retry + backoff
-- Added "Leads Assoc Active Accounts" and "Contacts Assoc Active Accounts" separate tabs
-- **Redesigned cross-check logic** with precise match types:
-  - "Exact Match - School" — lead's company = same school as active account
-  - "Exact Match - District" — lead's company = same district as active account
-  - "District is Active Account" — lead is at a school under an active district-level account
-  - NOT a match — lead is at a different school/district where only a school-level account exists (Steven can freely prospect)
-  - Pre-built lookup structures for O(1) matching
-  - Email domain matching via generated domain roots
-  - State filtering prevents cross-state false matches
-- Updated territory in Scout's memory: CA (SoCal only) now explicitly included
-- SF Leads tab successfully imported 86,670 leads (323 dupes skipped) — verified working
+### What was done (Session 28)
+- **Fixed Google Sheets 10M cell limit** — append range was `A:AZ` (52 columns) causing 87K rows × 52 = 4.5M cells. Changed to tight `A:{last_col}` range based on actual header count (~35 cols), saving ~1.5M cells.
+- **Fixed `clear_tab` frozen row error** — `deleteDimension` failed with "cannot delete all non-frozen rows". Replaced with `values().clear()` + `updateSheetProperties` grid resize to 2 rows × header columns. Properly frees cells (not just values).
+- **Added `/clear_leads` and `/clear_contacts` commands** — clears SF Leads + Leads Assoc Active Accounts tabs (or SF Contacts + Contacts Assoc Active Accounts). Used for re-testing.
+- **Fixed cross-check false positives from bad SF District Name data** — Salesforce's District Name field is unreliable (e.g., lead at Leander ISD tagged as "Alvin ISD"). Added email domain validation: if lead has non-generic institutional email, domain root must match the district's generated roots. Generic emails (gmail etc.) still trust SF data.
+- **Enhanced `_generate_domain_roots` with acronym-based roots** — "Los Angeles Unified School District" → "lausd", "Cypress-Fairbanks ISD" → "cfisd", "Clark County School District" → "ccsd". Also generates norm-acronym + suffixes (e.g., "cc" + "sd" → "ccsd").
+- **Fixed comma bug** in `_generate_domain_roots` — `norm_joined` now strips ALL non-alphanumeric chars (not just spaces), preventing commas from corrupting roots.
+- **SF Leads re-import verified** — 86,670 leads imported, 937 matched to active accounts (cleaner than previous 754 — domain validation caught bad matches but acronym roots caught new valid ones).
 
-### What still needs to be done (Session 28+)
-- **B2 VERIFICATION (in progress — resume here):**
-  - ✅ Test 1: Auto-detect SF Leads import — PASSED (86,670 imported)
-  - ⏳ Re-test with redesigned cross-check: clear SF Leads + Leads Assoc Active Accounts tabs, re-send merged leads CSV, verify match accuracy
+### What still needs to be done (Session 29+)
+- **B2 VERIFICATION (resume here):**
+  - ✅ Test 1: Auto-detect SF Leads import — PASSED (86,670 imported, 937 cross-checked)
+  - ✅ Cross-check accuracy verified — false positives from bad SF District Name data eliminated
   - ⏳ Test 2: Auto-detect SF Contacts import — send `My merged contacts list - Including SoCal - as of 3-7-26.csv`
   - ⏳ Test 3: `/import_leads` explicit routing
   - ⏳ Test 4: `/import_contacts` explicit routing
@@ -54,7 +40,7 @@
 - Phase 6E (District Prospecting Queue): ✅ fully verified (Session 19)
 - Phase 6F (Pipeline Snapshot): ✅ fully verified (Session 22)
 - Enhancements A1-A3 + B1: ✅ implemented (Session 23)
-- Enhancement B2: ⏳ partially verified — leads import works, cross-check redesigned, contacts + enrichment + remaining tests pending (Session 27)
+- Enhancement B2: ⏳ leads import verified + cross-check clean — contacts + enrichment + remaining tests pending (Session 28)
 - SoCal CSV filtering: ✅ 5 passes complete (Session 26)
 
 ### Phase 6 roadmap
@@ -87,18 +73,24 @@
 - `_leads_import_mode` global: None | "leads" | "contacts" — resets after use (same pattern as `_pipeline_import_mode`)
 - `lead_importer` is a flat module imported at top of main.py (NOT lazy)
 - Large CSV imports chunked at 2,000 rows per batch with 3-attempt retry + 2s/4s backoff
+- Append range uses tight `A:{last_col}` based on header count (NOT `A:AZ`) — prevents 10M cell limit hits
 - Two extra tabs: **Leads Assoc Active Accounts** and **Contacts Assoc Active Accounts** — populated during import with cross-checked records only
+- `/clear_leads` — clears SF Leads + Leads Assoc Active Accounts data rows + shrinks grid (frees cells)
+- `/clear_contacts` — clears SF Contacts + Contacts Assoc Active Accounts data rows + shrinks grid
+- `clear_tab()` uses `values().clear()` + `updateSheetProperties` grid resize (NOT `deleteDimension` which fails on frozen rows)
 
-### Cross-check rules (B2, Session 27)
+### Cross-check rules (B2, Sessions 27-28)
 - **Exact Match - School**: lead's company = same school as active account → match
 - **Exact Match - District**: lead's company = same district as active account → match
 - **District is Active Account**: active account is a district-level deal, lead is at any school or the district itself → match
 - **NOT a match**: active account is just a school, lead is at a DIFFERENT school or the district → Steven can freely prospect
 - Key rule: school-level active accounts only block the SAME school. District-level active accounts block the whole district.
 - Pre-built lookup structures: `_build_account_lookups()` runs once per import, creates by_name, districts_by_name, schools_by_parent, domain_to_accounts dicts
-- Email domain matching: `_generate_domain_roots()` creates plausible roots from account names (e.g., "Austin ISD" → {"austinisd", "austin"})
+- Email domain matching: `_generate_domain_roots()` creates plausible roots from account names (e.g., "Austin ISD" → {"austinisd", "austin", "aisd"})
+- `_generate_domain_roots()` now includes **acronym-based roots**: first letters of all words → "Los Angeles Unified School District" → "lausd"; also acronym + suffixes → "Cypress-Fairbanks ISD" → "cfisd"
 - `_extract_domain_root()` handles k12-style domains (spring.k12.tx.us → "spring") and multi-level domains (staff.austinisd.org → "austinisd")
 - State filtering: matches require same state (or either side blank)
+- **Step 2 (District Name) validation**: Salesforce District Name field is unreliable — leads can be tagged to wrong district. If lead has non-generic institutional email, domain root must match the matched district's generated roots. Generic emails (gmail etc.) still trust SF data. `_domain_matches_account()` handles this check.
 - Uses lead's District Name and Parent Account fields for district detection (Step 2)
 - `_classify_lead_company()` uses `csv_importer.classify_account()` to determine if lead's company is a school vs district
 
@@ -399,6 +391,8 @@ firstcocoagent/
 | `/import_leads` | next CSV upload imports as Salesforce leads (SF Leads tab) |
 | `/import_contacts` | next CSV upload imports as Salesforce contacts (SF Contacts tab) |
 | `/enrich_leads` | run Serper enrichment on unenriched SF Leads (add `contacts` arg for SF Contacts) |
+| `/clear_leads` | clear SF Leads + Leads Assoc Active Accounts data rows + shrink grid |
+| `/clear_contacts` | clear SF Contacts + Contacts Assoc Active Accounts data rows + shrink grid |
 | `/pipeline` | show open pipeline summary with stale alerts |
 | `/pipeline_import` | next CSV upload imports as opportunities (Pipeline tab) |
 | send a `.csv` file | Auto-detects opp vs lead vs contact vs account CSV; or Salesforce active accounts import (merge by default) |
