@@ -1051,10 +1051,11 @@ def enrich_record_via_serper(record: dict, tab_type: str) -> dict:
 
 
 def clear_tab(tab_name: str) -> dict:
-    """Clear all data rows from a tab AND delete excess rows/columns.
+    """Clear all data rows from a tab AND shrink grid to free cells.
 
-    This truly frees cells (not just values) to stay under the 10M cell limit.
-    Keeps header row and shrinks the grid to just 1 row × header columns.
+    Uses updateSheetProperties to resize the grid (avoids the
+    'cannot delete all non-frozen rows' error from deleteDimension).
+    Keeps header row, shrinks grid to 2 rows × header columns.
     """
     try:
         service = _get_service()
@@ -1088,44 +1089,33 @@ def clear_tab(tab_name: str) -> dict:
         if data_rows == 0 and current_cols <= target_cols:
             return {"cleared": 0, "error": ""}
 
-        requests = []
-
-        # Delete data rows (keep row 1 = header)
+        # Clear all data values below header
         if data_rows > 0:
-            requests.append({
-                "deleteDimension": {
-                    "range": {
-                        "sheetId": tab_id,
-                        "dimension": "ROWS",
-                        "startIndex": 1,  # row 2 (0-indexed)
-                        "endIndex": current_rows,
-                    }
-                }
-            })
-
-        # Shrink columns to match header width (frees empty column cells)
-        if current_cols > target_cols:
-            requests.append({
-                "deleteDimension": {
-                    "range": {
-                        "sheetId": tab_id,
-                        "dimension": "COLUMNS",
-                        "startIndex": target_cols,
-                        "endIndex": current_cols,
-                    }
-                }
-            })
-
-        if requests:
-            service.spreadsheets().batchUpdate(
+            service.spreadsheets().values().clear(
                 spreadsheetId=sheet_id,
-                body={"requests": requests}
+                range=f"'{tab_name}'!A2:ZZ"
             ).execute()
 
-        freed_cells = data_rows * current_cols
-        if current_cols > target_cols:
-            freed_cells += (current_cols - target_cols)  # header row excess
-        logger.info(f"Cleared {data_rows} rows + trimmed to {target_cols} cols in {tab_name} "
+        # Resize grid to 2 rows × target columns (frees cells)
+        # Must keep at least 2 rows (header + 1 empty) to avoid Sheets errors
+        service.spreadsheets().batchUpdate(
+            spreadsheetId=sheet_id,
+            body={"requests": [{
+                "updateSheetProperties": {
+                    "properties": {
+                        "sheetId": tab_id,
+                        "gridProperties": {
+                            "rowCount": 2,
+                            "columnCount": target_cols,
+                        }
+                    },
+                    "fields": "gridProperties.rowCount,gridProperties.columnCount",
+                }
+            }]}
+        ).execute()
+
+        freed_cells = (data_rows * current_cols) - target_cols  # minus the 1 empty row kept
+        logger.info(f"Cleared {data_rows} rows + resized to 2×{target_cols} in {tab_name} "
                      f"(freed ~{freed_cells} cells)")
         return {"cleared": data_rows, "error": ""}
     except Exception as e:
