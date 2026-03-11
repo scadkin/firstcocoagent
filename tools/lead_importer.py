@@ -385,8 +385,10 @@ def _extract_domain_root(email: str) -> str:
 def _generate_domain_roots(account: dict) -> set[str]:
     """Generate plausible email domain roots from an account name.
 
-    "Austin ISD"                         → {"austinisd", "austin"}
-    "Elk Grove Unified School District"  → {"elkgroveusd", "elkgrove", "elkgroveunified"}
+    "Austin ISD"                              → {"austinisd", "austin", ...}
+    "Elk Grove Unified School District"       → {"elkgroveusd", "elkgrove", "egusd", ...}
+    "Los Angeles Unified School District"     → {"losangeles", "lausd", ...}
+    "Cypress-Fairbanks ISD"                   → {"cypressfairbanksisd", "cfisd", ...}
     """
     from tools.csv_importer import normalize_name
     name = account.get("Display Name", "").lower()
@@ -410,7 +412,7 @@ def _generate_domain_roots(account: dict) -> set[str]:
 
     # Normalized name (suffixes stripped) concatenated: "austin"
     norm = normalize_name(name)
-    norm_joined = re.sub(r"\s+", "", norm)
+    norm_joined = re.sub(r"[^a-z0-9]", "", norm)  # strip commas, hyphens, spaces etc.
     if norm_joined and len(norm_joined) > 3:
         roots.add(norm_joined)
 
@@ -419,6 +421,28 @@ def _generate_domain_roots(account: dict) -> set[str]:
         candidate = norm_joined + suffix
         if len(candidate) > 4:
             roots.add(candidate)
+
+    # Acronym-based roots: first letter of each word
+    # "Los Angeles Unified School District" → "lausd"
+    # "Cypress-Fairbanks ISD" → "cfi" + suffixes → "cfisd"
+    acronym = "".join(w[0] for w in words if w)
+    if len(acronym) >= 4:
+        roots.add(acronym)
+    # Acronym + common suffixes (handles "cfi" + "sd" → "cfisd")
+    for suffix in ("sd", "isd", "usd"):
+        acr_suffix = acronym + suffix
+        if len(acr_suffix) >= 4 and acr_suffix != acronym:
+            roots.add(acr_suffix)
+
+    # Norm words joined with first-letter abbreviation patterns
+    # "clark county" → "cc" + suffixes → "ccsd"
+    norm_words = norm.split()
+    if len(norm_words) >= 2:
+        norm_acronym = "".join(w[0] for w in norm_words)
+        for suffix in ("sd", "isd", "usd", "schools"):
+            acr_suffix = norm_acronym + suffix
+            if len(acr_suffix) >= 4:
+                roots.add(acr_suffix)
 
     return roots
 
@@ -477,6 +501,22 @@ def _states_match(lead_state: str, acct_state: str) -> bool:
     return lead_state.upper().strip() == acct_state.upper().strip()
 
 
+def _domain_matches_account(domain_root: str, acct: dict) -> bool:
+    """Check if an email domain root is consistent with an account.
+
+    Returns True if the domain root matches any of the account's generated
+    domain roots. Used to validate District Name matches — if a lead has an
+    institutional email pointing to a different org, the SF District Name
+    is likely wrong.
+    """
+    if not domain_root:
+        return True  # No domain to check — can't disqualify
+    acct_roots = _generate_domain_roots(acct)
+    if not acct_roots:
+        return True  # Can't generate roots — can't disqualify
+    return domain_root in acct_roots
+
+
 def _cross_check_record(record: dict, lookups: dict, tab_type: str) -> str:
     """
     Check a lead/contact against Active Accounts.
@@ -528,23 +568,35 @@ def _cross_check_record(record: dict, lookups: dict, tab_type: str) -> str:
             # (Steven can freely prospect the district)
 
     # ── Step 2: Lead is a school — check if parent district is active ──
+    # Salesforce District Name field can be wrong, so validate:
+    # If lead has a non-generic institutional email, its domain must be
+    # consistent with the matched district. Otherwise skip (bad SF data).
+    domain_root = _extract_domain_root(email)  # "" for generic/no email
+
     if company_type != "district":
         # Check lead's district_name field
         district_key = normalize_name(lead_district) if lead_district else ""
         if district_key and district_key in lookups["districts_by_name"]:
             for acct in lookups["districts_by_name"][district_key]:
-                if _states_match(lead_state, acct.get("State", "")):
-                    return f"District is Active Account: {acct.get('Display Name', '')}"
+                if not _states_match(lead_state, acct.get("State", "")):
+                    continue
+                # Validate: if lead has institutional email, domain must match district
+                if domain_root and not _domain_matches_account(domain_root, acct):
+                    continue  # institutional email points elsewhere — bad SF data
+                return f"District is Active Account: {acct.get('Display Name', '')}"
 
         # Check lead's parent_account field (contacts CSV)
         parent_key = normalize_name(lead_parent) if lead_parent else ""
         if parent_key and parent_key != district_key and parent_key in lookups["districts_by_name"]:
             for acct in lookups["districts_by_name"][parent_key]:
-                if _states_match(lead_state, acct.get("State", "")):
-                    return f"District is Active Account: {acct.get('Display Name', '')}"
+                if not _states_match(lead_state, acct.get("State", "")):
+                    continue
+                if domain_root and not _domain_matches_account(domain_root, acct):
+                    continue
+                return f"District is Active Account: {acct.get('Display Name', '')}"
 
     # ── Step 3: Email domain matching ──
-    domain_root = _extract_domain_root(email)
+    # domain_root already computed in Step 2
     if domain_root and domain_root in lookups["domain_to_accounts"]:
         for acct in lookups["domain_to_accounts"][domain_root]:
             if not _states_match(lead_state, acct.get("State", "")):
