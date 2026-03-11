@@ -340,66 +340,223 @@ def _load_existing_keys(service, sheet_id: str, tab_name: str) -> tuple[set[str]
 # CROSS-CHECK AGAINST ACTIVE ACCOUNTS
 # ─────────────────────────────────────────────
 
-def _cross_check_record(record: dict, active_accounts: list[dict], tab_type: str) -> str:
-    """
-    Check a single record against Active Accounts.
-    Returns match description string or empty string.
+_GENERIC_DOMAINS = {
+    "gmail.com", "yahoo.com", "hotmail.com", "outlook.com", "aol.com",
+    "icloud.com", "me.com", "live.com", "msn.com", "comcast.net",
+    "sbcglobal.net", "att.net", "verizon.net", "cox.net", "charter.net",
+    "earthlink.net", "mac.com", "ymail.com", "protonmail.com",
+}
 
-    Matching by:
-    1. Email domain → account with matching domain in any field
-    2. Company/Account name → normalized name match
-    3. District name inference from company name
-    """
-    matches = []
 
-    # Get the company/account name from the record
+def _extract_domain_root(email: str) -> str:
+    """Extract meaningful root from an email domain.
+
+    user@austinisd.org      → "austinisd"
+    user@spring.k12.tx.us   → "spring"
+    user@staff.austinisd.org → "austinisd"
+    user@gmail.com           → ""
+    """
+    if not email or "@" not in email:
+        return ""
+    domain = email.split("@")[1].lower().strip()
+    if domain in _GENERIC_DOMAINS:
+        return ""
+    # k12-style: name.k12.state.us
+    parts = domain.split(".")
+    if len(parts) >= 4 and parts[-1] == "us" and parts[-3] == "k12":
+        return parts[0] if len(parts[0]) > 2 else ""
+    # Standard: take second-level domain (handles staff.austinisd.org → austinisd)
+    if len(parts) >= 3:
+        return parts[-2] if len(parts[-2]) > 3 else ""
+    if len(parts) >= 2:
+        return parts[0] if len(parts[0]) > 3 else ""
+    return ""
+
+
+def _generate_domain_roots(account: dict) -> set[str]:
+    """Generate plausible email domain roots from an account name.
+
+    "Austin ISD"                         → {"austinisd", "austin"}
+    "Elk Grove Unified School District"  → {"elkgroveusd", "elkgrove", "elkgroveunified"}
+    """
+    from tools.csv_importer import normalize_name
+    name = account.get("Display Name", "").lower()
+    if not name:
+        return set()
+
+    # Remove punctuation, split into words
+    clean = re.sub(r"[^\w\s]", "", name)
+    words = clean.split()
+    filler = {"the", "of", "and", "for", "in", "at"}
+    words = [w for w in words if w not in filler]
+    if not words:
+        return set()
+
+    roots = set()
+
+    # Full concatenation: "austinisd"
+    full = "".join(words)
+    if len(full) > 3:
+        roots.add(full)
+
+    # Normalized name (suffixes stripped) concatenated: "austin"
+    norm = normalize_name(name)
+    norm_joined = re.sub(r"\s+", "", norm)
+    if norm_joined and len(norm_joined) > 3:
+        roots.add(norm_joined)
+
+    # Normalized + common suffixes
+    for suffix in ("isd", "usd", "cisd", "cusd", "schools", "k12"):
+        candidate = norm_joined + suffix
+        if len(candidate) > 4:
+            roots.add(candidate)
+
+    return roots
+
+
+def _build_account_lookups(active_accounts: list[dict]) -> dict:
+    """Build lookup structures from active accounts for fast cross-checking."""
+    from tools.csv_importer import normalize_name
+
+    by_name = {}          # normalized name → list of accounts
+    districts_by_name = {}  # normalized name → list of district accounts
+    schools_by_parent = {}  # normalized parent name → list of school accounts
+    domain_to_accounts = {}  # domain root → list of accounts
+
+    for acct in active_accounts:
+        name_key = acct.get("Name Key", "").lower().strip()
+        acct_type = acct.get("Account Type", "").lower().strip()
+        parent = acct.get("Parent Account", "").strip()
+
+        # Index by normalized name
+        if name_key:
+            by_name.setdefault(name_key, []).append(acct)
+            if acct_type == "district":
+                districts_by_name.setdefault(name_key, []).append(acct)
+
+        # Index schools by parent district
+        if parent and acct_type == "school":
+            parent_key = normalize_name(parent)
+            if parent_key:
+                schools_by_parent.setdefault(parent_key, []).append(acct)
+
+        # Generate domain roots for this account
+        for root in _generate_domain_roots(acct):
+            domain_to_accounts.setdefault(root, []).append(acct)
+
+    return {
+        "by_name": by_name,
+        "districts_by_name": districts_by_name,
+        "schools_by_parent": schools_by_parent,
+        "domain_to_accounts": domain_to_accounts,
+    }
+
+
+def _classify_lead_company(company: str) -> str:
+    """Classify a lead's company as 'district' or 'school' (or other)."""
+    try:
+        from tools.csv_importer import classify_account
+        return classify_account(company, "", "")
+    except Exception:
+        return "company"
+
+
+def _states_match(lead_state: str, acct_state: str) -> bool:
+    """Check if states match, allowing blank on either side."""
+    if not lead_state or not acct_state:
+        return True  # Can't disqualify if we don't have state info
+    return lead_state.upper().strip() == acct_state.upper().strip()
+
+
+def _cross_check_record(record: dict, lookups: dict, tab_type: str) -> str:
+    """
+    Check a lead/contact against Active Accounts.
+
+    Returns one of:
+      "Exact Match - School: [name]"
+      "Exact Match - District: [name]"
+      "District is Active Account: [name]"
+      ""  (no match)
+
+    Rules:
+    - School active account → only matches if lead is at the SAME school
+    - District active account → matches any school lead within that district
+    - Lead at a district or different school + school-level active account → NOT a match
+    """
+    from tools.csv_importer import normalize_name
+
+    # Extract lead fields
     if tab_type == "leads":
         company = record.get("company", "")
     else:
         company = record.get("account_name", "")
-
     email = record.get("email", "")
+    lead_state = (record.get("state", "") or record.get("mailing_state", "")).strip()
+    lead_district = record.get("district_name", "").strip()
+    lead_parent = record.get("parent_account", "").strip()
 
-    # 1. Email domain matching
-    if email and "@" in email:
-        domain = email.split("@")[1].lower().strip()
-        # Skip generic domains
-        generic = {"gmail.com", "yahoo.com", "hotmail.com", "outlook.com",
-                   "aol.com", "icloud.com", "me.com", "live.com", "msn.com"}
-        if domain not in generic:
-            for acct in active_accounts:
-                acct_name = acct.get("Display Name", "").lower()
-                # Check if domain appears in account name (e.g. "austinisd.org" ↔ "Austin ISD")
-                domain_root = domain.split(".")[0]  # "austinisd" from "austinisd.org"
-                name_clean = re.sub(r"[^\w]", "", acct_name)
-                if domain_root and len(domain_root) > 3 and domain_root in name_clean:
-                    matches.append(f"Email domain match: {acct.get('Display Name', '')}")
-                    break
+    if not company and not email:
+        return ""
 
-    # 2. Company/account name matching
-    if company:
-        from tools.csv_importer import normalize_name
-        company_key = normalize_name(company)
-        if company_key:
-            for acct in active_accounts:
-                acct_key = acct.get("Name Key", "").lower().strip()
-                if acct_key and (company_key == acct_key or company_key in acct_key or acct_key in company_key):
-                    matches.append(f"Account name match: {acct.get('Display Name', '')}")
-                    break
+    company_key = normalize_name(company) if company else ""
+    company_type = _classify_lead_company(company) if company else ""
 
-    # 3. Check parent account (district) matching
-    if company:
-        from tools.csv_importer import normalize_name
-        company_key = normalize_name(company)
-        for acct in active_accounts:
-            parent = acct.get("Parent Account", "").strip()
-            if parent:
-                parent_key = normalize_name(parent)
-                if parent_key and (company_key == parent_key or company_key in parent_key or parent_key in company_key):
-                    matches.append(f"District match: {acct.get('Display Name', '')} (under {parent})")
-                    break
+    # ── Step 1: Exact name match ──
+    if company_key and company_key in lookups["by_name"]:
+        for acct in lookups["by_name"][company_key]:
+            if not _states_match(lead_state, acct.get("State", "")):
+                continue
+            acct_type = acct.get("Account Type", "").lower()
+            acct_display = acct.get("Display Name", "")
 
-    return "; ".join(matches) if matches else ""
+            if acct_type == "district" and company_type == "district":
+                return f"Exact Match - District: {acct_display}"
+            if acct_type == "school" and company_type == "school":
+                return f"Exact Match - School: {acct_display}"
+            if acct_type == "district" and company_type != "district":
+                return f"District is Active Account: {acct_display}"
+            # acct_type == "school" but lead is district/other → NOT a match
+            # (Steven can freely prospect the district)
+
+    # ── Step 2: Lead is a school — check if parent district is active ──
+    if company_type != "district":
+        # Check lead's district_name field
+        district_key = normalize_name(lead_district) if lead_district else ""
+        if district_key and district_key in lookups["districts_by_name"]:
+            for acct in lookups["districts_by_name"][district_key]:
+                if _states_match(lead_state, acct.get("State", "")):
+                    return f"District is Active Account: {acct.get('Display Name', '')}"
+
+        # Check lead's parent_account field (contacts CSV)
+        parent_key = normalize_name(lead_parent) if lead_parent else ""
+        if parent_key and parent_key != district_key and parent_key in lookups["districts_by_name"]:
+            for acct in lookups["districts_by_name"][parent_key]:
+                if _states_match(lead_state, acct.get("State", "")):
+                    return f"District is Active Account: {acct.get('Display Name', '')}"
+
+    # ── Step 3: Email domain matching ──
+    domain_root = _extract_domain_root(email)
+    if domain_root and domain_root in lookups["domain_to_accounts"]:
+        for acct in lookups["domain_to_accounts"][domain_root]:
+            if not _states_match(lead_state, acct.get("State", "")):
+                continue
+            acct_type = acct.get("Account Type", "").lower()
+            acct_display = acct.get("Display Name", "")
+
+            if acct_type == "district":
+                # Any lead with domain matching a district is under that district
+                if company_type == "district":
+                    # Lead's company is a district and domain matches → exact district
+                    return f"Exact Match - District: {acct_display}"
+                else:
+                    return f"District is Active Account: {acct_display}"
+            elif acct_type == "school":
+                # Domain matches a school — only flag if it's the SAME school
+                if company_key and company_key == acct.get("Name Key", "").lower().strip():
+                    return f"Exact Match - School: {acct_display}"
+                # Different school or district lead → not a match
+
+    return ""
 
 
 def _load_active_accounts() -> list[dict]:
@@ -486,6 +643,7 @@ def import_leads(csv_text: str) -> dict:
 
     # Load active accounts for cross-checking
     active_accounts = _load_active_accounts()
+    lookups = _build_account_lookups(active_accounts) if active_accounts else {}
 
     rows_to_append = []
     active_rows = []  # Cross-checked rows for separate tab
@@ -517,8 +675,8 @@ def import_leads(csv_text: str) -> dict:
 
         # Cross-check against Active Accounts
         account_match = ""
-        if active_accounts:
-            account_match = _cross_check_record(rec, active_accounts, "leads")
+        if lookups:
+            account_match = _cross_check_record(rec, lookups, "leads")
             if account_match:
                 cross_checked += 1
 
@@ -575,6 +733,7 @@ def import_contacts(csv_text: str) -> dict:
 
     # Load active accounts for cross-checking
     active_accounts = _load_active_accounts()
+    lookups = _build_account_lookups(active_accounts) if active_accounts else {}
 
     rows_to_append = []
     active_rows = []  # Cross-checked rows for separate tab
@@ -606,8 +765,8 @@ def import_contacts(csv_text: str) -> dict:
 
         # Cross-check against Active Accounts
         account_match = ""
-        if active_accounts:
-            account_match = _cross_check_record(rec, active_accounts, "contacts")
+        if lookups:
+            account_match = _cross_check_record(rec, lookups, "contacts")
             if account_match:
                 cross_checked += 1
 
