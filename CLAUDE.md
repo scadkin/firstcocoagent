@@ -1,39 +1,48 @@
 # SCOUT — Claude Code Reference
-*Last updated: 2026-03-10 — Session 26*
+*Last updated: 2026-03-10 — Session 27*
 
 ---
 
 ## CURRENT STATE — update this after each session
 
-**Session 26: SoCal filtering complete (5 passes). Confirmed SoCal + Uncertain now in separate files. B2 still NOT YET VERIFIED. Phases 1–6F complete.**
+**Session 27: B2 SF Leads import working (86,670 leads imported). Cross-check logic redesigned with precise match types. Contacts import + remaining B2 tests still pending.**
 
-### What was done (Session 26)
-- SoCal lead/contact CSV filtering — completed passes 4 and 5
-  - Pass 4: Serper web search on ~504 uncertain records with school/academy keywords → resolved 165 leads + 69 contacts
-  - Pass 5: Free lookups (email domain→district→county, phone area codes, city field, District Name field) → resolved 370 leads + 118 contacts at zero Serper cost
-  - Web-verified 5 ambiguous school district email domains (rbgusd.org→Kern, hcsd.k12.ca.us→San Mateo, lmusd.org→SLO, eesd.org→Santa Clara, frjusd.org→Shasta)
-  - Split uncertain records into separate files (removed from filtered SoCal lists)
-  - Total Serper credits used: ~819 (504 first run + 315 re-run after rebuild). ~1,140 remaining.
-  - Bug fix: Pass 5 accidentally dropped uncertain leads when overwriting file with latin-1 encoding. Rebuilt from original source by replaying passes 1-3, then 5, then 4.
-- Final output files in ~/Downloads/:
-  - `Leads_SoCal_Filtered.csv` — 10,677 confirmed SoCal leads
-  - `Contacts_SoCal_Filtered.csv` — 4,170 confirmed SoCal contacts
-  - `Leads_SoCal_Uncertain.csv` — 1,128 uncertain leads (separate file)
-  - `Contacts_SoCal_Uncertain.csv` — 69 uncertain contacts (separate file)
-  - `*_NORCAL_REMOVED.csv` — NorCal/non-CA records removed (for audit)
+### What was done (Session 27)
+- Merged SoCal filtered CSVs with rest-of-territory CSVs:
+  - `My merged leads list - Including SoCal - as of 3-7-26.csv` — 86,993 leads (10,677 SoCal + 76,316 other states)
+  - `My merged contacts list - Including SoCal - as of 3-7-26.csv` — 19,775 contacts (4,170 SoCal + 15,605 other states)
+- Fixed B2 auto-detect to match Steven's actual Salesforce CSV headers:
+  - Lead signals expanded: added "Company / Account", "Lead Owner"
+  - Contact signals expanded: added "Account Owner", "Parent Account"
+  - Column mappings added: District Name, Create Date, Mailing State/Province (text only), Secondary Email, Mobile, Account Owner, etc.
+- Fixed column letter calculation bug (columns beyond Z crashed)
+- Fixed append range (A:Z → A:AZ for 38+ column CSVs)
+- Fixed large CSV import: chunked writes (2,000 rows per batch) with 3-attempt retry + backoff
+- Added "Leads Assoc Active Accounts" and "Contacts Assoc Active Accounts" separate tabs
+- **Redesigned cross-check logic** with precise match types:
+  - "Exact Match - School" — lead's company = same school as active account
+  - "Exact Match - District" — lead's company = same district as active account
+  - "District is Active Account" — lead is at a school under an active district-level account
+  - NOT a match — lead is at a different school/district where only a school-level account exists (Steven can freely prospect)
+  - Pre-built lookup structures for O(1) matching
+  - Email domain matching via generated domain roots
+  - State filtering prevents cross-state false matches
+- Updated territory in Scout's memory: CA (SoCal only) now explicitly included
+- SF Leads tab successfully imported 86,670 leads (323 dupes skipped) — verified working
 
-### What still needs to be done (Session 27+)
-- **OPTIONAL: Serper remaining uncertain records** (~1,128 leads + 69 contacts) — mostly generic gmail signups with no searchable company name, low expected hit rate
-- **B2 VERIFICATION (next priority):**
-  - Upload filtered SoCal leads CSV to Scout → verify routes to SF Leads tab, cross-checking works
-  - Upload filtered SoCal contacts CSV to Scout → verify routes to SF Contacts tab
-  - Test `/import_leads` and `/import_contacts` explicit routing
-  - Test `/enrich_leads` enrichment on imported records
-  - Test natural language routing: "these are my salesforce leads" caption
-  - Verify existing account/pipeline CSV routing is NOT broken by the new auto-detect
+### What still needs to be done (Session 28+)
+- **B2 VERIFICATION (in progress — resume here):**
+  - ✅ Test 1: Auto-detect SF Leads import — PASSED (86,670 imported)
+  - ⏳ Re-test with redesigned cross-check: clear SF Leads + Leads Assoc Active Accounts tabs, re-send merged leads CSV, verify match accuracy
+  - ⏳ Test 2: Auto-detect SF Contacts import — send `My merged contacts list - Including SoCal - as of 3-7-26.csv`
+  - ⏳ Test 3: `/import_leads` explicit routing
+  - ⏳ Test 4: `/import_contacts` explicit routing
+  - ⏳ Test 5: `/enrich_leads` enrichment
+  - ⏳ Test 6: `/enrich_leads contacts` enrichment
+  - ⏳ Test 7: Natural language routing ("these are my salesforce leads" caption)
+  - ⏳ Test 8: Verify existing account/pipeline CSV routing NOT broken
 - C1: Master territory list (NCES data)
 - C3: Closed-lost winback strategy
-- Optionally test morning brief prospect display + hourly check-in prospect suggestion
 - Re-upload pipeline opp CSV to repopulate Pipeline tab
 
 ### Current status
@@ -45,8 +54,8 @@
 - Phase 6E (District Prospecting Queue): ✅ fully verified (Session 19)
 - Phase 6F (Pipeline Snapshot): ✅ fully verified (Session 22)
 - Enhancements A1-A3 + B1: ✅ implemented (Session 23)
-- Enhancement B2: ⏳ implemented, NOT YET VERIFIED (Session 24)
-- SoCal CSV filtering: ✅ 5 passes complete, confirmed SoCal split from uncertain (Session 26)
+- Enhancement B2: ⏳ partially verified — leads import works, cross-check redesigned, contacts + enrichment + remaining tests pending (Session 27)
+- SoCal CSV filtering: ✅ 5 passes complete (Session 26)
 
 ### Phase 6 roadmap
 - **6E** — District Prospecting Queue ✅ complete
@@ -77,6 +86,27 @@
 - `/enrich_leads` runs Serper web search on unenriched records (up to 20 at a time); `/enrich_leads contacts` for SF Contacts tab
 - `_leads_import_mode` global: None | "leads" | "contacts" — resets after use (same pattern as `_pipeline_import_mode`)
 - `lead_importer` is a flat module imported at top of main.py (NOT lazy)
+- Large CSV imports chunked at 2,000 rows per batch with 3-attempt retry + 2s/4s backoff
+- Two extra tabs: **Leads Assoc Active Accounts** and **Contacts Assoc Active Accounts** — populated during import with cross-checked records only
+
+### Cross-check rules (B2, Session 27)
+- **Exact Match - School**: lead's company = same school as active account → match
+- **Exact Match - District**: lead's company = same district as active account → match
+- **District is Active Account**: active account is a district-level deal, lead is at any school or the district itself → match
+- **NOT a match**: active account is just a school, lead is at a DIFFERENT school or the district → Steven can freely prospect
+- Key rule: school-level active accounts only block the SAME school. District-level active accounts block the whole district.
+- Pre-built lookup structures: `_build_account_lookups()` runs once per import, creates by_name, districts_by_name, schools_by_parent, domain_to_accounts dicts
+- Email domain matching: `_generate_domain_roots()` creates plausible roots from account names (e.g., "Austin ISD" → {"austinisd", "austin"})
+- `_extract_domain_root()` handles k12-style domains (spring.k12.tx.us → "spring") and multi-level domains (staff.austinisd.org → "austinisd")
+- State filtering: matches require same state (or either side blank)
+- Uses lead's District Name and Parent Account fields for district detection (Step 2)
+- `_classify_lead_company()` uses `csv_importer.classify_account()` to determine if lead's company is a school vs district
+
+### Merged territory CSV files (Session 27)
+- `~/Downloads/My merged leads list - Including SoCal - as of 3-7-26.csv` — 86,993 leads (all territory states + SoCal)
+- `~/Downloads/My merged contacts list - Including SoCal - as of 3-7-26.csv` — 19,775 contacts (all territory states + SoCal)
+- Non-SoCal files use latin-1 encoding; merged output is utf-8-sig
+- SoCal rows have County/SoCal/County_Method columns filled; non-SoCal rows have those columns blank
 
 ### SoCal Lead/Contact Filtering (Sessions 25-26)
 - **Offline data cleaning scripts** in `scripts/` — NOT Scout feature code
