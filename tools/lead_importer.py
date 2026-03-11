@@ -1037,6 +1037,56 @@ def enrich_record_via_serper(record: dict, tab_type: str) -> dict:
     return enrichment
 
 
+def clear_tab(tab_name: str) -> dict:
+    """Clear all data rows from a tab (keep header). Returns {cleared, error}."""
+    try:
+        service = _get_service()
+        sheet_id = _get_sheet_id()
+
+        # Read to get row count
+        result = service.spreadsheets().values().get(
+            spreadsheetId=sheet_id,
+            range=f"'{tab_name}'!A:A"
+        ).execute()
+        rows = result.get("values", [])
+        data_rows = max(0, len(rows) - 1)
+
+        if data_rows == 0:
+            return {"cleared": 0, "error": ""}
+
+        # Clear everything below header (row 2 onward)
+        service.spreadsheets().values().clear(
+            spreadsheetId=sheet_id,
+            range=f"'{tab_name}'!A2:ZZ"
+        ).execute()
+        logger.info(f"Cleared {data_rows} rows from {tab_name}")
+        return {"cleared": data_rows, "error": ""}
+    except Exception as e:
+        return {"cleared": 0, "error": str(e)}
+
+
+def clear_leads_tabs() -> dict:
+    """Clear data from SF Leads + Leads Assoc Active Accounts tabs. For re-testing."""
+    r1 = clear_tab(TAB_SF_LEADS)
+    r2 = clear_tab(TAB_LEADS_ACTIVE)
+    return {
+        "sf_leads_cleared": r1["cleared"],
+        "leads_active_cleared": r2["cleared"],
+        "errors": [e for e in [r1["error"], r2["error"]] if e],
+    }
+
+
+def clear_contacts_tabs() -> dict:
+    """Clear data from SF Contacts + Contacts Assoc Active Accounts tabs. For re-testing."""
+    r1 = clear_tab(TAB_SF_CONTACTS)
+    r2 = clear_tab(TAB_CONTACTS_ACTIVE)
+    return {
+        "sf_contacts_cleared": r1["cleared"],
+        "contacts_active_cleared": r2["cleared"],
+        "errors": [e for e in [r1["error"], r2["error"]] if e],
+    }
+
+
 def get_import_summary(tab_name: str) -> str:
     """Return a count summary for the given tab."""
     try:

@@ -1447,6 +1447,42 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
 
+    elif user_text.lower() == "/clear_leads":
+        await send_message("🗑️ Clearing SF Leads + Leads Assoc Active Accounts tabs...")
+        try:
+            loop = asyncio.get_event_loop()
+            result = await loop.run_in_executor(None, lead_importer.clear_leads_tabs)
+            errors = result.get("errors", [])
+            msg = (
+                f"✅ Cleared:\n"
+                f"  • SF Leads: {result['sf_leads_cleared']} rows\n"
+                f"  • Leads Assoc Active Accounts: {result['leads_active_cleared']} rows"
+            )
+            if errors:
+                msg += f"\n⚠️ Errors: {'; '.join(errors)}"
+            await send_message(msg)
+        except Exception as e:
+            await send_message(f"❌ Clear failed: {e}")
+        return
+
+    elif user_text.lower() == "/clear_contacts":
+        await send_message("🗑️ Clearing SF Contacts + Contacts Assoc Active Accounts tabs...")
+        try:
+            loop = asyncio.get_event_loop()
+            result = await loop.run_in_executor(None, lead_importer.clear_contacts_tabs)
+            errors = result.get("errors", [])
+            msg = (
+                f"✅ Cleared:\n"
+                f"  • SF Contacts: {result['sf_contacts_cleared']} rows\n"
+                f"  • Contacts Assoc Active Accounts: {result['contacts_active_cleared']} rows"
+            )
+            if errors:
+                msg += f"\n⚠️ Errors: {'; '.join(errors)}"
+            await send_message(msg)
+        except Exception as e:
+            await send_message(f"❌ Clear failed: {e}")
+        return
+
     elif user_text.lower().startswith("/enrich_leads"):
         args = user_text[len("/enrich_leads"):].strip()
         tab_name = lead_importer.TAB_SF_LEADS  # default to SF Leads
