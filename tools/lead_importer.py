@@ -495,23 +495,33 @@ def import_leads(csv_text: str) -> dict:
         rows_to_append.append(row)
 
     # Append in chunks to avoid Sheets API payload limits
-    CHUNK_SIZE = 5000
+    CHUNK_SIZE = 2000
     appended = 0
     for i in range(0, len(rows_to_append), CHUNK_SIZE):
         chunk = rows_to_append[i : i + CHUNK_SIZE]
-        try:
-            service.spreadsheets().values().append(
-                spreadsheetId=sheet_id,
-                range=f"'{TAB_SF_LEADS}'!A:AZ",
-                valueInputOption="RAW",
-                insertDataOption="INSERT_ROWS",
-                body={"values": chunk}
-            ).execute()
-            appended += len(chunk)
-            logger.info(f"Appended chunk {i // CHUNK_SIZE + 1} ({len(chunk)} rows) to {TAB_SF_LEADS}")
-        except Exception as e:
-            errors.append(f"Chunk {i // CHUNK_SIZE + 1}: {e}")
-            logger.error(f"Chunk {i // CHUNK_SIZE + 1} failed: {e}")
+        chunk_num = i // CHUNK_SIZE + 1
+        success = False
+        for attempt in range(3):
+            try:
+                service.spreadsheets().values().append(
+                    spreadsheetId=sheet_id,
+                    range=f"'{TAB_SF_LEADS}'!A:AZ",
+                    valueInputOption="RAW",
+                    insertDataOption="INSERT_ROWS",
+                    body={"values": chunk}
+                ).execute()
+                appended += len(chunk)
+                logger.info(f"Appended chunk {chunk_num} ({len(chunk)} rows) to {TAB_SF_LEADS}")
+                success = True
+                break
+            except Exception as e:
+                logger.warning(f"Chunk {chunk_num} attempt {attempt + 1} failed: {e}")
+                if attempt < 2:
+                    import time
+                    time.sleep(2 * (attempt + 1))
+                else:
+                    errors.append(f"Chunk {chunk_num}: {e}")
+                    logger.error(f"Chunk {chunk_num} failed after 3 attempts: {e}")
 
     return {
         "imported": appended,
@@ -588,23 +598,31 @@ def import_contacts(csv_text: str) -> dict:
         rows_to_append.append(row)
 
     # Append in chunks to avoid Sheets API payload limits
-    CHUNK_SIZE = 5000
+    CHUNK_SIZE = 2000
     appended = 0
     for i in range(0, len(rows_to_append), CHUNK_SIZE):
         chunk = rows_to_append[i : i + CHUNK_SIZE]
-        try:
-            service.spreadsheets().values().append(
-                spreadsheetId=sheet_id,
-                range=f"'{TAB_SF_CONTACTS}'!A:AZ",
-                valueInputOption="RAW",
-                insertDataOption="INSERT_ROWS",
-                body={"values": chunk}
-            ).execute()
-            appended += len(chunk)
-            logger.info(f"Appended chunk {i // CHUNK_SIZE + 1} ({len(chunk)} rows) to {TAB_SF_CONTACTS}")
-        except Exception as e:
-            errors.append(f"Chunk {i // CHUNK_SIZE + 1}: {e}")
-            logger.error(f"Chunk {i // CHUNK_SIZE + 1} failed: {e}")
+        chunk_num = i // CHUNK_SIZE + 1
+        for attempt in range(3):
+            try:
+                service.spreadsheets().values().append(
+                    spreadsheetId=sheet_id,
+                    range=f"'{TAB_SF_CONTACTS}'!A:AZ",
+                    valueInputOption="RAW",
+                    insertDataOption="INSERT_ROWS",
+                    body={"values": chunk}
+                ).execute()
+                appended += len(chunk)
+                logger.info(f"Appended chunk {chunk_num} ({len(chunk)} rows) to {TAB_SF_CONTACTS}")
+                break
+            except Exception as e:
+                logger.warning(f"Chunk {chunk_num} attempt {attempt + 1} failed: {e}")
+                if attempt < 2:
+                    import time
+                    time.sleep(2 * (attempt + 1))
+                else:
+                    errors.append(f"Chunk {chunk_num}: {e}")
+                    logger.error(f"Chunk {chunk_num} failed after 3 attempts: {e}")
 
     return {
         "imported": appended,
