@@ -93,7 +93,7 @@ DISTRICT_COLUMNS = [
 ]
 
 SCHOOL_COLUMNS = [
-    "State", "School Name", "NCESSCH", "District Name", "LEAID",
+    "State", "School Name", "District Name", "NCESSCH", "LEAID",
     "City", "Street", "Zip", "Phone", "County Code", "Enrollment",
     "Grade Span", "School Type", "Charter", "Lat", "Lon", "Date Synced",
     "Name Key",
@@ -493,8 +493,8 @@ def _build_school_row(record: dict, state_abbr: str) -> list:
     return [
         state_abbr,
         name,
-        str(record.get("ncessch", "")),
         district_name,
+        str(record.get("ncessch", "")),
         str(record.get("leaid", "")),
         _to_title_case(record.get("city_location", "") or ""),
         _to_title_case(record.get("street_location", "") or ""),
@@ -599,6 +599,37 @@ def _clear_state_rows(service, sheet_id: str, tab_name: str, columns: list[str],
 # ─────────────────────────────────────────────
 # PUBLIC FUNCTIONS
 # ─────────────────────────────────────────────
+
+def clear_territory() -> dict:
+    """Clear all data rows from both territory tabs. Keeps headers."""
+    cleared = {"districts": 0, "schools": 0, "errors": []}
+    try:
+        service = _get_service()
+        sheet_id = _get_territory_sheet_id()
+        for tab_name, columns in [(TAB_TERRITORY_DISTRICTS, DISTRICT_COLUMNS),
+                                   (TAB_TERRITORY_SCHOOLS, SCHOOL_COLUMNS)]:
+            try:
+                last_col = _col_to_letter(len(columns) - 1)
+                result = service.spreadsheets().values().get(
+                    spreadsheetId=sheet_id,
+                    range=f"'{tab_name}'!A2:{last_col}",
+                ).execute()
+                row_count = len(result.get("values", []))
+                service.spreadsheets().values().clear(
+                    spreadsheetId=sheet_id,
+                    range=f"'{tab_name}'!A2:{last_col}",
+                ).execute()
+                if tab_name == TAB_TERRITORY_DISTRICTS:
+                    cleared["districts"] = row_count
+                else:
+                    cleared["schools"] = row_count
+            except Exception as e:
+                cleared["errors"].append(f"{tab_name}: {e}")
+    except Exception as e:
+        cleared["errors"].append(str(e))
+    cleared["success"] = True
+    return cleared
+
 
 def sync_territory(states: list[str] | None = None) -> dict:
     """Download NCES data and write to Territory sheet.

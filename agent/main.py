@@ -1509,6 +1509,18 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # ── C1: Territory commands ─────────────────────────────────────────────────
 
+    elif user_text.lower() == "/territory_clear":
+        await send_message("🗑️ Clearing all territory data...")
+        try:
+            loop = asyncio.get_event_loop()
+            result = await loop.run_in_executor(None, territory_data.clear_territory)
+            await send_message(
+                f"✅ Cleared {result['districts']} district rows + {result['schools']} school rows"
+            )
+        except Exception as e:
+            await send_message(f"❌ Clear failed: {e}")
+        return
+
     elif user_text.lower().startswith("/territory_sync"):
         args = user_text[len("/territory_sync"):].strip()
         states = [args] if args else None
