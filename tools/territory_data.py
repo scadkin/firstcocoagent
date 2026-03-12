@@ -60,25 +60,25 @@ STATE_NAME_TO_ABBR = {
     "california": "CA",
 }
 
-# SoCal FIPS county codes (5-digit: state prefix 06 + 3-digit county)
+# SoCal FIPS county codes (API returns these as strings)
 SOCAL_COUNTY_CODES = {
-    6037,  # Los Angeles
-    6073,  # San Diego
-    6059,  # Orange
-    6065,  # Riverside
-    6071,  # San Bernardino
-    6029,  # Kern
-    6111,  # Ventura
-    6083,  # Santa Barbara
-    6079,  # San Luis Obispo
-    6025,  # Imperial
+    "6037",  # Los Angeles
+    "6073",  # San Diego
+    "6059",  # Orange
+    "6065",  # Riverside
+    "6071",  # San Bernardino
+    "6029",  # Kern
+    "6111",  # Ventura
+    "6083",  # Santa Barbara
+    "6079",  # San Luis Obispo
+    "6025",  # Imperial
 }
 
 SOCAL_COUNTY_NAMES = {
-    6037: "Los Angeles", 6073: "San Diego", 6059: "Orange",
-    6065: "Riverside", 6071: "San Bernardino", 6029: "Kern",
-    6111: "Ventura", 6083: "Santa Barbara", 6079: "San Luis Obispo",
-    6025: "Imperial",
+    "6037": "Los Angeles", "6073": "San Diego", "6059": "Orange",
+    "6065": "Riverside", "6071": "San Bernardino", "6029": "Kern",
+    "6111": "Ventura", "6083": "Santa Barbara", "6079": "San Luis Obispo",
+    "6025": "Imperial",
 }
 
 # Tab names
