@@ -780,9 +780,15 @@ def get_territory_gaps(state: str) -> dict:
 
         # Load Active Accounts
         active_accounts = csv_importer.get_active_accounts(state_abbr)
+        logger.info(f"GAP DEBUG: {state_abbr} filtered accounts: {len(active_accounts)}")
 
         # Also load ALL active accounts (unfiltered) in case state doesn't match
         all_active = csv_importer.get_active_accounts()
+        logger.info(f"GAP DEBUG: ALL accounts: {len(all_active)}")
+
+        # Log first few accounts to see what keys they have
+        for i, a in enumerate(all_active[:5]):
+            logger.info(f"GAP DEBUG: account[{i}] keys={list(a.keys())[:6]} name='{a.get('Active Account Name', 'MISSING')}' state='{a.get('State', 'MISSING')}'")
 
         # Build normalized name sets for active accounts
         active_district_keys = set()
@@ -790,7 +796,10 @@ def get_territory_gaps(state: str) -> dict:
         school_parent_keys = set()  # normalized parent account names
         active_account_names = set()  # all account names for fuzzy matching
 
-        for acc in (active_accounts if active_accounts else all_active):
+        use_accounts = active_accounts if active_accounts else all_active
+        logger.info(f"GAP DEBUG: using {'filtered' if active_accounts else 'all'} accounts ({len(use_accounts)})")
+
+        for acc in use_accounts:
             name_key = csv_importer.normalize_name(acc.get("Active Account Name", ""))
             acct_type = (acc.get("Account Type") or "").lower()
             parent = acc.get("Parent Account", "")
@@ -810,6 +819,10 @@ def get_territory_gaps(state: str) -> dict:
                 if parent:
                     school_parent_keys.add(csv_importer.normalize_name(parent))
 
+        logger.info(f"GAP DEBUG: active_district_keys={active_district_keys}")
+        logger.info(f"GAP DEBUG: active_school_keys={active_school_keys}")
+        logger.info(f"GAP DEBUG: school_parent_keys={school_parent_keys}")
+
         # Build school→district lookup from territory schools tab
         # so we can map active school accounts to their NCES district
         territory_schools = _load_territory_schools(state_abbr)
@@ -828,6 +841,7 @@ def get_territory_gaps(state: str) -> dict:
                 districts_with_active_schools.add(district_key)
         # Also add districts from Parent Account field
         districts_with_active_schools.update(school_parent_keys)
+        logger.info(f"GAP DEBUG: districts_with_active_schools={districts_with_active_schools}")
 
         # Load Prospecting Queue
         all_prospects = district_prospector.get_all_prospects()
