@@ -1855,7 +1855,9 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     _csv_intent_check = _parse_csv_intent(user_text)
     if _csv_intent_check:
         file_context = ["csv", "file", "upload", "report", "export", "spreadsheet",
-                        "sending", "importing", "here", "this is", "list of", "data"]
+                        "sending", "importing", "here", "this is", "these are", "list of",
+                        "data", "my lead", "my contact", "my account", "my pipeline",
+                        "my opp", "about to", "going to"]
         if any(fc in user_text.lower() for fc in file_context):
             _pending_csv_intent = _csv_intent_check
             label = _csv_intent_check["label"]
