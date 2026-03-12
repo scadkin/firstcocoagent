@@ -514,7 +514,7 @@ def _generate_domain_roots(account: dict) -> set[str]:
     "Cypress-Fairbanks ISD"                   → {"cypressfairbanksisd", "cfisd", ...}
     """
     from tools.csv_importer import normalize_name
-    name = account.get("Display Name", "").lower()
+    name = account.get("Active Account Name", "").lower()
     if not name:
         return set()
 
@@ -679,7 +679,7 @@ def _cross_check_record(record: dict, lookups: dict, tab_type: str) -> str:
             if not _states_match(lead_state, acct.get("State", "")):
                 continue
             acct_type = acct.get("Account Type", "").lower()
-            acct_display = acct.get("Display Name", "")
+            acct_display = acct.get("Active Account Name", "")
 
             if acct_type == "district" and company_type == "district":
                 return f"Exact Match - District: {acct_display}"
@@ -706,7 +706,7 @@ def _cross_check_record(record: dict, lookups: dict, tab_type: str) -> str:
                 # Validate: if lead has institutional email, domain must match district
                 if domain_root and not _domain_matches_account(domain_root, acct):
                     continue  # institutional email points elsewhere — bad SF data
-                return f"District is Active Account: {acct.get('Display Name', '')}"
+                return f"District is Active Account: {acct.get('Active Account Name', '')}"
 
         # Check lead's parent_account field (contacts CSV)
         parent_key = normalize_name(lead_parent) if lead_parent else ""
@@ -716,7 +716,7 @@ def _cross_check_record(record: dict, lookups: dict, tab_type: str) -> str:
                     continue
                 if domain_root and not _domain_matches_account(domain_root, acct):
                     continue
-                return f"District is Active Account: {acct.get('Display Name', '')}"
+                return f"District is Active Account: {acct.get('Active Account Name', '')}"
 
     # ── Step 3: Email domain matching ──
     # domain_root already computed in Step 2
@@ -725,7 +725,7 @@ def _cross_check_record(record: dict, lookups: dict, tab_type: str) -> str:
             if not _states_match(lead_state, acct.get("State", "")):
                 continue
             acct_type = acct.get("Account Type", "").lower()
-            acct_display = acct.get("Display Name", "")
+            acct_display = acct.get("Active Account Name", "")
 
             if acct_type == "district":
                 # Any lead with domain matching a district is under that district

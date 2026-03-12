@@ -51,7 +51,7 @@ TAB_ACTIVE_ACCOUNTS = "Active Accounts"
 
 ACTIVE_ACCOUNTS_COLUMNS = [
     "Name Key",           # normalized lowercase — used for matching
-    "Display Name",       # original Salesforce Account Name
+    "Active Account Name",       # original Salesforce Account Name
     "Parent Account",     # district name if this is a school; blank if district/top-level
     "SF Type",            # raw Salesforce Type field
     "Account Type",       # classified: district | school | library | company
@@ -161,7 +161,7 @@ def _build_row_for_headers(headers: list[str], rec: dict, name_key: str, acct_ty
     """Build a sheet row matching the given headers from a parsed CSV record."""
     base_map = {
         "Name Key": name_key,
-        "Display Name": rec.get("account_name", ""),
+        "Active Account Name": rec.get("account_name", ""),
         "Parent Account": rec.get("parent_account", ""),
         "SF Type": rec.get("type", ""),
         "Account Type": acct_type,
@@ -910,7 +910,7 @@ def get_districts_with_schools() -> list[dict]:
     existing_district_keys: set[str] = set()
     for acct in accounts:
         if acct.get("Account Type", "").lower() == "district":
-            existing_district_keys.add(normalize_name(acct.get("Display Name", "")))
+            existing_district_keys.add(normalize_name(acct.get("Active Account Name", "")))
 
     # Group school accounts by their Parent Account (the target district)
     schools_by_parent: dict[str, list[dict]] = {}
@@ -923,7 +923,7 @@ def get_districts_with_schools() -> list[dict]:
         if parent not in schools_by_parent:
             schools_by_parent[parent] = []
         schools_by_parent[parent].append({
-            "display_name":    acct.get("Display Name", ""),
+            "display_name":    acct.get("Active Account Name", ""),
             "active_licenses": acct.get("Active Licenses", ""),
             "state":           acct.get("State", ""),
         })

@@ -429,7 +429,7 @@ def discover_districts(state: str, max_results: int = 15) -> dict:
         # Load existing data for dedup
         active_accounts = csv_importer.get_active_accounts()
         active_keys = {
-            csv_importer.normalize_name(a.get("Display Name", ""))
+            csv_importer.normalize_name(a.get("Active Account Name", ""))
             for a in active_accounts
         }
 
@@ -583,7 +583,7 @@ def add_district(name: str, state: str, notes: str = "", strategy: str = "cold")
         # Dedup
         active_accounts = csv_importer.get_active_accounts()
         active_keys = {
-            csv_importer.normalize_name(a.get("Display Name", ""))
+            csv_importer.normalize_name(a.get("Active Account Name", ""))
             for a in active_accounts
         }
         if name_key in active_keys:
