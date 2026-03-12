@@ -1,26 +1,30 @@
 # SCOUT — Claude Code Reference
-*Last updated: 2026-03-12 — Session 30*
+*Last updated: 2026-03-12 — Session 31*
 
 ---
 
 ## CURRENT STATE — update this after each session
 
-**Session 30: B2 verification COMPLETE — all 8 tests passed. Mutually exclusive tab routing (no duplicates across tabs). Math filter extended to contacts. Tab formatting: frozen headers, alternating row banding, header-width columns, column reorder. Natural language CSV intent detection expanded.**
+**Session 31: C1 Master Territory List built and partially verified. `/territory_sync NV` and `/territory_stats NV` working. `/territory_gaps NV` has a bug — Active Accounts column name mismatch with fallback added but not yet verified. Need to re-test gaps.**
 
-### What was done (Session 30)
-- **Mutually exclusive tab routing** — each lead/contact goes to exactly ONE tab based on priority: (1) math + active account → math active tab, (2) math only → math tab, (3) active account only → assoc active tab, (4) neither → main tab. Previously records were duplicated across tabs.
-- **Math filter extended to contacts** — `_is_math_title()` now applies to both leads and contacts. Two new tabs: `SF Contacts - Math` and `Contacts Assoc Active - Math`.
-- **Tab formatting** — `_format_tab()` replaces `_auto_resize_columns()`. Applies: frozen row 1 (header), alternating row banding (blue header, white/light gray-blue rows matching main sheet), column widths sized to header text (~7px/char + 16px padding, min 50px).
-- **Column reorder** — `Active Account Match` moved right after `Email`, `Last Enriched` right after that, in both SF_LEADS_COLUMNS and SF_CONTACTS_COLUMNS.
-- **Natural language CSV intent expanded** — added "these are", "my lead/contact/account/pipeline/opp", "about to", "going to" to file_context detection. Prevents Claude from treating routing descriptions as questions.
-- **`/clear_contacts` updated** — now clears all 4 contact tabs (main + active + math + math active), matching `/clear_leads` pattern.
-- **B2 verification completed** — all 8 tests passed (auto-detect leads, auto-detect contacts, explicit /import_leads, explicit /import_contacts, /enrich_leads, /enrich_leads contacts, natural language routing, existing account routing not broken).
+### What was done (Session 31)
+- **C1: Master Territory List** — new `tools/territory_data.py` module. Downloads NCES CCD data from Urban Institute Education Data API. Writes to dedicated Google Sheet (`GOOGLE_SHEETS_TERRITORY_ID`).
+- **3 new slash commands:** `/territory_sync [state]`, `/territory_stats [state]`, `/territory_gaps <state>`, `/territory_clear`
+- **`/territory_sync NV` verified** — 20 districts, 772 schools written to Territory Districts and Territory Schools tabs
+- **`/territory_stats NV` verified** — shows correct district/school/enrollment counts
+- **Column iterations** — State moved to first column, Name Key to last, address fields (Street, Zip, Phone) added, District Name moved right after School Name in schools tab
+- **Active Accounts column name issue** — sheet header says "Display Name", code originally used "Account Name" (wrong). Fixed with fallback: `acc.get("Active Account Name", "") or acc.get("Display Name", "")`. Steven requested rename to "Active Account Name" but reverted because sheet header only updates on next CSV import.
+- **`/territory_gaps NV` NOT YET VERIFIED** — last test still showed 0 active customers. The fallback fix was deployed but Railway had a "Failed to snapshot repository" error, then successful redeploy, but gaps not re-tested before session ended.
 
 ### What still needs to be done (Session 32+)
-- C1: Master territory list — ✅ code complete (Session 31), needs Steven to create Territory Google Sheet + add `GOOGLE_SHEETS_TERRITORY_ID` env var to Railway, then verify
+- **C1 verification (IMMEDIATE):** Re-test `/territory_gaps NV` — should show Churchill County as "has active school(s)" from Churchill County High School. If still 0, debug further.
+- **C1 full sync:** `/territory_sync` (all 13 states) once gaps verified — ~5-10 min
+- **C1 large state test:** `/territory_sync TX` (~1,200 districts, ~9,700 schools)
+- **C1 CA SoCal filter:** Verify CA only includes SoCal counties
+- **Active Accounts column rename:** "Display Name" → "Active Account Name" — will take effect on Steven's next account CSV import. All code already has fallback for both names.
 - C3: Closed-lost winback strategy
 - Re-upload pipeline opp CSV to repopulate Pipeline tab
-- Enrichment logic improvement (currently basic — just checks if company/state appear in search results; could verify person still works there, check staff directories, detect job changes)
+- Enrichment logic improvement
 
 ### Current status
 - Phases 1–5: ✅ all verified
@@ -32,7 +36,7 @@
 - Phase 6F (Pipeline Snapshot): ✅ fully verified (Session 22)
 - Enhancements A1-A3 + B1: ✅ implemented (Session 23)
 - Enhancement B2: ✅ fully verified (Session 30) — all 8 tests passed
-- Enhancement C1 (Territory Master List): code complete (Session 31) — needs env var + verification
+- Enhancement C1 (Territory Master List): partially verified (Session 31) — sync + stats working, gaps need re-test
 - SoCal CSV filtering: ✅ 5 passes complete (Session 26)
 
 ### Phase 6 roadmap
@@ -170,6 +174,8 @@
 **GAS bridge: new Code.gs edits need a new deployment version.** See `gas/CLAUDE.md` for the full checklist.
 
 **GAS deployment URL does NOT change when bumping version.** Only need to update Railway env var if creating a brand-new deployment (not editing an existing one).
+
+**Active Accounts "Display Name" column is the account name.** Sheet header currently says "Display Name". Steven wants it renamed to "Active Account Name" — this will happen automatically on next account CSV import (csv_importer rewrites header). Until then, any code reading active accounts must check BOTH column names: `acc.get("Active Account Name", "") or acc.get("Display Name", "")`. The `territory_data.py` gap analysis already has this fallback.
 
 **Salesforce CSV: Parent Account = always the district.** Account Name can be district/school/library/company. Parent Account filled → sub-unit under that district. Empty → standalone or top-level. One level deep: district → schools.
 
