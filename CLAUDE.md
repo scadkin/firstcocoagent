@@ -1,25 +1,27 @@
 # SCOUT — Claude Code Reference
-*Last updated: 2026-03-11 — Session 28*
+*Last updated: 2026-03-12 — Session 29*
 
 ---
 
 ## CURRENT STATE — update this after each session
 
-**Session 28: B2 leads import fully working with clean cross-check (937 matches, no false positives). Fixed Google Sheets 10M cell limit. Added `/clear_leads` and `/clear_contacts` commands. Contacts import + remaining B2 tests still pending.**
+**Session 29: SF Leads/Contacts moved to separate Google Sheet. Math/algebra leads auto-filtered to own tabs. "Leads" tab renamed to "Leads from Research". State column moved to first position. Auto-resize columns on import. Leads re-imported successfully to new sheet with math filter active. Contacts import test next.**
 
-### What was done (Session 28)
-- **Fixed Google Sheets 10M cell limit** — append range was `A:AZ` (52 columns) causing 87K rows × 52 = 4.5M cells. Changed to tight `A:{last_col}` range based on actual header count (~35 cols), saving ~1.5M cells.
-- **Fixed `clear_tab` frozen row error** — `deleteDimension` failed with "cannot delete all non-frozen rows". Replaced with `values().clear()` + `updateSheetProperties` grid resize to 2 rows × header columns. Properly frees cells (not just values).
-- **Added `/clear_leads` and `/clear_contacts` commands** — clears SF Leads + Leads Assoc Active Accounts tabs (or SF Contacts + Contacts Assoc Active Accounts). Used for re-testing.
-- **Fixed cross-check false positives from bad SF District Name data** — Salesforce's District Name field is unreliable (e.g., lead at Leander ISD tagged as "Alvin ISD"). Added email domain validation: if lead has non-generic institutional email, domain root must match the district's generated roots. Generic emails (gmail etc.) still trust SF data.
-- **Enhanced `_generate_domain_roots` with acronym-based roots** — "Los Angeles Unified School District" → "lausd", "Cypress-Fairbanks ISD" → "cfisd", "Clark County School District" → "ccsd". Also generates norm-acronym + suffixes (e.g., "cc" + "sd" → "ccsd").
-- **Fixed comma bug** in `_generate_domain_roots` — `norm_joined` now strips ALL non-alphanumeric chars (not just spaces), preventing commas from corrupting roots.
-- **SF Leads re-import verified** — 86,670 leads imported, 937 matched to active accounts (cleaner than previous 754 — domain validation caught bad matches but acronym roots caught new valid ones).
+### What was done (Session 29)
+- **Separated SF Leads/Contacts into dedicated Google Sheet** — new env var `GOOGLE_SHEETS_SF_ID`. All SF lead/contact operations (import, clear, enrich, summary) use `_get_sf_sheet_id()`. Cross-check still reads Active Accounts from main sheet. Falls back to main sheet if env var not set.
+- **Math/algebra lead auto-filter** — leads with math-related titles (math, algebra, mathematics, calculus, geometry) auto-routed to "SF Leads - Math" and "Leads Assoc Active - Math" tabs. `_is_math_title()` checks title words. `/clear_leads` clears all 4 tabs.
+- **Renamed "Leads" tab to "Leads from Research"** — `TAB_LEADS` constant updated in sheets_writer.py. Auto-migration in `cleanup_and_format_sheets()` renames existing tab on startup.
+- **State column first** — moved State/Province to position 1 in both `SF_LEADS_COLUMNS` and `SF_CONTACTS_COLUMNS`.
+- **Auto-resize columns** — `_auto_resize_columns()` calls Sheets API `autoResizeDimensions` after every import. All tabs auto-sized.
+- **SF sheet URL in success messages** — import results link to the SF sheet via `lead_importer.get_sf_sheet_url()`.
+- **Leads re-imported to new sheet** — 86,670 leads imported, 937 cross-checked, math leads filtered to separate tab. Confirmed writing to correct sheet ID.
 
-### What still needs to be done (Session 29+)
+### What still needs to be done (Session 30+)
 - **B2 VERIFICATION (resume here):**
   - ✅ Test 1: Auto-detect SF Leads import — PASSED (86,670 imported, 937 cross-checked)
-  - ✅ Cross-check accuracy verified — false positives from bad SF District Name data eliminated
+  - ✅ Cross-check accuracy verified — false positives eliminated
+  - ✅ SF Leads moved to separate Google Sheet — confirmed
+  - ✅ Math/algebra filter working — leads split to "SF Leads - Math" tab
   - ⏳ Test 2: Auto-detect SF Contacts import — send `My merged contacts list - Including SoCal - as of 3-7-26.csv`
   - ⏳ Test 3: `/import_leads` explicit routing
   - ⏳ Test 4: `/import_contacts` explicit routing
@@ -40,7 +42,7 @@
 - Phase 6E (District Prospecting Queue): ✅ fully verified (Session 19)
 - Phase 6F (Pipeline Snapshot): ✅ fully verified (Session 22)
 - Enhancements A1-A3 + B1: ✅ implemented (Session 23)
-- Enhancement B2: ⏳ leads import verified + cross-check clean — contacts + enrichment + remaining tests pending (Session 28)
+- Enhancement B2: ⏳ leads import verified + separate sheet + math filter — contacts + enrichment + remaining tests pending (Session 29)
 - SoCal CSV filtering: ✅ 5 passes complete (Session 26)
 
 ### Phase 6 roadmap
@@ -75,9 +77,14 @@
 - Large CSV imports chunked at 2,000 rows per batch with 3-attempt retry + 2s/4s backoff
 - Append range uses tight `A:{last_col}` based on header count (NOT `A:AZ`) — prevents 10M cell limit hits
 - Two extra tabs: **Leads Assoc Active Accounts** and **Contacts Assoc Active Accounts** — populated during import with cross-checked records only
-- `/clear_leads` — clears SF Leads + Leads Assoc Active Accounts data rows + shrinks grid (frees cells)
+- Two math filter tabs: **SF Leads - Math** and **Leads Assoc Active - Math** — leads with math/algebra/mathematics/calculus/geometry in Title auto-routed here
+- `/clear_leads` — clears all 4 SF Leads tabs (main + active + math + math active) data rows + shrinks grid
 - `/clear_contacts` — clears SF Contacts + Contacts Assoc Active Accounts data rows + shrinks grid
 - `clear_tab()` uses `values().clear()` + `updateSheetProperties` grid resize (NOT `deleteDimension` which fails on frozen rows)
+- **Separate Google Sheet for SF imports** — `GOOGLE_SHEETS_SF_ID` env var. `_get_sf_sheet_id()` reads it (falls back to main sheet). All SF lead/contact operations use this. Cross-check still reads Active Accounts from main sheet via `csv_importer`.
+- **Auto-resize columns** — `_auto_resize_columns()` runs after every import on all written tabs
+- **State column first** — State/Province is column A in both SF Leads and SF Contacts schemas
+- **"Leads from Research"** — the research-generated Leads tab was renamed from "Leads". `TAB_LEADS` constant in sheets_writer.py. Auto-migration renames on startup via `cleanup_and_format_sheets()`.
 
 ### Cross-check rules (B2, Sessions 27-28)
 - **Exact Match - School**: lead's company = same school as active account → match
