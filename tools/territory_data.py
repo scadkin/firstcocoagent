@@ -781,22 +781,53 @@ def get_territory_gaps(state: str) -> dict:
         # Load Active Accounts
         active_accounts = csv_importer.get_active_accounts(state_abbr)
 
+        # Also load ALL active accounts (unfiltered) in case state doesn't match
+        all_active = csv_importer.get_active_accounts()
+
         # Build normalized name sets for active accounts
         active_district_keys = set()
         active_school_keys = set()
         school_parent_keys = set()  # normalized parent account names
+        active_account_names = set()  # all account names for fuzzy matching
 
-        for acc in active_accounts:
+        for acc in (active_accounts if active_accounts else all_active):
             name_key = csv_importer.normalize_name(acc.get("Account Name", ""))
             acct_type = (acc.get("Account Type") or "").lower()
             parent = acc.get("Parent Account", "")
+            acc_state = (acc.get("State") or "").upper()
+
+            # Only consider accounts in this state (or with no state)
+            if acc_state and acc_state != state_abbr:
+                continue
+
+            active_account_names.add(name_key)
 
             if acct_type == "district":
                 active_district_keys.add(name_key)
-            elif acct_type == "school":
+            else:
+                # school, library, company, or blank type
                 active_school_keys.add(name_key)
                 if parent:
                     school_parent_keys.add(csv_importer.normalize_name(parent))
+
+        # Build school→district lookup from territory schools tab
+        # so we can map active school accounts to their NCES district
+        territory_schools = _load_territory_schools(state_abbr)
+        school_to_district_key = {}
+        for ts in territory_schools:
+            s_key = ts.get("Name Key", "").lower()
+            d_name = ts.get("District Name", "")
+            if s_key and d_name:
+                school_to_district_key[s_key] = csv_importer.normalize_name(d_name)
+
+        # Districts covered via active school accounts (through territory school lookup)
+        districts_with_active_schools = set()
+        for school_key in active_school_keys:
+            district_key = school_to_district_key.get(school_key.lower())
+            if district_key:
+                districts_with_active_schools.add(district_key)
+        # Also add districts from Parent Account field
+        districts_with_active_schools.update(school_parent_keys)
 
         # Load Prospecting Queue
         all_prospects = district_prospector.get_all_prospects()
@@ -831,7 +862,7 @@ def get_territory_gaps(state: str) -> dict:
             if d_name_key in active_district_keys:
                 entry["status"] = "active customer (district)"
                 covered.append(entry)
-            elif d_name_key in school_parent_keys:
+            elif d_name_key in districts_with_active_schools:
                 entry["status"] = "has active school(s)"
                 covered.append(entry)
             elif d_name_key in prospect_keys:
