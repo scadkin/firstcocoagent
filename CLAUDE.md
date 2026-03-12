@@ -1,28 +1,24 @@
 # SCOUT — Claude Code Reference
-*Last updated: 2026-03-12 — Session 31*
+*Last updated: 2026-03-12 — Session 32*
 
 ---
 
 ## CURRENT STATE — update this after each session
 
-**Session 31: C1 Master Territory List built and partially verified. `/territory_sync NV` and `/territory_stats NV` working. `/territory_gaps NV` has a bug — Active Accounts column name mismatch with fallback added but not yet verified. Need to re-test gaps.**
+**Session 32: C1 Master Territory List FULLY VERIFIED. All tests passed — gaps, large state sync (TX), full 13-state sync, CA SoCal filter. Fixed coverage metric to separate district deals from school accounts. Next: C3 closed-lost winback.**
 
-### What was done (Session 31)
-- **C1: Master Territory List** — new `tools/territory_data.py` module. Downloads NCES CCD data from Urban Institute Education Data API. Writes to dedicated Google Sheet (`GOOGLE_SHEETS_TERRITORY_ID`).
-- **3 new slash commands:** `/territory_sync [state]`, `/territory_stats [state]`, `/territory_gaps <state>`, `/territory_clear`
-- **`/territory_sync NV` verified** — 20 districts, 772 schools written to Territory Districts and Territory Schools tabs
-- **`/territory_stats NV` verified** — shows correct district/school/enrollment counts
-- **Column iterations** — State moved to first column, Name Key to last, address fields (Street, Zip, Phone) added, District Name moved right after School Name in schools tab
-- **Active Accounts column name issue** — sheet header says "Display Name", code originally used "Account Name" (wrong). Fixed with fallback: `acc.get("Active Account Name", "") or acc.get("Display Name", "")`. Steven requested rename to "Active Account Name" but reverted because sheet header only updates on next CSV import.
-- **`/territory_gaps NV` NOT YET VERIFIED** — last test still showed 0 active customers. The fallback fix was deployed but Railway had a "Failed to snapshot repository" error, then successful redeploy, but gaps not re-tested before session ended.
+### What was done (Session 32)
+- **`/territory_gaps NV` verified** — Display Name fallback confirmed working. 3 NV school accounts correctly found (Churchill County HS, New Horizons Academy, Pinecrest Academy of Northern NV).
+- **Coverage metric redesigned** — having a school account in a district ≠ "coverage". Now 4 categories: (1) district deals = true coverage, (2) districts with school accounts = upward opportunities, (3) in prospecting, (4) uncovered. Coverage % only counts district-level deals.
+- **Unmatched schools shown** — school accounts that don't match any NCES school (likely private/charter) displayed with ⚠️ warning.
+- **CA SoCal filter fixed** — Urban API returns `county_code` as string `"6037"`, not integer `6037`. Changed `SOCAL_COUNTY_CODES` and `SOCAL_COUNTY_NAMES` to use string keys.
+- **`/territory_sync TX` verified** — 1,242 districts, 9,765 schools. Chunked writing works at scale.
+- **Full sync verified** — `/territory_sync` (all 13 states + CA SoCal): 8,133 districts, 40,317 schools, 20.6M students.
+- **`/territory_stats CA` verified** — 969 districts, 5,559 schools (SoCal only).
 
-### What still needs to be done (Session 32+)
-- **C1 verification (IMMEDIATE):** Re-test `/territory_gaps NV` — should show Churchill County as "has active school(s)" from Churchill County High School. If still 0, debug further.
-- **C1 full sync:** `/territory_sync` (all 13 states) once gaps verified — ~5-10 min
-- **C1 large state test:** `/territory_sync TX` (~1,200 districts, ~9,700 schools)
-- **C1 CA SoCal filter:** Verify CA only includes SoCal counties
+### What still needs to be done (Session 33+)
+- **C3: Closed-lost winback strategy** (next up)
 - **Active Accounts column rename:** "Display Name" → "Active Account Name" — will take effect on Steven's next account CSV import. All code already has fallback for both names.
-- C3: Closed-lost winback strategy
 - Re-upload pipeline opp CSV to repopulate Pipeline tab
 - Enrichment logic improvement
 
@@ -36,7 +32,7 @@
 - Phase 6F (Pipeline Snapshot): ✅ fully verified (Session 22)
 - Enhancements A1-A3 + B1: ✅ implemented (Session 23)
 - Enhancement B2: ✅ fully verified (Session 30) — all 8 tests passed
-- Enhancement C1 (Territory Master List): partially verified (Session 31) — sync + stats working, gaps need re-test
+- Enhancement C1 (Territory Master List): ✅ fully verified (Session 32)
 - SoCal CSV filtering: ✅ 5 passes complete (Session 26)
 
 ### Phase 6 roadmap
@@ -97,20 +93,22 @@
 - Uses lead's District Name and Parent Account fields for district detection (Step 2)
 - `_classify_lead_company()` uses `csv_importer.classify_account()` to determine if lead's company is a school vs district
 
-### C1 Territory Master List (Session 31)
+### C1 Territory Master List (Sessions 31-32)
 - Data source: Urban Institute Education Data API (`educationdata.urban.org`), wrapping NCES CCD 2023
 - No auth required, JSON responses, filter by FIPS state code
 - 13 states: IL, PA, OH, MI, CT, OK, MA, IN, NV, TN, NE, TX + CA (SoCal counties only)
-- CA filtered by `county_code` to 10 SoCal counties (FIPS codes 6025-6111)
+- CA filtered by `county_code` to 10 SoCal counties — **API returns county_code as strings** (e.g., `"6037"`), not integers
 - Separate Google Sheet: `GOOGLE_SHEETS_TERRITORY_ID` env var (falls back to main sheet)
-- Two tabs: `Territory Districts` (14 columns) and `Territory Schools` (15 columns)
+- Two tabs: `Territory Districts` (17 columns) and `Territory Schools` (18 columns)
 - `/territory_sync [state]` — downloads + writes to sheet; processes one state at a time
 - `/territory_stats [state]` — coverage summary by state
 - `/territory_gaps <state>` — cross-refs against Active Accounts + Prospecting Queue; creates Google Doc for 20+ uncovered
-- API responses cached in `/tmp/territory_{kind}_{state}.json` with 7-day TTL
+- API responses cached in `/tmp/territory_{kind}_{state}.json` with 7-day TTL (cleared on Railway redeploy)
 - Sync clears existing rows for each state before writing (idempotent re-sync)
 - Chunked writes at 2,000 rows with 3-attempt retry
 - `territory_data` is a flat module imported at top of main.py
+- **Gap analysis coverage rules:** district-level Active Account deal = "covered". School account in a district = "upward opportunity" (NOT coverage). Coverage % only counts district deals. Unmatched schools (private/charter not in NCES) shown separately with ⚠️.
+- **Full territory size:** 8,133 districts, 40,317 schools, 20.6M students across all states
 
 ### Merged territory CSV files (Session 27)
 - `~/Downloads/My merged leads list - Including SoCal - as of 3-7-26.csv` — 86,993 leads (all territory states + SoCal)
@@ -176,6 +174,10 @@
 **GAS deployment URL does NOT change when bumping version.** Only need to update Railway env var if creating a brand-new deployment (not editing an existing one).
 
 **Active Accounts "Display Name" column is the account name.** Sheet header currently says "Display Name". Steven wants it renamed to "Active Account Name" — this will happen automatically on next account CSV import (csv_importer rewrites header). Until then, any code reading active accounts must check BOTH column names: `acc.get("Active Account Name", "") or acc.get("Display Name", "")`. The `territory_data.py` gap analysis already has this fallback.
+
+**Urban Institute Education Data API returns county_code as strings, not integers.** `"6037"` not `6037`. All county code comparisons must use string keys.
+
+**Territory gap coverage: school accounts ≠ district coverage.** Only district-level Active Account deals count as "covered." A school account inside a district is an "upward opportunity," not coverage. Coverage % = district deals / total NCES districts.
 
 **Salesforce CSV: Parent Account = always the district.** Account Name can be district/school/library/company. Parent Account filled → sub-unit under that district. Empty → standalone or top-level. One level deep: district → schools.
 
