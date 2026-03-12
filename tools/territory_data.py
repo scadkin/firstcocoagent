@@ -825,15 +825,20 @@ def get_territory_gaps(state: str) -> dict:
             if s_key and d_name:
                 school_to_district_key[s_key] = csv_importer.normalize_name(d_name)
 
-        # Districts covered via active school accounts (through territory school lookup)
+        # Districts with active school accounts (through territory school lookup)
         districts_with_active_schools = set()
+        matched_schools = []
+        unmatched_schools = []
         for school_key in active_school_keys:
             district_key = school_to_district_key.get(school_key.lower())
             if district_key:
                 districts_with_active_schools.add(district_key)
+                matched_schools.append(school_key)
+            else:
+                unmatched_schools.append(school_key)
         # Also add districts from Parent Account field
         districts_with_active_schools.update(school_parent_keys)
-        logger.info(f"GAPS: district_keys={active_district_keys}, school_keys={active_school_keys}, parent_keys={school_parent_keys}, districts_w_schools={districts_with_active_schools}")
+        logger.info(f"GAPS: district_keys={active_district_keys}, school_keys={active_school_keys}, parent_keys={school_parent_keys}, districts_w_schools={districts_with_active_schools}, unmatched_schools={unmatched_schools}")
 
         # Load Prospecting Queue
         all_prospects = district_prospector.get_all_prospects()
@@ -843,7 +848,10 @@ def get_territory_gaps(state: str) -> dict:
                 prospect_keys.add(p.get("Name Key", "").lower())
 
         # Classify each territory district
+        # "covered" = district-level active deal only
+        # "has_schools" = school-level deals in this district (upward opportunity, NOT coverage)
         covered = []
+        has_schools = []
         prospecting = []
         uncovered = []
 
@@ -866,11 +874,11 @@ def get_territory_gaps(state: str) -> dict:
             }
 
             if d_name_key in active_district_keys:
-                entry["status"] = "active customer (district)"
+                entry["status"] = "active customer (district deal)"
                 covered.append(entry)
             elif d_name_key in districts_with_active_schools:
-                entry["status"] = "has active school(s)"
-                covered.append(entry)
+                entry["status"] = "has active school(s) — upward opportunity"
+                has_schools.append(entry)
             elif d_name_key in prospect_keys:
                 entry["status"] = "in prospecting"
                 prospecting.append(entry)
@@ -883,8 +891,10 @@ def get_territory_gaps(state: str) -> dict:
 
         total = len(districts)
         covered_count = len(covered)
+        has_schools_count = len(has_schools)
         prospecting_count = len(prospecting)
         uncovered_count = len(uncovered)
+        # Coverage % = district-level deals only (schools in a district ≠ coverage)
         coverage_pct = round((covered_count / total) * 100, 1) if total > 0 else 0
 
         return {
@@ -892,10 +902,14 @@ def get_territory_gaps(state: str) -> dict:
             "state": state_abbr,
             "total_districts": total,
             "covered_count": covered_count,
+            "has_schools_count": has_schools_count,
+            "active_schools_count": len(active_school_keys),
+            "unmatched_schools": unmatched_schools,
             "prospecting_count": prospecting_count,
             "uncovered_count": uncovered_count,
             "coverage_pct": coverage_pct,
             "covered": covered,
+            "has_schools": has_schools,
             "prospecting": prospecting,
             "top_uncovered": uncovered,
         }
@@ -935,14 +949,35 @@ def format_gaps_for_telegram(gaps: dict, max_show: int = 20) -> str:
     if not gaps.get("success"):
         return f"❌ {gaps.get('error', 'Unknown error')}"
 
+    has_schools_count = gaps.get("has_schools_count", 0)
+    active_schools_count = gaps.get("active_schools_count", 0)
     lines = [
         f"🗺️ *Territory Gaps — {gaps['state']}*",
         f"Total NCES districts: {gaps['total_districts']}",
-        f"✅ Active customers: {gaps['covered_count']}",
+        f"Active school accounts: {active_schools_count}",
+        f"✅ District deals: {gaps['covered_count']}",
+        f"🏫 Districts w/ school account(s): {has_schools_count}",
         f"🔄 In prospecting: {gaps['prospecting_count']}",
         f"⬜ Uncovered: {gaps['uncovered_count']}",
-        f"Coverage: {gaps['coverage_pct']}%",
+        f"District coverage: {gaps['coverage_pct']}%",
     ]
+
+    # Show unmatched schools (not found in NCES data — likely private/charter)
+    unmatched = gaps.get("unmatched_schools", [])
+    if unmatched:
+        lines.append("")
+        lines.append("*School accounts not matched to an NCES district:*")
+        for s in unmatched:
+            lines.append(f"  ⚠️ {s}")
+
+    # Show districts with school-level deals (upward opportunities)
+    has_schools = gaps.get("has_schools", [])
+    if has_schools:
+        lines.append("")
+        lines.append("*Upward opportunities (school deals, no district deal):*")
+        for d in sorted(has_schools, key=lambda x: x["enrollment"], reverse=True):
+            enrollment_str = f"{d['enrollment']:,}" if d['enrollment'] else "?"
+            lines.append(f"  📈 {d['name']} — {enrollment_str} students")
 
     top = gaps.get("top_uncovered", [])
     if top:
@@ -976,25 +1011,36 @@ def write_gaps_to_doc(gaps: dict, gas_bridge) -> dict:
     state = gaps["state"]
     title = f"Territory Gaps — {state} — {datetime.now().strftime('%Y-%m-%d')}"
 
+    has_schools_count = gaps.get("has_schools_count", 0)
     lines = [
         f"Territory Gap Analysis: {state}",
         f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M')}",
         "",
         f"Total NCES Districts: {gaps['total_districts']}",
-        f"Active Customers: {gaps['covered_count']}",
+        f"District Deals: {gaps['covered_count']}",
+        f"Has School Account(s): {has_schools_count}",
         f"In Prospecting: {gaps['prospecting_count']}",
         f"Uncovered: {gaps['uncovered_count']}",
-        f"Coverage: {gaps['coverage_pct']}%",
+        f"District Coverage: {gaps['coverage_pct']}%",
         "",
         "=" * 60,
     ]
 
-    # Covered
+    # District deals
     if gaps.get("covered"):
         lines.append("")
-        lines.append(f"ACTIVE CUSTOMERS ({len(gaps['covered'])})")
+        lines.append(f"DISTRICT DEALS ({len(gaps['covered'])})")
         lines.append("-" * 40)
         for d in sorted(gaps["covered"], key=lambda x: x["enrollment"], reverse=True):
+            enrollment_str = f"{d['enrollment']:,}" if d['enrollment'] else "?"
+            lines.append(f"  {d['name']} — {enrollment_str} students — {d['status']}")
+
+    # Upward opportunities
+    if gaps.get("has_schools"):
+        lines.append("")
+        lines.append(f"UPWARD OPPORTUNITIES — school deals, no district deal ({len(gaps['has_schools'])})")
+        lines.append("-" * 40)
+        for d in sorted(gaps["has_schools"], key=lambda x: x["enrollment"], reverse=True):
             enrollment_str = f"{d['enrollment']:,}" if d['enrollment'] else "?"
             lines.append(f"  {d['name']} — {enrollment_str} students — {d['status']}")
 
