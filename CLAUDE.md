@@ -16,8 +16,8 @@
 - **`/clear_contacts` updated** — now clears all 4 contact tabs (main + active + math + math active), matching `/clear_leads` pattern.
 - **B2 verification completed** — all 8 tests passed (auto-detect leads, auto-detect contacts, explicit /import_leads, explicit /import_contacts, /enrich_leads, /enrich_leads contacts, natural language routing, existing account routing not broken).
 
-### What still needs to be done (Session 31+)
-- C1: Master territory list (NCES data)
+### What still needs to be done (Session 32+)
+- C1: Master territory list — ✅ code complete (Session 31), needs Steven to create Territory Google Sheet + add `GOOGLE_SHEETS_TERRITORY_ID` env var to Railway, then verify
 - C3: Closed-lost winback strategy
 - Re-upload pipeline opp CSV to repopulate Pipeline tab
 - Enrichment logic improvement (currently basic — just checks if company/state appear in search results; could verify person still works there, check staff directories, detect job changes)
@@ -32,6 +32,7 @@
 - Phase 6F (Pipeline Snapshot): ✅ fully verified (Session 22)
 - Enhancements A1-A3 + B1: ✅ implemented (Session 23)
 - Enhancement B2: ✅ fully verified (Session 30) — all 8 tests passed
+- Enhancement C1 (Territory Master List): code complete (Session 31) — needs env var + verification
 - SoCal CSV filtering: ✅ 5 passes complete (Session 26)
 
 ### Phase 6 roadmap
@@ -91,6 +92,21 @@
 - **Step 2 (District Name) validation**: Salesforce District Name field is unreliable — leads can be tagged to wrong district. If lead has non-generic institutional email, domain root must match the matched district's generated roots. Generic emails (gmail etc.) still trust SF data. `_domain_matches_account()` handles this check.
 - Uses lead's District Name and Parent Account fields for district detection (Step 2)
 - `_classify_lead_company()` uses `csv_importer.classify_account()` to determine if lead's company is a school vs district
+
+### C1 Territory Master List (Session 31)
+- Data source: Urban Institute Education Data API (`educationdata.urban.org`), wrapping NCES CCD 2023
+- No auth required, JSON responses, filter by FIPS state code
+- 13 states: IL, PA, OH, MI, CT, OK, MA, IN, NV, TN, NE, TX + CA (SoCal counties only)
+- CA filtered by `county_code` to 10 SoCal counties (FIPS codes 6025-6111)
+- Separate Google Sheet: `GOOGLE_SHEETS_TERRITORY_ID` env var (falls back to main sheet)
+- Two tabs: `Territory Districts` (14 columns) and `Territory Schools` (15 columns)
+- `/territory_sync [state]` — downloads + writes to sheet; processes one state at a time
+- `/territory_stats [state]` — coverage summary by state
+- `/territory_gaps <state>` — cross-refs against Active Accounts + Prospecting Queue; creates Google Doc for 20+ uncovered
+- API responses cached in `/tmp/territory_{kind}_{state}.json` with 7-day TTL
+- Sync clears existing rows for each state before writing (idempotent re-sync)
+- Chunked writes at 2,000 rows with 3-attempt retry
+- `territory_data` is a flat module imported at top of main.py
 
 ### Merged territory CSV files (Session 27)
 - `~/Downloads/My merged leads list - Including SoCal - as of 3-7-26.csv` — 86,993 leads (all territory states + SoCal)
@@ -334,6 +350,7 @@ firstcocoagent/
 | CHECKIN_END_HOUR | 16 |
 | SERPER_API_KEY | serper.dev |
 | GOOGLE_SHEETS_ID | From Sheet URL |
+| GOOGLE_SHEETS_TERRITORY_ID | Separate sheet for territory data (falls back to main sheet) |
 | GOOGLE_SERVICE_ACCOUNT_JSON | Full JSON string, personal account |
 | GAS_WEBHOOK_URL | **Update every time Code.gs gets new deployment** |
 | GAS_SECRET_TOKEN | Must match Code.gs |
@@ -391,6 +408,9 @@ firstcocoagent/
 | `/enrich_leads` | run Serper enrichment on unenriched SF Leads (add `contacts` arg for SF Contacts) |
 | `/clear_leads` | clear SF Leads + Leads Assoc Active Accounts data rows + shrink grid |
 | `/clear_contacts` | clear SF Contacts + Contacts Assoc Active Accounts data rows + shrink grid |
+| `/territory_sync [state]` | download NCES territory data for one state or all |
+| `/territory_stats [state]` | territory coverage summary (districts, schools, enrollment) |
+| `/territory_gaps <state>` | gap analysis: cross-ref territory vs Active Accounts + Prospecting Queue |
 | `/pipeline` | show open pipeline summary with stale alerts |
 | `/pipeline_import` | next CSV upload imports as opportunities (Pipeline tab) |
 | send a `.csv` file | Auto-detects opp vs lead vs contact vs account CSV; or Salesforce active accounts import (merge by default) |

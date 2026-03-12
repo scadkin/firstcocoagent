@@ -31,6 +31,7 @@ import tools.daily_call_list as daily_call_list
 import tools.district_prospector as district_prospector
 import tools.pipeline_tracker as pipeline_tracker
 import tools.lead_importer as lead_importer
+import tools.territory_data as territory_data
 from tools.telegram_bot import send_message
 # Phase 4/5 modules imported lazily inside execute_tool() — safe to boot without them
 
@@ -96,6 +97,9 @@ _COMMAND_CHEAT_SHEET = """
 `/import_leads` — next CSV imports as SF leads
 `/import_contacts` — next CSV imports as SF contacts
 `/enrich_leads` — enrich unenriched SF leads
+`/territory_sync [state]` — download NCES territory data
+`/territory_stats [state]` — territory coverage summary
+`/territory_gaps <state>` — gap analysis vs active accounts
 Send a `.csv` — import accounts, leads, or pipeline
 """.strip()
 
@@ -1501,6 +1505,72 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await send_message(msg)
         except Exception as e:
             await send_message(f"❌ Clear failed: {e}")
+        return
+
+    # ── C1: Territory commands ─────────────────────────────────────────────────
+
+    elif user_text.lower().startswith("/territory_sync"):
+        args = user_text[len("/territory_sync"):].strip()
+        states = [args] if args else None
+        label = args.upper() if args else "all territory states"
+        await send_message(f"🗺️ Syncing NCES territory data for {label}... this may take a few minutes.")
+        try:
+            loop = asyncio.get_event_loop()
+            result = await loop.run_in_executor(None, territory_data.sync_territory, states)
+            if not result["success"]:
+                await send_message(f"❌ Sync failed: {result.get('error', 'Unknown error')}")
+                return
+            msg = (
+                f"✅ Territory sync complete\n"
+                f"Districts: {result['districts_synced']:,}\n"
+                f"Schools: {result['schools_synced']:,}\n"
+                f"States: {', '.join(result['states_completed'])}"
+            )
+            if result.get("errors"):
+                msg += f"\n⚠️ Errors: {'; '.join(result['errors'])}"
+            await send_message(msg)
+        except Exception as e:
+            await send_message(f"❌ Territory sync error: {e}")
+        return
+
+    elif user_text.lower().startswith("/territory_stats"):
+        args = user_text[len("/territory_stats"):].strip()
+        try:
+            loop = asyncio.get_event_loop()
+            result = await loop.run_in_executor(None, territory_data.get_territory_stats, args)
+            await send_message(territory_data.format_stats_for_telegram(result))
+        except Exception as e:
+            await send_message(f"❌ Territory stats error: {e}")
+        return
+
+    elif user_text.lower().startswith("/territory_gaps"):
+        args = user_text[len("/territory_gaps"):].strip()
+        if not args:
+            await send_message("Usage: `/territory_gaps Texas` or `/territory_gaps TX`")
+            return
+        await send_message(f"🔍 Analyzing territory gaps for {args}...")
+        try:
+            loop = asyncio.get_event_loop()
+            result = await loop.run_in_executor(None, territory_data.get_territory_gaps, args)
+            await send_message(territory_data.format_gaps_for_telegram(result))
+
+            # If many uncovered, also write to Google Doc
+            if result.get("success") and result.get("uncovered_count", 0) > 20:
+                try:
+                    from tools.gas_bridge import GASBridge
+                    gas = GASBridge(
+                        webhook_url=os.environ.get("GAS_WEBHOOK_URL", ""),
+                        secret_token=os.environ.get("GAS_SECRET_TOKEN", "")
+                    )
+                    doc_result = await loop.run_in_executor(
+                        None, territory_data.write_gaps_to_doc, result, gas
+                    )
+                    if doc_result.get("success"):
+                        await send_message(f"📄 Full gap report: {doc_result['url']}")
+                except Exception as e:
+                    logger.warning(f"Gap doc creation failed: {e}")
+        except Exception as e:
+            await send_message(f"❌ Territory gaps error: {e}")
         return
 
     elif user_text.lower().startswith("/enrich_leads"):

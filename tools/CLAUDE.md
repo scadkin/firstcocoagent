@@ -245,3 +245,30 @@ client.format_recent_for_telegram(transcripts) -> str
 ```
 **Fireflies schema is camelCase:** `dateString`, `speakerName`, `meeting_attendees` (email filtering), `participants` (name strings only).
 **Internal filter:** skip if ALL emails are @codecombat.com. Keep if ANY external email present.
+
+## territory_data (`tools/territory_data.py`) — MODULE, NOT A CLASS
+```python
+import tools.territory_data as territory_data
+territory_data.sync_territory(states=None) -> dict
+# {success, districts_synced, schools_synced, states_completed, errors}
+# Downloads NCES CCD data from Urban Institute API. states=None syncs all territory + CA.
+# Synchronous — call via run_in_executor.
+
+territory_data.get_territory_stats(state_filter="") -> dict
+# {success, total_districts, total_schools, total_enrollment, by_state: []}
+
+territory_data.get_territory_gaps(state) -> dict
+# {success, state, total_districts, covered_count, prospecting_count, uncovered_count,
+#  coverage_pct, covered, prospecting, top_uncovered}
+# Cross-refs vs Active Accounts + Prospecting Queue.
+
+territory_data.format_stats_for_telegram(stats) -> str
+territory_data.format_gaps_for_telegram(gaps, max_show=20) -> str
+territory_data.write_gaps_to_doc(gaps, gas_bridge) -> dict
+# {success, url, error} — full gap list to Google Doc
+
+# Tabs: Territory Districts, Territory Schools (in separate GOOGLE_SHEETS_TERRITORY_ID sheet)
+# Data source: Urban Institute Education Data API (NCES CCD 2023)
+# 13 states: IL, PA, OH, MI, CT, OK, MA, IN, NV, TN, NE, TX + CA (SoCal only)
+# API responses cached in /tmp/ with 7-day TTL
+```
