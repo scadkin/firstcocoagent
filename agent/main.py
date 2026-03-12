@@ -985,7 +985,9 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
 
         imported = result.get("imported", 0)
+        active_matched = result.get("active_matched", 0)
         math_filtered = result.get("math_filtered", 0)
+        math_active = result.get("math_active", 0)
         dupes = result.get("duplicates_skipped", 0)
         cross = result.get("cross_checked", 0)
         total = result.get("total_in_csv", 0)
@@ -994,14 +996,17 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         msg = (
             f"✅ *SF Leads import complete!*\n\n"
-            f"📊 {imported} leads imported (of {total} in CSV)\n"
+            f"📊 {imported} leads → SF Leads tab\n"
         )
+        if active_matched:
+            msg += f"  • {active_matched} active account matches → Leads Assoc Active\n"
         if math_filtered:
-            msg += f"  • {math_filtered} math/algebra leads → separate tab\n"
+            msg += f"  • {math_filtered} math/algebra leads → SF Leads - Math\n"
+        if math_active:
+            msg += f"  • {math_active} math + active → Leads Assoc Active - Math\n"
+        msg += f"  • {imported + active_matched + math_filtered + math_active} total (of {total} in CSV)\n"
         if dupes:
             msg += f"  • {dupes} duplicates skipped\n"
-        if cross:
-            msg += f"  • {cross} matched to active accounts\n"
         if errors:
             msg += f"\n⚠️ Errors: {'; '.join(errors[:3])}\n"
         msg += f"\n[View SF Leads tab]({sheet_url})"
@@ -1030,6 +1035,9 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
 
         imported = result.get("imported", 0)
+        active_matched = result.get("active_matched", 0)
+        math_filtered = result.get("math_filtered", 0)
+        math_active = result.get("math_active", 0)
         dupes = result.get("duplicates_skipped", 0)
         cross = result.get("cross_checked", 0)
         total = result.get("total_in_csv", 0)
@@ -1038,12 +1046,17 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         msg = (
             f"✅ *SF Contacts import complete!*\n\n"
-            f"📊 {imported} contacts imported (of {total} in CSV)\n"
+            f"📊 {imported} contacts → SF Contacts tab\n"
         )
+        if active_matched:
+            msg += f"  • {active_matched} active account matches → Contacts Assoc Active\n"
+        if math_filtered:
+            msg += f"  • {math_filtered} math/algebra contacts → SF Contacts - Math\n"
+        if math_active:
+            msg += f"  • {math_active} math + active → Contacts Assoc Active - Math\n"
+        msg += f"  • {imported + active_matched + math_filtered + math_active} total (of {total} in CSV)\n"
         if dupes:
             msg += f"  • {dupes} duplicates skipped\n"
-        if cross:
-            msg += f"  • {cross} matched to active accounts\n"
         if errors:
             msg += f"\n⚠️ Errors: {'; '.join(errors[:3])}\n"
         msg += f"\n[View SF Contacts tab]({sheet_url})"
@@ -1451,7 +1464,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     elif user_text.lower() == "/clear_leads":
-        await send_message("🗑️ Clearing SF Leads + Leads Assoc Active Accounts tabs...")
+        await send_message("🗑️ Clearing all SF Leads tabs...")
         try:
             loop = asyncio.get_event_loop()
             result = await loop.run_in_executor(None, lead_importer.clear_leads_tabs)
@@ -1459,7 +1472,9 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             msg = (
                 f"✅ Cleared:\n"
                 f"  • SF Leads: {result['sf_leads_cleared']} rows\n"
-                f"  • Leads Assoc Active Accounts: {result['leads_active_cleared']} rows"
+                f"  • Leads Assoc Active: {result['leads_active_cleared']} rows\n"
+                f"  • SF Leads - Math: {result['math_leads_cleared']} rows\n"
+                f"  • Leads Assoc Active - Math: {result['math_active_cleared']} rows"
             )
             if errors:
                 msg += f"\n⚠️ Errors: {'; '.join(errors)}"
@@ -1469,7 +1484,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     elif user_text.lower() == "/clear_contacts":
-        await send_message("🗑️ Clearing SF Contacts + Contacts Assoc Active Accounts tabs...")
+        await send_message("🗑️ Clearing all SF Contacts tabs...")
         try:
             loop = asyncio.get_event_loop()
             result = await loop.run_in_executor(None, lead_importer.clear_contacts_tabs)
@@ -1477,7 +1492,9 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             msg = (
                 f"✅ Cleared:\n"
                 f"  • SF Contacts: {result['sf_contacts_cleared']} rows\n"
-                f"  • Contacts Assoc Active Accounts: {result['contacts_active_cleared']} rows"
+                f"  • Contacts Assoc Active: {result['contacts_active_cleared']} rows\n"
+                f"  • SF Contacts - Math: {result['math_contacts_cleared']} rows\n"
+                f"  • Contacts Assoc Active - Math: {result['math_active_cleared']} rows"
             )
             if errors:
                 msg += f"\n⚠️ Errors: {'; '.join(errors)}"
