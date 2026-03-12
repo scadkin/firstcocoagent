@@ -1,37 +1,26 @@
 # SCOUT — Claude Code Reference
-*Last updated: 2026-03-12 — Session 29*
+*Last updated: 2026-03-12 — Session 30*
 
 ---
 
 ## CURRENT STATE — update this after each session
 
-**Session 29: SF Leads/Contacts moved to separate Google Sheet. Math/algebra leads auto-filtered to own tabs. "Leads" tab renamed to "Leads from Research". State column moved to first position. Auto-resize columns on import. Leads re-imported successfully to new sheet with math filter active. Contacts import test next.**
+**Session 30: B2 verification COMPLETE — all 8 tests passed. Mutually exclusive tab routing (no duplicates across tabs). Math filter extended to contacts. Tab formatting: frozen headers, alternating row banding, header-width columns, column reorder. Natural language CSV intent detection expanded.**
 
-### What was done (Session 29)
-- **Separated SF Leads/Contacts into dedicated Google Sheet** — new env var `GOOGLE_SHEETS_SF_ID`. All SF lead/contact operations (import, clear, enrich, summary) use `_get_sf_sheet_id()`. Cross-check still reads Active Accounts from main sheet. Falls back to main sheet if env var not set.
-- **Math/algebra lead auto-filter** — leads with math-related titles (math, algebra, mathematics, calculus, geometry) auto-routed to "SF Leads - Math" and "Leads Assoc Active - Math" tabs. `_is_math_title()` checks title words. `/clear_leads` clears all 4 tabs.
-- **Renamed "Leads" tab to "Leads from Research"** — `TAB_LEADS` constant updated in sheets_writer.py. Auto-migration in `cleanup_and_format_sheets()` renames existing tab on startup.
-- **State column first** — moved State/Province to position 1 in both `SF_LEADS_COLUMNS` and `SF_CONTACTS_COLUMNS`.
-- **Auto-resize columns** — `_auto_resize_columns()` calls Sheets API `autoResizeDimensions` after every import. All tabs auto-sized.
-- **SF sheet URL in success messages** — import results link to the SF sheet via `lead_importer.get_sf_sheet_url()`.
-- **Leads re-imported to new sheet** — 86,670 leads imported, 937 cross-checked, math leads filtered to separate tab. Confirmed writing to correct sheet ID.
+### What was done (Session 30)
+- **Mutually exclusive tab routing** — each lead/contact goes to exactly ONE tab based on priority: (1) math + active account → math active tab, (2) math only → math tab, (3) active account only → assoc active tab, (4) neither → main tab. Previously records were duplicated across tabs.
+- **Math filter extended to contacts** — `_is_math_title()` now applies to both leads and contacts. Two new tabs: `SF Contacts - Math` and `Contacts Assoc Active - Math`.
+- **Tab formatting** — `_format_tab()` replaces `_auto_resize_columns()`. Applies: frozen row 1 (header), alternating row banding (blue header, white/light gray-blue rows matching main sheet), column widths sized to header text (~7px/char + 16px padding, min 50px).
+- **Column reorder** — `Active Account Match` moved right after `Email`, `Last Enriched` right after that, in both SF_LEADS_COLUMNS and SF_CONTACTS_COLUMNS.
+- **Natural language CSV intent expanded** — added "these are", "my lead/contact/account/pipeline/opp", "about to", "going to" to file_context detection. Prevents Claude from treating routing descriptions as questions.
+- **`/clear_contacts` updated** — now clears all 4 contact tabs (main + active + math + math active), matching `/clear_leads` pattern.
+- **B2 verification completed** — all 8 tests passed (auto-detect leads, auto-detect contacts, explicit /import_leads, explicit /import_contacts, /enrich_leads, /enrich_leads contacts, natural language routing, existing account routing not broken).
 
-### What still needs to be done (Session 30+)
-- **B2 VERIFICATION (resume here):**
-  - ✅ Test 1: Auto-detect SF Leads import — PASSED (86,670 imported, 937 cross-checked)
-  - ✅ Cross-check accuracy verified — false positives eliminated
-  - ✅ SF Leads moved to separate Google Sheet — confirmed
-  - ✅ Math/algebra filter working — leads split to "SF Leads - Math" tab
-  - ⏳ Test 2: Auto-detect SF Contacts import — send `My merged contacts list - Including SoCal - as of 3-7-26.csv`
-  - ⏳ Test 3: `/import_leads` explicit routing
-  - ⏳ Test 4: `/import_contacts` explicit routing
-  - ⏳ Test 5: `/enrich_leads` enrichment
-  - ⏳ Test 6: `/enrich_leads contacts` enrichment
-  - ⏳ Test 7: Natural language routing ("these are my salesforce leads" caption)
-  - ⏳ Test 8: Verify existing account/pipeline CSV routing NOT broken
+### What still needs to be done (Session 31+)
 - C1: Master territory list (NCES data)
 - C3: Closed-lost winback strategy
 - Re-upload pipeline opp CSV to repopulate Pipeline tab
+- Enrichment logic improvement (currently basic — just checks if company/state appear in search results; could verify person still works there, check staff directories, detect job changes)
 
 ### Current status
 - Phases 1–5: ✅ all verified
@@ -42,7 +31,7 @@
 - Phase 6E (District Prospecting Queue): ✅ fully verified (Session 19)
 - Phase 6F (Pipeline Snapshot): ✅ fully verified (Session 22)
 - Enhancements A1-A3 + B1: ✅ implemented (Session 23)
-- Enhancement B2: ⏳ leads import verified + separate sheet + math filter — contacts + enrichment + remaining tests pending (Session 29)
+- Enhancement B2: ✅ fully verified (Session 30) — all 8 tests passed
 - SoCal CSV filtering: ✅ 5 passes complete (Session 26)
 
 ### Phase 6 roadmap
@@ -77,12 +66,14 @@
 - Large CSV imports chunked at 2,000 rows per batch with 3-attempt retry + 2s/4s backoff
 - Append range uses tight `A:{last_col}` based on header count (NOT `A:AZ`) — prevents 10M cell limit hits
 - Two extra tabs: **Leads Assoc Active Accounts** and **Contacts Assoc Active Accounts** — populated during import with cross-checked records only
-- Two math filter tabs: **SF Leads - Math** and **Leads Assoc Active - Math** — leads with math/algebra/mathematics/calculus/geometry in Title auto-routed here
+- Four math filter tabs: **SF Leads - Math**, **Leads Assoc Active - Math**, **SF Contacts - Math**, **Contacts Assoc Active - Math** — leads/contacts with math/algebra/mathematics/calculus/geometry in Title auto-routed here
+- **Mutually exclusive routing** — each record goes to exactly ONE tab: (1) math + active → math active, (2) math only → math, (3) active only → assoc active, (4) neither → main. No duplicates across tabs.
 - `/clear_leads` — clears all 4 SF Leads tabs (main + active + math + math active) data rows + shrinks grid
-- `/clear_contacts` — clears SF Contacts + Contacts Assoc Active Accounts data rows + shrinks grid
+- `/clear_contacts` — clears all 4 SF Contacts tabs (main + active + math + math active) data rows + shrinks grid
 - `clear_tab()` uses `values().clear()` + `updateSheetProperties` grid resize (NOT `deleteDimension` which fails on frozen rows)
 - **Separate Google Sheet for SF imports** — `GOOGLE_SHEETS_SF_ID` env var. `_get_sf_sheet_id()` reads it (falls back to main sheet). All SF lead/contact operations use this. Cross-check still reads Active Accounts from main sheet via `csv_importer`.
-- **Auto-resize columns** — `_auto_resize_columns()` runs after every import on all written tabs
+- **Tab formatting** — `_format_tab()` runs after every import: column widths sized to header text (~7px/char), alternating row banding (blue header, white/light gray-blue), frozen row 1. Replaced `_auto_resize_columns()`.
+- **Column order** — State/Province first, then name/title/company/email, then Active Account Match right after Email, then Last Enriched right after that, then remaining columns.
 - **State column first** — State/Province is column A in both SF Leads and SF Contacts schemas
 - **"Leads from Research"** — the research-generated Leads tab was renamed from "Leads". `TAB_LEADS` constant in sheets_writer.py. Auto-migration renames on startup via `cleanup_and_format_sheets()`.
 
