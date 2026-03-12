@@ -87,15 +87,16 @@ TAB_TERRITORY_SCHOOLS = "Territory Schools"
 
 # Sheet column schemas
 DISTRICT_COLUMNS = [
-    "Name Key", "District Name", "LEAID", "State", "City", "County",
-    "County Code", "Enrollment", "School Count", "Grade Span",
-    "Agency Type", "Lat", "Lon", "Date Synced",
+    "State", "District Name", "LEAID", "City", "Street", "Zip",
+    "Phone", "County", "County Code", "Enrollment", "School Count",
+    "Grade Span", "Agency Type", "Lat", "Lon", "Date Synced", "Name Key",
 ]
 
 SCHOOL_COLUMNS = [
-    "Name Key", "School Name", "NCESSCH", "District Name", "LEAID",
-    "State", "City", "County Code", "Enrollment", "Grade Span",
-    "School Type", "Charter", "Lat", "Lon", "Date Synced",
+    "State", "School Name", "NCESSCH", "District Name", "LEAID",
+    "City", "Street", "Zip", "Phone", "County Code", "Enrollment",
+    "Grade Span", "School Type", "Charter", "Lat", "Lon", "Date Synced",
+    "Name Key",
 ]
 
 # Agency types from NCES CCD (numeric codes)
@@ -451,11 +452,13 @@ def _build_district_row(record: dict, state_abbr: str) -> list:
     county_name = SOCAL_COUNTY_NAMES.get(county_code, "") if state_abbr == "CA" else ""
 
     return [
-        name_key,
+        state_abbr,
         name,
         str(record.get("leaid", "")),
-        state_abbr,
         _to_title_case(record.get("city_location", "") or ""),
+        _to_title_case(record.get("street_location", "") or ""),
+        record.get("zip_location", "") or "",
+        record.get("phone", "") or "",
         county_name,
         str(county_code),
         enrollment if enrollment is not None else "",
@@ -465,6 +468,7 @@ def _build_district_row(record: dict, state_abbr: str) -> list:
         record.get("latitude") or "",
         record.get("longitude") or "",
         datetime.now().strftime("%Y-%m-%d"),
+        name_key,
     ]
 
 
@@ -487,13 +491,15 @@ def _build_school_row(record: dict, state_abbr: str) -> list:
     charter_str = "Yes" if charter == 1 else "No" if charter == 0 else ""
 
     return [
-        name_key,
+        state_abbr,
         name,
         str(record.get("ncessch", "")),
         district_name,
         str(record.get("leaid", "")),
-        state_abbr,
         _to_title_case(record.get("city_location", "") or ""),
+        _to_title_case(record.get("street_location", "") or ""),
+        record.get("zip_location", "") or "",
+        record.get("phone", "") or "",
         str(record.get("county_code") or ""),
         enrollment if enrollment is not None else "",
         grade_span,
@@ -502,6 +508,7 @@ def _build_school_row(record: dict, state_abbr: str) -> list:
         record.get("latitude") or "",
         record.get("longitude") or "",
         datetime.now().strftime("%Y-%m-%d"),
+        name_key,
     ]
 
 
