@@ -791,7 +791,7 @@ def get_territory_gaps(state: str) -> dict:
         active_account_names = set()  # all account names for fuzzy matching
 
         for acc in (active_accounts if active_accounts else all_active):
-            name_key = csv_importer.normalize_name(acc.get("Account Name", ""))
+            name_key = csv_importer.normalize_name(acc.get("Display Name", ""))
             acct_type = (acc.get("Account Type") or "").lower()
             parent = acc.get("Parent Account", "")
             acc_state = (acc.get("State") or "").upper()
