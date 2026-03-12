@@ -780,9 +780,12 @@ def get_territory_gaps(state: str) -> dict:
 
         # Load Active Accounts
         active_accounts = csv_importer.get_active_accounts(state_abbr)
-
-        # Also load ALL active accounts (unfiltered) in case state doesn't match
         all_active = csv_importer.get_active_accounts()
+        use_accounts = active_accounts if active_accounts else all_active
+        logger.info(f"GAPS {state_abbr}: {len(active_accounts)} state-filtered, {len(all_active)} total, using {'filtered' if active_accounts else 'all'}")
+        if use_accounts:
+            sample = use_accounts[0]
+            logger.info(f"GAPS: sample keys={list(sample.keys())[:6]}, Display Name={sample.get('Display Name','?')!r}, Active Account Name={sample.get('Active Account Name','?')!r}")
 
         # Build normalized name sets for active accounts
         active_district_keys = set()
@@ -790,7 +793,7 @@ def get_territory_gaps(state: str) -> dict:
         school_parent_keys = set()  # normalized parent account names
         active_account_names = set()  # all account names for fuzzy matching
 
-        for acc in (active_accounts if active_accounts else all_active):
+        for acc in use_accounts:
             name_key = csv_importer.normalize_name(
                 acc.get("Active Account Name", "") or acc.get("Display Name", "")
             )
@@ -830,6 +833,7 @@ def get_territory_gaps(state: str) -> dict:
                 districts_with_active_schools.add(district_key)
         # Also add districts from Parent Account field
         districts_with_active_schools.update(school_parent_keys)
+        logger.info(f"GAPS: district_keys={active_district_keys}, school_keys={active_school_keys}, parent_keys={school_parent_keys}, districts_w_schools={districts_with_active_schools}")
 
         # Load Prospecting Queue
         all_prospects = district_prospector.get_all_prospects()
