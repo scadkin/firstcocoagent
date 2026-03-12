@@ -84,7 +84,7 @@ GOALS_COLUMNS = [
     "Goal Type", "Daily Target", "Description",
 ]
 ACTIVE_ACCOUNTS_COLUMNS = [
-    "Name Key", "Active Account Name", "Parent Account", "Type", "Open Renewal",
+    "Name Key", "Display Name", "Parent Account", "Type", "Open Renewal",
     "Opportunities", "Active Licenses", "2025 Revenue", "Lifetime Revenue",
     "Last Activity", "Last Modified", "State", "Is District",
 ]
