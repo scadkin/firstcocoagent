@@ -119,6 +119,7 @@ TAB_CONTACTS_ACTIVE_MATH = "Contacts Assoc Active - Math"
 _MATH_KEYWORDS = {"math", "algebra", "mathematics", "calculus", "geometry"}
 
 # Base columns from Salesforce Leads report
+# Active Account Match right after Email, Last Enriched right after that
 SF_LEADS_COLUMNS = [
     "State/Province",
     "First Name",
@@ -126,6 +127,8 @@ SF_LEADS_COLUMNS = [
     "Title",
     "Company",
     "Email",
+    "Active Account Match",
+    "Last Enriched",
     "Phone",
     "Lead Source",
     "Lead Status",
@@ -139,14 +142,13 @@ SF_LEADS_COLUMNS = [
     "Verified District",
     "Verified State",
     "Verified County",
-    "Active Account Match",
     "Enrichment Status",
     "Enrichment Notes",
-    "Last Enriched",
     "Date Imported",
 ]
 
 # Base columns from Salesforce Contacts report
+# Active Account Match right after Email, Last Enriched right after that
 SF_CONTACTS_COLUMNS = [
     "Mailing State/Province",
     "First Name",
@@ -154,6 +156,8 @@ SF_CONTACTS_COLUMNS = [
     "Title",
     "Account Name",
     "Email",
+    "Active Account Match",
+    "Last Enriched",
     "Phone",
     "Mailing City",
     "Department",
@@ -164,10 +168,8 @@ SF_CONTACTS_COLUMNS = [
     "Verified District",
     "Verified State",
     "Verified County",
-    "Active Account Match",
     "Enrichment Status",
     "Enrichment Notes",
-    "Last Enriched",
     "Date Imported",
 ]
 
@@ -261,7 +263,7 @@ def get_sf_sheet_url() -> str:
 
 
 def _ensure_tab(tab_name: str, columns: list[str], sheet_id_override: str = ""):
-    """Create tab if missing, always overwrite header row.
+    """Create tab if missing, always overwrite header row + freeze row 1.
 
     sheet_id_override: if provided, use this sheet ID instead of default.
     """
@@ -269,14 +271,20 @@ def _ensure_tab(tab_name: str, columns: list[str], sheet_id_override: str = ""):
     sheet_id = sheet_id_override or _get_sheet_id()
 
     meta = service.spreadsheets().get(spreadsheetId=sheet_id).execute()
-    existing = {s["properties"]["title"] for s in meta.get("sheets", [])}
+    existing = {}
+    for s in meta.get("sheets", []):
+        existing[s["properties"]["title"]] = s["properties"]["sheetId"]
 
     if tab_name not in existing:
-        service.spreadsheets().batchUpdate(
+        resp = service.spreadsheets().batchUpdate(
             spreadsheetId=sheet_id,
             body={"requests": [{"addSheet": {"properties": {"title": tab_name}}}]}
         ).execute()
+        # Get the new tab's sheetId from the response
+        tab_id = resp["replies"][0]["addSheet"]["properties"]["sheetId"]
         logger.info(f"Created tab: {tab_name}")
+    else:
+        tab_id = existing[tab_name]
 
     # Always overwrite headers (schema changes propagate immediately)
     service.spreadsheets().values().update(
@@ -286,37 +294,89 @@ def _ensure_tab(tab_name: str, columns: list[str], sheet_id_override: str = ""):
         body={"values": [columns]}
     ).execute()
 
+    # Freeze row 1 (header)
+    service.spreadsheets().batchUpdate(
+        spreadsheetId=sheet_id,
+        body={"requests": [{
+            "updateSheetProperties": {
+                "properties": {
+                    "sheetId": tab_id,
+                    "gridProperties": {"frozenRowCount": 1},
+                },
+                "fields": "gridProperties.frozenRowCount",
+            }
+        }]}
+    ).execute()
+
     return service, sheet_id
 
 
-def _auto_resize_columns(service, sheet_id: str, tab_name: str):
-    """Auto-resize all columns in a tab to fit content."""
+def _format_tab(service, sheet_id: str, tab_name: str, headers: list[str]):
+    """Apply formatting to a tab: column widths sized to header text, alternating row banding.
+
+    Called after each import. Safe to call repeatedly — replaces existing banding.
+    """
     try:
         meta = service.spreadsheets().get(spreadsheetId=sheet_id).execute()
         tab_id = None
+        has_banding = False
         for s in meta.get("sheets", []):
             if s["properties"]["title"] == tab_name:
                 tab_id = s["properties"]["sheetId"]
+                has_banding = bool(s.get("bandedRanges"))
                 break
         if tab_id is None:
             return
 
-        service.spreadsheets().batchUpdate(
-            spreadsheetId=sheet_id,
-            body={"requests": [{
-                "autoResizeDimensions": {
-                    "dimensions": {
+        requests = []
+
+        # ── Column widths based on header text length ──
+        # ~7 pixels per character + 16px padding (matches typical spreadsheet default font)
+        for i, header in enumerate(headers):
+            px = max(len(header) * 7 + 16, 50)  # minimum 50px
+            requests.append({
+                "updateDimensionProperties": {
+                    "range": {
                         "sheetId": tab_id,
                         "dimension": "COLUMNS",
-                        "startIndex": 0,
-                        "endIndex": 100,
+                        "startIndex": i,
+                        "endIndex": i + 1,
+                    },
+                    "properties": {"pixelSize": px},
+                    "fields": "pixelSize",
+                }
+            })
+
+        # ── Alternating row banding (same colors as main sheet) ──
+        if not has_banding:
+            header_color = {"red": 0.22, "green": 0.46, "blue": 0.69, "alpha": 1.0}
+            first_band = {"red": 1.0, "green": 1.0, "blue": 1.0, "alpha": 1.0}       # white
+            second_band = {"red": 0.93, "green": 0.95, "blue": 0.97, "alpha": 1.0}    # light gray-blue
+            requests.append({
+                "addBanding": {
+                    "bandedRange": {
+                        "range": {
+                            "sheetId": tab_id,
+                            "startRowIndex": 0,
+                            "startColumnIndex": 0,
+                        },
+                        "rowProperties": {
+                            "headerColor": header_color,
+                            "firstBandColor": first_band,
+                            "secondBandColor": second_band,
+                        },
                     }
                 }
-            }]}
-        ).execute()
-        logger.info(f"Auto-resized columns in {tab_name}")
+            })
+
+        if requests:
+            service.spreadsheets().batchUpdate(
+                spreadsheetId=sheet_id,
+                body={"requests": requests}
+            ).execute()
+            logger.info(f"Formatted {tab_name}: {len(headers)} columns sized + banding applied")
     except Exception as e:
-        logger.warning(f"Auto-resize failed for {tab_name}: {e}")
+        logger.warning(f"Format failed for {tab_name}: {e}")
 
 
 def _to_title_case(name: str) -> str:
@@ -866,9 +926,9 @@ def import_leads(csv_text: str) -> dict:
         except Exception as e:
             errors.append(f"Math active tab: {e}")
 
-    # Auto-resize columns to fit content
+    # Format all tabs: column widths to header size + alternating row banding
     for tab in [TAB_SF_LEADS, TAB_LEADS_ACTIVE, TAB_SF_LEADS_MATH, TAB_LEADS_ACTIVE_MATH]:
-        _auto_resize_columns(service, sheet_id, tab)
+        _format_tab(service, sheet_id, tab, headers)
 
     return {
         "imported": appended,
@@ -1007,9 +1067,9 @@ def import_contacts(csv_text: str) -> dict:
         except Exception as e:
             errors.append(f"Math active tab: {e}")
 
-    # Auto-resize columns to fit content
+    # Format all tabs: column widths to header size + alternating row banding
     for tab in [TAB_SF_CONTACTS, TAB_CONTACTS_ACTIVE, TAB_SF_CONTACTS_MATH, TAB_CONTACTS_ACTIVE_MATH]:
-        _auto_resize_columns(service, sheet_id, tab)
+        _format_tab(service, sheet_id, tab, headers)
 
     return {
         "imported": appended,
