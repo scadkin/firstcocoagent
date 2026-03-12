@@ -105,6 +105,7 @@ TAB_CONTACTS_ACTIVE = "Contacts Assoc Active Accounts"
 
 # Base columns from Salesforce Leads report
 SF_LEADS_COLUMNS = [
+    "State/Province",
     "First Name",
     "Last Name",
     "Title",
@@ -113,7 +114,6 @@ SF_LEADS_COLUMNS = [
     "Phone",
     "Lead Source",
     "Lead Status",
-    "State/Province",
     "Street",
     "City",
     "Zip",
@@ -133,13 +133,13 @@ SF_LEADS_COLUMNS = [
 
 # Base columns from Salesforce Contacts report
 SF_CONTACTS_COLUMNS = [
+    "Mailing State/Province",
     "First Name",
     "Last Name",
     "Title",
     "Account Name",
     "Email",
     "Phone",
-    "Mailing State/Province",
     "Mailing City",
     "Department",
     "Contact Owner",
@@ -230,10 +230,28 @@ def _get_sheet_id():
     return sheet_id
 
 
-def _ensure_tab(tab_name: str, columns: list[str]):
-    """Create tab if missing, always overwrite header row."""
+def _get_sf_sheet_id():
+    """Get the separate Google Sheet ID for SF Leads/Contacts imports.
+    Falls back to main sheet if GOOGLE_SHEETS_SF_ID not set."""
+    sheet_id = os.environ.get("GOOGLE_SHEETS_SF_ID") or os.environ.get("GOOGLE_SHEETS_ID")
+    if not sheet_id:
+        raise ValueError("GOOGLE_SHEETS_SF_ID or GOOGLE_SHEETS_ID not set")
+    return sheet_id
+
+
+def get_sf_sheet_url() -> str:
+    """Return the URL for the SF Leads/Contacts Google Sheet."""
+    sheet_id = _get_sf_sheet_id()
+    return f"https://docs.google.com/spreadsheets/d/{sheet_id}"
+
+
+def _ensure_tab(tab_name: str, columns: list[str], sheet_id_override: str = ""):
+    """Create tab if missing, always overwrite header row.
+
+    sheet_id_override: if provided, use this sheet ID instead of default.
+    """
     service = _get_service()
-    sheet_id = _get_sheet_id()
+    sheet_id = sheet_id_override or _get_sheet_id()
 
     meta = service.spreadsheets().get(spreadsheetId=sheet_id).execute()
     existing = {s["properties"]["title"] for s in meta.get("sheets", [])}
@@ -254,6 +272,36 @@ def _ensure_tab(tab_name: str, columns: list[str]):
     ).execute()
 
     return service, sheet_id
+
+
+def _auto_resize_columns(service, sheet_id: str, tab_name: str):
+    """Auto-resize all columns in a tab to fit content."""
+    try:
+        meta = service.spreadsheets().get(spreadsheetId=sheet_id).execute()
+        tab_id = None
+        for s in meta.get("sheets", []):
+            if s["properties"]["title"] == tab_name:
+                tab_id = s["properties"]["sheetId"]
+                break
+        if tab_id is None:
+            return
+
+        service.spreadsheets().batchUpdate(
+            spreadsheetId=sheet_id,
+            body={"requests": [{
+                "autoResizeDimensions": {
+                    "dimensions": {
+                        "sheetId": tab_id,
+                        "dimension": "COLUMNS",
+                        "startIndex": 0,
+                        "endIndex": 100,
+                    }
+                }
+            }]}
+        ).execute()
+        logger.info(f"Auto-resized columns in {tab_name}")
+    except Exception as e:
+        logger.warning(f"Auto-resize failed for {tab_name}: {e}")
 
 
 def _to_title_case(name: str) -> str:
@@ -697,7 +745,8 @@ def import_leads(csv_text: str) -> dict:
         if ec not in headers:
             headers.append(ec)
 
-    service, sheet_id = _ensure_tab(TAB_SF_LEADS, headers)
+    sf_sheet_id = _get_sf_sheet_id()
+    service, sheet_id = _ensure_tab(TAB_SF_LEADS, headers, sheet_id_override=sf_sheet_id)
 
     # Load existing keys for dedup
     email_keys, name_keys, _ = _load_existing_keys(service, sheet_id, TAB_SF_LEADS)
@@ -754,12 +803,17 @@ def import_leads(csv_text: str) -> dict:
     # Write cross-checked rows to separate tab
     if active_rows:
         try:
-            _ensure_tab(TAB_LEADS_ACTIVE, headers)
+            _ensure_tab(TAB_LEADS_ACTIVE, headers, sheet_id_override=sf_sheet_id)
             _append_in_chunks(service, sheet_id, TAB_LEADS_ACTIVE, active_rows, errors,
                               num_cols=len(headers))
             logger.info(f"Wrote {len(active_rows)} cross-checked leads to {TAB_LEADS_ACTIVE}")
         except Exception as e:
             errors.append(f"Active tab: {e}")
+
+    # Auto-resize columns to fit content
+    _auto_resize_columns(service, sheet_id, TAB_SF_LEADS)
+    if active_rows:
+        _auto_resize_columns(service, sheet_id, TAB_LEADS_ACTIVE)
 
     return {
         "imported": appended,
@@ -789,7 +843,8 @@ def import_contacts(csv_text: str) -> dict:
         if ec not in headers:
             headers.append(ec)
 
-    service, sheet_id = _ensure_tab(TAB_SF_CONTACTS, headers)
+    sf_sheet_id = _get_sf_sheet_id()
+    service, sheet_id = _ensure_tab(TAB_SF_CONTACTS, headers, sheet_id_override=sf_sheet_id)
 
     # Load existing keys for dedup
     email_keys, name_keys, _ = _load_existing_keys(service, sheet_id, TAB_SF_CONTACTS)
@@ -846,12 +901,17 @@ def import_contacts(csv_text: str) -> dict:
     # Write cross-checked rows to separate tab
     if active_rows:
         try:
-            _ensure_tab(TAB_CONTACTS_ACTIVE, headers)
+            _ensure_tab(TAB_CONTACTS_ACTIVE, headers, sheet_id_override=sf_sheet_id)
             _append_in_chunks(service, sheet_id, TAB_CONTACTS_ACTIVE, active_rows, errors,
                               num_cols=len(headers))
             logger.info(f"Wrote {len(active_rows)} cross-checked contacts to {TAB_CONTACTS_ACTIVE}")
         except Exception as e:
             errors.append(f"Active tab: {e}")
+
+    # Auto-resize columns to fit content
+    _auto_resize_columns(service, sheet_id, TAB_SF_CONTACTS)
+    if active_rows:
+        _auto_resize_columns(service, sheet_id, TAB_CONTACTS_ACTIVE)
 
     return {
         "imported": appended,
@@ -943,7 +1003,7 @@ def get_unenriched(tab_name: str, limit: int = 20) -> list[dict]:
     Returns list of dicts with row_index (1-based, for sheet update) and record data.
     """
     service = _get_service()
-    sheet_id = _get_sheet_id()
+    sheet_id = _get_sf_sheet_id()
 
     try:
         result = service.spreadsheets().values().get(
@@ -986,7 +1046,7 @@ def update_enrichment(tab_name: str, row_index: int, enrichment: dict):
                      verified_county, enrichment_status, enrichment_notes
     """
     service = _get_service()
-    sheet_id = _get_sheet_id()
+    sheet_id = _get_sf_sheet_id()
 
     # Read headers to find column indices
     result = service.spreadsheets().values().get(
@@ -1111,7 +1171,7 @@ def clear_tab(tab_name: str) -> dict:
     """
     try:
         service = _get_service()
-        sheet_id = _get_sheet_id()
+        sheet_id = _get_sf_sheet_id()
 
         # Get sheet metadata to find the sheetId and current grid size
         meta = service.spreadsheets().get(spreadsheetId=sheet_id).execute()
@@ -1200,7 +1260,7 @@ def get_import_summary(tab_name: str) -> str:
     """Return a count summary for the given tab."""
     try:
         service = _get_service()
-        sheet_id = _get_sheet_id()
+        sheet_id = _get_sf_sheet_id()
         result = service.spreadsheets().values().get(
             spreadsheetId=sheet_id,
             range=f"'{tab_name}'!A:A"

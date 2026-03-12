@@ -989,7 +989,7 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
         cross = result.get("cross_checked", 0)
         total = result.get("total_in_csv", 0)
         errors = result.get("errors", [])
-        sheet_url = sheets_writer.get_master_sheet_url()
+        sheet_url = lead_importer.get_sf_sheet_url()
 
         msg = (
             f"✅ *SF Leads import complete!*\n\n"
@@ -1031,7 +1031,7 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
         cross = result.get("cross_checked", 0)
         total = result.get("total_in_csv", 0)
         errors = result.get("errors", [])
-        sheet_url = sheets_writer.get_master_sheet_url()
+        sheet_url = lead_importer.get_sf_sheet_url()
 
         msg = (
             f"✅ *SF Contacts import complete!*\n\n"
