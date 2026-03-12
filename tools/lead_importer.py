@@ -46,6 +46,14 @@ SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
 # HELPERS
 # ─────────────────────────────────────────────
 
+def _is_math_title(title: str) -> bool:
+    """Check if a lead's title contains math/algebra keywords."""
+    if not title:
+        return False
+    words = set(re.split(r'\W+', title.lower()))
+    return bool(words & _MATH_KEYWORDS)
+
+
 def _col_to_letter(col_idx: int) -> str:
     """Convert 0-based column index to spreadsheet letter (0=A, 25=Z, 26=AA, ...)."""
     result = ""
@@ -102,6 +110,11 @@ TAB_SF_LEADS = "SF Leads"
 TAB_SF_CONTACTS = "SF Contacts"
 TAB_LEADS_ACTIVE = "Leads Assoc Active Accounts"
 TAB_CONTACTS_ACTIVE = "Contacts Assoc Active Accounts"
+TAB_SF_LEADS_MATH = "SF Leads - Math"
+TAB_LEADS_ACTIVE_MATH = "Leads Assoc Active - Math"
+
+# Titles containing these keywords are routed to separate Math tabs
+_MATH_KEYWORDS = {"math", "algebra", "mathematics", "calculus", "geometry"}
 
 # Base columns from Salesforce Leads report
 SF_LEADS_COLUMNS = [
@@ -756,9 +769,12 @@ def import_leads(csv_text: str) -> dict:
     lookups = _build_account_lookups(active_accounts) if active_accounts else {}
 
     rows_to_append = []
-    active_rows = []  # Cross-checked rows for separate tab
+    math_rows = []        # Math/algebra leads → separate tab
+    active_rows = []      # Cross-checked rows for separate tab
+    math_active_rows = [] # Math leads that also matched active accounts
     duplicates = 0
     cross_checked = 0
+    math_count = 0
     errors = []
     today = datetime.now().strftime("%Y-%m-%d")
 
@@ -792,13 +808,32 @@ def import_leads(csv_text: str) -> dict:
 
         # Build row matching headers
         row = _build_lead_row(headers, rec, account_match, today)
-        rows_to_append.append(row)
-        if account_match:
-            active_rows.append(row)
 
-    # Append in chunks to avoid Sheets API payload limits
+        # Route math/algebra titles to separate tabs
+        if _is_math_title(rec.get("title", "")):
+            math_count += 1
+            math_rows.append(row)
+            if account_match:
+                math_active_rows.append(row)
+        else:
+            rows_to_append.append(row)
+            if account_match:
+                active_rows.append(row)
+
+    # Append main leads
     appended = _append_in_chunks(service, sheet_id, TAB_SF_LEADS, rows_to_append, errors,
                                   num_cols=len(headers))
+
+    # Append math leads to separate tab
+    math_appended = 0
+    if math_rows:
+        try:
+            _ensure_tab(TAB_SF_LEADS_MATH, headers, sheet_id_override=sf_sheet_id)
+            math_appended = _append_in_chunks(service, sheet_id, TAB_SF_LEADS_MATH, math_rows,
+                                               errors, num_cols=len(headers))
+            logger.info(f"Wrote {math_appended} math leads to {TAB_SF_LEADS_MATH}")
+        except Exception as e:
+            errors.append(f"Math tab: {e}")
 
     # Write cross-checked rows to separate tab
     if active_rows:
@@ -810,13 +845,23 @@ def import_leads(csv_text: str) -> dict:
         except Exception as e:
             errors.append(f"Active tab: {e}")
 
+    # Write math cross-checked rows to separate tab
+    if math_active_rows:
+        try:
+            _ensure_tab(TAB_LEADS_ACTIVE_MATH, headers, sheet_id_override=sf_sheet_id)
+            _append_in_chunks(service, sheet_id, TAB_LEADS_ACTIVE_MATH, math_active_rows,
+                              errors, num_cols=len(headers))
+            logger.info(f"Wrote {len(math_active_rows)} math cross-checked leads to {TAB_LEADS_ACTIVE_MATH}")
+        except Exception as e:
+            errors.append(f"Math active tab: {e}")
+
     # Auto-resize columns to fit content
-    _auto_resize_columns(service, sheet_id, TAB_SF_LEADS)
-    if active_rows:
-        _auto_resize_columns(service, sheet_id, TAB_LEADS_ACTIVE)
+    for tab in [TAB_SF_LEADS, TAB_LEADS_ACTIVE, TAB_SF_LEADS_MATH, TAB_LEADS_ACTIVE_MATH]:
+        _auto_resize_columns(service, sheet_id, tab)
 
     return {
         "imported": appended,
+        "math_filtered": math_appended,
         "duplicates_skipped": duplicates,
         "cross_checked": cross_checked,
         "total_in_csv": len(records),
@@ -1235,13 +1280,17 @@ def clear_tab(tab_name: str) -> dict:
 
 
 def clear_leads_tabs() -> dict:
-    """Clear data from SF Leads + Leads Assoc Active Accounts tabs. For re-testing."""
+    """Clear data from SF Leads + Leads Assoc Active Accounts + Math tabs. For re-testing."""
     r1 = clear_tab(TAB_SF_LEADS)
     r2 = clear_tab(TAB_LEADS_ACTIVE)
+    r3 = clear_tab(TAB_SF_LEADS_MATH)
+    r4 = clear_tab(TAB_LEADS_ACTIVE_MATH)
     return {
         "sf_leads_cleared": r1["cleared"],
         "leads_active_cleared": r2["cleared"],
-        "errors": [e for e in [r1["error"], r2["error"]] if e],
+        "math_leads_cleared": r3["cleared"],
+        "math_active_cleared": r4["cleared"],
+        "errors": [e for e in [r1["error"], r2["error"], r3["error"], r4["error"]] if e],
     }
 
 

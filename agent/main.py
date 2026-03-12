@@ -985,6 +985,7 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
 
         imported = result.get("imported", 0)
+        math_filtered = result.get("math_filtered", 0)
         dupes = result.get("duplicates_skipped", 0)
         cross = result.get("cross_checked", 0)
         total = result.get("total_in_csv", 0)
@@ -995,6 +996,8 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"✅ *SF Leads import complete!*\n\n"
             f"📊 {imported} leads imported (of {total} in CSV)\n"
         )
+        if math_filtered:
+            msg += f"  • {math_filtered} math/algebra leads → separate tab\n"
         if dupes:
             msg += f"  • {dupes} duplicates skipped\n"
         if cross:

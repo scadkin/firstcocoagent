@@ -68,7 +68,7 @@ LOG_COLUMNS = [
     "Notes",
 ]
 
-TAB_LEADS = "Leads"
+TAB_LEADS = "Leads from Research"
 TAB_NO_EMAIL = "No Email"
 TAB_LOG = "Research Log"
 TAB_ACTIVITIES = "Activities"
@@ -204,6 +204,21 @@ def cleanup_and_format_sheets():
             existing_banding_sheet_ids.add(rng.get("sheetId"))
 
     requests = []
+
+    # ── Rename migrated tabs ──
+    renames = {"Leads": "Leads from Research"}
+    for old_name, new_name in renames.items():
+        if old_name in tab_gids and new_name not in tab_gids:
+            requests.append({
+                "updateSheetProperties": {
+                    "properties": {
+                        "sheetId": tab_gids[old_name],
+                        "title": new_name,
+                    },
+                    "fields": "title",
+                }
+            })
+            logger.info(f"Queued rename: '{old_name}' → '{new_name}'")
 
     # ── Delete unused tabs ──
     tabs_to_delete = ["Sheet1", "Salesforce Import"]
