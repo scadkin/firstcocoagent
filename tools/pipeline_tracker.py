@@ -486,6 +486,38 @@ def get_open_opps() -> list[dict]:
     return [o for o in opps if o.get("Stage", "").lower().strip() not in _CLOSED_STAGES]
 
 
+def get_closed_lost_opps(months_back: int = 12) -> list[dict]:
+    """
+    Return opps where Stage is closed-lost and Close Date is within the last N months.
+    Each opp dict includes all Pipeline columns.
+    """
+    opps = _load_all_opps()
+    today = date.today()
+    cutoff = today.replace(year=today.year - (1 if months_back >= 12 else 0),
+                           month=(today.month - months_back % 12) or 12)
+    # Simpler: just subtract days
+    from datetime import timedelta
+    cutoff = today - timedelta(days=months_back * 30)
+
+    closed_lost = []
+    _closed_lost_stages = {"closed lost", "closed - lost"}
+
+    for opp in opps:
+        stage = opp.get("Stage", "").lower().strip()
+        if stage not in _closed_lost_stages:
+            continue
+        close_date = _parse_date(opp.get("Close Date", ""))
+        if not close_date:
+            continue
+        if close_date >= cutoff:
+            opp["_close_date_parsed"] = close_date
+            closed_lost.append(opp)
+
+    # Sort by most recent close date first
+    closed_lost.sort(key=lambda o: o.get("_close_date_parsed", today), reverse=True)
+    return closed_lost
+
+
 def get_stale_opps() -> list[dict]:
     """
     Return open opps that need attention, grouped by tier:

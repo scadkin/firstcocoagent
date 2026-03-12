@@ -122,6 +122,10 @@ district_prospector.discover_districts(state, max_results=15) -> dict
 district_prospector.suggest_upward_targets() -> dict
 # {success, new_added, already_known, districts, error}
 
+district_prospector.suggest_closed_lost_targets(months_back=12) -> dict
+# {success, new_added, already_known, already_active, districts, error}
+# Reads closed-lost opps from Pipeline tab, groups by district, adds with strategy="winback"
+
 district_prospector.add_district(name, state, notes="", strategy="cold") -> dict
 district_prospector.get_pending(limit=5) -> list[dict]
 district_prospector.get_all_prospects(status_filter="") -> list[dict]
@@ -137,7 +141,7 @@ district_prospector.format_all_for_telegram(districts) -> str
 # District Name | Name Key | State | Strategy | Source | Status | Priority |
 # Date Added | Date Approved | Sequence Doc URL | Notes | Est. Enrollment |
 # School Count | Total Licenses
-# Strategy values: upward | cold
+# Strategy values: upward | cold | winback
 # Status values: pending | approved | researching | complete | skipped
 ```
 
@@ -152,6 +156,8 @@ pipeline_tracker.is_opp_csv(csv_text: str) -> bool
 # Auto-detect: True if CSV header has 2+ of {stage, close date, opportunity name}
 
 pipeline_tracker.get_open_opps() -> list[dict]
+pipeline_tracker.get_closed_lost_opps(months_back=12) -> list[dict]
+# Stage = closed lost/closed - lost, Close Date within last N months. Sorted by most recent first.
 pipeline_tracker.get_stale_opps(stale_days=14) -> list[dict]
 # Open opps with Last Activity > stale_days ago OR Close Date in past. Adds stale_reason field.
 

@@ -90,6 +90,7 @@ _COMMAND_CHEAT_SHEET = """
 `/prospect` — next 5 pending districts
 `/prospect_discover [state]` — cold district search
 `/prospect_upward` — upward targets from accounts
+`/prospect_winback` — closed-lost winback targets
 `/prospect_approve 1,3` — approve from last batch
 `/build_sequence [name]` — build outreach sequence
 `/dedup_accounts` — deduplicate Active Accounts
@@ -291,7 +292,8 @@ async def _on_prospect_research_complete(result: dict, prospect: dict):
     # Auto-build a sequence for this prospect
     try:
         import tools.sequence_builder as sequence_builder
-        campaign_name = f"{district_name} — {'Upward' if strategy == 'upward' else 'Cold'} Prospecting"
+        strategy_labels = {"upward": "Upward", "winback": "Winback", "cold": "Cold"}
+        campaign_name = f"{district_name} — {strategy_labels.get(strategy, 'Cold')} Prospecting"
         target_role = "CS/CTE Director"
 
         # Build context based on strategy
@@ -305,6 +307,16 @@ async def _on_prospect_research_complete(result: dict, prospect: dict):
             )
             if notes:
                 extra_context += f" {notes}"
+        elif strategy == "winback":
+            extra_context += (
+                f" This is a RE-ENGAGEMENT sequence. This district previously evaluated"
+                f" CodeCombat but the deal was closed-lost."
+                f" Acknowledge the prior relationship. Do NOT pitch from scratch —"
+                f" reference that they've seen CodeCombat before and highlight what's new/improved."
+                f" Tone: warm, not pushy. Ask what's changed on their end."
+            )
+            if notes:
+                extra_context += f" Prior deal info: {notes}"
         elif strategy == "cold":
             extra_context += " No existing CodeCombat presence in this district."
 
@@ -319,7 +331,7 @@ async def _on_prospect_research_complete(result: dict, prospect: dict):
         seq_result = sequence_builder.build_sequence(
             campaign_name=campaign_name,
             target_role=target_role,
-            num_steps=4 if strategy == "upward" else 5,
+            num_steps=4 if strategy in ("upward", "winback") else 5,
             voice_profile=voice_profile,
             additional_context=extra_context,
         )
@@ -1849,6 +1861,30 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await send_message(result["message"])
         except Exception as e:
             await send_message(f"Add error: {e}")
+        return
+
+    elif user_text.lower().startswith("/prospect_winback") or user_text.lower() in ["/winback", "winback", "closed lost winback"]:
+        try:
+            loop = asyncio.get_event_loop()
+            result = await loop.run_in_executor(None, district_prospector.suggest_closed_lost_targets)
+            if result.get("error") and result.get("new_added", 0) == 0:
+                await send_message(f"⚠️ {result['error']}")
+            else:
+                lines = [f"🔄 *Closed-Lost Winback Scan*\n"]
+                lines.append(f"Found *{result['new_added']}* new winback targets")
+                if result.get("already_known"):
+                    lines.append(f"({result['already_known']} already in queue)")
+                if result.get("already_active"):
+                    lines.append(f"({result['already_active']} now active customers — skipped)")
+                await send_message("\n".join(lines))
+
+            # Show pending after scan
+            pending = await loop.run_in_executor(None, district_prospector.get_pending, 5)
+            if pending:
+                _last_prospect_batch = pending
+                await send_message(district_prospector.format_batch_for_telegram(pending))
+        except Exception as e:
+            await send_message(f"Winback scan error: {e}")
         return
 
     elif user_text.lower() == "/prospect_clear":

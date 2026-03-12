@@ -23,6 +23,7 @@ from datetime import datetime
 import httpx
 
 import tools.csv_importer as csv_importer
+import tools.pipeline_tracker as pipeline_tracker
 import tools.sheets_writer as sheets_writer
 
 logger = logging.getLogger(__name__)
@@ -222,7 +223,7 @@ def _update_status(name_key: str, new_status: str, extra_updates: dict | None = 
 # ─────────────────────────────────────────────
 
 def _calculate_priority(strategy: str, school_count: int, total_licenses: int,
-                        est_enrollment: int) -> int:
+                        est_enrollment: int, **kwargs) -> int:
     """
     Returns a numeric priority score. Higher = more important.
 
@@ -245,6 +246,16 @@ def _calculate_priority(strategy: str, school_count: int, total_licenses: int,
         else:
             # Tier 4: 1 active school
             return 600 + min(total_licenses, 99)
+    elif strategy == "winback":
+        # Winback: between upward and cold (550-749)
+        # Higher amount = higher priority
+        amount = kwargs.get("amount", 0.0)
+        if amount >= 10000:
+            return 700 + min(int(amount // 1000), 49)
+        elif amount >= 1000:
+            return 650 + min(int(amount // 200), 49)
+        else:
+            return 550 + min(int(amount), 99)
     else:
         # Cold strategy
         if est_enrollment <= 0:
@@ -569,6 +580,137 @@ def suggest_upward_targets() -> dict:
         }
 
 
+def suggest_closed_lost_targets(months_back: int = 12) -> dict:
+    """
+    Pull closed-lost opps from Pipeline tab (within last N months).
+    Group by district (Account Name / Parent Account), dedup against
+    Active Accounts and existing queue, add to queue with strategy="winback".
+
+    Returns:
+      {success, new_added, already_known, already_active, districts, error}
+    """
+    try:
+        closed_lost = pipeline_tracker.get_closed_lost_opps(months_back)
+        if not closed_lost:
+            return {
+                "success": True, "new_added": 0, "already_known": 0,
+                "already_active": 0, "districts": [],
+                "error": "No closed-lost opps found in Pipeline tab (last 12 months). Upload a pipeline CSV first.",
+            }
+
+        # Group by district — use Parent Account if available, else Account Name
+        district_opps: dict[str, list[dict]] = {}
+        for opp in closed_lost:
+            parent = opp.get("Parent Account", "").strip()
+            account = opp.get("Account Name", "").strip()
+            # Use parent account (district) if available, else account name
+            district_name = parent or account
+            if not district_name:
+                continue
+            district_opps.setdefault(district_name, []).append(opp)
+
+        # Load existing data for dedup
+        active_accounts = csv_importer.get_active_accounts()
+        active_keys = {
+            csv_importer.normalize_name(
+                a.get("Active Account Name", "") or a.get("Display Name", "")
+            )
+            for a in active_accounts
+        }
+
+        existing_prospects = _load_all_prospects()
+        prospect_keys = {p.get("Name Key", "") for p in existing_prospects}
+
+        now = datetime.now().strftime("%Y-%m-%d %H:%M")
+        new_rows = []
+        already_known = 0
+        already_active = 0
+
+        for district_name, opps in district_opps.items():
+            name_key = csv_importer.normalize_name(district_name)
+            if not name_key or len(name_key) < 3:
+                continue
+
+            if name_key in active_keys:
+                already_active += 1
+                continue
+
+            if name_key in prospect_keys:
+                already_known += 1
+                continue
+
+            # Summarize the closed-lost opps for this district
+            total_amount = 0.0
+            opp_names = []
+            latest_close = ""
+            state = ""
+            for opp in opps:
+                amt_str = opp.get("Amount", "")
+                if amt_str:
+                    try:
+                        total_amount += float(str(amt_str).replace("$", "").replace(",", ""))
+                    except ValueError:
+                        pass
+                opp_names.append(opp.get("Opportunity Name", "?"))
+                if not state:
+                    state = opp.get("State", "")
+                close_str = opp.get("Close Date", "")
+                if close_str and (not latest_close or close_str > latest_close):
+                    latest_close = close_str
+
+            priority = _calculate_priority(
+                "winback", 0, 0, 0, amount=total_amount
+            )
+
+            notes_parts = []
+            if len(opps) > 1:
+                notes_parts.append(f"{len(opps)} closed-lost opps")
+            if total_amount > 0:
+                notes_parts.append(f"${total_amount:,.0f} total value")
+            if latest_close:
+                notes_parts.append(f"last closed {latest_close}")
+            if opp_names:
+                notes_parts.append(f"Opps: {', '.join(opp_names[:3])}")
+
+            row = [
+                district_name,       # District Name
+                name_key,            # Name Key
+                state,               # State
+                "winback",           # Strategy
+                "pipeline_closed",   # Source
+                "pending",           # Status
+                str(priority),       # Priority
+                now,                 # Date Added
+                "",                  # Date Approved
+                "",                  # Sequence Doc URL
+                " | ".join(notes_parts),  # Notes
+                "",                  # Est. Enrollment
+                "",                  # School Count
+                "",                  # Total Licenses
+            ]
+            new_rows.append(row)
+            prospect_keys.add(name_key)  # prevent within-batch dupes
+
+        if new_rows:
+            _write_rows(new_rows)
+
+        return {
+            "success": True,
+            "new_added": len(new_rows),
+            "already_known": already_known,
+            "already_active": already_active,
+            "districts": [r[0] for r in new_rows],
+            "error": "",
+        }
+
+    except Exception as e:
+        logger.error(f"suggest_closed_lost_targets error: {e}")
+        return {
+            "success": False, "new_added": 0, "already_known": 0,
+            "already_active": 0, "districts": [], "error": str(e),
+        }
+
+
 def add_district(name: str, state: str, notes: str = "", strategy: str = "cold") -> dict:
     """
     Manually add a district to the prospecting queue.
@@ -710,7 +852,7 @@ def format_batch_for_telegram(districts: list[dict], label: str = "Prospecting S
     lines = [f"*{label}*\n"]
     for i, d in enumerate(districts, 1):
         strategy = d.get("Strategy", "cold")
-        tag = "REF" if strategy == "upward" else "COLD"
+        tag = "REF" if strategy == "upward" else ("WINBACK" if strategy == "winback" else "COLD")
         name = d.get("District Name", "?")
         state = d.get("State", "")
         priority = d.get("Priority", "")
@@ -758,7 +900,7 @@ def format_all_for_telegram(districts: list[dict]) -> str:
         lines.append(f"{emoji} *{status.upper()}* ({len(group)})")
         for d in group[:10]:  # cap at 10 per status to keep message manageable
             strategy = d.get("Strategy", "cold")
-            tag = "REF" if strategy == "upward" else "COLD"
+            tag = "REF" if strategy == "upward" else ("WINBACK" if strategy == "winback" else "COLD")
             name = d.get("District Name", "?")
             state = d.get("State", "")
             extra = ""

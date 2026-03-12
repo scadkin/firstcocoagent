@@ -1,25 +1,23 @@
 # SCOUT — Claude Code Reference
-*Last updated: 2026-03-12 — Session 32*
+*Last updated: 2026-03-12 — Session 33*
 
 ---
 
 ## CURRENT STATE — update this after each session
 
-**Session 32: C1 Master Territory List FULLY VERIFIED. All tests passed — gaps, large state sync (TX), full 13-state sync, CA SoCal filter. Fixed coverage metric to separate district deals from school accounts. Next: C3 closed-lost winback.**
+**Session 33: C3 Closed-Lost Winback Strategy implemented. `/prospect_winback` scans Pipeline tab for closed-lost opps (last 12 months), groups by district, adds to Prospecting Queue with strategy="winback". Priority between upward and cold. Sequence builder generates re-engagement sequences. Needs pipeline CSV re-upload to test.**
 
-### What was done (Session 32)
-- **`/territory_gaps NV` verified** — Display Name fallback confirmed working. 3 NV school accounts correctly found (Churchill County HS, New Horizons Academy, Pinecrest Academy of Northern NV).
-- **Coverage metric redesigned** — having a school account in a district ≠ "coverage". Now 4 categories: (1) district deals = true coverage, (2) districts with school accounts = upward opportunities, (3) in prospecting, (4) uncovered. Coverage % only counts district-level deals.
-- **Unmatched schools shown** — school accounts that don't match any NCES school (likely private/charter) displayed with ⚠️ warning.
-- **CA SoCal filter fixed** — Urban API returns `county_code` as string `"6037"`, not integer `6037`. Changed `SOCAL_COUNTY_CODES` and `SOCAL_COUNTY_NAMES` to use string keys.
-- **`/territory_sync TX` verified** — 1,242 districts, 9,765 schools. Chunked writing works at scale.
-- **Full sync verified** — `/territory_sync` (all 13 states + CA SoCal): 8,133 districts, 40,317 schools, 20.6M students.
-- **`/territory_stats CA` verified** — 969 districts, 5,559 schools (SoCal only).
+### What was done (Session 33)
+- **C3 Closed-Lost Winback** — `suggest_closed_lost_targets()` added to `district_prospector.py`. Reads closed-lost opps from Pipeline tab via `pipeline_tracker.get_closed_lost_opps()`.
+- **New command:** `/prospect_winback` (also `/winback`) — scans Pipeline for closed-lost opps within last 12 months, groups by district, dedupes against Active Accounts + existing queue.
+- **Strategy "winback"** — new strategy label alongside "upward" and "cold". Priority scoring 550-749 (between upward 600-999 and cold 300-700). Higher deal amounts = higher priority.
+- **Winback sequences** — `_on_prospect_research_complete` generates re-engagement sequences with context: acknowledge prior relationship, don't pitch from scratch, highlight what's new/improved.
+- **Pipeline API:** `get_closed_lost_opps(months_back=12)` added to `pipeline_tracker.py`.
 
-### What still needs to be done (Session 33+)
-- **C3: Closed-lost winback strategy** (next up)
+### What still needs to be done (Session 34+)
+- **Steven needs to re-upload pipeline opp CSV** to repopulate Pipeline tab (required before `/prospect_winback` can find targets)
+- **C4: Unresponsive leads strategy** (next up)
 - **Active Accounts column rename:** "Display Name" → "Active Account Name" — will take effect on Steven's next account CSV import. All code already has fallback for both names.
-- Re-upload pipeline opp CSV to repopulate Pipeline tab
 - Enrichment logic improvement
 
 ### Current status
@@ -33,6 +31,7 @@
 - Enhancements A1-A3 + B1: ✅ implemented (Session 23)
 - Enhancement B2: ✅ fully verified (Session 30) — all 8 tests passed
 - Enhancement C1 (Territory Master List): ✅ fully verified (Session 32)
+- Enhancement C3 (Closed-Lost Winback): ✅ implemented (Session 33) — needs pipeline CSV to verify
 - SoCal CSV filtering: ✅ 5 passes complete (Session 26)
 
 ### Phase 6 roadmap
@@ -109,6 +108,19 @@
 - `territory_data` is a flat module imported at top of main.py
 - **Gap analysis coverage rules:** district-level Active Account deal = "covered". School account in a district = "upward opportunity" (NOT coverage). Coverage % only counts district deals. Unmatched schools (private/charter not in NCES) shown separately with ⚠️.
 - **Full territory size:** 8,133 districts, 40,317 schools, 20.6M students across all states
+
+### C3 Closed-Lost Winback (Session 33)
+- Data source: Pipeline tab (imported from Salesforce opp CSV)
+- Filter: Stage = "closed lost" or "closed - lost", Close Date within last 12 months
+- Groups by district: uses Parent Account if available, else Account Name
+- `/prospect_winback` (also `/winback`) — scans Pipeline, adds to Prospecting Queue
+- Strategy label: `"winback"`, Source: `"pipeline_closed"`
+- Priority 550-749: higher deal amounts score higher. Between upward (600-999) and cold (300-700)
+- Dedupes against Active Accounts (skips — they're already customers) and existing Prospecting Queue
+- Notes field captures: opp count, total value, last close date, opp names
+- Sequence type: re-engagement — acknowledges prior relationship, highlights what's new
+- `pipeline_tracker.get_closed_lost_opps(months_back=12)` — public API for closed-lost data
+- **Requires pipeline CSV to be uploaded first** — without data in Pipeline tab, winback scan finds nothing
 
 ### Merged territory CSV files (Session 27)
 - `~/Downloads/My merged leads list - Including SoCal - as of 3-7-26.csv` — 86,993 leads (all territory states + SoCal)
@@ -403,6 +415,7 @@ firstcocoagent/
 | `/prospect_upward` | upward targets from active accounts |
 | `/prospect` | show next 5 pending districts |
 | `/prospect_all` | full queue grouped by status |
+| `/prospect_winback` | scan Pipeline for closed-lost winback targets (last 12 months) |
 | `/prospect_add [name], [state]` | manually add district to queue |
 | `/prospect_approve 1,3,5` | approve from last batch, auto-queue research |
 | `/prospect_skip 2,4` | skip from last batch |
