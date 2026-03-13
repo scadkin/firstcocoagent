@@ -36,6 +36,7 @@ SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
 # ─────────────────────────────────────────────
 
 TAB_PIPELINE = "Pipeline"
+TAB_CLOSED_LOST = "Closed Lost"
 
 PIPELINE_COLUMNS = [
     "Opportunity Name",
@@ -453,9 +454,118 @@ def import_pipeline(csv_text: str) -> dict:
     }
 
 
+def import_closed_lost(csv_text: str) -> dict:
+    """
+    Parse Salesforce closed-lost opp CSV and write to the "Closed Lost" tab.
+    Always clears and rewrites (point-in-time snapshot).
+    Same CSV format as pipeline opps.
+
+    Returns:
+      {imported, total_value, skipped, errors}
+    """
+    errors = []
+    imported = 0
+    total_value = 0.0
+    skipped = 0
+
+    try:
+        records, extra_cols = _parse_opp_csv(csv_text)
+    except Exception as e:
+        return {"imported": 0, "total_value": 0, "skipped": 0,
+                "errors": [f"CSV parse failed: {e}"]}
+
+    if not records:
+        return {"imported": 0, "total_value": 0, "skipped": 0,
+                "errors": ["No valid rows found in CSV. Check column headers."]}
+
+    # Build full headers: base columns + any extra CSV columns
+    full_headers = list(PIPELINE_COLUMNS)
+    for col in extra_cols:
+        if col not in full_headers:
+            full_headers.append(col)
+
+    today_str = date.today().strftime("%m/%d/%Y")
+    rows_to_write = []
+
+    for rec in records:
+        opp_name = rec.get("opp_name", "").strip()
+        if not opp_name:
+            skipped += 1
+            continue
+
+        amount = rec.get("amount", "")
+        total_value += _parse_amount_float(amount)
+        row = _build_pipeline_row(full_headers, rec, today_str)
+        rows_to_write.append(row)
+        imported += 1
+
+    try:
+        service = _get_service()
+        sheet_id = _get_sheet_id()
+
+        # Ensure tab exists
+        meta = service.spreadsheets().get(spreadsheetId=sheet_id).execute()
+        existing = {s["properties"]["title"] for s in meta.get("sheets", [])}
+        if TAB_CLOSED_LOST not in existing:
+            service.spreadsheets().batchUpdate(
+                spreadsheetId=sheet_id,
+                body={"requests": [{"addSheet": {"properties": {"title": TAB_CLOSED_LOST}}}]}
+            ).execute()
+
+        # Clear entire tab and rewrite with headers + data
+        service.spreadsheets().values().clear(
+            spreadsheetId=sheet_id,
+            range=f"'{TAB_CLOSED_LOST}'!A1:ZZ",
+        ).execute()
+
+        all_rows = [full_headers] + rows_to_write
+        service.spreadsheets().values().update(
+            spreadsheetId=sheet_id,
+            range=f"'{TAB_CLOSED_LOST}'!A1",
+            valueInputOption="RAW",
+            body={"values": all_rows}
+        ).execute()
+
+        logger.info(f"Closed Lost import: {imported} opps, ${total_value:,.0f} total value")
+
+    except Exception as e:
+        errors.append(f"Sheet write failed: {e}")
+        logger.error(f"import_closed_lost sheet write error: {e}")
+
+    return {
+        "imported": imported,
+        "total_value": total_value,
+        "skipped": skipped,
+        "errors": errors,
+    }
+
+
 # ─────────────────────────────────────────────
 # QUERIES
 # ─────────────────────────────────────────────
+
+def _load_closed_lost_opps() -> list[dict]:
+    """Load all rows from Closed Lost tab as list of dicts."""
+    try:
+        service = _get_service()
+        sheet_id = _get_sheet_id()
+        result = service.spreadsheets().values().get(
+            spreadsheetId=sheet_id,
+            range=f"'{TAB_CLOSED_LOST}'!A1:ZZ"
+        ).execute()
+        rows = result.get("values", [])
+        if len(rows) < 2:
+            return []
+        headers = rows[0]
+        opps = []
+        for row in rows[1:]:
+            padded = row + [""] * (len(headers) - len(row))
+            opps.append(dict(zip(headers, padded)))
+        return opps
+    except Exception as e:
+        logger.error(f"_load_closed_lost_opps error: {e}")
+        return []
+
 
 def _load_all_opps() -> list[dict]:
     """Load all rows from Pipeline tab as list of dicts."""
@@ -488,29 +598,31 @@ def get_open_opps() -> list[dict]:
 
 def get_closed_lost_opps(months_back: int = 12) -> list[dict]:
     """
-    Return opps where Stage is closed-lost and Close Date is within the last N months.
-    Each opp dict includes all Pipeline columns.
+    Return closed-lost opps from the Closed Lost tab, optionally filtered
+    to Close Date within the last N months. Falls back to Pipeline tab
+    if Closed Lost tab is empty.
     """
-    opps = _load_all_opps()
-    today = date.today()
-    cutoff = today.replace(year=today.year - (1 if months_back >= 12 else 0),
-                           month=(today.month - months_back % 12) or 12)
-    # Simpler: just subtract days
     from datetime import timedelta
+    today = date.today()
     cutoff = today - timedelta(days=months_back * 30)
 
-    closed_lost = []
-    _closed_lost_stages = {"closed lost", "closed - lost"}
+    # Primary source: dedicated Closed Lost tab
+    opps = _load_closed_lost_opps()
 
+    # Fallback: scan Pipeline tab for closed-lost stages
+    if not opps:
+        all_opps = _load_all_opps()
+        _closed_lost_stages = {"closed lost", "closed - lost"}
+        opps = [o for o in all_opps if o.get("Stage", "").lower().strip() in _closed_lost_stages]
+
+    closed_lost = []
     for opp in opps:
-        stage = opp.get("Stage", "").lower().strip()
-        if stage not in _closed_lost_stages:
-            continue
         close_date = _parse_date(opp.get("Close Date", ""))
-        if not close_date:
-            continue
-        if close_date >= cutoff:
+        if close_date and close_date >= cutoff:
             opp["_close_date_parsed"] = close_date
+            closed_lost.append(opp)
+        elif not close_date:
+            # Include opps without a close date (data may be missing)
             closed_lost.append(opp)
 
     # Sort by most recent close date first

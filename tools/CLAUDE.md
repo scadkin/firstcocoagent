@@ -142,7 +142,7 @@ district_prospector.format_all_for_telegram(districts) -> str
 # Date Added | Date Approved | Sequence Doc URL | Notes | Est. Enrollment |
 # School Count | Total Licenses
 # Strategy values: upward | cold | winback
-# Status values: pending | approved | researching | complete | skipped
+# Status values: pending | approved | researching | draft | complete | skipped
 ```
 
 ## pipeline_tracker (`tools/pipeline_tracker.py`) — MODULE, NOT A CLASS
@@ -152,12 +152,17 @@ pipeline_tracker.import_pipeline(csv_text: str) -> dict
 # {imported, open, closed, total_value, skipped, errors}
 # REPLACE ALL — clears Pipeline tab and rewrites from CSV. Point-in-time snapshot.
 
+pipeline_tracker.import_closed_lost(csv_text: str) -> dict
+# {imported, total_value, skipped, errors}
+# REPLACE ALL — clears "Closed Lost" tab and rewrites. Same CSV format as pipeline.
+# Separate from Pipeline tab. Used for winback strategy.
+
 pipeline_tracker.is_opp_csv(csv_text: str) -> bool
 # Auto-detect: True if CSV header has 2+ of {stage, close date, opportunity name}
 
 pipeline_tracker.get_open_opps() -> list[dict]
 pipeline_tracker.get_closed_lost_opps(months_back=12) -> list[dict]
-# Stage = closed lost/closed - lost, Close Date within last N months. Sorted by most recent first.
+# Reads from Closed Lost tab first, falls back to Pipeline tab. Sorted by most recent close date.
 pipeline_tracker.get_stale_opps(stale_days=14) -> list[dict]
 # Open opps with Last Activity > stale_days ago OR Close Date in past. Adds stale_reason field.
 

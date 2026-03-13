@@ -886,10 +886,10 @@ def format_all_for_telegram(districts: list[dict]) -> str:
 
     lines = ["*Prospecting Queue*\n"]
 
-    status_order = ["pending", "approved", "researching", "complete", "skipped"]
+    status_order = ["pending", "approved", "researching", "draft", "complete", "skipped"]
     status_emoji = {
         "pending": "⏳", "approved": "✅", "researching": "🔍",
-        "complete": "📄", "skipped": "⏭",
+        "draft": "📝", "complete": "📄", "skipped": "⏭",
     }
 
     for status in status_order:

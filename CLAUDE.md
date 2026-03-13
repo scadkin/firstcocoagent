@@ -5,17 +5,23 @@
 
 ## CURRENT STATE — update this after each session
 
-**Session 33: C3 Closed-Lost Winback Strategy implemented. `/prospect_winback` scans Pipeline tab for closed-lost opps (last 12 months), groups by district, adds to Prospecting Queue with strategy="winback". Priority between upward and cold. Sequence builder generates re-engagement sequences. Needs pipeline CSV re-upload to test.**
+**Session 33: C3 Closed-Lost Winback Strategy fully implemented. Separate "Closed Lost" tab + `/import_closed_lost` for CSV upload. `/prospect_winback` scans for targets. Winback sequences are drafts (Google Doc + review) with full re-engagement context. Needs closed-lost CSV from Salesforce to test.**
 
 ### What was done (Session 33)
-- **C3 Closed-Lost Winback** — `suggest_closed_lost_targets()` added to `district_prospector.py`. Reads closed-lost opps from Pipeline tab via `pipeline_tracker.get_closed_lost_opps()`.
-- **New command:** `/prospect_winback` (also `/winback`) — scans Pipeline for closed-lost opps within last 12 months, groups by district, dedupes against Active Accounts + existing queue.
-- **Strategy "winback"** — new strategy label alongside "upward" and "cold". Priority scoring 550-749 (between upward 600-999 and cold 300-700). Higher deal amounts = higher priority.
-- **Winback sequences** — `_on_prospect_research_complete` generates re-engagement sequences with context: acknowledge prior relationship, don't pitch from scratch, highlight what's new/improved.
-- **Pipeline API:** `get_closed_lost_opps(months_back=12)` added to `pipeline_tracker.py`.
+- **C3 Closed-Lost Winback** — full implementation:
+  - Separate "Closed Lost" tab (not Pipeline tab) — Steven's closed-lost opps aren't in his pipeline data
+  - `/import_closed_lost` command + natural language routing ("closed lost" / "winback" in caption)
+  - `import_closed_lost()` in `pipeline_tracker.py` — REPLACE ALL, same CSV format as pipeline
+  - `get_closed_lost_opps()` reads from Closed Lost tab first, falls back to Pipeline
+  - `suggest_closed_lost_targets()` in `district_prospector.py` — groups by district, dedupes, adds with strategy="winback"
+  - `/prospect_winback` (also `/winback`) — scans for targets, adds to Prospecting Queue
+  - Priority scoring 550-749 (between upward and cold), scaled by deal amount
+  - Winback sequences are **drafts** — Google Doc created, link shared, status="draft" until Steven reviews
+  - Rich sequence context: Outreach.io variables, reply emails, incentivization, breakup email, loss-reason context
+  - New status "draft" in Prospecting Queue (between researching and complete)
 
 ### What still needs to be done (Session 34+)
-- **Steven needs to re-upload pipeline opp CSV** to repopulate Pipeline tab (required before `/prospect_winback` can find targets)
+- **Steven needs to export Closed Lost Opportunities report from Salesforce** and upload CSV to Scout (use `/import_closed_lost` first)
 - **C4: Unresponsive leads strategy** (next up)
 - **Active Accounts column rename:** "Display Name" → "Active Account Name" — will take effect on Steven's next account CSV import. All code already has fallback for both names.
 - Enrichment logic improvement
@@ -110,17 +116,22 @@
 - **Full territory size:** 8,133 districts, 40,317 schools, 20.6M students across all states
 
 ### C3 Closed-Lost Winback (Session 33)
-- Data source: Pipeline tab (imported from Salesforce opp CSV)
-- Filter: Stage = "closed lost" or "closed - lost", Close Date within last 12 months
+- **Data source:** Separate Salesforce "Closed Lost Opportunities" report CSV — NOT from Pipeline tab
+- **Closed-lost opps are not in Steven's pipeline data.** He must run a dedicated report in Salesforce, export CSV, upload to Scout
+- `/import_closed_lost` — sets next CSV upload to route to the "Closed Lost" tab (dedicated, separate from Pipeline)
+- Natural language: "closed lost" / "winback" in caption or pre-message also routes to Closed Lost tab
+- `get_closed_lost_opps()` reads from Closed Lost tab first, falls back to Pipeline tab
+- Filter: Close Date within last 12 months (configurable via `months_back` param)
 - Groups by district: uses Parent Account if available, else Account Name
-- `/prospect_winback` (also `/winback`) — scans Pipeline, adds to Prospecting Queue
+- `/prospect_winback` (also `/winback`) — scans Closed Lost tab, adds to Prospecting Queue
 - Strategy label: `"winback"`, Source: `"pipeline_closed"`
 - Priority 550-749: higher deal amounts score higher. Between upward (600-999) and cold (300-700)
 - Dedupes against Active Accounts (skips — they're already customers) and existing Prospecting Queue
 - Notes field captures: opp count, total value, last close date, opp names
-- Sequence type: re-engagement — acknowledges prior relationship, highlights what's new
-- `pipeline_tracker.get_closed_lost_opps(months_back=12)` — public API for closed-lost data
-- **Requires pipeline CSV to be uploaded first** — without data in Pipeline tab, winback scan finds nothing
+- **Winback sequences are DRAFTS** — written to Google Doc, link shared in Telegram, Steven reviews before finalizing. Status set to "draft" (not "complete") until approved.
+- **Sequence requirements:** 5 steps, Outreach.io variables ({{first_name}}, {{state}}, {{company}}), at least one "reply" email, highlight what's new/improved, include incentivization, breakup email last
+- **Why deals close lost:** ~85% budget/cost rejection (teachers go unresponsive after admin says no), ~15% competitor chosen (don't understand full offering). Teachers get discouraged asking admins.
+- Status values now include "draft" between "researching" and "complete"
 
 ### Merged territory CSV files (Session 27)
 - `~/Downloads/My merged leads list - Including SoCal - as of 3-7-26.csv` — 86,993 leads (all territory states + SoCal)
@@ -171,7 +182,7 @@
 
 **Synchronous code called from async context must use `run_in_executor`.** Wrap blocking I/O in `await loop.run_in_executor(None, fn, args...)`. Never call blocking functions directly from async methods.
 
-**Explicit slash commands bypass Claude and call execute_tool() directly.** `/brief`, `/call`, `/recent_calls`, `/progress`, `/sync_activities`, `/call_list`, `/pipeline`, `/pipeline_import`, `/import_leads`, `/import_contacts`, `/enrich_leads`, and all `/prospect_*` commands call execute_tool() directly and return. Direct dispatch is the only reliable pattern — when conversation history is long, Claude responds with descriptive text instead of calling tools.
+**Explicit slash commands bypass Claude and call execute_tool() directly.** `/brief`, `/call`, `/recent_calls`, `/progress`, `/sync_activities`, `/call_list`, `/pipeline`, `/pipeline_import`, `/import_closed_lost`, `/import_leads`, `/import_contacts`, `/enrich_leads`, and all `/prospect_*` commands call execute_tool() directly and return. Direct dispatch is the only reliable pattern — when conversation history is long, Claude responds with descriptive text instead of calling tools.
 
 **`/build_sequence` is a hybrid.** Routes through Claude for clarifying questions. But `execute_tool("build_sequence")` sends output via `await send_message()` directly and returns a short ack string to prevent Claude from rewriting.
 
@@ -240,6 +251,8 @@
 **Call list per-district cap (_MAX_PER_DISTRICT = 2) applies to BOTH priority matches AND backfill.**
 
 **NEVER fabricate claims about active accounts in sequences.** Only cite verifiable facts: school name, license count. No assumed success/engagement.
+
+**ALL sequences are drafts — always show for Steven's approval.** Write to Google Doc, share link in Telegram, mark prospect as "draft" status. Never auto-finalize or auto-mark "complete". Steven reviews and either approves or gives feedback on changes. This applies to ALL strategies (upward, cold, winback), not just winback.
 
 **Sequence building rules are in `memory/sequence_building_rules.md`.** Load as context when auto-building sequences.
 
@@ -415,7 +428,7 @@ firstcocoagent/
 | `/prospect_upward` | upward targets from active accounts |
 | `/prospect` | show next 5 pending districts |
 | `/prospect_all` | full queue grouped by status |
-| `/prospect_winback` | scan Pipeline for closed-lost winback targets (last 12 months) |
+| `/prospect_winback` | scan Closed Lost tab for winback targets (last 12 months) |
 | `/prospect_add [name], [state]` | manually add district to queue |
 | `/prospect_approve 1,3,5` | approve from last batch, auto-queue research |
 | `/prospect_skip 2,4` | skip from last batch |
@@ -434,6 +447,7 @@ firstcocoagent/
 | `/territory_gaps <state>` | gap analysis: cross-ref territory vs Active Accounts + Prospecting Queue |
 | `/pipeline` | show open pipeline summary with stale alerts |
 | `/pipeline_import` | next CSV upload imports as opportunities (Pipeline tab) |
+| `/import_closed_lost` | next CSV upload imports as closed-lost opps (Closed Lost tab) |
 | send a `.csv` file | Auto-detects opp vs lead vs contact vs account CSV; or Salesforce active accounts import (merge by default) |
 | describe CSV before upload | "these are my salesforce leads" / "contacts from salesforce" / "pipeline opps" — sets routing for next CSV upload |
 | caption on CSV upload | Same as above — type description as caption when sending the file |

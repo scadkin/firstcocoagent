@@ -73,6 +73,8 @@ _csv_import_state: str = ""
 _pipeline_import_mode: bool = False
 # Natural language CSV description — set by pre-upload message or file caption
 _pending_csv_intent: dict | None = None
+# Closed-lost import mode: when True, next CSV upload goes to Closed Lost tab
+_closed_lost_import_mode: bool = False
 # SF Leads/Contacts import mode: None | "leads" | "contacts"
 _leads_import_mode: str | None = None
 
@@ -97,6 +99,7 @@ _COMMAND_CHEAT_SHEET = """
 `/color_leads` — recolor Leads tab by confidence
 `/import_leads` — next CSV imports as SF leads
 `/import_contacts` — next CSV imports as SF contacts
+`/import_closed_lost` — next CSV imports as closed-lost opps
 `/enrich_leads` — enrich unenriched SF leads
 `/territory_sync [state]` — download NCES territory data
 `/territory_stats [state]` — territory coverage summary
@@ -114,9 +117,14 @@ def _parse_csv_intent(text: str) -> dict | None:
         return None
     lower = text.lower()
 
+    # Closed-lost signals — route to Closed Lost tab (NOT pipeline)
+    closed_lost_patterns = ["closed lost", "closed-lost", "winback", "win back", "win-back"]
+    if any(p in lower for p in closed_lost_patterns):
+        return {"target": "closed_lost", "label": "closed-lost opportunities"}
+
     # Pipeline / opportunity signals
     opp_patterns = ["pipeline", "opportunit", " opp ", " opps", "open opp",
-                    "closed lost", "closed won", "closed-lost"]
+                    "closed won"]
     if any(p in f" {lower} " for p in opp_patterns):
         return {"target": "pipeline", "label": "pipeline opportunities"}
 
@@ -309,14 +317,24 @@ async def _on_prospect_research_complete(result: dict, prospect: dict):
                 extra_context += f" {notes}"
         elif strategy == "winback":
             extra_context += (
-                f" This is a RE-ENGAGEMENT sequence. This district previously evaluated"
-                f" CodeCombat but the deal was closed-lost."
-                f" Acknowledge the prior relationship. Do NOT pitch from scratch —"
-                f" reference that they've seen CodeCombat before and highlight what's new/improved."
-                f" Tone: warm, not pushy. Ask what's changed on their end."
+                f" This is a RE-ENGAGEMENT / WINBACK sequence for a closed-lost deal."
+                f"\n\nCRITICAL REQUIREMENTS:"
+                f"\n- Use Outreach.io variables: {{{{first_name}}}}, {{{{state}}}}, {{{{company}}}}"
+                f"\n- At least ONE step must be a 'reply' email (Re: subject, keeps thread context, bumps to top of inbox)"
+                f"\n- Highlight what's new/improved at CodeCombat since they last evaluated (CodeCombat AI, new pricing, etc.)"
+                f"\n- Include incentivization (extended trial, free pilot, flexible pricing)"
+                f"\n- Final email should be a 'breakup' email (creates gentle urgency, highest reply rate)"
+                f"\n- Tone: warm and empathetic, NOT pushy. These teachers WANTED the product but got blocked."
+                f"\n\nCONTEXT ON WHY DEALS CLOSE LOST:"
+                f"\n- ~85% are budget/cost rejection: teachers couldn't get admin approval. Most go unresponsive after being told no."
+                f"\n  For these: acknowledge the budget challenge, offer flexible options, help them build a case for their admin."
+                f"\n- ~15% chose a competitor: decision maker didn't fully understand CodeCombat's full offering."
+                f"\n  For these: lead with curiosity (how's it going?), highlight differentiators, offer side-by-side pilot."
+                f"\n- Teachers get discouraged asking admins and getting told 'no' — they stop advocating."
+                f"\n  Re-engage with empathy and give them tools/ammo to try again."
             )
             if notes:
-                extra_context += f" Prior deal info: {notes}"
+                extra_context += f"\n\nPrior deal info: {notes}"
         elif strategy == "cold":
             extra_context += " No existing CodeCombat presence in this district."
 
@@ -331,7 +349,7 @@ async def _on_prospect_research_complete(result: dict, prospect: dict):
         seq_result = sequence_builder.build_sequence(
             campaign_name=campaign_name,
             target_role=target_role,
-            num_steps=4 if strategy in ("upward", "winback") else 5,
+            num_steps=4 if strategy == "upward" else 5,
             voice_profile=voice_profile,
             additional_context=extra_context,
         )
@@ -342,11 +360,6 @@ async def _on_prospect_research_complete(result: dict, prospect: dict):
             if gas:
                 doc_result = sequence_builder.write_sequence_to_doc(campaign_name, seq_result["steps"], gas)
                 doc_url = doc_result.get("url", "")
-            tg_text = sequence_builder.format_for_telegram(campaign_name, seq_result["steps"])
-            if doc_url:
-                await send_message(f"📄 [Sequence — {campaign_name}]({doc_url})\n\n{tg_text}")
-            else:
-                await send_message(tg_text)
 
             try:
                 activity_tracker.log_activity(
@@ -358,18 +371,25 @@ async def _on_prospect_research_complete(result: dict, prospect: dict):
                 )
             except Exception:
                 pass
+
+            # All sequences are drafts — show for Steven's review before finalizing
+            if doc_url:
+                await send_message(
+                    f"📝 *DRAFT — {campaign_name}*\n\n"
+                    f"📄 [Review sequence draft]({doc_url})\n\n"
+                    f"Please review and let me know any feedback or if it's good to go."
+                )
+            else:
+                tg_text = sequence_builder.format_for_telegram(campaign_name, seq_result["steps"])
+                await send_message(f"📝 *DRAFT — {campaign_name}*\n\n{tg_text}\n\nPlease review and share feedback.")
+            # Mark as draft — Steven will approve or give feedback
+            district_prospector._update_status(name_key, "draft", {"Sequence Doc URL": doc_url} if doc_url else None)
         else:
             await send_message(f"⚠️ Sequence generation failed for {district_name}: {seq_result.get('error', '?')}")
-
-        # Mark prospect complete in the queue
-        district_prospector.mark_complete(name_key, sequence_doc_url=doc_url)
-        await send_message(f"✅ *{district_name}* — research + sequence complete. Marked done in prospecting queue.")
 
     except Exception as e:
         logger.error(f"Prospect auto-sequence failed for {district_name}: {e}")
         await send_message(f"⚠️ Research done for {district_name} but sequence auto-build failed: {e}")
-        # Still mark complete even if sequence fails
-        district_prospector.mark_complete(name_key)
 
 
 # ── Tool execution ─────────────────────────────────────────────────────────────
@@ -944,7 +964,7 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
 
-    global _csv_import_mode, _csv_import_state, _pipeline_import_mode, _pending_csv_intent, _leads_import_mode
+    global _csv_import_mode, _csv_import_state, _pipeline_import_mode, _closed_lost_import_mode, _pending_csv_intent, _leads_import_mode
 
     try:
         tg_file = await doc.get_file()
@@ -972,6 +992,9 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif _leads_import_mode == "contacts":
         csv_target = "sf_contacts"
         _leads_import_mode = None
+    elif _closed_lost_import_mode:
+        csv_target = "closed_lost"
+        _closed_lost_import_mode = False
     elif _pipeline_import_mode:
         csv_target = "pipeline"
         _pipeline_import_mode = False
@@ -1087,6 +1110,36 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
         except Exception:
             pass
 
+        await send_message(msg)
+        return
+
+    if csv_target == "closed_lost":
+        # ── Closed-Lost import path (REPLACE ALL) ──
+        await send_message(f"🔄 Got `{filename}` — importing closed-lost opportunities...")
+        try:
+            loop = asyncio.get_event_loop()
+            result = await loop.run_in_executor(None, pipeline_tracker.import_closed_lost, csv_text)
+        except Exception as e:
+            await send_message(f"❌ Closed-lost import failed: {e}")
+            return
+
+        imported = result.get("imported", 0)
+        total_value = result.get("total_value", 0)
+        skipped = result.get("skipped", 0)
+        errors = result.get("errors", [])
+        sheet_id = os.environ.get("GOOGLE_SHEETS_ID", "")
+
+        msg = (
+            f"✅ *Closed-lost import complete!*\n\n"
+            f"🔄 {imported} closed-lost opps imported (${total_value:,.0f} total value)\n"
+        )
+        if skipped:
+            msg += f"  • {skipped} skipped (no opp name)\n"
+        if errors:
+            msg += f"\n⚠️ Errors: {'; '.join(errors)}"
+        msg += f"\n\nUse `/prospect_winback` to scan these for re-engagement targets."
+        if sheet_id:
+            msg += f"\n📋 [Sheet](https://docs.google.com/spreadsheets/d/{sheet_id})"
         await send_message(msg)
         return
 
@@ -1223,7 +1276,7 @@ def _parse_draft(draft_text: str) -> tuple:
 # ── Telegram message handler ───────────────────────────────────────────────────
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    global conversation_history, _pending_draft, _last_prospect_batch, _pending_approve_force, _csv_import_mode, _csv_import_state, _pipeline_import_mode, _pending_csv_intent, _leads_import_mode
+    global conversation_history, _pending_draft, _last_prospect_batch, _pending_approve_force, _csv_import_mode, _csv_import_state, _pipeline_import_mode, _closed_lost_import_mode, _pending_csv_intent, _leads_import_mode
 
     if str(update.effective_chat.id) != str(TELEGRAM_CHAT_ID):
         return
@@ -1653,6 +1706,14 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await send_message(
             "📊 Pipeline import mode set. Next CSV upload will import as opportunities (replacing existing pipeline data).\n"
             "Send the Salesforce opp CSV now."
+        )
+        return
+
+    elif user_text.lower() in ["/import_closed_lost", "/closed_lost_import"]:
+        _closed_lost_import_mode = True
+        await send_message(
+            "🔄 Closed-lost import mode set. Next CSV upload will import to the *Closed Lost* tab.\n"
+            "Run a Closed Lost Opportunities report in Salesforce, export as CSV, and send it here."
         )
         return
 
