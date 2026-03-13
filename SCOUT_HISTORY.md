@@ -334,3 +334,13 @@
 | 2026-03-12 | Session 32: Full territory sync verified ✅ — all 13 states + CA SoCal: 8,133 districts, 40,317 schools, 20.6M students. | Verification |
 | 2026-03-12 | Session 32: `/territory_stats CA` verified ✅ — 969 districts, 5,559 schools (SoCal only). County code string fix confirmed working. | Verification |
 | 2026-03-12 | Session 32: C1 Master Territory List FULLY VERIFIED — all tests passed. Marked complete in roadmap. | Milestone |
+| 2026-03-12 | Session 33: C3 Closed-Lost Winback — initial implementation read from Pipeline tab. Steven clarified: closed-lost opps are NOT in pipeline data. Must run separate Salesforce report and upload CSV. | Design Fix |
+| 2026-03-12 | Session 33: Added separate "Closed Lost" tab in Google Sheet + `import_closed_lost()` in `pipeline_tracker.py`. REPLACE ALL mode, same CSV format as pipeline. `get_closed_lost_opps()` reads Closed Lost tab first, falls back to Pipeline. | Feature |
+| 2026-03-12 | Session 33: `/import_closed_lost` command + natural language routing — "closed lost" / "winback" in caption or pre-message auto-routes to Closed Lost tab. Also `/closed_lost_import` alias. | Feature |
+| 2026-03-12 | Session 33: `suggest_closed_lost_targets()` in `district_prospector.py` — reads closed-lost opps, groups by district (Parent Account or Account Name), dedupes against Active Accounts + existing queue. Strategy="winback", Source="pipeline_closed". Priority 550-749 scaled by deal amount. | Feature |
+| 2026-03-12 | Session 33: `/prospect_winback` (also `/winback`) — scans Closed Lost tab for targets, adds to Prospecting Queue, shows pending batch. | Feature |
+| 2026-03-12 | Session 33: Steven clarified ALL sequences should be drafts for review, not just winback. Changed `_on_prospect_research_complete` — all strategies now write to Google Doc, share link, mark status="draft". Never auto-finalize. | Design Fix |
+| 2026-03-12 | Session 33: New "draft" status added to Prospecting Queue (between researching and complete). Emoji: 📝. | Feature |
+| 2026-03-12 | Session 33: Rich winback sequence context — Outreach.io variables ({{first_name}}, {{state}}, {{company}}), reply emails, incentivization, breakup email, loss-reason context (85% budget rejection, 15% competitor). 5 steps for winback/cold, 4 for upward. | Feature |
+| 2026-03-12 | Session 33: Saved winback business context — 85% of closed-lost deals are budget/cost rejection (teachers go unresponsive after admin says no), ~15% competitor chosen (don't understand full offering). Teachers get discouraged asking admins. | Context |
+| 2026-03-12 | Session 33: C3 Closed-Lost Winback IMPLEMENTED — needs closed-lost CSV from Salesforce to verify end-to-end. | Milestone |

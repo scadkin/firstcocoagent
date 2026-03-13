@@ -5,7 +5,7 @@
 
 ## CURRENT STATE — update this after each session
 
-**Session 33: C3 Closed-Lost Winback Strategy fully implemented. Separate "Closed Lost" tab + `/import_closed_lost` for CSV upload. `/prospect_winback` scans for targets. Winback sequences are drafts (Google Doc + review) with full re-engagement context. Needs closed-lost CSV from Salesforce to test.**
+**Session 33: C3 Closed-Lost Winback Strategy fully implemented. Separate "Closed Lost" tab + `/import_closed_lost` for CSV upload. `/prospect_winback` scans for targets. ALL sequences (not just winback) are now drafts for Steven's review. Needs closed-lost CSV from Salesforce to test end-to-end.**
 
 ### What was done (Session 33)
 - **C3 Closed-Lost Winback** — full implementation:
@@ -16,13 +16,13 @@
   - `suggest_closed_lost_targets()` in `district_prospector.py` — groups by district, dedupes, adds with strategy="winback"
   - `/prospect_winback` (also `/winback`) — scans for targets, adds to Prospecting Queue
   - Priority scoring 550-749 (between upward and cold), scaled by deal amount
-  - Winback sequences are **drafts** — Google Doc created, link shared, status="draft" until Steven reviews
-  - Rich sequence context: Outreach.io variables, reply emails, incentivization, breakup email, loss-reason context
-  - New status "draft" in Prospecting Queue (between researching and complete)
+  - Rich winback context: Outreach.io variables, reply emails, incentivization, breakup email, loss-reason context (85% budget, 15% competitor)
+- **ALL sequences are now drafts** — not just winback. Every auto-built sequence (upward, cold, winback) writes to Google Doc, shares link, marks status="draft". Steven reviews before finalizing. Never auto-complete.
+- **New "draft" status** in Prospecting Queue (between researching and complete)
 
 ### What still needs to be done (Session 34+)
-- **Steven needs to export Closed Lost Opportunities report from Salesforce** and upload CSV to Scout (use `/import_closed_lost` first)
-- **C4: Unresponsive leads strategy** (next up)
+- **Steven needs to export Closed Lost Opportunities report from Salesforce** and upload CSV to Scout (use `/import_closed_lost` first) — this is required to test `/prospect_winback` end-to-end
+- **C4: Unresponsive leads strategy** (next up per roadmap)
 - **Active Accounts column rename:** "Display Name" → "Active Account Name" — will take effect on Steven's next account CSV import. All code already has fallback for both names.
 - Enrichment logic improvement
 
@@ -37,7 +37,7 @@
 - Enhancements A1-A3 + B1: ✅ implemented (Session 23)
 - Enhancement B2: ✅ fully verified (Session 30) — all 8 tests passed
 - Enhancement C1 (Territory Master List): ✅ fully verified (Session 32)
-- Enhancement C3 (Closed-Lost Winback): ✅ implemented (Session 33) — needs pipeline CSV to verify
+- Enhancement C3 (Closed-Lost Winback): ✅ implemented (Session 33) — needs closed-lost CSV to verify
 - SoCal CSV filtering: ✅ 5 passes complete (Session 26)
 
 ### Phase 6 roadmap
