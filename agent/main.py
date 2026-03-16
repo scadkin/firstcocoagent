@@ -1932,12 +1932,34 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     elif user_text.lower().startswith("/prospect_winback") or user_text.lower() in ["/winback", "winback", "closed lost winback"]:
         try:
-            # Parse optional "all" flag: /prospect_winback all → include everything in the tab
+            # Parse args: /prospect_winback [all | buffer=N lookback=N]
+            # Examples:
+            #   /prospect_winback              → default (buffer=6, lookback=18)
+            #   /prospect_winback all          → no buffer, no oldest cutoff
+            #   /prospect_winback buffer=3     → 3-month buffer, 18-month lookback
+            #   /prospect_winback lookback=24  → 6-month buffer, 24-month lookback
+            #   /prospect_winback buffer=0 lookback=0  → same as "all"
             parts = user_text.strip().split()
-            use_all = len(parts) > 1 and parts[-1].lower() == "all"
-            # Default: 6-month buffer, 18-month lookback window
-            # "all" mode: no buffer, no oldest cutoff — include every opp in the tab
-            kwargs = {"buffer_months": 0 if use_all else 6, "lookback_months": 0 if use_all else 18}
+            buffer_months = 6
+            lookback_months = 18
+            use_all = False
+            for p in parts[1:]:
+                pl = p.lower()
+                if pl == "all":
+                    use_all = True
+                    buffer_months = 0
+                    lookback_months = 0
+                elif pl.startswith("buffer="):
+                    try:
+                        buffer_months = int(pl.split("=", 1)[1])
+                    except ValueError:
+                        pass
+                elif pl.startswith("lookback="):
+                    try:
+                        lookback_months = int(pl.split("=", 1)[1])
+                    except ValueError:
+                        pass
+            kwargs = {"buffer_months": buffer_months, "lookback_months": lookback_months}
 
             loop = asyncio.get_event_loop()
             result = await loop.run_in_executor(
@@ -1946,7 +1968,12 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             if result.get("error") and result.get("new_added", 0) == 0:
                 await send_message(f"⚠️ {result['error']}")
             else:
-                window_label = "all history" if use_all else "last 18 months (6-month buffer)"
+                if use_all:
+                    window_label = "all history"
+                elif buffer_months != 6 or lookback_months != 18:
+                    window_label = f"buffer={buffer_months}mo, lookback={lookback_months}mo"
+                else:
+                    window_label = "last 18 months (6-month buffer)"
                 lines = [f"🔄 *Closed-Lost Winback Scan* ({window_label})\n"]
                 lines.append(f"Found *{result['new_added']}* new winback targets")
                 if result.get("already_known"):
