@@ -1932,12 +1932,12 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     elif user_text.lower().startswith("/prospect_winback") or user_text.lower() in ["/winback", "winback", "closed lost winback"]:
         try:
-            # Parse optional "all" flag: /prospect_winback all → include full history
+            # Parse optional "all" flag: /prospect_winback all → include everything in the tab
             parts = user_text.strip().split()
             use_all = len(parts) > 1 and parts[-1].lower() == "all"
             # Default: 6-month buffer, 18-month lookback window
-            # "all" mode: no oldest cutoff (lookback_months=0)
-            kwargs = {"buffer_months": 6, "lookback_months": 0 if use_all else 18}
+            # "all" mode: no buffer, no oldest cutoff — include every opp in the tab
+            kwargs = {"buffer_months": 0 if use_all else 6, "lookback_months": 0 if use_all else 18}
 
             loop = asyncio.get_event_loop()
             result = await loop.run_in_executor(
