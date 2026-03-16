@@ -58,6 +58,14 @@ PIPELINE_COLUMNS = [
     "Opportunity Owner",
 ]
 
+# Extra columns for Closed Lost tab (appended after PIPELINE_COLUMNS)
+CLOSED_LOST_EXTRA_COLUMNS = [
+    "Lost Reason",
+    "Contact Email",
+    "Fiscal Period",
+    "Lead Source",
+]
+
 # Salesforce opp CSV headers → internal keys (case-insensitive match)
 _OPP_COL_MAP = {
     "opportunity name":        "opp_name",
@@ -77,6 +85,10 @@ _OPP_COL_MAP = {
     "description":             "description",
     "type":                    "opp_type",
     "opportunity owner":       "owner",
+    "lost reason":             "lost_reason",
+    "contact: email":          "contact_email",
+    "fiscal period":           "fiscal_period",
+    "lead source":             "lead_source",
 }
 
 # Stages considered closed — these opps are not "open"
@@ -215,6 +227,10 @@ _KEY_TO_COLUMN = {
     "probability":     "Probability (%)",
     "description":     "Description",
     "owner":           "Opportunity Owner",
+    "lost_reason":     "Lost Reason",
+    "contact_email":   "Contact Email",
+    "fiscal_period":   "Fiscal Period",
+    "lead_source":     "Lead Source",
 }
 
 
@@ -478,8 +494,11 @@ def import_closed_lost(csv_text: str) -> dict:
         return {"imported": 0, "total_value": 0, "skipped": 0,
                 "errors": ["No valid rows found in CSV. Check column headers."]}
 
-    # Build full headers: base columns + any extra CSV columns
+    # Build full headers: base pipeline columns + closed-lost extras + any remaining CSV extras
     full_headers = list(PIPELINE_COLUMNS)
+    for col in CLOSED_LOST_EXTRA_COLUMNS:
+        if col not in full_headers:
+            full_headers.append(col)
     for col in extra_cols:
         if col not in full_headers:
             full_headers.append(col)
@@ -596,15 +615,26 @@ def get_open_opps() -> list[dict]:
     return [o for o in opps if o.get("Stage", "").lower().strip() not in _CLOSED_STAGES]
 
 
-def get_closed_lost_opps(months_back: int = 12) -> list[dict]:
+def get_closed_lost_opps(buffer_months: int = 6, lookback_months: int = 18) -> list[dict]:
     """
-    Return closed-lost opps from the Closed Lost tab, optionally filtered
-    to Close Date within the last N months. Falls back to Pipeline tab
-    if Closed Lost tab is empty.
+    Return closed-lost opps from the Closed Lost tab, filtered to a date
+    window. Falls back to Pipeline tab if Closed Lost tab is empty.
+
+    Window logic:
+      recent_cutoff = today - buffer_months   (exclude too-fresh opps)
+      oldest_cutoff = recent_cutoff - lookback_months  (don't go too far back)
+
+    Example (today = 2026-03-15, buffer=6, lookback=18):
+      recent_cutoff = 2025-09-15
+      oldest_cutoff = 2024-03-15
+      → includes opps closed between 2024-03-15 and 2025-09-15
+
+    Set lookback_months=0 to skip the oldest cutoff (include all history).
     """
     from datetime import timedelta
     today = date.today()
-    cutoff = today - timedelta(days=months_back * 30)
+    recent_cutoff = today - timedelta(days=buffer_months * 30)
+    oldest_cutoff = (recent_cutoff - timedelta(days=lookback_months * 30)) if lookback_months > 0 else None
 
     # Primary source: dedicated Closed Lost tab
     opps = _load_closed_lost_opps()
@@ -618,10 +648,16 @@ def get_closed_lost_opps(months_back: int = 12) -> list[dict]:
     closed_lost = []
     for opp in opps:
         close_date = _parse_date(opp.get("Close Date", ""))
-        if close_date and close_date >= cutoff:
+        if close_date:
+            # Must be before recent_cutoff (not too fresh)
+            if close_date > recent_cutoff:
+                continue
+            # Must be after oldest_cutoff (not too old) — skip check if no oldest_cutoff
+            if oldest_cutoff and close_date < oldest_cutoff:
+                continue
             opp["_close_date_parsed"] = close_date
             closed_lost.append(opp)
-        elif not close_date:
+        else:
             # Include opps without a close date (data may be missing)
             closed_lost.append(opp)
 

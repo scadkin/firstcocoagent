@@ -325,11 +325,17 @@ async def _on_prospect_research_complete(result: dict, prospect: dict):
                 f"\n- Include incentivization (extended trial, free pilot, flexible pricing)"
                 f"\n- Final email should be a 'breakup' email (creates gentle urgency, highest reply rate)"
                 f"\n- Tone: warm and empathetic, NOT pushy. These teachers WANTED the product but got blocked."
-                f"\n\nCONTEXT ON WHY DEALS CLOSE LOST:"
-                f"\n- ~85% are budget/cost rejection: teachers couldn't get admin approval. Most go unresponsive after being told no."
-                f"\n  For these: acknowledge the budget challenge, offer flexible options, help them build a case for their admin."
-                f"\n- ~15% chose a competitor: decision maker didn't fully understand CodeCombat's full offering."
-                f"\n  For these: lead with curiosity (how's it going?), highlight differentiators, offer side-by-side pilot."
+                f"\n\nCONTEXT ON WHY DEALS CLOSE LOST (from actual data):"
+                f"\n- ~61% UNRESPONSIVE: teacher went dark after admin pushback or budget rejection. They wanted the product but stopped advocating."
+                f"\n  For these: acknowledge they went quiet, lead with empathy, don't blame. Offer a fresh start and give them ammo to try again with admin."
+                f"\n- ~19% BUDGET: admin said no due to cost/funding loss. Teacher couldn't make the case."
+                f"\n  For these: acknowledge the budget challenge, lead with new pricing/flexible options, help them build an ROI case for their admin."
+                f"\n- ~5% NOT USING/DIDN'T START: bought but never implemented. Teacher turnover or lack of support."
+                f"\n  For these: offer hands-on onboarding, training support, implementation help."
+                f"\n- ~4% TEACHER TURNOVER: champion left the school/role. Need to find the new POC."
+                f"\n  For these: introduce yourself fresh, reference the prior relationship, offer a clean-slate demo."
+                f"\n- ~2% COMPETITOR: chose another product. May be regretting it."
+                f"\n  For these: lead with curiosity (how's it going?), highlight CodeCombat AI differentiators, offer side-by-side pilot."
                 f"\n- Teachers get discouraged asking admins and getting told 'no' — they stop advocating."
                 f"\n  Re-engage with empathy and give them tools/ammo to try again."
             )
@@ -1926,12 +1932,22 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     elif user_text.lower().startswith("/prospect_winback") or user_text.lower() in ["/winback", "winback", "closed lost winback"]:
         try:
+            # Parse optional "all" flag: /prospect_winback all → include full history
+            parts = user_text.strip().split()
+            use_all = len(parts) > 1 and parts[-1].lower() == "all"
+            # Default: 6-month buffer, 18-month lookback window
+            # "all" mode: no oldest cutoff (lookback_months=0)
+            kwargs = {"buffer_months": 6, "lookback_months": 0 if use_all else 18}
+
             loop = asyncio.get_event_loop()
-            result = await loop.run_in_executor(None, district_prospector.suggest_closed_lost_targets)
+            result = await loop.run_in_executor(
+                None, lambda: district_prospector.suggest_closed_lost_targets(**kwargs)
+            )
             if result.get("error") and result.get("new_added", 0) == 0:
                 await send_message(f"⚠️ {result['error']}")
             else:
-                lines = [f"🔄 *Closed-Lost Winback Scan*\n"]
+                window_label = "all history" if use_all else "last 18 months (6-month buffer)"
+                lines = [f"🔄 *Closed-Lost Winback Scan* ({window_label})\n"]
                 lines.append(f"Found *{result['new_added']}* new winback targets")
                 if result.get("already_known"):
                     lines.append(f"({result['already_known']} already in queue)")

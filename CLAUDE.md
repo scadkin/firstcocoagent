@@ -1,11 +1,28 @@
 # SCOUT — Claude Code Reference
-*Last updated: 2026-03-12 — Session 33*
+*Last updated: 2026-03-15 — Session 34*
 
 ---
 
 ## CURRENT STATE — update this after each session
 
-**Session 33: C3 Closed-Lost Winback Strategy fully implemented. Separate "Closed Lost" tab + `/import_closed_lost` for CSV upload. `/prospect_winback` scans for targets. ALL sequences (not just winback) are now drafts for Steven's review. Needs closed-lost CSV from Salesforce to test end-to-end.**
+**Session 34: C3 verification in progress. Date window logic updated (6-month buffer + 18-month lookback). Lost Reason/Contact Email columns now mapped. Winback context updated with actual loss-reason data from 257-opp CSV. Ready for Test 1 (import).**
+
+### What was done (Session 34)
+- **C3 date window logic rewritten** — old: single `months_back` cutoff. New: dual-edge window:
+  - `buffer_months=6` (exclude too-recent opps, still being worked)
+  - `lookback_months=18` (don't go back further than this from the buffer edge)
+  - Default window: ~24 months ago to ~6 months ago (e.g., Mar 2024 → Sep 2025 on Mar 15 2026)
+  - `/prospect_winback all` sets `lookback_months=0` (no oldest cutoff — include all history)
+- **New CSV column mappings**: `Lost Reason`, `Contact: Email`, `Fiscal Period`, `Lead Source` — now mapped to internal keys instead of treated as extras
+- **`CLOSED_LOST_EXTRA_COLUMNS`** — Closed Lost tab includes these 4 columns after the standard pipeline columns
+- **Winback notes enriched** — Notes field now includes Lost Reason and Contact Email for each district
+- **Winback sequence context updated** with actual lost-reason percentages from Steven's data:
+  - 61% Unresponsive (biggest — teachers went dark after admin pushback)
+  - 19% Budget (admin said no)
+  - 5% Not using/didn't start
+  - 4% Teacher turnover
+  - 2% Competitor
+- **C3 verification**: CSV analyzed (257 opps, 228 unique districts, Oct 2023 – Sep 2025). Ready for Test 1.
 
 ### What was done (Session 33)
 - **C3 Closed-Lost Winback** — full implementation:
@@ -16,12 +33,12 @@
   - `suggest_closed_lost_targets()` in `district_prospector.py` — groups by district, dedupes, adds with strategy="winback"
   - `/prospect_winback` (also `/winback`) — scans for targets, adds to Prospecting Queue
   - Priority scoring 550-749 (between upward and cold), scaled by deal amount
-  - Rich winback context: Outreach.io variables, reply emails, incentivization, breakup email, loss-reason context (85% budget, 15% competitor)
+  - Rich winback context: Outreach.io variables, reply emails, incentivization, breakup email
 - **ALL sequences are now drafts** — not just winback. Every auto-built sequence (upward, cold, winback) writes to Google Doc, shares link, marks status="draft". Steven reviews before finalizing. Never auto-complete.
 - **New "draft" status** in Prospecting Queue (between researching and complete)
 
 ### What still needs to be done (Session 34+)
-- **Steven needs to export Closed Lost Opportunities report from Salesforce** and upload CSV to Scout (use `/import_closed_lost` first) — this is required to test `/prospect_winback` end-to-end
+- **C3 verification** — Test 1 (import CSV) ready to deploy and test. Tests 2-5 follow.
 - **C4: Unresponsive leads strategy** (next up per roadmap)
 - **Active Accounts column rename:** "Display Name" → "Active Account Name" — will take effect on Steven's next account CSV import. All code already has fallback for both names.
 - Enrichment logic improvement
@@ -121,7 +138,7 @@
 - `/import_closed_lost` — sets next CSV upload to route to the "Closed Lost" tab (dedicated, separate from Pipeline)
 - Natural language: "closed lost" / "winback" in caption or pre-message also routes to Closed Lost tab
 - `get_closed_lost_opps()` reads from Closed Lost tab first, falls back to Pipeline tab
-- Filter: Close Date within last 12 months (configurable via `months_back` param)
+- Filter: Date window with dual edges — `buffer_months=6` (exclude too-recent) + `lookback_months=18` (how far back from buffer edge). Default: ~24mo ago to ~6mo ago. `lookback_months=0` = no oldest cutoff.
 - Groups by district: uses Parent Account if available, else Account Name
 - `/prospect_winback` (also `/winback`) — scans Closed Lost tab, adds to Prospecting Queue
 - Strategy label: `"winback"`, Source: `"pipeline_closed"`
@@ -130,7 +147,7 @@
 - Notes field captures: opp count, total value, last close date, opp names
 - **Winback sequences are DRAFTS** — written to Google Doc, link shared in Telegram, Steven reviews before finalizing. Status set to "draft" (not "complete") until approved.
 - **Sequence requirements:** 5 steps, Outreach.io variables ({{first_name}}, {{state}}, {{company}}), at least one "reply" email, highlight what's new/improved, include incentivization, breakup email last
-- **Why deals close lost:** ~85% budget/cost rejection (teachers go unresponsive after admin says no), ~15% competitor chosen (don't understand full offering). Teachers get discouraged asking admins.
+- **Why deals close lost (actual data):** 61% Unresponsive (teacher went dark after admin pushback), 19% Budget (admin said no), 5% Not using/didn't start, 4% Teacher turnover, 2% Competitor. Teachers get discouraged asking admins.
 - Status values now include "draft" between "researching" and "complete"
 
 ### Merged territory CSV files (Session 27)

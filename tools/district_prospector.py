@@ -580,22 +580,26 @@ def suggest_upward_targets() -> dict:
         }
 
 
-def suggest_closed_lost_targets(months_back: int = 12) -> dict:
+def suggest_closed_lost_targets(buffer_months: int = 6, lookback_months: int = 18) -> dict:
     """
-    Pull closed-lost opps from Pipeline tab (within last N months).
+    Pull closed-lost opps from Closed Lost tab (within date window).
     Group by district (Account Name / Parent Account), dedup against
     Active Accounts and existing queue, add to queue with strategy="winback".
+
+    Window: opps closed between (today - buffer - lookback) and (today - buffer).
+    Default: 6-month buffer, 18-month lookback → ~24 months ago to ~6 months ago.
+    Set lookback_months=0 to include all history (no oldest cutoff).
 
     Returns:
       {success, new_added, already_known, already_active, districts, error}
     """
     try:
-        closed_lost = pipeline_tracker.get_closed_lost_opps(months_back)
+        closed_lost = pipeline_tracker.get_closed_lost_opps(buffer_months, lookback_months)
         if not closed_lost:
             return {
                 "success": True, "new_added": 0, "already_known": 0,
                 "already_active": 0, "districts": [],
-                "error": "No closed-lost opps found in Pipeline tab (last 12 months). Upload a pipeline CSV first.",
+                "error": "No closed-lost opps found in the date window. Upload a closed-lost CSV first (`/import_closed_lost`).",
             }
 
         # Group by district — use Parent Account if available, else Account Name
@@ -644,6 +648,8 @@ def suggest_closed_lost_targets(months_back: int = 12) -> dict:
             opp_names = []
             latest_close = ""
             state = ""
+            lost_reasons = set()
+            contact_emails = set()
             for opp in opps:
                 amt_str = opp.get("Amount", "")
                 if amt_str:
@@ -657,6 +663,13 @@ def suggest_closed_lost_targets(months_back: int = 12) -> dict:
                 close_str = opp.get("Close Date", "")
                 if close_str and (not latest_close or close_str > latest_close):
                     latest_close = close_str
+                # Capture lost reason and contact email for winback context
+                lr = opp.get("Lost Reason", "").strip()
+                if lr:
+                    lost_reasons.add(lr)
+                ce = opp.get("Contact Email", "").strip()
+                if ce:
+                    contact_emails.add(ce)
 
             priority = _calculate_priority(
                 "winback", 0, 0, 0, amount=total_amount
@@ -669,6 +682,10 @@ def suggest_closed_lost_targets(months_back: int = 12) -> dict:
                 notes_parts.append(f"${total_amount:,.0f} total value")
             if latest_close:
                 notes_parts.append(f"last closed {latest_close}")
+            if lost_reasons:
+                notes_parts.append(f"Lost: {', '.join(sorted(lost_reasons))}")
+            if contact_emails:
+                notes_parts.append(f"Contacts: {', '.join(sorted(contact_emails)[:3])}")
             if opp_names:
                 notes_parts.append(f"Opps: {', '.join(opp_names[:3])}")
 
