@@ -452,3 +452,31 @@ No tasks completed today — ready to start fresh tomorrow.
 Three days of zeros across every KPI. The pipeline is decaying in real time — 18 opps are past the point of comfortable recovery. Tomorrow has one job before anything else: pick up the phone. Greencastle-Antrim and Ad Wheat both have quotes sitting at 63+ days. One call each could save both deals.
 
 On it.
+
+### 2026-03-16
+📊 EOD Report — March 16, 2026
+
+*ACCOMPLISHED TODAY:*
+No tasks completed today — ready to start fresh tomorrow.
+
+*KPI RESULTS:*
+• Calls: 0/10 ❌ missed
+• Districts researched: 0/2 ❌ missed
+• Emails drafted/saved: 0/5 ❌ missed
+
+*PIPELINE ALERTS:* 🚨
+61 open opps, zero movement — now into week three of no activity.
+• *21 going cold* — Neil Armstrong MS ($7,850) at 70 days, Ecole Seven Oaks ($2,000) at 69 days, Greencastle-Antrim ($9,500) at 69 days, Ad Wheat MS ($9,500) at 66 days, Hamilton-Wenham ($2,600) at 66 days + 16 more
+• *27 stale* — Eastern York MS ($5,400) at 38 days, Midway MS ($2,600) at 35 days, Sierra Vista HS ($26,460) at 34 days + 24 more
+• *13 need update* — Creekview MS ($7,850) at 27 days, Cedar Hall ($7,850) at 26 days, Sharpsville ($4,000) at 26 days + 10 more
+
+*PENDING / TOMORROW:*
+• 61 pipeline opps with zero contact — deteriorating daily
+• Q1 prospecting plan — still not launched
+• Superintendents campaign — still not launched
+• 13 previously researched districts still waiting on outreach
+
+*ONE OBSERVATION:*
+Sierra Vista HS is sitting at $26,460 with 34 days of silence — that's the single biggest at-risk dollar amount in the pipeline right now. One call Monday morning could save that deal. That's the first call of the week, no debate.
+
+On it.
