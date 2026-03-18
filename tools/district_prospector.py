@@ -168,7 +168,7 @@ def clear_queue():
     service, sheet_id = _ensure_tab()
     service.spreadsheets().values().clear(
         spreadsheetId=sheet_id,
-        range=f"'{TAB_PROSPECT_QUEUE}'!A2:N9999",
+        range=f"'{TAB_PROSPECT_QUEUE}'!A2:Z9999",
     ).execute()
     logger.info("Prospecting Queue cleared")
 
