@@ -1976,6 +1976,10 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     window_label = "last 18 months (6-month buffer)"
                 lines = [f"🔄 *Closed-Lost Winback Scan* ({window_label})\n"]
                 lines.append(f"Found *{result['new_added']}* new winback targets")
+                if result.get("territory_resolved"):
+                    lines.append(f"  ({result['territory_resolved']} schools matched to districts via territory data)")
+                if result.get("school_level"):
+                    lines.append(f"  ({result['school_level']} school-level targets — no district found)")
                 if result.get("already_known"):
                     lines.append(f"({result['already_known']} already in queue)")
                 if result.get("already_active"):
