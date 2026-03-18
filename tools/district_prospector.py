@@ -603,8 +603,8 @@ def suggest_closed_lost_targets(buffer_months: int = 6, lookback_months: int = 1
                 "error": "No closed-lost opps found in the date window. Upload a closed-lost CSV first (`/import_closed_lost`).",
             }
 
-        # Build territory school→district lookup for cross-checking schools with no Parent Account
-        # This fixes incorrect/missing Salesforce data using NCES as source of truth
+        # Build territory school→district lookup for enriching parent district info
+        # Used to fill in missing Parent Account data from NCES (Salesforce data is often wrong)
         try:
             territory_schools = territory_data._load_territory_schools()
             territory_school_to_district = {}
@@ -618,38 +618,29 @@ def suggest_closed_lost_targets(buffer_months: int = 6, lookback_months: int = 1
             logger.warning(f"Winback: could not load territory schools for cross-check: {e}")
             territory_school_to_district = {}
 
-        # Group by district — use Parent Account if available, else cross-check against territory
-        district_opps: dict[str, list[dict]] = {}
-        school_level_opps = set()  # track account names that couldn't be resolved to a district
+        # Group by Account Name (the actual deal target), NOT by Parent Account.
+        # School-level deals stay as school-level targets. District-level deals stay as district targets.
+        # Parent Account is stored as context, not used for grouping.
+        account_opps: dict[str, list[dict]] = {}
         territory_resolved = 0
         for opp in closed_lost:
-            parent = opp.get("Parent Account", "").strip()
             account = opp.get("Account Name", "").strip()
-            if not parent and not account:
+            if not account:
                 continue
 
-            if parent:
-                # Parent Account exists — use it as the district
-                district_name = parent
-            elif territory_school_to_district:
-                # No Parent Account — try to find the district via Territory Schools
+            # Enrich: if no Parent Account, try to find it via territory data
+            parent = opp.get("Parent Account", "").strip()
+            if not parent and territory_school_to_district:
                 acct_key = csv_importer.normalize_name(account).lower()
                 matched_district = territory_school_to_district.get(acct_key)
                 if matched_district:
-                    district_name = matched_district
+                    opp["_resolved_parent"] = matched_district
                     territory_resolved += 1
-                else:
-                    # No territory match — use account name as-is, mark as school-level
-                    district_name = account
-                    school_level_opps.add(account)
-            else:
-                district_name = account
-                school_level_opps.add(account)
 
-            district_opps.setdefault(district_name, []).append(opp)
+            account_opps.setdefault(account, []).append(opp)
 
         if territory_resolved:
-            logger.info(f"Winback: resolved {territory_resolved} school opps to districts via territory data")
+            logger.info(f"Winback: resolved {territory_resolved} school opps → parent district via territory data")
 
         # Load existing data for dedup
         active_accounts = csv_importer.get_active_accounts()
@@ -668,8 +659,8 @@ def suggest_closed_lost_targets(buffer_months: int = 6, lookback_months: int = 1
         already_known = 0
         already_active = 0
 
-        for district_name, opps in district_opps.items():
-            name_key = csv_importer.normalize_name(district_name)
+        for account_name, opps in account_opps.items():
+            name_key = csv_importer.normalize_name(account_name)
             if not name_key or len(name_key) < 3:
                 continue
 
@@ -681,7 +672,21 @@ def suggest_closed_lost_targets(buffer_months: int = 6, lookback_months: int = 1
                 already_known += 1
                 continue
 
-            # Summarize the closed-lost opps for this district
+            # Determine deal level: school-level vs district-level
+            # If any opp has a Parent Account (or territory-resolved parent), it's a school under a district
+            parent_districts = set()
+            for opp in opps:
+                p = opp.get("Parent Account", "").strip()
+                if p:
+                    parent_districts.add(p)
+                rp = opp.get("_resolved_parent", "")
+                if rp:
+                    parent_districts.add(rp)
+
+            is_school_deal = len(parent_districts) > 0
+            parent_info = ", ".join(sorted(parent_districts)) if parent_districts else ""
+
+            # Summarize the closed-lost opps for this account
             total_amount = 0.0
             opp_names = []
             latest_close = ""
@@ -701,7 +706,6 @@ def suggest_closed_lost_targets(buffer_months: int = 6, lookback_months: int = 1
                 close_str = opp.get("Close Date", "")
                 if close_str and (not latest_close or close_str > latest_close):
                     latest_close = close_str
-                # Capture lost reason and contact email for winback context
                 lr = opp.get("Lost Reason", "").strip()
                 if lr:
                     lost_reasons.add(lr)
@@ -713,16 +717,12 @@ def suggest_closed_lost_targets(buffer_months: int = 6, lookback_months: int = 1
                 "winback", 0, 0, 0, amount=total_amount
             )
 
-            # Determine if this is a school-level target (no district found)
-            # Check if ANY opp in this group was a school-level account that couldn't be resolved
-            is_school_level = any(
-                opp.get("Account Name", "").strip() in school_level_opps
-                for opp in opps
-            ) and district_name in school_level_opps
-
+            # Build notes with deal level context
             notes_parts = []
-            if is_school_level:
-                notes_parts.append("⚠️ SCHOOL-LEVEL (no district found)")
+            if is_school_deal:
+                notes_parts.append(f"🏫 SCHOOL deal (District: {parent_info})")
+            else:
+                notes_parts.append("🏛️ DISTRICT deal")
             if len(opps) > 1:
                 notes_parts.append(f"{len(opps)} closed-lost opps")
             if total_amount > 0:
@@ -737,7 +737,7 @@ def suggest_closed_lost_targets(buffer_months: int = 6, lookback_months: int = 1
                 notes_parts.append(f"Opps: {', '.join(opp_names[:3])}")
 
             row = [
-                district_name,       # District Name
+                account_name,        # Target Name (school or district — the actual deal)
                 name_key,            # Name Key
                 state,               # State
                 "winback",           # Strategy
@@ -758,14 +758,16 @@ def suggest_closed_lost_targets(buffer_months: int = 6, lookback_months: int = 1
         if new_rows:
             _write_rows(new_rows)
 
-        school_level_count = sum(1 for r in new_rows if "SCHOOL-LEVEL" in r[10])
+        school_deal_count = sum(1 for r in new_rows if "SCHOOL deal" in r[10])
+        district_deal_count = sum(1 for r in new_rows if "DISTRICT deal" in r[10])
         return {
             "success": True,
             "new_added": len(new_rows),
             "already_known": already_known,
             "already_active": already_active,
             "territory_resolved": territory_resolved,
-            "school_level": school_level_count,
+            "school_deals": school_deal_count,
+            "district_deals": district_deal_count,
             "districts": [r[0] for r in new_rows],
             "error": "",
         }
