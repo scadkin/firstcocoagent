@@ -138,9 +138,10 @@ district_prospector.format_batch_for_telegram(districts, label="Prospecting Sugg
 district_prospector.format_all_for_telegram(districts) -> str
 
 # Prospecting Queue tab columns:
-# District Name | Name Key | State | Strategy | Source | Status | Priority |
-# Date Added | Date Approved | Sequence Doc URL | Notes | Est. Enrollment |
-# School Count | Total Licenses
+# State | Account Name | Deal Level | Parent District | Name Key | Strategy |
+# Source | Status | Priority | Date Added | Date Approved | Sequence Doc URL |
+# Est. Enrollment | School Count | Total Licenses | Notes (always last)
+# Deal Level values: school | district | ""
 # Strategy values: upward | cold | winback
 # Status values: pending | approved | researching | draft | complete | skipped
 ```

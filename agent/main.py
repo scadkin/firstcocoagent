@@ -290,7 +290,7 @@ async def _on_prospect_research_complete(result: dict, prospect: dict):
     # Run the standard research-complete flow first (writes to Sheets, sends Telegram summary)
     await _on_research_complete(result)
 
-    district_name = prospect.get("District Name", result.get("district_name", ""))
+    district_name = prospect.get("Account Name", prospect.get("District Name", result.get("district_name", "")))
     name_key = prospect.get("Name Key", "")
     strategy = prospect.get("Strategy", "cold")
     state = prospect.get("State", result.get("state", ""))
@@ -1854,7 +1854,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             clean = []
             flagged = []
             for d in approved:
-                nk = d.get("Name Key", "") or csv_importer.normalize_name(d.get("District Name", ""))
+                nk = d.get("Name Key", "") or csv_importer.normalize_name(d.get("Account Name", d.get("District Name", "")))
                 if nk in active_district_keys:
                     flagged.append(d)
                 else:
@@ -1862,12 +1862,12 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
             # Queue research for clean districts immediately
             if clean:
-                names = [d.get("District Name", "?") for d in clean]
+                names = [d.get("Account Name", d.get("District Name", "?")) for d in clean]
                 await send_message(f"✅ Approved {len(clean)} district(s): {', '.join(names)}\nQueuing research...")
                 for d in clean:
                     district_prospector.mark_researching(d.get("Name Key", ""))
                     await research_queue.enqueue(
-                        district_name=d.get("District Name", ""),
+                        district_name=d.get("Account Name", d.get("District Name", "")),
                         state=d.get("State", ""),
                         progress_callback=_on_research_progress,
                         completion_callback=lambda result, prospect=d: asyncio.ensure_future(
@@ -1909,7 +1909,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             skipped = await loop.run_in_executor(
                 None, district_prospector.skip_districts, indices, _last_prospect_batch
             )
-            names = [d.get("District Name", "?") for d in skipped]
+            names = [d.get("Account Name", d.get("District Name", "?")) for d in skipped]
             await send_message(f"⏭ Skipped {len(skipped)} districts: {', '.join(names)}")
         except Exception as e:
             await send_message(f"Skip error: {e}")
@@ -2035,12 +2035,12 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         districts_to_force = _pending_approve_force
         _pending_approve_force = []
         try:
-            names = [d.get("District Name", "?") for d in districts_to_force]
+            names = [d.get("Account Name", d.get("District Name", "?")) for d in districts_to_force]
             await send_message(f"✅ Approved {len(districts_to_force)} district(s) anyway: {', '.join(names)}\nQueuing research...")
             for d in districts_to_force:
                 district_prospector.mark_researching(d.get("Name Key", ""))
                 await research_queue.enqueue(
-                    district_name=d.get("District Name", ""),
+                    district_name=d.get("Account Name", d.get("District Name", "")),
                     state=d.get("State", ""),
                     progress_callback=_on_research_progress,
                     completion_callback=lambda result, prospect=d: asyncio.ensure_future(
@@ -2052,7 +2052,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     elif _pending_approve_force and user_text.lower() in ["no", "skip", "cancel"]:
-        skipped_names = [d.get("District Name", "?") for d in _pending_approve_force]
+        skipped_names = [d.get("Account Name", d.get("District Name", "?")) for d in _pending_approve_force]
         _pending_approve_force = []
         await send_message(f"Skipped: {', '.join(skipped_names)}. No research queued.")
         return
@@ -2243,7 +2243,7 @@ async def send_eod_report():
                 None, district_prospector.get_all_prospects, "approved"
             )
             if approved:
-                names = [d.get("District Name", "?") for d in approved[:3]]
+                names = [d.get("Account Name", d.get("District Name", "?")) for d in approved[:3]]
                 await send_message(
                     f"🌙 *Prospecting:* {len(approved)} approved district(s) waiting for research.\n"
                     f"Top: {', '.join(names)}\n"

@@ -39,9 +39,11 @@ SERPER_URL = "https://google.serper.dev/search"
 TAB_PROSPECT_QUEUE = "Prospecting Queue"
 
 PROSPECT_COLUMNS = [
-    "District Name",    # display name (district for upward/cold, account name for winback)
-    "Name Key",         # normalized via csv_importer.normalize_name()
     "State",
+    "Account Name",     # the actual deal target (school name or district name)
+    "Deal Level",       # "school" | "district" — was the deal at a school or district?
+    "Parent District",  # for school-level deals: the parent district name. Empty for district-level.
+    "Name Key",         # normalized via csv_importer.normalize_name()
     "Strategy",         # "upward" | "cold" | "winback"
     "Source",           # "web_search" | "manual" | "upward_auto" | "pipeline_closed"
     "Status",           # "pending" | "approved" | "researching" | "draft" | "complete" | "skipped"
@@ -49,12 +51,10 @@ PROSPECT_COLUMNS = [
     "Date Added",
     "Date Approved",
     "Sequence Doc URL",
-    "Deal Level",       # "school" | "district" | "" — for winback: was the lost deal at a school or district?
-    "Parent District",  # for school-level winback deals: the parent district name
-    "Notes",
     "Est. Enrollment",
     "School Count",
     "Total Licenses",
+    "Notes",            # always last
 ]
 
 # Steven's territory
@@ -463,9 +463,11 @@ def discover_districts(state: str, max_results: int = 15) -> dict:
 
             priority = _calculate_priority("cold", 0, 0, d.get("est_enrollment", 0))
             row = [
-                d["name"],           # District Name
-                name_key,            # Name Key
                 d["state"],          # State
+                d["name"],           # Account Name
+                "district",          # Deal Level
+                "",                  # Parent District
+                name_key,            # Name Key
                 "cold",              # Strategy
                 "web_search",        # Source
                 "pending",           # Status
@@ -473,12 +475,10 @@ def discover_districts(state: str, max_results: int = 15) -> dict:
                 now,                 # Date Added
                 "",                  # Date Approved
                 "",                  # Sequence Doc URL
-                "district",          # Deal Level
-                "",                  # Parent District
-                territory_warning,   # Notes
                 str(d.get("est_enrollment", "")),  # Est. Enrollment
                 "",                  # School Count
                 "",                  # Total Licenses
+                territory_warning,   # Notes (always last)
             ]
             new_rows.append(row)
             prospect_keys.add(name_key)  # prevent within-batch dupes
@@ -491,7 +491,7 @@ def discover_districts(state: str, max_results: int = 15) -> dict:
             "discovered": len(raw_districts),
             "already_known": already_known,
             "new_added": len(new_rows),
-            "districts": [r[0] for r in new_rows],
+            "districts": [r[1] for r in new_rows],
             "error": "",
             "territory_warning": territory_warning,
         }
@@ -548,9 +548,11 @@ def suggest_upward_targets() -> dict:
             school_names = [s["display_name"] for s in dist.get("schools", [])[:5]]
 
             row = [
-                dist["display_name"],      # District Name
-                name_key,                  # Name Key
                 dist.get("state", ""),     # State
+                dist["display_name"],      # Account Name
+                "district",                # Deal Level
+                "",                        # Parent District
+                name_key,                  # Name Key
                 "upward",                  # Strategy
                 "upward_auto",             # Source
                 "pending",                 # Status
@@ -558,12 +560,10 @@ def suggest_upward_targets() -> dict:
                 now,                       # Date Added
                 "",                        # Date Approved
                 "",                        # Sequence Doc URL
-                "district",                # Deal Level
-                "",                        # Parent District
-                f"Schools: {', '.join(school_names)}",  # Notes
                 "",                        # Est. Enrollment
                 str(school_count),         # School Count
                 str(total_licenses),       # Total Licenses
+                f"Schools: {', '.join(school_names)}",  # Notes (always last)
             ]
             new_rows.append(row)
             prospect_keys.add(name_key)
@@ -575,7 +575,7 @@ def suggest_upward_targets() -> dict:
             "success": True,
             "new_added": len(new_rows),
             "already_known": already_known,
-            "districts": [r[0] for r in new_rows],
+            "districts": [r[1] for r in new_rows],
             "error": "",
         }
 
@@ -741,9 +741,11 @@ def suggest_closed_lost_targets(buffer_months: int = 6, lookback_months: int = 1
                 notes_parts.append(f"Opps: {', '.join(opp_names[:3])}")
 
             row = [
-                account_name,        # District Name (school name for school deals, district for district deals)
-                name_key,            # Name Key
                 state,               # State
+                account_name,        # Account Name (school name or district name — the actual deal)
+                deal_level,          # Deal Level — "school" or "district"
+                parent_info,         # Parent District — for school deals, the district name
+                name_key,            # Name Key
                 "winback",           # Strategy
                 "pipeline_closed",   # Source
                 "pending",           # Status
@@ -751,12 +753,10 @@ def suggest_closed_lost_targets(buffer_months: int = 6, lookback_months: int = 1
                 now,                 # Date Added
                 "",                  # Date Approved
                 "",                  # Sequence Doc URL
-                deal_level,          # Deal Level — "school" or "district"
-                parent_info,         # Parent District — for school deals, the district name
-                " | ".join(notes_parts),  # Notes
                 "",                  # Est. Enrollment
                 "",                  # School Count
                 "",                  # Total Licenses
+                " | ".join(notes_parts),  # Notes (always last)
             ]
             new_rows.append(row)
             prospect_keys.add(name_key)  # prevent within-batch dupes
@@ -764,9 +764,9 @@ def suggest_closed_lost_targets(buffer_months: int = 6, lookback_months: int = 1
         if new_rows:
             _write_rows(new_rows)
 
-        # Deal Level is column index 10
-        school_deal_count = sum(1 for r in new_rows if r[10] == "school")
-        district_deal_count = sum(1 for r in new_rows if r[10] == "district")
+        # Deal Level is column index 2
+        school_deal_count = sum(1 for r in new_rows if r[2] == "school")
+        district_deal_count = sum(1 for r in new_rows if r[2] == "district")
         return {
             "success": True,
             "new_added": len(new_rows),
@@ -775,7 +775,7 @@ def suggest_closed_lost_targets(buffer_months: int = 6, lookback_months: int = 1
             "territory_resolved": territory_resolved,
             "school_deals": school_deal_count,
             "district_deals": district_deal_count,
-            "districts": [r[0] for r in new_rows],
+            "districts": [r[1] for r in new_rows],
             "error": "",
         }
 
@@ -824,9 +824,11 @@ def add_district(name: str, state: str, notes: str = "", strategy: str = "cold")
         priority = _calculate_priority(strategy, 0, 0, 0)
 
         row = [
-            name,           # District Name
-            name_key,       # Name Key
             state_abbr,     # State
+            name,           # Account Name
+            "",             # Deal Level
+            "",             # Parent District
+            name_key,       # Name Key
             strategy,       # Strategy
             "manual",       # Source
             "pending",      # Status
@@ -834,12 +836,10 @@ def add_district(name: str, state: str, notes: str = "", strategy: str = "cold")
             now,            # Date Added
             "",             # Date Approved
             "",             # Sequence Doc URL
-            "",             # Deal Level
-            "",             # Parent District
-            notes,          # Notes
             "",             # Est. Enrollment
             "",             # School Count
             "",             # Total Licenses
+            notes,          # Notes (always last)
         ]
         _write_rows([row])
 
@@ -931,7 +931,7 @@ def format_batch_for_telegram(districts: list[dict], label: str = "Prospecting S
     for i, d in enumerate(districts, 1):
         strategy = d.get("Strategy", "cold")
         tag = "REF" if strategy == "upward" else ("WINBACK" if strategy == "winback" else "COLD")
-        name = d.get("District Name", "?")
+        name = d.get("Account Name", d.get("District Name", "?"))
         state = d.get("State", "")
         priority = d.get("Priority", "")
         school_count = d.get("School Count", "")
@@ -986,7 +986,7 @@ def format_all_for_telegram(districts: list[dict]) -> str:
         for d in group[:10]:  # cap at 10 per status to keep message manageable
             strategy = d.get("Strategy", "cold")
             tag = "REF" if strategy == "upward" else ("WINBACK" if strategy == "winback" else "COLD")
-            name = d.get("District Name", "?")
+            name = d.get("Account Name", d.get("District Name", "?"))
             state = d.get("State", "")
             extra = ""
             if status == "complete" and d.get("Sequence Doc URL"):
