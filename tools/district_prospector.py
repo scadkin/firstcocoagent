@@ -39,16 +39,18 @@ SERPER_URL = "https://google.serper.dev/search"
 TAB_PROSPECT_QUEUE = "Prospecting Queue"
 
 PROSPECT_COLUMNS = [
-    "District Name",    # display name
+    "District Name",    # display name (district for upward/cold, account name for winback)
     "Name Key",         # normalized via csv_importer.normalize_name()
     "State",
-    "Strategy",         # "upward" | "cold"
-    "Source",           # "web_search" | "manual" | "upward_auto"
-    "Status",           # "pending" | "approved" | "researching" | "complete" | "skipped"
+    "Strategy",         # "upward" | "cold" | "winback"
+    "Source",           # "web_search" | "manual" | "upward_auto" | "pipeline_closed"
+    "Status",           # "pending" | "approved" | "researching" | "draft" | "complete" | "skipped"
     "Priority",         # numeric score (higher = more important)
     "Date Added",
     "Date Approved",
     "Sequence Doc URL",
+    "Deal Level",       # "school" | "district" | "" — for winback: was the lost deal at a school or district?
+    "Parent District",  # for school-level winback deals: the parent district name
     "Notes",
     "Est. Enrollment",
     "School Count",
@@ -145,7 +147,7 @@ def _load_all_prospects() -> list[dict]:
         sheet_id = _get_sheet_id()
         result = service.spreadsheets().values().get(
             spreadsheetId=sheet_id,
-            range=f"'{TAB_PROSPECT_QUEUE}'!A:N"
+            range=f"'{TAB_PROSPECT_QUEUE}'!A:P"
         ).execute()
         rows = result.get("values", [])
         if len(rows) < 2:
@@ -192,7 +194,7 @@ def _update_status(name_key: str, new_status: str, extra_updates: dict | None = 
 
     result = service.spreadsheets().values().get(
         spreadsheetId=sheet_id,
-        range=f"'{TAB_PROSPECT_QUEUE}'!A:N"
+        range=f"'{TAB_PROSPECT_QUEUE}'!A:P"
     ).execute()
     rows = result.get("values", [])
     if len(rows) < 2:
@@ -471,6 +473,8 @@ def discover_districts(state: str, max_results: int = 15) -> dict:
                 now,                 # Date Added
                 "",                  # Date Approved
                 "",                  # Sequence Doc URL
+                "district",          # Deal Level
+                "",                  # Parent District
                 territory_warning,   # Notes
                 str(d.get("est_enrollment", "")),  # Est. Enrollment
                 "",                  # School Count
@@ -554,6 +558,8 @@ def suggest_upward_targets() -> dict:
                 now,                       # Date Added
                 "",                        # Date Approved
                 "",                        # Sequence Doc URL
+                "district",                # Deal Level
+                "",                        # Parent District
                 f"Schools: {', '.join(school_names)}",  # Notes
                 "",                        # Est. Enrollment
                 str(school_count),         # School Count
@@ -717,12 +723,10 @@ def suggest_closed_lost_targets(buffer_months: int = 6, lookback_months: int = 1
                 "winback", 0, 0, 0, amount=total_amount
             )
 
-            # Build notes with deal level context
+            deal_level = "school" if is_school_deal else "district"
+
+            # Build notes — deal level is now a separate column, no need to repeat in notes
             notes_parts = []
-            if is_school_deal:
-                notes_parts.append(f"🏫 SCHOOL deal (District: {parent_info})")
-            else:
-                notes_parts.append("🏛️ DISTRICT deal")
             if len(opps) > 1:
                 notes_parts.append(f"{len(opps)} closed-lost opps")
             if total_amount > 0:
@@ -737,7 +741,7 @@ def suggest_closed_lost_targets(buffer_months: int = 6, lookback_months: int = 1
                 notes_parts.append(f"Opps: {', '.join(opp_names[:3])}")
 
             row = [
-                account_name,        # Target Name (school or district — the actual deal)
+                account_name,        # District Name (school name for school deals, district for district deals)
                 name_key,            # Name Key
                 state,               # State
                 "winback",           # Strategy
@@ -747,6 +751,8 @@ def suggest_closed_lost_targets(buffer_months: int = 6, lookback_months: int = 1
                 now,                 # Date Added
                 "",                  # Date Approved
                 "",                  # Sequence Doc URL
+                deal_level,          # Deal Level — "school" or "district"
+                parent_info,         # Parent District — for school deals, the district name
                 " | ".join(notes_parts),  # Notes
                 "",                  # Est. Enrollment
                 "",                  # School Count
@@ -758,8 +764,9 @@ def suggest_closed_lost_targets(buffer_months: int = 6, lookback_months: int = 1
         if new_rows:
             _write_rows(new_rows)
 
-        school_deal_count = sum(1 for r in new_rows if "SCHOOL deal" in r[10])
-        district_deal_count = sum(1 for r in new_rows if "DISTRICT deal" in r[10])
+        # Deal Level is column index 10
+        school_deal_count = sum(1 for r in new_rows if r[10] == "school")
+        district_deal_count = sum(1 for r in new_rows if r[10] == "district")
         return {
             "success": True,
             "new_added": len(new_rows),
@@ -827,6 +834,8 @@ def add_district(name: str, state: str, notes: str = "", strategy: str = "cold")
             now,            # Date Added
             "",             # Date Approved
             "",             # Sequence Doc URL
+            "",             # Deal Level
+            "",             # Parent District
             notes,          # Notes
             "",             # Est. Enrollment
             "",             # School Count
@@ -928,8 +937,15 @@ def format_batch_for_telegram(districts: list[dict], label: str = "Prospecting S
         school_count = d.get("School Count", "")
         enrollment = d.get("Est. Enrollment", "")
 
+        deal_level = d.get("Deal Level", "")
+        parent_district = d.get("Parent District", "")
+
         line = f"{i}. [{tag}] *{name}* ({state})"
         details = []
+        if strategy == "winback" and deal_level == "school" and parent_district:
+            details.append(f"🏫 under {parent_district}")
+        elif strategy == "winback" and deal_level == "district":
+            details.append("🏛️ district deal")
         if school_count and str(school_count) != "0":
             details.append(f"{school_count} active schools")
         if enrollment and str(enrollment) != "0" and str(enrollment) != "":
