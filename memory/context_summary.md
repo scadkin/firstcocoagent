@@ -592,3 +592,35 @@ No tasks completed today — ready to start fresh tomorrow.
 Sierra Vista HS ($26,460) has now been flagged *every single night this week* and still hasn't been called. That's the highest-value recoverable opp in the pipeline. Tomorrow it's call #1 — first thing, before anything else opens up.
 
 On it.
+
+### 2026-03-20
+📊 EOD Report — March 20, 2026
+
+*ACCOMPLISHED TODAY:*
+• 2 districts researched ✅
+• 2 sequences built ✅
+
+*KPI RESULTS:*
+• Calls: 0/10 ❌ missed
+• Districts researched: 2/2 ✅ hit
+• Emails drafted/saved: 0/5 ❌ missed
+
+*PROSPECTING:*
+2 districts researched + 2 outreach sequences built today. Contacts are in the sheet — ready for outreach tomorrow.
+
+*PIPELINE ALERTS:* 🚨
+65 open opps, zero movement — five weeks of silence.
+• *21 going cold* — Neil Armstrong MS ($7,850) at 74 days, Ecole Seven Oaks ($2,000) at 73 days, Greencastle-Antrim ($9,500) at 73 days, Ad Wheat MS ($9,500) at 70 days, Hamilton-Wenham ($2,600) at 70 days + 16 more
+• *30 stale* — Eastern York MS ($5,400) at 42 days, Sierra Vista HS ($26,460) at 38 days, Sevier County HS ($9,500) at 38 days + 27 more
+• *14 need update* — Woodrow Wilson MS ($9,500) at 29 days, Ranchero Middle ($7,850) at 22 days, Arlington ISD ($5,400) at 21 days + 11 more
+
+*PENDING / TOMORROW:*
+• 65 pipeline opps with zero contact — getting worse daily
+• Sequences built — activate them with actual outreach
+• Q1 prospecting plan — still not launched
+• Superintendents campaign — still not launched
+
+*ONE OBSERVATION:*
+Sierra Vista HS ($26,460) is now 38 days silent and has been flagged every night this week. Sequences got built today — that's real progress. But tomorrow has one non-negotiable: Sierra Vista gets called first, before anything else.
+
+On it.
