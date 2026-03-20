@@ -130,6 +130,11 @@ def _ensure_tab():
             body={"requests": [{"addSheet": {"properties": {"title": TAB_PROSPECT_QUEUE}}}]}
         ).execute()
 
+    # Clear entire header row first (removes stale columns from old schema)
+    service.spreadsheets().values().clear(
+        spreadsheetId=sheet_id,
+        range=f"'{TAB_PROSPECT_QUEUE}'!A1:Z1",
+    ).execute()
     service.spreadsheets().values().update(
         spreadsheetId=sheet_id,
         range=f"'{TAB_PROSPECT_QUEUE}'!A1",
