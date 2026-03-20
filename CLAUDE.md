@@ -1,47 +1,42 @@
 # SCOUT — Claude Code Reference
-*Last updated: 2026-03-15 — Session 34*
+*Last updated: 2026-03-20 — Session 34*
 
 ---
 
 ## CURRENT STATE — update this after each session
 
-**Session 34: C3 verification in progress. Date window logic updated (6-month buffer + 18-month lookback). Lost Reason/Contact Email columns now mapped. Winback context updated with actual loss-reason data from 257-opp CSV. Ready for Test 1 (import).**
+**Session 34: C3 fully verified. Prospecting Queue redesigned (State first, Account Name, Deal Level, Parent District columns). C4 designed — cold license requests via Outreach API (read-only). Ready to build Outreach integration in Session 35.**
 
 ### What was done (Session 34)
-- **C3 date window logic rewritten** — old: single `months_back` cutoff. New: dual-edge window:
-  - `buffer_months=6` (exclude too-recent opps, still being worked)
-  - `lookback_months=18` (don't go back further than this from the buffer edge)
-  - Default window: ~24 months ago to ~6 months ago (e.g., Mar 2024 → Sep 2025 on Mar 15 2026)
-  - `/prospect_winback all` sets `lookback_months=0` (no oldest cutoff — include all history)
-- **New CSV column mappings**: `Lost Reason`, `Contact: Email`, `Fiscal Period`, `Lead Source` — now mapped to internal keys instead of treated as extras
-- **`CLOSED_LOST_EXTRA_COLUMNS`** — Closed Lost tab includes these 4 columns after the standard pipeline columns
-- **Winback notes enriched** — Notes field now includes Lost Reason and Contact Email for each district
-- **Winback sequence context updated** with actual lost-reason percentages from Steven's data:
-  - 61% Unresponsive (biggest — teachers went dark after admin pushback)
-  - 19% Budget (admin said no)
-  - 5% Not using/didn't start
-  - 4% Teacher turnover
-  - 2% Competitor
-- **C3 verification**: CSV analyzed (257 opps, 228 unique districts, Oct 2023 – Sep 2025). Ready for Test 1.
+- **C3 verified end-to-end** — all 5 tests passed:
+  - Test 1: CSV import (257 opps to Closed Lost tab)
+  - Test 2: Winback scan (245 targets, 146 school / 99 district, 17 territory-resolved)
+  - Test 3: Spot-check queue data (columns verified after redesign)
+  - Test 4: Approve + research (Irving STEAM Magnet + Epic Charter School)
+  - Test 5: Sequence draft generation (Google Docs created, status="draft", links shared)
+- **C3 date window logic** — dual-edge: `buffer_months=6` + `lookback_months=18`. `/prospect_winback all` disables both. Custom params: `buffer=N lookback=N`.
+- **New CSV column mappings**: Lost Reason, Contact: Email, Fiscal Period, Lead Source
+- **Winback sequence context** updated with actual loss-reason percentages (61% Unresponsive, 19% Budget, 5% Not using, 4% Turnover, 2% Competitor)
+- **Prospecting Queue redesigned** — new column order: State | Account Name | Deal Level | Parent District | Name Key | Strategy | Source | Status | Priority | Date Added | Date Approved | Sequence Doc URL | Est. Enrollment | School Count | Total Licenses | Notes (always last)
+- **Winback grouping fixed** — groups by Account Name (the actual deal target), not Parent Account. School deals stay school-level. Parent district is context, not grouping key.
+- **Territory cross-check** — schools with no Parent Account matched against NCES Territory Schools tab to find parent district (17 of ~93 matched via exact name). Fuzzy matching needed for more (saved as TODO).
+- **Full roadmap recovered and saved to memory** — `memory/roadmap_full.md`
+- **C4 fully designed** — "cold license request re-engagement" strategy:
+  - Outreach API integration (read-only, OAuth2)
+  - Pull prospects from ~2 license request sequences
+  - Filter: no opp created + no pricing sent (PandaDoc link or pricing template)
+  - Strategy: "cold_license_request" in Prospecting Queue
+  - Steven has Outreach OAuth credentials (app URL, secret, app ID)
 
-### What was done (Session 33)
-- **C3 Closed-Lost Winback** — full implementation:
-  - Separate "Closed Lost" tab (not Pipeline tab) — Steven's closed-lost opps aren't in his pipeline data
-  - `/import_closed_lost` command + natural language routing ("closed lost" / "winback" in caption)
-  - `import_closed_lost()` in `pipeline_tracker.py` — REPLACE ALL, same CSV format as pipeline
-  - `get_closed_lost_opps()` reads from Closed Lost tab first, falls back to Pipeline
-  - `suggest_closed_lost_targets()` in `district_prospector.py` — groups by district, dedupes, adds with strategy="winback"
-  - `/prospect_winback` (also `/winback`) — scans for targets, adds to Prospecting Queue
-  - Priority scoring 550-749 (between upward and cold), scaled by deal amount
-  - Rich winback context: Outreach.io variables, reply emails, incentivization, breakup email
-- **ALL sequences are now drafts** — not just winback. Every auto-built sequence (upward, cold, winback) writes to Google Doc, shares link, marks status="draft". Steven reviews before finalizing. Never auto-complete.
-- **New "draft" status** in Prospecting Queue (between researching and complete)
-
-### What still needs to be done (Session 34+)
-- **C3 verification** — Test 1 (import CSV) ready to deploy and test. Tests 2-5 follow.
-- **C4: Unresponsive leads strategy** (next up per roadmap)
-- **Active Accounts column rename:** "Display Name" → "Active Account Name" — will take effect on Steven's next account CSV import. All code already has fallback for both names.
-- Enrichment logic improvement
+### What still needs to be done (Session 35+)
+- **C4: Build Outreach API integration** — OAuth2 connection, read sequences/prospects/engagement data
+- **C4: Build cold license request filter** — no opp + no pricing sent = target
+- **C4: Add to Prospecting Queue** with strategy="cold_license_request"
+- **C2: Research engine improvements** (after C4)
+- **C5: Proximity + regional service centers** (deferred)
+- **Fuzzy matching** for territory school→district cross-check (only 17/93 matched exact)
+- **Sequence copy improvements** — Outreach.io variables not being used (hardcoded), product accuracy (AI Junior = beta)
+- **Active Accounts column rename:** "Display Name" → "Active Account Name"
 
 ### Current status
 - Phases 1–5: ✅ all verified
