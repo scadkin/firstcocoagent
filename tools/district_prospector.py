@@ -902,11 +902,11 @@ def suggest_cold_license_requests(sequence_ids: list[int] = None, progress_callb
 
         for pid, pdata in all_prospects.items():
             prospect = pdata["prospect"]
-            company = prospect.get("company", "").strip()
-            first_name = prospect.get("first_name", "")
-            last_name = prospect.get("last_name", "")
-            emails = prospect.get("emails", [])
-            title = prospect.get("title", "")
+            company = (prospect.get("company") or "").strip()
+            first_name = (prospect.get("first_name") or "")
+            last_name = (prospect.get("last_name") or "")
+            emails = prospect.get("emails") or []
+            title = (prospect.get("title") or "")
             full_name = f"{first_name} {last_name}".strip()
 
             if not company:
