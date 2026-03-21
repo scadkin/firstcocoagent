@@ -82,6 +82,8 @@ def exchange_code_for_tokens(auth_code: str) -> dict:
     global _access_token, _refresh_token, _token_expires_at
 
     try:
+        logger.info(f"Outreach OAuth: exchanging code (client_id length={len(_CLIENT_ID)}, "
+                     f"secret length={len(_CLIENT_SECRET)}, redirect_uri={_REDIRECT_URI})")
         resp = httpx.post(TOKEN_URL, data={
             "client_id": _CLIENT_ID,
             "client_secret": _CLIENT_SECRET,
@@ -89,7 +91,12 @@ def exchange_code_for_tokens(auth_code: str) -> dict:
             "grant_type": "authorization_code",
             "code": auth_code,
         }, timeout=30.0)
-        resp.raise_for_status()
+
+        if resp.status_code != 200:
+            body = resp.text[:500]
+            logger.error(f"Outreach OAuth token exchange HTTP {resp.status_code}: {body}")
+            return {"success": False, "error": f"HTTP {resp.status_code}: {body}"}
+
         data = resp.json()
 
         _access_token = data.get("access_token", "")
