@@ -37,6 +37,7 @@ _REDIRECT_URI = os.environ.get("OUTREACH_REDIRECT_URI", "")
 _access_token: str = os.environ.get("OUTREACH_ACCESS_TOKEN", "")
 _refresh_token: str = os.environ.get("OUTREACH_REFRESH_TOKEN", "")
 _token_expires_at: float = 0.0
+_user_id: str = ""  # Outreach user ID for the authenticated user (Steven)
 
 
 def is_configured() -> bool:
@@ -60,6 +61,9 @@ def get_auth_url() -> str:
         "sequenceTemplates.read",
         "templates.read",
         "mailings.read",
+        "calls.read",
+        "events.read",
+        "users.read",
     ])
     return (
         f"{AUTH_URL}?client_id={_CLIENT_ID}"
@@ -106,6 +110,10 @@ def exchange_code_for_tokens(auth_code: str) -> dict:
 
         _persist_tokens()
         logger.info("Outreach OAuth: tokens obtained successfully")
+
+        # Look up the authenticated user's ID so we can filter to only their data
+        _lookup_current_user()
+
         return {"success": True, "error": ""}
 
     except Exception as e:
@@ -146,7 +154,7 @@ def _refresh_access_token() -> bool:
 
 
 def _persist_tokens():
-    """Save tokens to a local file so they survive Railway restarts."""
+    """Save tokens + user ID to a local file so they survive Railway restarts."""
     token_file = "/tmp/outreach_tokens.json"
     try:
         with open(token_file, "w") as f:
@@ -154,6 +162,7 @@ def _persist_tokens():
                 "access_token": _access_token,
                 "refresh_token": _refresh_token,
                 "expires_at": _token_expires_at,
+                "user_id": _user_id,
             }, f)
         logger.info("Outreach tokens persisted to disk")
     except Exception as e:
@@ -162,7 +171,7 @@ def _persist_tokens():
 
 def _load_persisted_tokens():
     """Load tokens from disk on startup."""
-    global _access_token, _refresh_token, _token_expires_at
+    global _access_token, _refresh_token, _token_expires_at, _user_id
     token_file = "/tmp/outreach_tokens.json"
     try:
         with open(token_file, "r") as f:
@@ -170,11 +179,39 @@ def _load_persisted_tokens():
         _access_token = data.get("access_token", "")
         _refresh_token = data.get("refresh_token", "")
         _token_expires_at = data.get("expires_at", 0.0)
-        logger.info("Outreach tokens loaded from disk")
+        _user_id = data.get("user_id", "")
+        if _user_id:
+            logger.info(f"Outreach tokens loaded from disk (user_id={_user_id})")
+        else:
+            logger.info("Outreach tokens loaded from disk (no user_id yet)")
     except FileNotFoundError:
         pass
     except Exception as e:
         logger.warning(f"Could not load Outreach tokens: {e}")
+
+
+def _lookup_current_user():
+    """Look up the authenticated user's Outreach ID and name."""
+    global _user_id
+    try:
+        headers = _get_headers()
+        resp = httpx.get(f"{API_BASE}/users/me", headers=headers, timeout=30.0)
+        if resp.status_code == 200:
+            data = resp.json().get("data", {})
+            _user_id = str(data.get("id", ""))
+            attrs = data.get("attributes", {})
+            name = f"{attrs.get('firstName', '')} {attrs.get('lastName', '')}".strip()
+            logger.info(f"Outreach user identified: {name} (ID: {_user_id})")
+            _persist_tokens()
+        else:
+            logger.warning(f"Could not look up Outreach user: HTTP {resp.status_code}")
+    except Exception as e:
+        logger.warning(f"Outreach user lookup failed: {e}")
+
+
+def get_user_id() -> str:
+    """Return the authenticated user's Outreach ID."""
+    return _user_id
 
 
 # Load on module import
@@ -252,11 +289,15 @@ def _api_get_all(path: str, params: dict | None = None, max_pages: int = 50) -> 
 
 def get_sequences() -> list[dict]:
     """
-    List all sequences. Returns simplified list of sequence dicts.
+    List sequences owned by the authenticated user only.
+    Returns simplified list of sequence dicts.
     Each dict: {id, name, enabled, reply_count, bounce_count, deliver_count,
                 open_count, num_contacted, num_replied, created_at, last_used_at}
     """
-    raw = _api_get_all("/sequences")
+    params = {}
+    if _user_id:
+        params["filter[owner][id]"] = _user_id
+    raw = _api_get_all("/sequences", params)
     sequences = []
     for item in raw:
         attrs = item.get("attributes", {})
