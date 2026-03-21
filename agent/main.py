@@ -1747,6 +1747,18 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
 
+    elif user_text.lower() in ["/outreach_status", "/outreach_info"]:
+        import tools.outreach_client as outreach_client
+        user_id = outreach_client.get_user_id()
+        authed = outreach_client.is_authenticated()
+        await send_message(
+            f"🔗 *Outreach Connection Status*\n\n"
+            f"Connected: {'✅' if authed else '❌'}\n"
+            f"User ID: {user_id or 'not set'}\n"
+            f"Configured: {'✅' if outreach_client.is_configured() else '❌'}"
+        )
+        return
+
     elif user_text.lower() in ["/outreach_sequences", "/outreach_seq"]:
         import tools.outreach_client as outreach_client
         if not outreach_client.is_authenticated():
@@ -1758,7 +1770,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             if not sequences:
                 await send_message("No sequences found in Outreach.")
                 return
-            lines = ["📋 *Your Outreach Sequences*\n"]
+            lines = [f"📋 *Your Outreach Sequences* ({len(sequences)} total)\n"]
             for seq in sequences[:30]:
                 status = "✅" if seq["enabled"] else "⏸"
                 contacted = seq.get("num_contacted", 0)
