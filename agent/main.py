@@ -1724,13 +1724,19 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     # ── Outreach OAuth ─────────────────────────────────────────────────────
-    elif user_text.lower() in ["/connect_outreach", "/outreach_connect"]:
+    elif user_text.lower().startswith("/connect_outreach") or user_text.lower().startswith("/outreach_connect"):
         import tools.outreach_client as outreach_client
         if not outreach_client.is_configured():
             await send_message("⚠️ Outreach OAuth credentials not configured in Railway env vars.")
             return
-        if outreach_client.is_authenticated():
-            await send_message("✅ Outreach is already connected. Use `/outreach_sequences` to list your sequences.")
+        force = "force" in user_text.lower() or "reconnect" in user_text.lower()
+        if outreach_client.is_authenticated() and not force:
+            user_id = outreach_client.get_user_id()
+            await send_message(
+                f"✅ Outreach is already connected (user ID: {user_id}).\n"
+                f"Use `/outreach_sequences` to list your sequences.\n"
+                f"To reconnect as a different user: `/connect_outreach force`"
+            )
             return
         auth_url = outreach_client.get_auth_url()
         await send_message(
