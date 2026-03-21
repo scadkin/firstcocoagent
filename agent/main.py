@@ -1723,6 +1723,51 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
 
+    # ── Outreach OAuth ─────────────────────────────────────────────────────
+    elif user_text.lower() in ["/connect_outreach", "/outreach_connect"]:
+        import tools.outreach_client as outreach_client
+        if not outreach_client.is_configured():
+            await send_message("⚠️ Outreach OAuth credentials not configured in Railway env vars.")
+            return
+        if outreach_client.is_authenticated():
+            await send_message("✅ Outreach is already connected. Use `/outreach_sequences` to list your sequences.")
+            return
+        auth_url = outreach_client.get_auth_url()
+        await send_message(
+            f"🔗 *Connect Outreach*\n\n"
+            f"Click the link below to authorize Scout to read your Outreach data (read-only):\n\n"
+            f"[Authorize Outreach]({auth_url})\n\n"
+            f"After approving, you'll be redirected back and Scout will confirm the connection."
+        )
+        return
+
+    elif user_text.lower() in ["/outreach_sequences", "/outreach_seq"]:
+        import tools.outreach_client as outreach_client
+        if not outreach_client.is_authenticated():
+            await send_message("⚠️ Outreach not connected. Use `/connect_outreach` to set up.")
+            return
+        try:
+            loop = asyncio.get_event_loop()
+            sequences = await loop.run_in_executor(None, outreach_client.get_sequences)
+            if not sequences:
+                await send_message("No sequences found in Outreach.")
+                return
+            lines = ["📋 *Your Outreach Sequences*\n"]
+            for seq in sequences[:30]:
+                status = "✅" if seq["enabled"] else "⏸"
+                contacted = seq.get("num_contacted", 0)
+                replied = seq.get("num_replied", 0)
+                lines.append(
+                    f"{status} *{seq['name']}* (ID: {seq['id']})\n"
+                    f"   {contacted} contacted, {replied} replied"
+                )
+            if len(sequences) > 30:
+                lines.append(f"\n_...and {len(sequences) - 30} more_")
+            await send_message("\n".join(lines))
+        except Exception as e:
+            await send_message(f"Outreach error: {e}")
+        return
+
     # ── CSV import mode commands ─────────────────────────────────────────────
 
     elif user_text.lower() == "/import_clear":
@@ -2549,6 +2594,7 @@ async def main():
                 port=port,
                 process_callback=_on_transcript_received,
                 webhook_secret=FIREFLIES_WEBHOOK_SECRET,
+                send_message=send_message,
             ),
         )
     else:

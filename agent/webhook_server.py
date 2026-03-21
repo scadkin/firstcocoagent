@@ -94,12 +94,65 @@ async def handle_fireflies_webhook(request: web.Request) -> web.Response:
     return web.Response(text="OK", status=200)
 
 
+async def handle_outreach_oauth_callback(request: web.Request) -> web.Response:
+    """
+    Receives GET /oauth/outreach/callback from Outreach after user approves OAuth.
+    Exchanges the authorization code for access + refresh tokens.
+    """
+    code = request.query.get("code")
+    error = request.query.get("error")
+
+    if error:
+        logger.error(f"[Outreach OAuth] Authorization denied: {error}")
+        return web.Response(
+            text=f"Authorization denied: {error}. Close this tab and try again.",
+            status=400,
+            content_type="text/plain",
+        )
+
+    if not code:
+        logger.error("[Outreach OAuth] No authorization code received")
+        return web.Response(
+            text="No authorization code received. Close this tab and try again.",
+            status=400,
+            content_type="text/plain",
+        )
+
+    # Exchange code for tokens
+    import tools.outreach_client as outreach_client
+    result = outreach_client.exchange_code_for_tokens(code)
+
+    if result["success"]:
+        logger.info("[Outreach OAuth] Authorization successful!")
+        # Notify via Telegram
+        send_message = request.app.get("send_message")
+        if send_message:
+            import asyncio
+            asyncio.create_task(send_message(
+                "✅ *Outreach connected!* OAuth authorization successful.\n\n"
+                "Scout can now read your Outreach sequences, prospects, and engagement data."
+            ))
+        return web.Response(
+            text="Outreach connected successfully! You can close this tab and return to Telegram.",
+            status=200,
+            content_type="text/plain",
+        )
+    else:
+        logger.error(f"[Outreach OAuth] Token exchange failed: {result['error']}")
+        return web.Response(
+            text=f"Token exchange failed: {result['error']}. Close this tab and try again.",
+            status=500,
+            content_type="text/plain",
+        )
+
+
 # ── Server Lifecycle ──────────────────────────────────────────────────────────
 
 async def start_webhook_server(
     port: int,
     process_callback,
     webhook_secret: str = "",
+    send_message=None,
 ) -> None:
     """
     Start the aiohttp web server and keep it running.
@@ -107,15 +160,18 @@ async def start_webhook_server(
     port:             Railway's PORT env var
     process_callback: async callable(transcript_id: str)
     webhook_secret:   FIREFLIES_WEBHOOK_SECRET from Railway env
+    send_message:     async callable(text: str) for Telegram notifications
 
     This coroutine runs forever alongside Telegram polling via asyncio.gather().
     """
     app = web.Application()
     app["webhook_secret"] = webhook_secret
     app["process_callback"] = process_callback
+    app["send_message"] = send_message
 
     app.router.add_get("/health", handle_health)
     app.router.add_post("/fireflies-webhook", handle_fireflies_webhook)
+    app.router.add_get("/oauth/outreach/callback", handle_outreach_oauth_callback)
 
     runner = web.AppRunner(app)
     await runner.setup()
