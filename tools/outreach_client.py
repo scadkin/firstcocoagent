@@ -154,40 +154,75 @@ def _refresh_access_token() -> bool:
 
 
 def _persist_tokens():
-    """Save tokens + user ID to a local file so they survive Railway restarts."""
-    token_file = "/tmp/outreach_tokens.json"
+    """Save tokens to GitHub (survives Railway deploys) and /tmp (fast local access)."""
+    token_data = {
+        "access_token": _access_token,
+        "refresh_token": _refresh_token,
+        "expires_at": _token_expires_at,
+        "user_id": _user_id,
+    }
+    # Local cache for fast reads during this deploy
     try:
-        with open(token_file, "w") as f:
-            json.dump({
-                "access_token": _access_token,
-                "refresh_token": _refresh_token,
-                "expires_at": _token_expires_at,
-                "user_id": _user_id,
-            }, f)
-        logger.info("Outreach tokens persisted to disk")
+        with open("/tmp/outreach_tokens.json", "w") as f:
+            json.dump(token_data, f)
+    except Exception:
+        pass
+
+    # Persist to GitHub for survival across deploys
+    try:
+        import tools.github_pusher as github_pusher
+        github_pusher.push_file(
+            "memory/outreach_tokens.json",
+            json.dumps(token_data, indent=2),
+            "Outreach OAuth tokens update",
+        )
+        logger.info("Outreach tokens persisted to GitHub")
     except Exception as e:
-        logger.warning(f"Could not persist Outreach tokens: {e}")
+        logger.warning(f"Could not persist Outreach tokens to GitHub: {e}")
 
 
 def _load_persisted_tokens():
-    """Load tokens from disk on startup."""
+    """Load tokens from /tmp first (fast), fall back to GitHub."""
     global _access_token, _refresh_token, _token_expires_at, _user_id
-    token_file = "/tmp/outreach_tokens.json"
+
+    # Try local cache first
     try:
-        with open(token_file, "r") as f:
+        with open("/tmp/outreach_tokens.json", "r") as f:
             data = json.load(f)
         _access_token = data.get("access_token", "")
         _refresh_token = data.get("refresh_token", "")
         _token_expires_at = data.get("expires_at", 0.0)
         _user_id = data.get("user_id", "")
-        if _user_id:
-            logger.info(f"Outreach tokens loaded from disk (user_id={_user_id})")
-        else:
-            logger.info("Outreach tokens loaded from disk (no user_id yet)")
+        if _refresh_token:
+            logger.info(f"Outreach tokens loaded from local cache (user_id={_user_id})")
+            return
     except FileNotFoundError:
         pass
+    except Exception:
+        pass
+
+    # Fall back to GitHub
+    try:
+        import tools.github_pusher as github_pusher
+        content = github_pusher.get_file_content("memory/outreach_tokens.json")
+        if content:
+            data = json.loads(content)
+            _access_token = data.get("access_token", "")
+            _refresh_token = data.get("refresh_token", "")
+            _token_expires_at = data.get("expires_at", 0.0)
+            _user_id = data.get("user_id", "")
+            # Write to local cache for fast subsequent reads
+            try:
+                with open("/tmp/outreach_tokens.json", "w") as f:
+                    json.dump(data, f)
+            except Exception:
+                pass
+            logger.info(f"Outreach tokens loaded from GitHub (user_id={_user_id})")
+            return
     except Exception as e:
-        logger.warning(f"Could not load Outreach tokens: {e}")
+        logger.warning(f"Could not load Outreach tokens from GitHub: {e}")
+
+    logger.info("No Outreach tokens found — use /connect_outreach to authorize")
 
 
 def _lookup_current_user():
