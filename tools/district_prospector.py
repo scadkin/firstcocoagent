@@ -931,16 +931,38 @@ def suggest_cold_license_requests(sequence_ids: list[int] = None, progress_callb
                 has_opp_count += 1
                 continue
 
-            # Check 4: Was pricing sent? (scan mailings for PandaDoc links)
-            # Only check mailings for prospects that had replies (optimization)
+            # Check 4: Was pricing sent? Multiple detection signals.
+            # Check all prospects that had any emails delivered (not just replies)
             pricing_sent = False
-            if pdata["reply_count"] > 0:
+            if pdata["deliver_count"] > 0:
                 try:
                     mailings = outreach_client.get_mailings_for_prospect(pid)
                     checked_mailings += 1
                     for m in mailings:
-                        body = (m.get("body_text", "") or "") + (m.get("body_html", "") or "")
-                        if "pandadoc.com" in body.lower():
+                        subject = (m.get("subject") or "").lower()
+                        body = ((m.get("body_text") or "") + (m.get("body_html") or "")).lower()
+
+                        # Signal 1: PandaDoc link
+                        if "pandadoc.com" in body:
+                            pricing_sent = True
+                            break
+                        # Signal 2: Pricing subject line
+                        if "codecombat licensing and pricing guide" in subject:
+                            pricing_sent = True
+                            break
+                        # Signal 3: Pricing template content (multiple phrases = pricing email)
+                        pricing_phrases = [
+                            "digital quote for",
+                            "licensing options and included resources",
+                            "standard tiered pricing",
+                            "site license (unlimited)",
+                            "$70/license",
+                            "you can edit these quotes yourself",
+                            "multi-year discounts",
+                            "codecombat.com/grants",
+                        ]
+                        matches = sum(1 for phrase in pricing_phrases if phrase in body)
+                        if matches >= 2:  # 2+ phrases = definitely a pricing email
                             pricing_sent = True
                             break
                 except Exception as e:
