@@ -2090,6 +2090,20 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await send_message(f"Cold license request scan error: {e}")
         return
 
+    elif user_text.lower() in ["/c4_clear", "/clear_c4", "/clear_cold_requests"]:
+        try:
+            loop = asyncio.get_event_loop()
+            result = await loop.run_in_executor(
+                None, district_prospector.clear_by_strategy, "cold_license_request"
+            )
+            await send_message(
+                f"🗑 Cleared *{result['cleared']}* cold license request entries.\n"
+                f"Queue: {result['total_before']} → {result['total_after']} entries remaining."
+            )
+        except Exception as e:
+            await send_message(f"Clear error: {e}")
+        return
+
     elif user_text.lower() == "/prospect_clear":
         try:
             loop = asyncio.get_event_loop()

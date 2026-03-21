@@ -178,6 +178,52 @@ def clear_queue():
     logger.info("Prospecting Queue cleared")
 
 
+def clear_by_strategy(strategy: str) -> dict:
+    """Delete only rows matching a specific strategy (e.g., 'cold_license_request').
+    Keeps all other rows intact. Returns {cleared, total_before, total_after}."""
+    service = _get_service()
+    sheet_id = _get_sheet_id()
+
+    result = service.spreadsheets().values().get(
+        spreadsheetId=sheet_id,
+        range=f"'{TAB_PROSPECT_QUEUE}'!A:P"
+    ).execute()
+    rows = result.get("values", [])
+    if len(rows) < 2:
+        return {"cleared": 0, "total_before": 0, "total_after": 0}
+
+    headers = rows[0]
+    strategy_idx = headers.index("Strategy") if "Strategy" in headers else 5
+    total_before = len(rows) - 1
+
+    # Keep header + rows that don't match the strategy
+    kept_rows = [headers]
+    cleared = 0
+    for row in rows[1:]:
+        padded = row + [""] * (len(headers) - len(row))
+        if padded[strategy_idx] == strategy:
+            cleared += 1
+        else:
+            kept_rows.append(row)
+
+    # Clear and rewrite
+    service.spreadsheets().values().clear(
+        spreadsheetId=sheet_id,
+        range=f"'{TAB_PROSPECT_QUEUE}'!A1:Z9999",
+    ).execute()
+
+    if kept_rows:
+        service.spreadsheets().values().update(
+            spreadsheetId=sheet_id,
+            range=f"'{TAB_PROSPECT_QUEUE}'!A1",
+            valueInputOption="RAW",
+            body={"values": kept_rows}
+        ).execute()
+
+    logger.info(f"Cleared {cleared} '{strategy}' entries from Prospecting Queue")
+    return {"cleared": cleared, "total_before": total_before, "total_after": len(kept_rows) - 1}
+
+
 def _write_rows(rows: list[list]):
     """Append rows to the Prospecting Queue tab."""
     if not rows:
@@ -936,6 +982,9 @@ def suggest_cold_license_requests(sequence_ids: list[int] = None, progress_callb
             pricing_sent = False
             if pdata["deliver_count"] > 0:
                 try:
+                    # Rate limiting: pause briefly every 20 mailing checks to avoid API throttle
+                    if checked_mailings > 0 and checked_mailings % 20 == 0:
+                        time.sleep(0.5)
                     mailings = outreach_client.get_mailings_for_prospect(pid)
                     checked_mailings += 1
                     for m in mailings:
