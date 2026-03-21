@@ -792,6 +792,247 @@ def suggest_closed_lost_targets(buffer_months: int = 6, lookback_months: int = 1
         }
 
 
+def suggest_cold_license_requests(sequence_ids: list[int] = None, progress_callback=None) -> dict:
+    """
+    C4: Scan Outreach license request sequences for cold prospects.
+    A prospect is "cold" if: no Salesforce opp exists AND no pricing was sent.
+
+    Pricing detection: PandaDoc link in email body (pandadoc.com/d/).
+
+    Returns:
+      {success, new_added, already_known, already_active, pricing_sent,
+       has_opp, total_scanned, prospects, error}
+    """
+    import tools.outreach_client as outreach_client
+
+    if not outreach_client.is_authenticated():
+        return {"success": False, "new_added": 0, "error": "Outreach not connected. Use /connect_outreach."}
+
+    # Default to Steven's 3 US license request sequences
+    if sequence_ids is None:
+        sequence_ids = [507, 1768, 1860]
+
+    try:
+        # ── Step 1: Pull all prospects from the target sequences ──
+        all_prospects = {}  # prospect_id → {prospect_data, engagement, sequences}
+        total_states = 0
+
+        for seq_id in sequence_ids:
+            if progress_callback:
+                progress_callback(f"Scanning sequence {seq_id}...")
+            logger.info(f"C4: scanning sequence {seq_id}")
+
+            states = outreach_client.get_sequence_states(seq_id, include_prospect=True)
+            total_states += len(states)
+
+            for state in states:
+                pid = state.get("prospect_id")
+                if not pid:
+                    continue
+
+                prospect_info = state.get("prospect", {})
+                if not prospect_info:
+                    continue
+
+                if pid not in all_prospects:
+                    all_prospects[pid] = {
+                        "prospect": prospect_info,
+                        "reply_count": 0,
+                        "deliver_count": 0,
+                        "open_count": 0,
+                        "sequences": [],
+                    }
+                # Aggregate engagement across sequences
+                all_prospects[pid]["reply_count"] += state.get("reply_count", 0)
+                all_prospects[pid]["deliver_count"] += state.get("deliver_count", 0)
+                all_prospects[pid]["open_count"] += state.get("open_count", 0)
+                all_prospects[pid]["sequences"].append(seq_id)
+
+        logger.info(f"C4: found {len(all_prospects)} unique prospects across {total_states} sequence states")
+
+        # ── Step 2: Build opp lookup from Pipeline + Closed Lost ──
+        # If an opp exists for this company/account, it's not C4
+        opp_account_keys = set()
+        try:
+            open_opps = pipeline_tracker.get_open_opps()
+            for opp in open_opps:
+                acct = opp.get("Account Name", "").strip()
+                parent = opp.get("Parent Account", "").strip()
+                if acct:
+                    opp_account_keys.add(csv_importer.normalize_name(acct))
+                if parent:
+                    opp_account_keys.add(csv_importer.normalize_name(parent))
+        except Exception:
+            pass
+
+        try:
+            closed_lost = pipeline_tracker.get_closed_lost_opps(buffer_months=0, lookback_months=0)
+            for opp in closed_lost:
+                acct = opp.get("Account Name", "").strip()
+                parent = opp.get("Parent Account", "").strip()
+                if acct:
+                    opp_account_keys.add(csv_importer.normalize_name(acct))
+                if parent:
+                    opp_account_keys.add(csv_importer.normalize_name(parent))
+        except Exception:
+            pass
+
+        logger.info(f"C4: {len(opp_account_keys)} account keys with existing opps")
+
+        # ── Step 3: Load Active Accounts + existing queue for dedup ──
+        active_accounts = csv_importer.get_active_accounts()
+        active_keys = {
+            csv_importer.normalize_name(
+                a.get("Active Account Name", "") or a.get("Display Name", "")
+            )
+            for a in active_accounts
+        }
+
+        existing_prospects = _load_all_prospects()
+        prospect_keys = {p.get("Name Key", "") for p in existing_prospects}
+
+        # ── Step 4: Filter — check each prospect ──
+        now = datetime.now().strftime("%Y-%m-%d %H:%M")
+        new_rows = []
+        already_known = 0
+        already_active = 0
+        pricing_sent_count = 0
+        has_opp_count = 0
+        checked_mailings = 0
+
+        for pid, pdata in all_prospects.items():
+            prospect = pdata["prospect"]
+            company = prospect.get("company", "").strip()
+            first_name = prospect.get("first_name", "")
+            last_name = prospect.get("last_name", "")
+            emails = prospect.get("emails", [])
+            title = prospect.get("title", "")
+            full_name = f"{first_name} {last_name}".strip()
+
+            if not company:
+                continue  # Can't match without a company name
+
+            company_key = csv_importer.normalize_name(company)
+            if not company_key or len(company_key) < 3:
+                continue
+
+            # Check 1: Already an active customer?
+            if company_key in active_keys:
+                already_active += 1
+                continue
+
+            # Check 2: Already in Prospecting Queue?
+            if company_key in prospect_keys:
+                already_known += 1
+                continue
+
+            # Check 3: Does an opp exist (Pipeline or Closed Lost)?
+            if company_key in opp_account_keys:
+                has_opp_count += 1
+                continue
+
+            # Check 4: Was pricing sent? (scan mailings for PandaDoc links)
+            # Only check mailings for prospects that had replies (optimization)
+            pricing_sent = False
+            if pdata["reply_count"] > 0:
+                try:
+                    mailings = outreach_client.get_mailings_for_prospect(pid)
+                    checked_mailings += 1
+                    for m in mailings:
+                        body = (m.get("body_text", "") or "") + (m.get("body_html", "") or "")
+                        if "pandadoc.com" in body.lower():
+                            pricing_sent = True
+                            break
+                except Exception as e:
+                    logger.warning(f"C4: could not fetch mailings for prospect {pid}: {e}")
+
+            if pricing_sent:
+                pricing_sent_count += 1
+                continue
+
+            # ── This prospect is a C4 target ──
+            # Build engagement summary for notes
+            notes_parts = []
+            if pdata["deliver_count"] > 0:
+                notes_parts.append(f"{pdata['deliver_count']} emails delivered")
+            if pdata["open_count"] > 0:
+                notes_parts.append(f"{pdata['open_count']} opens")
+            if pdata["reply_count"] > 0:
+                notes_parts.append(f"{pdata['reply_count']} replies (no pricing sent)")
+            else:
+                notes_parts.append("no reply")
+            if emails:
+                notes_parts.append(f"Email: {emails[0]}")
+            if title:
+                notes_parts.append(f"Title: {title}")
+            notes_parts.append(f"Contact: {full_name}")
+            notes_parts.append(f"Seqs: {','.join(str(s) for s in pdata['sequences'])}")
+
+            # Determine deal level from company name
+            company_lower = company.lower()
+            district_words = {"district", "isd", "usd", "cisd", "cusd", "unified",
+                              "schools", "parish", "county", "consortium", "public"}
+            is_district = bool(set(company_lower.split()) & district_words)
+
+            # Priority: cold license requests get 750-849 (high intent — they asked for the product)
+            # Higher engagement = higher priority
+            engagement_score = min(pdata["open_count"] * 5 + pdata["reply_count"] * 20, 99)
+            priority = 750 + engagement_score
+
+            row = [
+                "",                  # State (not available from Outreach)
+                company,             # Account Name
+                "district" if is_district else "school",  # Deal Level
+                "",                  # Parent District
+                company_key,         # Name Key
+                "cold_license_request",  # Strategy
+                "outreach",          # Source
+                "pending",           # Status
+                str(priority),       # Priority (750-849)
+                now,                 # Date Added
+                "",                  # Date Approved
+                "",                  # Sequence Doc URL
+                "",                  # Est. Enrollment
+                "",                  # School Count
+                "",                  # Total Licenses
+                " | ".join(notes_parts),  # Notes (always last)
+            ]
+            new_rows.append(row)
+            prospect_keys.add(company_key)  # prevent within-batch dupes
+
+        if new_rows:
+            _write_rows(new_rows)
+
+        logger.info(
+            f"C4: {len(new_rows)} cold license requests added. "
+            f"Scanned {len(all_prospects)} prospects, {checked_mailings} mailing checks, "
+            f"{pricing_sent_count} had pricing, {has_opp_count} had opps, "
+            f"{already_active} active, {already_known} already queued."
+        )
+
+        return {
+            "success": True,
+            "new_added": len(new_rows),
+            "already_known": already_known,
+            "already_active": already_active,
+            "pricing_sent": pricing_sent_count,
+            "has_opp": has_opp_count,
+            "total_scanned": len(all_prospects),
+            "mailings_checked": checked_mailings,
+            "prospects": [r[1] for r in new_rows[:20]],
+            "error": "",
+        }
+
+    except Exception as e:
+        logger.error(f"suggest_cold_license_requests error: {e}")
+        return {
+            "success": False, "new_added": 0, "already_known": 0,
+            "already_active": 0, "pricing_sent": 0, "has_opp": 0,
+            "total_scanned": 0, "mailings_checked": 0, "prospects": [],
+            "error": str(e),
+        }
+
+
 def add_district(name: str, state: str, notes: str = "", strategy: str = "cold") -> dict:
     """
     Manually add a district to the prospecting queue.
@@ -935,7 +1176,7 @@ def format_batch_for_telegram(districts: list[dict], label: str = "Prospecting S
     lines = [f"*{label}*\n"]
     for i, d in enumerate(districts, 1):
         strategy = d.get("Strategy", "cold")
-        tag = "REF" if strategy == "upward" else ("WINBACK" if strategy == "winback" else "COLD")
+        tag = {"upward": "REF", "winback": "WINBACK", "cold_license_request": "LIC REQ"}.get(strategy, "COLD")
         name = d.get("Account Name", d.get("District Name", "?"))
         state = d.get("State", "")
         priority = d.get("Priority", "")
@@ -990,7 +1231,7 @@ def format_all_for_telegram(districts: list[dict]) -> str:
         lines.append(f"{emoji} *{status.upper()}* ({len(group)})")
         for d in group[:10]:  # cap at 10 per status to keep message manageable
             strategy = d.get("Strategy", "cold")
-            tag = "REF" if strategy == "upward" else ("WINBACK" if strategy == "winback" else "COLD")
+            tag = {"upward": "REF", "winback": "WINBACK", "cold_license_request": "LIC REQ"}.get(strategy, "COLD")
             name = d.get("Account Name", d.get("District Name", "?"))
             state = d.get("State", "")
             extra = ""
