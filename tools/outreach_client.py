@@ -195,16 +195,66 @@ def _lookup_current_user():
     global _user_id
     try:
         headers = _get_headers()
+
+        # Try /users/me first (some Outreach API versions support this)
         resp = httpx.get(f"{API_BASE}/users/me", headers=headers, timeout=30.0)
         if resp.status_code == 200:
             data = resp.json().get("data", {})
             _user_id = str(data.get("id", ""))
             attrs = data.get("attributes", {})
             name = f"{attrs.get('firstName', '')} {attrs.get('lastName', '')}".strip()
-            logger.info(f"Outreach user identified: {name} (ID: {_user_id})")
+            logger.info(f"Outreach user identified via /users/me: {name} (ID: {_user_id})")
             _persist_tokens()
+            return
+
+        logger.info(f"Outreach /users/me returned HTTP {resp.status_code}, trying search by email")
+
+        # Fallback: search users by email (Steven's email)
+        resp2 = httpx.get(
+            f"{API_BASE}/users",
+            headers=headers,
+            params={"filter[email]": "steven@codecombat.com"},
+            timeout=30.0,
+        )
+        if resp2.status_code == 200:
+            users = resp2.json().get("data", [])
+            if users:
+                data = users[0]
+                _user_id = str(data.get("id", ""))
+                attrs = data.get("attributes", {})
+                name = f"{attrs.get('firstName', '')} {attrs.get('lastName', '')}".strip()
+                logger.info(f"Outreach user identified via email search: {name} (ID: {_user_id})")
+                _persist_tokens()
+                return
+
+        logger.info(f"Outreach email search returned HTTP {resp2.status_code}, trying list all users")
+
+        # Fallback 2: list all users, find Steven Adkins
+        resp3 = httpx.get(
+            f"{API_BASE}/users",
+            headers=headers,
+            params={"page[size]": "200"},
+            timeout=30.0,
+        )
+        if resp3.status_code == 200:
+            users = resp3.json().get("data", [])
+            for u in users:
+                attrs = u.get("attributes", {})
+                first = attrs.get("firstName", "").lower()
+                last = attrs.get("lastName", "").lower()
+                email = attrs.get("email", "").lower()
+                if "steven" in first or "adkins" in last or "steven@codecombat" in email:
+                    _user_id = str(u.get("id", ""))
+                    name = f"{attrs.get('firstName', '')} {attrs.get('lastName', '')}".strip()
+                    logger.info(f"Outreach user identified via user list: {name} (ID: {_user_id})")
+                    _persist_tokens()
+                    return
+            # Log all users found for debugging
+            user_names = [f"{u.get('attributes',{}).get('firstName','')} {u.get('attributes',{}).get('lastName','')}" for u in users[:10]]
+            logger.warning(f"Outreach: could not find Steven in {len(users)} users. First 10: {user_names}")
         else:
-            logger.warning(f"Could not look up Outreach user: HTTP {resp.status_code}")
+            logger.warning(f"Outreach user list returned HTTP {resp3.status_code}: {resp3.text[:200]}")
+
     except Exception as e:
         logger.warning(f"Outreach user lookup failed: {e}")
 
