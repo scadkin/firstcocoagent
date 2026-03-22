@@ -982,9 +982,11 @@ def suggest_cold_license_requests(sequence_ids: list[int] = None, progress_callb
             pricing_sent = False
             if pdata["deliver_count"] > 0:
                 try:
-                    # Rate limiting: pause briefly every 20 mailing checks to avoid API throttle
-                    if checked_mailings > 0 and checked_mailings % 20 == 0:
-                        time.sleep(0.5)
+                    # Rate limiting: pause every 10 checks to avoid API throttle + keep process alive
+                    if checked_mailings > 0 and checked_mailings % 10 == 0:
+                        time.sleep(1.0)
+                    if checked_mailings > 0 and checked_mailings % 100 == 0:
+                        logger.info(f"C4: checked {checked_mailings} mailings so far, {pricing_sent_count} pricing found, {len(new_rows)} cold targets")
                     mailings = outreach_client.get_mailings_for_prospect(pid)
                     checked_mailings += 1
                     for m in mailings:

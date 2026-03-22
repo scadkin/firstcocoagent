@@ -2059,35 +2059,33 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     elif user_text.lower() in ["/prospect_cold_requests", "/cold_requests", "/c4"]:
-        try:
-            await send_message("🔍 Scanning Outreach license request sequences for cold prospects...\nThis may take a few minutes (checking mailings for pricing).")
-            loop = asyncio.get_event_loop()
-            result = await loop.run_in_executor(None, district_prospector.suggest_cold_license_requests)
-            if result.get("error") and result.get("new_added", 0) == 0:
-                await send_message(f"⚠️ {result['error']}")
-            else:
-                lines = [f"🔍 *Cold License Request Scan*\n"]
-                lines.append(f"Scanned *{result.get('total_scanned', 0)}* unique prospects across 3 sequences\n")
-                lines.append(f"✅ *{result['new_added']}* new cold license request targets added")
-                if result.get("pricing_sent"):
-                    lines.append(f"💰 {result['pricing_sent']} had pricing sent (excluded)")
-                if result.get("has_opp"):
-                    lines.append(f"📋 {result['has_opp']} have existing opps (excluded)")
-                if result.get("already_active"):
-                    lines.append(f"🏢 {result['already_active']} are active customers (excluded)")
-                if result.get("already_known"):
-                    lines.append(f"📌 {result['already_known']} already in queue (excluded)")
-                if result.get("mailings_checked"):
-                    lines.append(f"📧 {result['mailings_checked']} prospect mailings checked for PandaDoc")
-                await send_message("\n".join(lines))
+        async def _run_c4_scan():
+            """Run C4 scan as a background task so it doesn't block the event loop."""
+            try:
+                loop = asyncio.get_event_loop()
+                result = await loop.run_in_executor(None, district_prospector.suggest_cold_license_requests)
+                if result.get("error") and result.get("new_added", 0) == 0:
+                    await send_message(f"⚠️ C4 scan error: {result['error']}")
+                else:
+                    lines = [f"🔍 *Cold License Request Scan Complete*\n"]
+                    lines.append(f"Scanned *{result.get('total_scanned', 0)}* unique prospects across 3 sequences\n")
+                    lines.append(f"✅ *{result['new_added']}* new cold license request targets added")
+                    if result.get("pricing_sent"):
+                        lines.append(f"💰 {result['pricing_sent']} had pricing sent (excluded)")
+                    if result.get("has_opp"):
+                        lines.append(f"📋 {result['has_opp']} have existing opps (excluded)")
+                    if result.get("already_active"):
+                        lines.append(f"🏢 {result['already_active']} are active customers (excluded)")
+                    if result.get("already_known"):
+                        lines.append(f"📌 {result['already_known']} already in queue (excluded)")
+                    if result.get("mailings_checked"):
+                        lines.append(f"📧 {result['mailings_checked']} prospect mailings checked for pricing")
+                    await send_message("\n".join(lines))
+            except Exception as e:
+                await send_message(f"C4 scan error: {e}")
 
-            # Show pending after scan
-            pending = await loop.run_in_executor(None, district_prospector.get_pending, 5)
-            if pending:
-                _last_prospect_batch = pending
-                await send_message(district_prospector.format_batch_for_telegram(pending))
-        except Exception as e:
-            await send_message(f"Cold license request scan error: {e}")
+        await send_message("🔍 Scanning Outreach license request sequences for cold prospects...\nThis runs in the background — I'll send results when done (15-20 min).")
+        asyncio.create_task(_run_c4_scan())
         return
 
     elif user_text.lower() in ["/c4_clear", "/clear_c4", "/clear_cold_requests"]:
