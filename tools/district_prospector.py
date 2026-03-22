@@ -945,6 +945,11 @@ def suggest_cold_license_requests(sequence_ids: list[int] = None, progress_callb
         pricing_sent_count = 0
         has_opp_count = 0
         checked_mailings = 0
+        # Audit lists — track excluded prospects for spot-checking
+        audit_pricing_sent = []  # prospects where pricing was detected
+        audit_has_opp = []       # prospects with existing opps
+        audit_active = []        # prospects that are active customers
+        audit_no_company = 0     # prospects skipped due to no company
 
         for pid, pdata in all_prospects.items():
             prospect = pdata["prospect"]
@@ -956,15 +961,20 @@ def suggest_cold_license_requests(sequence_ids: list[int] = None, progress_callb
             full_name = f"{first_name} {last_name}".strip()
 
             if not company:
-                continue  # Can't match without a company name
+                audit_no_company += 1
+                continue
 
             company_key = csv_importer.normalize_name(company)
             if not company_key or len(company_key) < 3:
+                audit_no_company += 1
                 continue
+
+            email_str = emails[0] if emails else ""
 
             # Check 1: Already an active customer?
             if company_key in active_keys:
                 already_active += 1
+                audit_active.append([company, full_name, email_str, title, "Active Customer"])
                 continue
 
             # Check 2: Already in Prospecting Queue?
@@ -975,11 +985,13 @@ def suggest_cold_license_requests(sequence_ids: list[int] = None, progress_callb
             # Check 3: Does an opp exist (Pipeline or Closed Lost)?
             if company_key in opp_account_keys:
                 has_opp_count += 1
+                audit_has_opp.append([company, full_name, email_str, title, "Has Opp"])
                 continue
 
             # Check 4: Was pricing sent? Multiple detection signals.
             # Check all prospects that had any emails delivered (not just replies)
             pricing_sent = False
+            _pricing_reason = ""
             if pdata["deliver_count"] > 0:
                 try:
                     # Rate limiting: pause every 10 checks to avoid API throttle + keep process alive
@@ -996,10 +1008,12 @@ def suggest_cold_license_requests(sequence_ids: list[int] = None, progress_callb
                         # Signal 1: PandaDoc link
                         if "pandadoc.com" in body:
                             pricing_sent = True
+                            _pricing_reason = "PandaDoc link"
                             break
                         # Signal 2: Pricing subject line
                         if "codecombat licensing and pricing guide" in subject:
                             pricing_sent = True
+                            _pricing_reason = "Pricing subject line"
                             break
                         # Signal 3: Pricing template content (multiple phrases = pricing email)
                         pricing_phrases = [
@@ -1015,12 +1029,14 @@ def suggest_cold_license_requests(sequence_ids: list[int] = None, progress_callb
                         matches = sum(1 for phrase in pricing_phrases if phrase in body)
                         if matches >= 2:  # 2+ phrases = definitely a pricing email
                             pricing_sent = True
+                            _pricing_reason = f"Body content ({matches} phrases matched)"
                             break
                 except Exception as e:
                     logger.warning(f"C4: could not fetch mailings for prospect {pid}: {e}")
 
             if pricing_sent:
                 pricing_sent_count += 1
+                audit_pricing_sent.append([company, full_name, email_str, title, _pricing_reason])
                 continue
 
             # ── This prospect is a C4 target ──
@@ -1076,11 +1092,18 @@ def suggest_cold_license_requests(sequence_ids: list[int] = None, progress_callb
         if new_rows:
             _write_rows(new_rows)
 
+        # ── Write audit tab for spot-checking ──
+        try:
+            _write_c4_audit(audit_pricing_sent, audit_has_opp, audit_active, audit_no_company)
+        except Exception as e:
+            logger.warning(f"C4: could not write audit tab: {e}")
+
         logger.info(
             f"C4: {len(new_rows)} cold license requests added. "
             f"Scanned {len(all_prospects)} prospects, {checked_mailings} mailing checks, "
             f"{pricing_sent_count} had pricing, {has_opp_count} had opps, "
-            f"{already_active} active, {already_known} already queued."
+            f"{already_active} active, {already_known} already queued, "
+            f"{audit_no_company} no company."
         )
 
         return {
@@ -1092,6 +1115,7 @@ def suggest_cold_license_requests(sequence_ids: list[int] = None, progress_callb
             "has_opp": has_opp_count,
             "total_scanned": len(all_prospects),
             "mailings_checked": checked_mailings,
+            "no_company": audit_no_company,
             "prospects": [r[1] for r in new_rows[:20]],
             "error": "",
         }
@@ -1104,6 +1128,59 @@ def suggest_cold_license_requests(sequence_ids: list[int] = None, progress_callb
             "total_scanned": 0, "mailings_checked": 0, "prospects": [],
             "error": str(e),
         }
+
+
+def _write_c4_audit(pricing_sent: list, has_opp: list, active: list, no_company: int):
+    """Write C4 exclusion audit data to a 'C4 Audit' tab for spot-checking."""
+    service = _get_service()
+    sheet_id = _get_sheet_id()
+
+    tab_name = "C4 Audit"
+
+    # Ensure tab exists
+    meta = service.spreadsheets().get(spreadsheetId=sheet_id).execute()
+    existing = {s["properties"]["title"] for s in meta.get("sheets", [])}
+    if tab_name not in existing:
+        service.spreadsheets().batchUpdate(
+            spreadsheetId=sheet_id,
+            body={"requests": [{"addSheet": {"properties": {"title": tab_name}}}]}
+        ).execute()
+
+    # Clear and rewrite
+    service.spreadsheets().values().clear(
+        spreadsheetId=sheet_id,
+        range=f"'{tab_name}'!A1:Z9999",
+    ).execute()
+
+    rows = [["Company", "Contact Name", "Email", "Title", "Exclusion Reason"]]
+
+    if pricing_sent:
+        rows.append(["", "", "", "", ""])
+        rows.append(["=== PRICING SENT ===", f"{len(pricing_sent)} prospects", "", "", ""])
+        rows.extend(pricing_sent)
+
+    if has_opp:
+        rows.append(["", "", "", "", ""])
+        rows.append(["=== HAS EXISTING OPP ===", f"{len(has_opp)} prospects", "", "", ""])
+        rows.extend(has_opp)
+
+    if active:
+        rows.append(["", "", "", "", ""])
+        rows.append(["=== ACTIVE CUSTOMER ===", f"{len(active)} prospects", "", "", ""])
+        rows.extend(active)
+
+    if no_company:
+        rows.append(["", "", "", "", ""])
+        rows.append(["=== NO COMPANY NAME ===", f"{no_company} prospects skipped", "", "", ""])
+
+    service.spreadsheets().values().update(
+        spreadsheetId=sheet_id,
+        range=f"'{tab_name}'!A1",
+        valueInputOption="RAW",
+        body={"values": rows}
+    ).execute()
+
+    logger.info(f"C4 Audit tab written: {len(pricing_sent)} pricing, {len(has_opp)} opps, {len(active)} active, {no_company} no company")
 
 
 def add_district(name: str, state: str, notes: str = "", strategy: str = "cold") -> dict:
