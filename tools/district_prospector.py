@@ -937,6 +937,40 @@ def suggest_cold_license_requests(sequence_ids: list[int] = None, progress_callb
         existing_prospects = _load_all_prospects()
         prospect_keys = {p.get("Name Key", "") for p in existing_prospects}
 
+        # ── Step 3b: Build territory lookup for state enrichment + filtering ──
+        territory_keys = {}  # name_key → state
+        try:
+            territory_schools = territory_data._load_territory_schools()
+            for ts in territory_schools:
+                nk = ts.get("Name Key", "").strip().lower()
+                st = ts.get("State", "").strip().upper()
+                if nk and st:
+                    territory_keys[nk] = st
+            territory_districts = territory_data._load_territory_districts()
+            for td in territory_districts:
+                nk = td.get("Name Key", "").strip().lower()
+                st = td.get("State", "").strip().upper()
+                if nk and st:
+                    territory_keys[nk] = st
+            logger.info(f"C4: loaded {len(territory_keys)} territory entries for filtering")
+        except Exception as e:
+            logger.warning(f"C4: could not load territory data for filtering: {e}")
+
+        # Steven's territory states
+        territory_states = {
+            "IL", "PA", "OH", "MI", "CT", "OK", "MA", "IN", "NV", "TN", "NE", "TX", "CA",
+        }
+
+        # Known international email TLDs to exclude
+        intl_tlds = {
+            ".ca", ".uk", ".au", ".nz", ".in", ".za", ".ng", ".ke", ".gh",
+            ".ph", ".sg", ".my", ".hk", ".jp", ".kr", ".tw", ".br", ".mx",
+            ".co", ".cl", ".ar", ".de", ".fr", ".es", ".it", ".nl", ".se",
+            ".no", ".dk", ".fi", ".ie", ".be", ".at", ".ch", ".pt", ".pl",
+            ".cz", ".hu", ".ro", ".bg", ".hr", ".rs", ".ae", ".sa", ".qa",
+            ".eg", ".pk", ".bd", ".lk", ".th", ".vn", ".id",
+        }
+
         # ── Step 4: Filter — check each prospect ──
         now = datetime.now().strftime("%Y-%m-%d %H:%M")
         new_rows = []
@@ -945,11 +979,15 @@ def suggest_cold_license_requests(sequence_ids: list[int] = None, progress_callb
         pricing_sent_count = 0
         has_opp_count = 0
         checked_mailings = 0
+        out_of_territory = 0
+        international_count = 0
         # Audit lists — track excluded prospects for spot-checking
         audit_pricing_sent = []  # prospects where pricing was detected
         audit_has_opp = []       # prospects with existing opps
         audit_active = []        # prospects that are active customers
         audit_no_company = 0     # prospects skipped due to no company
+        audit_out_of_territory = []  # prospects not in Steven's territory
+        audit_international = []     # international prospects
 
         for pid, pdata in all_prospects.items():
             prospect = pdata["prospect"]
@@ -988,6 +1026,29 @@ def suggest_cold_license_requests(sequence_ids: list[int] = None, progress_callb
                 audit_has_opp.append([company, full_name, email_str, title, "Has Opp"])
                 continue
 
+            # Check 3b: International email? (exclude non-US)
+            is_intl = False
+            if email_str:
+                email_lower = email_str.lower()
+                domain = email_lower.split("@")[-1] if "@" in email_lower else ""
+                # Check for international TLDs
+                for tld in intl_tlds:
+                    if domain.endswith(tld):
+                        is_intl = True
+                        break
+            if is_intl:
+                international_count += 1
+                audit_international.append([company, full_name, email_str, title, f"International ({domain})"])
+                continue
+
+            # Check 3c: In Steven's territory? Cross-check against Territory Master List
+            # Try to find state from territory data
+            territory_state = territory_keys.get(company_key.lower(), "")
+            if territory_state and territory_state not in territory_states:
+                out_of_territory += 1
+                audit_out_of_territory.append([company, full_name, email_str, title, f"State: {territory_state}"])
+                continue
+
             # Check 4: Was pricing sent? Multiple detection signals.
             # Check all prospects that had any emails delivered (not just replies)
             pricing_sent = False
@@ -1005,31 +1066,42 @@ def suggest_cold_license_requests(sequence_ids: list[int] = None, progress_callb
                         subject = (m.get("subject") or "").lower()
                         body = ((m.get("body_text") or "") + (m.get("body_html") or "")).lower()
 
-                        # Signal 1: PandaDoc link
-                        if "pandadoc.com" in body:
+                        # Signal 1: PandaDoc quote link (not just any pandadoc mention)
+                        # Must be a document link (pandadoc.com/d/) not a footer/signature mention
+                        if "pandadoc.com/d/" in body:
                             pricing_sent = True
-                            _pricing_reason = "PandaDoc link"
+                            _pricing_reason = "PandaDoc quote link"
                             break
+
                         # Signal 2: Pricing subject line
                         if "codecombat licensing and pricing guide" in subject:
                             pricing_sent = True
                             _pricing_reason = "Pricing subject line"
                             break
-                        # Signal 3: Pricing template content (multiple phrases = pricing email)
-                        pricing_phrases = [
-                            "digital quote for",
-                            "licensing options and included resources",
+
+                        # Signal 3: Pricing template — must have the quote link phrase
+                        # AND at least one pricing tier indicator
+                        has_quote_link_phrase = "here is the link to your digital quote for" in body
+                        has_edit_quotes = "you can edit these quotes yourself" in body
+                        pricing_tier_indicators = [
                             "standard tiered pricing",
                             "site license (unlimited)",
                             "$70/license",
-                            "you can edit these quotes yourself",
-                            "multi-year discounts",
-                            "codecombat.com/grants",
+                            "$49/license",
+                            "$38/license",
+                            "up to 99 students",
+                            "100 to 171 students",
+                            "multi-site & districts",
                         ]
-                        matches = sum(1 for phrase in pricing_phrases if phrase in body)
-                        if matches >= 2:  # 2+ phrases = definitely a pricing email
+                        has_pricing_tier = any(p in body for p in pricing_tier_indicators)
+
+                        if has_quote_link_phrase and (has_edit_quotes or has_pricing_tier):
                             pricing_sent = True
-                            _pricing_reason = f"Body content ({matches} phrases matched)"
+                            _pricing_reason = "Quote template (digital quote + pricing tiers)"
+                            break
+                        elif has_edit_quotes and has_pricing_tier:
+                            pricing_sent = True
+                            _pricing_reason = "Quote template (edit quotes + pricing tiers)"
                             break
                 except Exception as e:
                     logger.warning(f"C4: could not fetch mailings for prospect {pid}: {e}")
@@ -1069,7 +1141,7 @@ def suggest_cold_license_requests(sequence_ids: list[int] = None, progress_callb
             priority = 750 + engagement_score
 
             row = [
-                "",                  # State (not available from Outreach)
+                territory_state,     # State (enriched from territory data, blank if unknown)
                 company,             # Account Name
                 "district" if is_district else "school",  # Deal Level
                 "",                  # Parent District
@@ -1094,7 +1166,10 @@ def suggest_cold_license_requests(sequence_ids: list[int] = None, progress_callb
 
         # ── Write audit tab for spot-checking ──
         try:
-            _write_c4_audit(audit_pricing_sent, audit_has_opp, audit_active, audit_no_company)
+            _write_c4_audit(
+                audit_pricing_sent, audit_has_opp, audit_active,
+                audit_no_company, audit_out_of_territory, audit_international,
+            )
         except Exception as e:
             logger.warning(f"C4: could not write audit tab: {e}")
 
@@ -1103,6 +1178,7 @@ def suggest_cold_license_requests(sequence_ids: list[int] = None, progress_callb
             f"Scanned {len(all_prospects)} prospects, {checked_mailings} mailing checks, "
             f"{pricing_sent_count} had pricing, {has_opp_count} had opps, "
             f"{already_active} active, {already_known} already queued, "
+            f"{out_of_territory} out of territory, {international_count} international, "
             f"{audit_no_company} no company."
         )
 
@@ -1116,6 +1192,8 @@ def suggest_cold_license_requests(sequence_ids: list[int] = None, progress_callb
             "total_scanned": len(all_prospects),
             "mailings_checked": checked_mailings,
             "no_company": audit_no_company,
+            "out_of_territory": out_of_territory,
+            "international": international_count,
             "prospects": [r[1] for r in new_rows[:20]],
             "error": "",
         }
@@ -1126,16 +1204,21 @@ def suggest_cold_license_requests(sequence_ids: list[int] = None, progress_callb
             "success": False, "new_added": 0, "already_known": 0,
             "already_active": 0, "pricing_sent": 0, "has_opp": 0,
             "total_scanned": 0, "mailings_checked": 0, "prospects": [],
+            "out_of_territory": 0, "international": 0,
             "error": str(e),
         }
 
 
-def _write_c4_audit(pricing_sent: list, has_opp: list, active: list, no_company: int):
+def _write_c4_audit(pricing_sent: list, has_opp: list, active: list,
+                    no_company: int, out_of_territory: list = None,
+                    international: list = None):
     """Write C4 exclusion audit data to a 'C4 Audit' tab for spot-checking."""
     service = _get_service()
     sheet_id = _get_sheet_id()
 
     tab_name = "C4 Audit"
+    out_of_territory = out_of_territory or []
+    international = international or []
 
     # Ensure tab exists
     meta = service.spreadsheets().get(spreadsheetId=sheet_id).execute()
@@ -1169,6 +1252,16 @@ def _write_c4_audit(pricing_sent: list, has_opp: list, active: list, no_company:
         rows.append(["=== ACTIVE CUSTOMER ===", f"{len(active)} prospects", "", "", ""])
         rows.extend(active)
 
+    if international:
+        rows.append(["", "", "", "", ""])
+        rows.append(["=== INTERNATIONAL ===", f"{len(international)} prospects", "", "", ""])
+        rows.extend(international)
+
+    if out_of_territory:
+        rows.append(["", "", "", "", ""])
+        rows.append(["=== OUT OF TERRITORY ===", f"{len(out_of_territory)} prospects", "", "", ""])
+        rows.extend(out_of_territory)
+
     if no_company:
         rows.append(["", "", "", "", ""])
         rows.append(["=== NO COMPANY NAME ===", f"{no_company} prospects skipped", "", "", ""])
@@ -1180,7 +1273,11 @@ def _write_c4_audit(pricing_sent: list, has_opp: list, active: list, no_company:
         body={"values": rows}
     ).execute()
 
-    logger.info(f"C4 Audit tab written: {len(pricing_sent)} pricing, {len(has_opp)} opps, {len(active)} active, {no_company} no company")
+    logger.info(
+        f"C4 Audit tab written: {len(pricing_sent)} pricing, {len(has_opp)} opps, "
+        f"{len(active)} active, {len(international)} intl, {len(out_of_territory)} out of territory, "
+        f"{no_company} no company"
+    )
 
 
 def add_district(name: str, state: str, notes: str = "", strategy: str = "cold") -> dict:

@@ -2078,8 +2078,13 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                         lines.append(f"🏢 {result['already_active']} are active customers (excluded)")
                     if result.get("already_known"):
                         lines.append(f"📌 {result['already_known']} already in queue (excluded)")
+                    if result.get("international"):
+                        lines.append(f"🌍 {result['international']} international (excluded)")
+                    if result.get("out_of_territory"):
+                        lines.append(f"🗺 {result['out_of_territory']} out of territory (excluded)")
                     if result.get("mailings_checked"):
                         lines.append(f"📧 {result['mailings_checked']} prospect mailings checked for pricing")
+                    lines.append(f"\n📋 Check the *C4 Audit* tab in your Google Sheet to spot-check exclusions.")
                     await send_message("\n".join(lines))
             except Exception as e:
                 await send_message(f"C4 scan error: {e}")
