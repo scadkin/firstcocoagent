@@ -2097,6 +2097,25 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         asyncio.create_task(_run_c4_scan())
         return
 
+    elif user_text.lower() in ["/fix_queue", "/migrate_queue"]:
+        try:
+            loop = asyncio.get_event_loop()
+            result = await loop.run_in_executor(
+                None, district_prospector.migrate_prospect_columns
+            )
+            if result.get("errors"):
+                await send_message(f"⚠️ Migration error: {result['errors']}")
+            else:
+                await send_message(
+                    f"✅ Prospecting Queue columns fixed.\n"
+                    f"Migrated: *{result['migrated']}* rows\n"
+                    f"Already correct: *{result['already_correct']}* rows\n"
+                    f"Total: *{result['total']}* rows"
+                )
+        except Exception as e:
+            await send_message(f"Migration error: {e}")
+        return
+
     elif user_text.lower() in ["/c4_clear", "/clear_c4", "/clear_cold_requests"]:
         try:
             loop = asyncio.get_event_loop()

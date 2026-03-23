@@ -120,8 +120,7 @@ def _get_sheet_id():
 
 
 def _ensure_tab():
-    """Create Prospecting Queue tab if missing. Always overwrite header row.
-    Also migrates old 16-column rows to 19-column layout (adds Email, First Name, Last Name)."""
+    """Create Prospecting Queue tab if missing. Always overwrite header row."""
     service = _get_service()
     sheet_id = _get_sheet_id()
 
@@ -133,50 +132,6 @@ def _ensure_tab():
             spreadsheetId=sheet_id,
             body={"requests": [{"addSheet": {"properties": {"title": TAB_PROSPECT_QUEUE}}}]}
         ).execute()
-
-    # ── Migrate old 16-column rows to 19-column layout ──
-    # Old layout: State, Account Name, Deal Level, Parent District, Name Key, Strategy, ...
-    # New layout: State, Account Name, EMAIL, FIRST NAME, LAST NAME, Deal Level, Parent District, Name Key, Strategy, ...
-    # Detect old rows: if value at index 5 (old Strategy col) is a known strategy,
-    # the row needs 3 empty columns inserted after index 1.
-    _KNOWN_STRATEGIES = {"upward", "cold", "winback", "cold_license_request"}
-    try:
-        result = service.spreadsheets().values().get(
-            spreadsheetId=sheet_id,
-            range=f"'{TAB_PROSPECT_QUEUE}'!A2:S9999"
-        ).execute()
-        data_rows = result.get("values", [])
-        if data_rows:
-            migrated = False
-            new_rows = []
-            for row in data_rows:
-                padded = row + [""] * (max(16, 19) - len(row))
-                # Old format: Strategy is at index 5. New format: Strategy is at index 8.
-                old_strategy = padded[5] if len(padded) > 5 else ""
-                new_strategy = padded[8] if len(padded) > 8 else ""
-                if old_strategy in _KNOWN_STRATEGIES and new_strategy not in _KNOWN_STRATEGIES:
-                    # Old format — insert 3 empty cols after Account Name (index 1)
-                    migrated_row = padded[:2] + ["", "", ""] + padded[2:16]
-                    new_rows.append(migrated_row)
-                    migrated = True
-                else:
-                    # Already in new format or new C4 row
-                    new_rows.append(padded[:19])
-            if migrated:
-                logger.info(f"Migrating Prospecting Queue rows to 19-column layout")
-                service.spreadsheets().values().clear(
-                    spreadsheetId=sheet_id,
-                    range=f"'{TAB_PROSPECT_QUEUE}'!A2:S9999",
-                ).execute()
-                service.spreadsheets().values().update(
-                    spreadsheetId=sheet_id,
-                    range=f"'{TAB_PROSPECT_QUEUE}'!A2",
-                    valueInputOption="RAW",
-                    body={"values": new_rows}
-                ).execute()
-                logger.info(f"Migrated {len(new_rows)} rows to 19-column layout")
-    except Exception as e:
-        logger.warning(f"Prospecting Queue migration check failed (non-fatal): {e}")
 
     # Clear entire header row first (removes stale columns from old schema — 19 cols now)
     service.spreadsheets().values().clear(
@@ -191,6 +146,91 @@ def _ensure_tab():
     ).execute()
 
     return service, sheet_id
+
+
+def migrate_prospect_columns() -> dict:
+    """
+    Migrate old 16-column Prospecting Queue rows to 19-column layout.
+    Inserts Email, First Name, Last Name columns after Account Name.
+
+    Old: State | Account Name | Deal Level | Parent District | Name Key | Strategy(idx5) | ...
+    New: State | Account Name | Email | First Name | Last Name | Deal Level | Parent District | Name Key | Strategy(idx8) | ...
+
+    Safe to run multiple times — detects which rows need migration.
+    Returns {migrated, total, already_correct, errors}.
+    """
+    _KNOWN_STRATEGIES = {"upward", "cold", "winback", "cold_license_request"}
+
+    try:
+        service = _get_service()
+        sheet_id = _get_sheet_id()
+
+        # Read ALL data including header to understand current state
+        result = service.spreadsheets().values().get(
+            spreadsheetId=sheet_id,
+            range=f"'{TAB_PROSPECT_QUEUE}'!A:Z"
+        ).execute()
+        all_rows = result.get("values", [])
+
+        if len(all_rows) < 2:
+            return {"migrated": 0, "total": 0, "already_correct": 0, "errors": ""}
+
+        data_rows = all_rows[1:]  # skip header
+        migrated_count = 0
+        already_correct = 0
+        new_data = []
+
+        for row in data_rows:
+            # Pad to at least 19 columns
+            padded = list(row) + [""] * max(0, 19 - len(row))
+
+            # Detection: check if Strategy value is at old index 5 or new index 8
+            val_at_5 = padded[5] if len(padded) > 5 else ""
+            val_at_8 = padded[8] if len(padded) > 8 else ""
+
+            if val_at_8 in _KNOWN_STRATEGIES:
+                # Already in new 19-column format
+                new_data.append(padded[:19])
+                already_correct += 1
+            elif val_at_5 in _KNOWN_STRATEGIES:
+                # Old 16-column format — insert 3 empty cols after Account Name
+                migrated_row = padded[:2] + ["", "", ""] + padded[2:]
+                new_data.append(migrated_row[:19])
+                migrated_count += 1
+            else:
+                # Unknown format — keep as-is, pad to 19
+                new_data.append(padded[:19])
+                logger.warning(f"migrate_prospect_columns: unknown row format, keeping as-is: {padded[:6]}")
+
+        # Clear all data and rewrite with correct header + migrated data
+        service.spreadsheets().values().clear(
+            spreadsheetId=sheet_id,
+            range=f"'{TAB_PROSPECT_QUEUE}'!A1:Z9999",
+        ).execute()
+
+        all_output = [PROSPECT_COLUMNS] + new_data
+        service.spreadsheets().values().update(
+            spreadsheetId=sheet_id,
+            range=f"'{TAB_PROSPECT_QUEUE}'!A1",
+            valueInputOption="RAW",
+            body={"values": all_output}
+        ).execute()
+
+        logger.info(
+            f"migrate_prospect_columns: {migrated_count} migrated, "
+            f"{already_correct} already correct, {len(new_data)} total rows"
+        )
+
+        return {
+            "migrated": migrated_count,
+            "total": len(new_data),
+            "already_correct": already_correct,
+            "errors": "",
+        }
+
+    except Exception as e:
+        logger.error(f"migrate_prospect_columns error: {e}")
+        return {"migrated": 0, "total": 0, "already_correct": 0, "errors": str(e)}
 
 
 def _load_all_prospects() -> list[dict]:
