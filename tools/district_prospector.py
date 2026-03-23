@@ -937,24 +937,13 @@ def suggest_cold_license_requests(sequence_ids: list[int] = None, progress_callb
         existing_prospects = _load_all_prospects()
         prospect_keys = {p.get("Name Key", "") for p in existing_prospects}
 
-        # ── Step 3b: Build territory lookup for state enrichment + filtering ──
-        territory_keys = {}  # name_key → state
+        # ── Step 3b: Load territory matcher for name resolution + filtering ──
+        import tools.territory_matcher as territory_matcher
         try:
-            territory_schools = territory_data._load_territory_schools()
-            for ts in territory_schools:
-                nk = ts.get("Name Key", "").strip().lower()
-                st = ts.get("State", "").strip().upper()
-                if nk and st:
-                    territory_keys[nk] = st
-            territory_districts = territory_data._load_territory_districts()
-            for td in territory_districts:
-                nk = td.get("Name Key", "").strip().lower()
-                st = td.get("State", "").strip().upper()
-                if nk and st:
-                    territory_keys[nk] = st
-            logger.info(f"C4: loaded {len(territory_keys)} territory entries for filtering")
+            territory_matcher.ensure_cache()
+            logger.info(f"C4: territory matcher cache loaded — {territory_matcher.get_cache_stats()}")
         except Exception as e:
-            logger.warning(f"C4: could not load territory data for filtering: {e}")
+            logger.warning(f"C4: could not load territory matcher: {e}")
 
         # Steven's territory states
         territory_states = {
@@ -1041,13 +1030,24 @@ def suggest_cold_license_requests(sequence_ids: list[int] = None, progress_callb
                 audit_international.append([company, full_name, email_str, title, f"International ({domain})"])
                 continue
 
-            # Check 3c: In Steven's territory? Cross-check against Territory Master List
-            # Try to find state from territory data
-            territory_state = territory_keys.get(company_key.lower(), "")
-            if territory_state and territory_state not in territory_states:
-                out_of_territory += 1
-                audit_out_of_territory.append([company, full_name, email_str, title, f"State: {territory_state}"])
-                continue
+            # Check 3c: Territory matching — resolve name, enrich, filter
+            territory_match = territory_matcher.match_record(
+                company, email=email_str,
+            )
+            territory_state = ""
+            territory_district = ""
+            territory_canonical = ""
+            if territory_match:
+                territory_state = territory_match.state
+                territory_district = territory_match.parent_district
+                territory_canonical = territory_match.canonical_name
+                if territory_state and territory_state not in territory_states:
+                    out_of_territory += 1
+                    audit_out_of_territory.append([
+                        company, full_name, email_str, title,
+                        f"State: {territory_state} ({territory_match.match_method})"
+                    ])
+                    continue
 
             # Check 4: Was pricing sent? Multiple detection signals.
             # Check all prospects that had any emails delivered (not just replies)
@@ -1140,11 +1140,17 @@ def suggest_cold_license_requests(sequence_ids: list[int] = None, progress_callb
             engagement_score = min(pdata["open_count"] * 5 + pdata["reply_count"] * 20, 99)
             priority = 750 + engagement_score
 
+            # Use canonical name if territory matched, otherwise original
+            display_name = territory_canonical if territory_canonical else company
+            deal_level = "district" if is_district else "school"
+            if territory_match:
+                deal_level = territory_match.entity_type
+
             row = [
                 territory_state,     # State (enriched from territory data, blank if unknown)
-                company,             # Account Name
-                "district" if is_district else "school",  # Deal Level
-                "",                  # Parent District
+                display_name,        # Account Name (canonical NCES name if matched)
+                deal_level,          # Deal Level
+                territory_district,  # Parent District (from territory data)
                 company_key,         # Name Key
                 "cold_license_request",  # Strategy
                 "outreach",          # Source
