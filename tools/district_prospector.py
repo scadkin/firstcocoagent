@@ -1041,8 +1041,10 @@ def suggest_cold_license_requests(sequence_ids: list[int] = None, progress_callb
 
         # ── Step 3b: Load territory matcher for name resolution + filtering ──
         import tools.territory_matcher as territory_matcher
+        logger.info(f"C4: territory_matcher has is_student_email={hasattr(territory_matcher, 'is_student_email')}, "
+                    f"extract_state_from_email={hasattr(territory_matcher, 'extract_state_from_email')}")
         try:
-            territory_matcher.ensure_cache()
+            territory_matcher.ensure_cache(force_reload=True)  # force reload to pick up new domain roots
             logger.info(f"C4: territory matcher cache loaded — {territory_matcher.get_cache_stats()}")
         except Exception as e:
             logger.warning(f"C4: could not load territory matcher: {e}")
@@ -1103,10 +1105,19 @@ def suggest_cold_license_requests(sequence_ids: list[int] = None, progress_callb
             email_str = emails[0] if emails else ""
 
             # Quick filter 0: Student email? ("student" anywhere in domain)
-            if email_str and territory_matcher.is_student_email(email_str):
-                student_email_count += 1
-                audit_student_emails.append([company, full_name, email_str, title, "Student email"])
-                continue
+            if email_str:
+                try:
+                    if territory_matcher.is_student_email(email_str):
+                        student_email_count += 1
+                        audit_student_emails.append([company, full_name, email_str, title, "Student email"])
+                        continue
+                except Exception:
+                    # Fallback: simple check
+                    domain_lower = email_str.lower().split("@")[-1] if "@" in email_str else ""
+                    if "student" in domain_lower:
+                        student_email_count += 1
+                        audit_student_emails.append([company, full_name, email_str, title, "Student email"])
+                        continue
 
             # Quick filter 1: Already an active customer?
             if company_key in active_keys:
@@ -1138,7 +1149,12 @@ def suggest_cold_license_requests(sequence_ids: list[int] = None, progress_callb
 
             # Quick filter 5: Extract state from k12.STATE.us email domain
             # This is the most reliable signal — state is embedded in the domain
-            email_state = territory_matcher.extract_state_from_email(email_str) if email_str else ""
+            email_state = ""
+            if email_str:
+                try:
+                    email_state = territory_matcher.extract_state_from_email(email_str)
+                except Exception:
+                    email_state = ""
             if email_state and email_state not in territory_states:
                 out_of_territory += 1
                 audit_out_of_territory.append([
@@ -1165,7 +1181,8 @@ def suggest_cold_license_requests(sequence_ids: list[int] = None, progress_callb
             # still use that state (it's reliable)
             if email_state and not territory_match:
                 # Create a lightweight result — we know the state from the email
-                territory_match = territory_matcher.MatchResult(
+                from tools.territory_matcher import MatchResult as _MR
+                territory_match = _MR(
                     canonical_name=company,
                     name_key=company_key,
                     entity_type="school",
