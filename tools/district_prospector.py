@@ -1336,19 +1336,31 @@ def suggest_cold_license_requests(sequence_ids: list[int] = None, progress_callb
                             f"State: {c_state} (Claude inferred)"
                         ])
                         continue
-                    # CA check — if Claude says CA, verify via email domain against SoCal territory
+                    # CA check — if Claude says CA, check SoCal via domain match OR known SoCal domains
                     if c_state == "CA":
-                        # Check if email domain matches a known SoCal district before excluding
+                        is_socal = False
+                        # Check 1: email domain matches SoCal territory district
                         email_domain_match = territory_matcher._match_by_email_domain(
                             email_str, csv_importer.normalize_name(company).lower(), "CA"
                         ) if email_str else None
                         if email_domain_match:
-                            # Email domain matches SoCal district — keep it!
+                            is_socal = True
                             filtered_candidates.append((pid, pdata, company, company_key, email_str, full_name, title,
                                                         "CA", email_domain_match.parent_district or email_domain_match.canonical_name,
                                                         email_domain_match.canonical_name, email_domain_match.entity_type))
+                        # Check 2: known SoCal domain abbreviation
+                        if not is_socal and email_str:
+                            try:
+                                if territory_matcher.is_socal_domain(email_str):
+                                    is_socal = True
+                                    filtered_candidates.append((pid, pdata, company, company_key, email_str, full_name, title,
+                                                                "CA", claude_info.get("district", ""),
+                                                                company, claude_info.get("entity_type", "school")))
+                            except Exception:
+                                pass
+                        if is_socal:
                             continue
-                        # No SoCal domain match — likely NorCal, exclude
+                        # No SoCal match — likely NorCal, exclude
                         out_of_territory += 1
                         audit_out_of_territory.append([
                             company, full_name, email_str, title,
@@ -1359,9 +1371,30 @@ def suggest_cold_license_requests(sequence_ids: list[int] = None, progress_callb
                                                 c_state, claude_info.get("district", ""),
                                                 company, claude_info.get("entity_type", "school")))
                 else:
-                    # No Claude result either — keep with unknown state
-                    filtered_candidates.append((pid, pdata, company, company_key, email_str, full_name, title,
-                                                "", "", company, "school"))
+                    # No Claude result — try email state extraction as last resort
+                    last_resort_state = ""
+                    try:
+                        last_resort_state = territory_matcher.extract_state_from_email(email_str) if email_str else ""
+                    except Exception:
+                        pass
+                    if last_resort_state:
+                        if last_resort_state not in territory_states:
+                            out_of_territory += 1
+                            audit_out_of_territory.append([
+                                company, full_name, email_str, title,
+                                f"State: {last_resort_state} (email extraction, no Claude result)"
+                            ])
+                            continue
+                        filtered_candidates.append((pid, pdata, company, company_key, email_str, full_name, title,
+                                                    last_resort_state, "", company, "school"))
+                    else:
+                        # Truly unknown — skip, don't add with empty state
+                        audit_out_of_territory.append([
+                            company, full_name, email_str, title,
+                            "State unknown (no match, no Claude result, no email signal)"
+                        ])
+                        out_of_territory += 1
+                        continue
 
         logger.info(f"C4: {len(filtered_candidates)} candidates after Claude inference filtering")
 

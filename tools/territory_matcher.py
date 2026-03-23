@@ -82,6 +82,26 @@ def _strip_school_suffixes(name: str) -> str:
 # DOMAIN UTILITIES
 # ─────────────────────────────────────────────
 
+# Known SoCal school district domain roots (creative abbreviations not derivable from NCES names)
+# Used as fallback when generate_domain_roots doesn't produce the right match
+KNOWN_SOCAL_DOMAIN_ROOTS = {
+    "lausd", "sandi", "sausd", "ggusd", "abcusd", "myabcusd", "iusd", "tustin",
+    "capousd", "svusd", "fjuhsd", "auhsd", "pylusd", "bousd", "hbuhsd",
+    "lbusd", "musd", "cnusd", "cjusd", "mvusd", "psusd", "rusd", "ausd",
+    "jusd", "alvord", "hemet", "menifee", "beaumont", "banning", "perris",
+    "rialto", "fontana", "colton", "redlands", "yucaipa", "sbcusd",
+    "aesd", "dusd", "eusd", "fusd", "gusd", "husd", "kusd", "nusd",
+    "ousd", "pusd", "tusd", "vusd", "wusd", "busd", "cusd",
+    "smusd", "smmusd", "lvusd", "wvusd", "hlpusd", "bassett", "hacienda",
+    "keppel", "rosemead", "elrancho", "whittier", "lawndale", "centinela",
+    "hawthorne", "inglewood", "compton", "lynwood", "paramount", "bellflower",
+    "downey", "montebello", "lacrescenta", "burbank", "glendale", "pasadena",
+    "arcadia", "monrovia", "azusa", "covina", "westcovina", "pomona", "claremont",
+    "oceanside", "carlsbad", "escondido", "fallbrook", "poway", "ramona",
+    "cajon", "santee", "lakeside", "coronado", "sweetwater", "cvesd", "nmusd",
+    "olphriverside", "stodiliaschool",
+}
+
 _GENERIC_DOMAINS = {
     "gmail.com", "yahoo.com", "hotmail.com", "outlook.com", "aol.com",
     "icloud.com", "mail.com", "protonmail.com", "comcast.net", "msn.com",
@@ -90,31 +110,145 @@ _GENERIC_DOMAINS = {
 }
 
 
+_US_STATE_ABBRS = {
+    "al", "ak", "az", "ar", "ca", "co", "ct", "de", "fl", "ga",
+    "hi", "id", "il", "in", "ia", "ks", "ky", "la", "me", "md",
+    "ma", "mi", "mn", "ms", "mo", "mt", "ne", "nv", "nh", "nj",
+    "nm", "ny", "nc", "nd", "oh", "ok", "or", "pa", "ri", "sc",
+    "sd", "tn", "tx", "ut", "vt", "va", "wa", "wv", "wi", "wy", "dc",
+}
+
+_STATE_NAME_TO_ABBR = {
+    "alabama": "AL", "alaska": "AK", "arizona": "AZ", "arkansas": "AR",
+    "california": "CA", "colorado": "CO", "connecticut": "CT", "delaware": "DE",
+    "florida": "FL", "georgia": "GA", "hawaii": "HI", "idaho": "ID",
+    "illinois": "IL", "indiana": "IN", "iowa": "IA", "kansas": "KS",
+    "kentucky": "KY", "louisiana": "LA", "maine": "ME", "maryland": "MD",
+    "massachusetts": "MA", "michigan": "MI", "minnesota": "MN", "mississippi": "MS",
+    "missouri": "MO", "montana": "MT", "nebraska": "NE", "nevada": "NV",
+    "newhampshire": "NH", "newjersey": "NJ", "newmexico": "NM", "newyork": "NY",
+    "northcarolina": "NC", "northdakota": "ND", "ohio": "OH", "oklahoma": "OK",
+    "oregon": "OR", "pennsylvania": "PA", "rhodeisland": "RI", "southcarolina": "SC",
+    "southdakota": "SD", "tennessee": "TN", "texas": "TX", "utah": "UT",
+    "vermont": "VT", "virginia": "VA", "washington": "WA", "westvirginia": "WV",
+    "wisconsin": "WI", "wyoming": "WY",
+}
+
+# Known US cities/regions → state mapping (major cities that appear in email domains)
+_CITY_TO_STATE = {
+    "nyc": "NY", "newyork": "NY", "brooklyn": "NY", "bronx": "NY", "queens": "NY",
+    "manhattan": "NY", "statenisland": "NY", "buffalo": "NY",
+    "chicago": "IL", "springfield": "IL",
+    "houston": "TX", "dallas": "TX", "sanantonio": "TX", "austin": "TX",
+    "fortworth": "TX", "elpaso": "TX", "wichitafalls": "TX",
+    "losangeles": "CA", "sandiego": "CA", "sanfrancisco": "CA", "sacramento": "CA",
+    "sanjose": "CA", "riverside": "CA", "longbeach": "CA", "oakland": "CA",
+    "philadelphia": "PA", "pittsburgh": "PA",
+    "detroit": "MI", "grandrapids": "MI",
+    "columbus": "OH", "cleveland": "OH", "cincinnati": "OH",
+    "indianapolis": "IN",
+    "nashville": "TN", "memphis": "TN", "knoxville": "TN",
+    "oklahomacity": "OK", "tulsa": "OK",
+    "omaha": "NE", "lincoln": "NE",
+    "lasvegas": "NV", "reno": "NV",
+    "boston": "MA", "cambridge": "MA", "worcester": "MA",
+    "hartford": "CT", "newhaven": "CT", "bridgeport": "CT", "stamford": "CT",
+    "dc": "DC", "washington": "DC",
+}
+
+
 def extract_state_from_email(email: str) -> str:
     """
-    Extract 2-letter US state code from k12/state email domains.
-    e.g. teacher@spring.k12.tx.us → "TX"
-         admin@avsd.k12.pa.us → "PA"
-         user@russell.k12.va.us → "VA"
-    Returns empty string if no state can be extracted.
+    Extract 2-letter US state code from email domain using multiple patterns.
+
+    Patterns checked (in order):
+      1. k12.STATE.us or *.k12.STATE.us (any length, .us or .gov TLD)
+      2. State abbreviation as last 2 chars of domain root (harmonytx → TX)
+      3. State abbreviation after separator (acs-nj → NJ)
+      4. State name in domain (hawaii.edu → HI)
+      5. Known city in domain (schools.nyc.gov → NY, udallas.edu → TX)
+
+    Returns 2-letter state code or empty string.
     """
     if not email or "@" not in email:
         return ""
     domain = email.lower().split("@")[-1].strip()
+    if domain in _GENERIC_DOMAINS:
+        return ""
     parts = domain.split(".")
-    # Pattern: *.k12.STATE.us or *.STATE.us
-    if len(parts) >= 4 and parts[-1] == "us":
+
+    # ── Pattern 1: k12/edu marker + state code in domain structure ──
+    # Handles: spring.k12.tx.us, k12.wv.us, k12.dc.gov, avsd.k12.pa.us
+    if "k12" in parts:
+        k12_idx = parts.index("k12")
+        # State code is typically right after k12 or between k12 and TLD
+        for candidate in parts[k12_idx + 1:]:
+            if len(candidate) == 2 and candidate.isalpha() and candidate in _US_STATE_ABBRS:
+                return candidate.upper()
+
+    # ── Pattern 2: *.STATE.us with edu markers ──
+    if len(parts) >= 3 and parts[-1] == "us":
         state_candidate = parts[-2]
-        if len(state_candidate) == 2 and state_candidate.isalpha():
-            # Verify it's after k12 or similar edu marker
-            if "k12" in parts or "pvt" in parts or "tec" in parts or "cc" in parts:
-                return state_candidate.upper()
-    # Also handle *.state.STATE.us pattern
-    if len(parts) >= 4 and parts[-1] == "us" and "state" in parts:
-        state_candidate = parts[-2]
-        if len(state_candidate) == 2 and state_candidate.isalpha():
+        if len(state_candidate) == 2 and state_candidate in _US_STATE_ABBRS:
             return state_candidate.upper()
+
+    # ── Pattern 3: State abbreviation embedded in domain name ──
+    # Get the meaningful part of the domain (first non-prefix, non-TLD part)
+    domain_root = extract_domain_root(email)
+    if domain_root:
+        # 3a: State abbr as suffix of domain root (harmonytx → TX)
+        # Exclude ambiguous suffixes that commonly appear in school district acronyms
+        _AMBIGUOUS_SUFFIXES = {"sd", "id", "in", "me", "or", "al"}  # SD=school district, ID/IN/ME/OR/AL=common word parts
+        if len(domain_root) > 3:
+            suffix2 = domain_root[-2:]
+            if suffix2 in _US_STATE_ABBRS and suffix2 not in _AMBIGUOUS_SUFFIXES:
+                # Only match if the preceding part is 3+ chars
+                prefix = domain_root[:-2]
+                if len(prefix) >= 3:
+                    return suffix2.upper()
+
+        # 3b: State abbr after hyphen or underscore in full domain
+        full_no_tld = ".".join(parts[:-1])
+        for sep in ["-", "_", "."]:
+            if sep in full_no_tld:
+                segments = full_no_tld.split(sep)
+                for seg in segments:
+                    if len(seg) == 2 and seg in _US_STATE_ABBRS:
+                        return seg.upper()
+
+    # ── Pattern 4: State name in domain ──
+    domain_joined = "".join(parts[:-1])  # everything except TLD
+    for state_name, abbr in _STATE_NAME_TO_ABBR.items():
+        if state_name in domain_joined:
+            return abbr
+
+    # ── Pattern 5: Known city/region in domain ──
+    for city, state in _CITY_TO_STATE.items():
+        if city in domain_joined:
+            return state
+
     return ""
+
+
+def is_socal_domain(email: str) -> bool:
+    """Check if email domain matches a known SoCal school district."""
+    if not email or "@" not in email:
+        return False
+    domain_root = extract_domain_root(email)
+    if not domain_root:
+        return False
+    # Check exact match in known SoCal domains
+    if domain_root in KNOWN_SOCAL_DOMAIN_ROOTS:
+        return True
+    # Check if domain contains a known SoCal root (e.g., "myabcusd" contains "abcusd")
+    for socal_root in KNOWN_SOCAL_DOMAIN_ROOTS:
+        if len(socal_root) >= 4 and socal_root in domain_root:
+            return True
+    # Check if "-la" or "la" suffix (Los Angeles area)
+    domain = email.lower().split("@")[-1]
+    if "-la." in domain or domain.startswith("la") or "losangeles" in domain:
+        return True
+    return False
 
 
 def is_student_email(email: str) -> bool:
