@@ -459,3 +459,109 @@ def match_records(
         match = match_record(name, email=email, city=city_val, state=state_val)
         results.append((rec, match))
     return results
+
+
+# ─────────────────────────────────────────────
+# TIER 6: CLAUDE BATCH INFERENCE
+# ─────────────────────────────────────────────
+
+def infer_locations_with_claude(
+    unknowns: list[dict],
+    batch_size: int = 40,
+) -> dict[str, dict]:
+    """
+    Use Claude (Sonnet) to infer school/district state and details for
+    prospects that couldn't be matched via territory data.
+
+    Each unknown dict should have: company, email, title, name (contact name)
+
+    Returns dict mapping company → {state, district, city, confidence, entity_type}
+    Uses Scout's existing ANTHROPIC_API_KEY (same key Scout uses for everything).
+    """
+    import anthropic
+    import json as _json
+    import os
+
+    api_key = os.environ.get("ANTHROPIC_API_KEY", "")
+    if not api_key:
+        logger.warning("territory_matcher: no ANTHROPIC_API_KEY for Claude inference")
+        return {}
+
+    client = anthropic.Anthropic(api_key=api_key, timeout=90.0)
+    results = {}
+
+    # Process in batches
+    for i in range(0, len(unknowns), batch_size):
+        batch = unknowns[i:i + batch_size]
+        if not batch:
+            continue
+
+        # Build the prompt
+        records_text = ""
+        for idx, u in enumerate(batch, 1):
+            company = u.get("company", "")
+            email = u.get("email", "")
+            title = u.get("title", "")
+            contact = u.get("name", "")
+            records_text += f"{idx}. Company: {company} | Email: {email} | Contact: {contact} | Title: {title}\n"
+
+        prompt = f"""I need you to identify the US state and school district for each of these schools/organizations. These are K-12 education institutions.
+
+For each record, use the company name, email domain, contact name, and title to determine:
+- state: 2-letter US state code (e.g., "TX", "CA"). Use "" if truly unknown or international.
+- district: the parent school district name. Use the company name itself if it IS a district.
+- city: the city if you can determine it. Use "" if unknown.
+- entity_type: "school" or "district"
+- is_us: true if this is a US institution, false if international or non-education
+
+Use your knowledge of US school districts, email domain patterns (.k12.xx.us, district-specific domains), and school naming conventions. Most US public schools have email domains that indicate their district and state.
+
+RECORDS:
+{records_text}
+
+Respond with ONLY a JSON array, no other text. Each element:
+{{"idx": 1, "state": "TX", "district": "Austin ISD", "city": "Austin", "entity_type": "school", "is_us": true}}
+
+If you cannot determine the state at all, use "state": "" and "is_us": true (assume US unless clearly international).
+For international institutions (non-.edu, non-US domains, non-US school names), use "is_us": false.
+"""
+
+        try:
+            response = client.messages.create(
+                model="claude-sonnet-4-6",
+                max_tokens=4000,
+                messages=[{"role": "user", "content": prompt}],
+            )
+            text = response.content[0].text.strip()
+
+            # Parse JSON — handle markdown code blocks
+            if text.startswith("```"):
+                text = text.split("```")[1]
+                if text.startswith("json"):
+                    text = text[4:]
+                text = text.strip()
+
+            parsed = _json.loads(text)
+            for item in parsed:
+                idx = item.get("idx", 0)
+                if 1 <= idx <= len(batch):
+                    company = batch[idx - 1].get("company", "")
+                    results[company] = {
+                        "state": (item.get("state") or "").strip().upper(),
+                        "district": item.get("district", ""),
+                        "city": item.get("city", ""),
+                        "entity_type": item.get("entity_type", "school"),
+                        "is_us": item.get("is_us", True),
+                        "confidence": "claude_inferred",
+                    }
+
+            logger.info(f"territory_matcher: Claude inferred {len(parsed)} of {len(batch)} records (batch {i // batch_size + 1})")
+
+        except Exception as e:
+            logger.error(f"territory_matcher: Claude inference failed for batch {i // batch_size + 1}: {e}")
+
+        # Small pause between batches
+        import time as _time
+        _time.sleep(1.0)
+
+    return results

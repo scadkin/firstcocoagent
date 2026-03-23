@@ -960,7 +960,7 @@ def suggest_cold_license_requests(sequence_ids: list[int] = None, progress_callb
             ".eg", ".pk", ".bd", ".lk", ".th", ".vn", ".id",
         }
 
-        # ── Step 4: Filter — check each prospect ──
+        # ── Step 4: First pass — quick filters + territory matching + pricing ──
         now = datetime.now().strftime("%Y-%m-%d %H:%M")
         new_rows = []
         already_known = 0
@@ -970,13 +970,16 @@ def suggest_cold_license_requests(sequence_ids: list[int] = None, progress_callb
         checked_mailings = 0
         out_of_territory = 0
         international_count = 0
-        # Audit lists — track excluded prospects for spot-checking
-        audit_pricing_sent = []  # prospects where pricing was detected
-        audit_has_opp = []       # prospects with existing opps
-        audit_active = []        # prospects that are active customers
-        audit_no_company = 0     # prospects skipped due to no company
-        audit_out_of_territory = []  # prospects not in Steven's territory
-        audit_international = []     # international prospects
+        claude_inferred_count = 0
+        audit_pricing_sent = []
+        audit_has_opp = []
+        audit_active = []
+        audit_no_company = 0
+        audit_out_of_territory = []
+        audit_international = []
+
+        # Collect candidates that pass quick filters but need location resolution
+        candidates = []  # list of (pid, pdata, company, company_key, email_str, full_name, title, territory_match)
 
         for pid, pdata in all_prospects.items():
             prospect = pdata["prospect"]
@@ -990,37 +993,31 @@ def suggest_cold_license_requests(sequence_ids: list[int] = None, progress_callb
             if not company:
                 audit_no_company += 1
                 continue
-
             company_key = csv_importer.normalize_name(company)
             if not company_key or len(company_key) < 3:
                 audit_no_company += 1
                 continue
-
             email_str = emails[0] if emails else ""
 
-            # Check 1: Already an active customer?
+            # Quick filter 1: Already an active customer?
             if company_key in active_keys:
                 already_active += 1
                 audit_active.append([company, full_name, email_str, title, "Active Customer"])
                 continue
-
-            # Check 2: Already in Prospecting Queue?
+            # Quick filter 2: Already in Prospecting Queue?
             if company_key in prospect_keys:
                 already_known += 1
                 continue
-
-            # Check 3: Does an opp exist (Pipeline or Closed Lost)?
+            # Quick filter 3: Does an opp exist?
             if company_key in opp_account_keys:
                 has_opp_count += 1
                 audit_has_opp.append([company, full_name, email_str, title, "Has Opp"])
                 continue
-
-            # Check 3b: International email? (exclude non-US)
+            # Quick filter 4: International email?
             is_intl = False
             if email_str:
                 email_lower = email_str.lower()
                 domain = email_lower.split("@")[-1] if "@" in email_lower else ""
-                # Check for international TLDs
                 for tld in intl_tlds:
                     if domain.endswith(tld):
                         is_intl = True
@@ -1030,89 +1027,123 @@ def suggest_cold_license_requests(sequence_ids: list[int] = None, progress_callb
                 audit_international.append([company, full_name, email_str, title, f"International ({domain})"])
                 continue
 
-            # Check 3c: Territory matching — resolve name, enrich, filter
-            territory_match = territory_matcher.match_record(
-                company, email=email_str,
-            )
-            territory_state = ""
-            territory_district = ""
-            territory_canonical = ""
-            if territory_match:
-                territory_state = territory_match.state
-                territory_district = territory_match.parent_district
-                territory_canonical = territory_match.canonical_name
-                if territory_state and territory_state not in territory_states:
-                    out_of_territory += 1
-                    audit_out_of_territory.append([
-                        company, full_name, email_str, title,
-                        f"State: {territory_state} ({territory_match.match_method})"
-                    ])
-                    continue
-            else:
-                # No territory match — check if this looks like a CA prospect
-                # CA territory data only has SoCal, so unmatched CA = likely NorCal
-                is_ca = False
-                if email_str:
-                    domain = email_str.lower().split("@")[-1] if "@" in email_str else ""
-                    if ".ca.us" in domain or domain.endswith(".ca.gov"):
-                        is_ca = True
-                ca_words = {"california", "ca"}
-                if any(w in company.lower().split() for w in ca_words):
-                    is_ca = True
-                if is_ca:
-                    out_of_territory += 1
-                    audit_out_of_territory.append([
-                        company, full_name, email_str, title,
-                        "CA - not in SoCal territory (likely NorCal)"
-                    ])
-                    continue
+            # Territory matching (tiers 1-5)
+            territory_match = territory_matcher.match_record(company, email=email_str)
+            if territory_match and territory_match.state not in territory_states:
+                out_of_territory += 1
+                audit_out_of_territory.append([
+                    company, full_name, email_str, title,
+                    f"State: {territory_match.state} ({territory_match.match_method})"
+                ])
+                continue
 
-            # Check 4: Was pricing sent? Multiple detection signals.
-            # Check all prospects that had any emails delivered (not just replies)
+            candidates.append((pid, pdata, company, company_key, email_str, full_name, title, territory_match))
+
+        logger.info(f"C4: {len(candidates)} candidates after quick filters + territory matching")
+
+        # ── Step 4b: Claude inference for unresolved candidates ──
+        # Collect prospects with no territory match for Claude batch inference
+        unresolved = []
+        unresolved_indices = []  # track which candidates need Claude results
+        for i, (pid, pdata, company, company_key, email_str, full_name, title, territory_match) in enumerate(candidates):
+            if not territory_match:
+                unresolved.append({
+                    "company": company,
+                    "email": email_str,
+                    "name": full_name,
+                    "title": title,
+                })
+                unresolved_indices.append(i)
+
+        claude_results = {}
+        if unresolved:
+            logger.info(f"C4: running Claude inference on {len(unresolved)} unresolved prospects")
+            try:
+                claude_results = territory_matcher.infer_locations_with_claude(unresolved)
+                claude_inferred_count = len(claude_results)
+                logger.info(f"C4: Claude inferred {claude_inferred_count} locations")
+            except Exception as e:
+                logger.error(f"C4: Claude inference failed: {e}")
+
+        # Apply Claude results — filter out non-territory and international
+        filtered_candidates = []
+        for i, (pid, pdata, company, company_key, email_str, full_name, title, territory_match) in enumerate(candidates):
+            if territory_match:
+                # Already resolved — keep
+                filtered_candidates.append((pid, pdata, company, company_key, email_str, full_name, title,
+                                            territory_match.state, territory_match.parent_district,
+                                            territory_match.canonical_name, territory_match.entity_type))
+            else:
+                # Check Claude results
+                claude_info = claude_results.get(company, {})
+                if claude_info:
+                    if not claude_info.get("is_us", True):
+                        international_count += 1
+                        audit_international.append([company, full_name, email_str, title, "International (Claude)"])
+                        continue
+                    c_state = claude_info.get("state", "")
+                    if c_state and c_state not in territory_states:
+                        out_of_territory += 1
+                        audit_out_of_territory.append([
+                            company, full_name, email_str, title,
+                            f"State: {c_state} (Claude inferred)"
+                        ])
+                        continue
+                    # CA check — if Claude says CA but not matched in SoCal territory, likely NorCal
+                    if c_state == "CA":
+                        out_of_territory += 1
+                        audit_out_of_territory.append([
+                            company, full_name, email_str, title,
+                            "CA - not in SoCal territory (Claude: CA)"
+                        ])
+                        continue
+                    filtered_candidates.append((pid, pdata, company, company_key, email_str, full_name, title,
+                                                c_state, claude_info.get("district", ""),
+                                                company, claude_info.get("entity_type", "school")))
+                else:
+                    # No Claude result either — keep with unknown state
+                    filtered_candidates.append((pid, pdata, company, company_key, email_str, full_name, title,
+                                                "", "", company, "school"))
+
+        logger.info(f"C4: {len(filtered_candidates)} candidates after Claude inference filtering")
+
+        # ── Step 5: Check pricing for remaining candidates ──
+        for (pid, pdata, company, company_key, email_str, full_name, title,
+             resolved_state, resolved_district, resolved_name, resolved_type) in filtered_candidates:
+
+            emails = pdata["prospect"].get("emails") or []
+
+            # Check pricing
             pricing_sent = False
             _pricing_reason = ""
             if pdata["deliver_count"] > 0:
                 try:
-                    # Rate limiting: pause every 10 checks to avoid API throttle + keep process alive
                     if checked_mailings > 0 and checked_mailings % 10 == 0:
                         time.sleep(1.0)
                     if checked_mailings > 0 and checked_mailings % 100 == 0:
-                        logger.info(f"C4: checked {checked_mailings} mailings so far, {pricing_sent_count} pricing found, {len(new_rows)} cold targets")
+                        logger.info(f"C4: checked {checked_mailings} mailings, {pricing_sent_count} pricing, {len(new_rows)} targets")
                     mailings = outreach_client.get_mailings_for_prospect(pid)
                     checked_mailings += 1
                     for m in mailings:
                         subject = (m.get("subject") or "").lower()
                         body = ((m.get("body_text") or "") + (m.get("body_html") or "")).lower()
 
-                        # Signal 1: PandaDoc quote link (not just any pandadoc mention)
-                        # Must be a document link (pandadoc.com/d/) not a footer/signature mention
                         if "pandadoc.com/d/" in body:
                             pricing_sent = True
                             _pricing_reason = "PandaDoc quote link"
                             break
-
-                        # Signal 2: Pricing subject line
                         if "codecombat licensing and pricing guide" in subject:
                             pricing_sent = True
                             _pricing_reason = "Pricing subject line"
                             break
-
-                        # Signal 3: Pricing template — must have the quote link phrase
-                        # AND at least one pricing tier indicator
                         has_quote_link_phrase = "here is the link to your digital quote for" in body
                         has_edit_quotes = "you can edit these quotes yourself" in body
                         pricing_tier_indicators = [
-                            "standard tiered pricing",
-                            "site license (unlimited)",
-                            "$70/license",
-                            "$49/license",
-                            "$38/license",
-                            "up to 99 students",
-                            "100 to 171 students",
-                            "multi-site & districts",
+                            "standard tiered pricing", "site license (unlimited)",
+                            "$70/license", "$49/license", "$38/license",
+                            "up to 99 students", "100 to 171 students", "multi-site & districts",
                         ]
                         has_pricing_tier = any(p in body for p in pricing_tier_indicators)
-
                         if has_quote_link_phrase and (has_edit_quotes or has_pricing_tier):
                             pricing_sent = True
                             _pricing_reason = "Quote template (digital quote + pricing tiers)"
@@ -1130,7 +1161,6 @@ def suggest_cold_license_requests(sequence_ids: list[int] = None, progress_callb
                 continue
 
             # ── This prospect is a C4 target ──
-            # Build engagement summary for notes
             notes_parts = []
             if pdata["deliver_count"] > 0:
                 notes_parts.append(f"{pdata['deliver_count']} emails delivered")
@@ -1141,34 +1171,20 @@ def suggest_cold_license_requests(sequence_ids: list[int] = None, progress_callb
             else:
                 notes_parts.append("no reply")
             if emails:
-                notes_parts.append(f"Email: {emails[0]}")
+                notes_parts.append(f"Email: {emails[0] if emails else ''}")
             if title:
                 notes_parts.append(f"Title: {title}")
             notes_parts.append(f"Contact: {full_name}")
             notes_parts.append(f"Seqs: {','.join(str(s) for s in pdata['sequences'])}")
 
-            # Determine deal level from company name
-            company_lower = company.lower()
-            district_words = {"district", "isd", "usd", "cisd", "cusd", "unified",
-                              "schools", "parish", "county", "consortium", "public"}
-            is_district = bool(set(company_lower.split()) & district_words)
-
-            # Priority: cold license requests get 750-849 (high intent — they asked for the product)
-            # Higher engagement = higher priority
             engagement_score = min(pdata["open_count"] * 5 + pdata["reply_count"] * 20, 99)
             priority = 750 + engagement_score
 
-            # Use canonical name if territory matched, otherwise original
-            display_name = territory_canonical if territory_canonical else company
-            deal_level = "district" if is_district else "school"
-            if territory_match:
-                deal_level = territory_match.entity_type
-
             row = [
-                territory_state,     # State (enriched from territory data, blank if unknown)
-                display_name,        # Account Name (canonical NCES name if matched)
-                deal_level,          # Deal Level
-                territory_district,  # Parent District (from territory data)
+                resolved_state,      # State (from territory match or Claude inference)
+                resolved_name,       # Account Name (canonical NCES name or original)
+                resolved_type,       # Deal Level
+                resolved_district,   # Parent District
                 company_key,         # Name Key
                 "cold_license_request",  # Strategy
                 "outreach",          # Source
@@ -1183,7 +1199,7 @@ def suggest_cold_license_requests(sequence_ids: list[int] = None, progress_callb
                 " | ".join(notes_parts),  # Notes (always last)
             ]
             new_rows.append(row)
-            prospect_keys.add(company_key)  # prevent within-batch dupes
+            prospect_keys.add(company_key)
 
         if new_rows:
             _write_rows(new_rows)
@@ -1203,7 +1219,7 @@ def suggest_cold_license_requests(sequence_ids: list[int] = None, progress_callb
             f"{pricing_sent_count} had pricing, {has_opp_count} had opps, "
             f"{already_active} active, {already_known} already queued, "
             f"{out_of_territory} out of territory, {international_count} international, "
-            f"{audit_no_company} no company."
+            f"{claude_inferred_count} Claude inferred, {audit_no_company} no company."
         )
 
         return {
@@ -1216,6 +1232,7 @@ def suggest_cold_license_requests(sequence_ids: list[int] = None, progress_callb
             "total_scanned": len(all_prospects),
             "mailings_checked": checked_mailings,
             "no_company": audit_no_company,
+            "claude_inferred": claude_inferred_count,
             "out_of_territory": out_of_territory,
             "international": international_count,
             "prospects": [r[1] for r in new_rows[:20]],

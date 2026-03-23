@@ -2082,6 +2082,8 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                         lines.append(f"🌍 {result['international']} international (excluded)")
                     if result.get("out_of_territory"):
                         lines.append(f"🗺 {result['out_of_territory']} out of territory (excluded)")
+                    if result.get("claude_inferred"):
+                        lines.append(f"🤖 {result['claude_inferred']} locations inferred by Claude")
                     if result.get("mailings_checked"):
                         lines.append(f"📧 {result['mailings_checked']} prospect mailings checked for pricing")
                     lines.append(f"\n📋 Check the *C4 Audit* tab in your Google Sheet to spot-check exclusions.")
