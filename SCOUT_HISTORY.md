@@ -344,3 +344,27 @@
 | 2026-03-12 | Session 33: Rich winback sequence context — Outreach.io variables ({{first_name}}, {{state}}, {{company}}), reply emails, incentivization, breakup email, loss-reason context (85% budget rejection, 15% competitor). 5 steps for winback/cold, 4 for upward. | Feature |
 | 2026-03-12 | Session 33: Saved winback business context — 85% of closed-lost deals are budget/cost rejection (teachers go unresponsive after admin says no), ~15% competitor chosen (don't understand full offering). Teachers get discouraged asking admins. | Context |
 | 2026-03-12 | Session 33: C3 Closed-Lost Winback IMPLEMENTED — needs closed-lost CSV from Salesforce to verify end-to-end. | Milestone |
+| 2026-03-15 | Session 34: C3 date window rewritten — dual-edge (buffer_months + lookback_months). `/prospect_winback all` for full history. `/prospect_winback buffer=N lookback=N` for custom. | Feature |
+| 2026-03-15 | Session 34: Lost Reason, Contact: Email, Fiscal Period, Lead Source mapped as proper columns in pipeline_tracker. CLOSED_LOST_EXTRA_COLUMNS added. | Feature |
+| 2026-03-16 | Session 34: Winback grouping fixed — group by Account Name (actual deal target), not Parent Account. School deals stay school-level. | Design Fix |
+| 2026-03-16 | Session 34: Territory cross-check for winback — 17/93 schools resolved to parent district via exact name match. Fuzzy matching needed. | Feature |
+| 2026-03-18 | Session 34: Prospecting Queue column redesign — State first, Account Name, Deal Level, Parent District, then ops columns, Notes always last. 16 columns total. | Feature |
+| 2026-03-18 | Session 34: clear_queue range fixed A2:N → A2:Z to cover all 16 columns. | Bug Fix |
+| 2026-03-19 | Session 34: Full roadmap recovered from old session transcripts (Session 22, c102c090). Saved to memory/roadmap_full.md. | Recovery |
+| 2026-03-19 | Session 34: C3 FULLY VERIFIED — all 5 tests passed (import, scan, spot-check, approve+research, sequence draft). | Milestone |
+| 2026-03-20 | Session 34: Outreach.io OAuth integration — connected as Steven (user ID 11). Read-only. Tokens persist via GitHub. | Feature |
+| 2026-03-20 | Session 34: `/connect_outreach`, `/outreach_status`, `/outreach_sequences` commands added. | Feature |
+| 2026-03-20 | Session 34: Outreach secret regenerated — original from IT had encoding issues. Copy button on dev portal works. | Bug Fix |
+| 2026-03-21 | Session 34: C4 cold license request scan built — pulls from 3 sequences (507, 1768, 1860), filters by opp/pricing/territory/international. | Feature |
+| 2026-03-21 | Session 34: `/c4`, `/c4_clear` commands. Background task execution. C4 Audit tab for spot-checking. | Feature |
+| 2026-03-21 | Session 34: NoneType crash fix — Outreach prospects can have null company/name/email fields. | Bug Fix |
+| 2026-03-21 | Session 34: Outreach token persistence moved to GitHub (memory/outreach_tokens.json) — /tmp wiped on Railway deploys. | Bug Fix |
+| 2026-03-21 | Session 34: Stale OAuth callback prevention — ignore duplicate callbacks if already authenticated. | Bug Fix |
+| 2026-03-22 | Session 34: Pricing detection tightened — PandaDoc /d/ links only, subject line match, template body content (digital quote + pricing tiers). Reduced false positives. | Feature |
+| 2026-03-22 | Session 34: International email TLD filter + CA/NorCal exclusion for unmatched CA prospects. | Feature |
+| 2026-03-23 | Session 34: territory_matcher.py created — 5-tier fuzzy matching against NCES data. Core utility for all features. | Feature |
+| 2026-03-23 | Session 34: Claude Sonnet batch inference for unresolved prospect locations (batches of 40). | Feature |
+| 2026-03-23 | Session 34: Bulk mailing scan — 3 API calls instead of 1,600+. Scan time 25min → 2min. | Performance |
+| 2026-03-23 | Session 34: C4 spot-check found 5 issues: email domain ranking, SoCal detection, Claude prompt, student exclusion, lead-level columns. Documented in memory. | Issues |
+| 2026-03-23 | Session 34: Winback loss-reason context updated with actual data — 61% Unresponsive, 19% Budget, 5% Not using, 4% Turnover, 2% Competitor. | Context |
+| 2026-03-23 | Session 34: Product status saved — AI Junior = beta (NOT released), AI Algebra = launched, CyberSecurity = fall 2026. | Context |

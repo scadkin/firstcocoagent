@@ -1,40 +1,48 @@
 # SCOUT — Claude Code Reference
-*Last updated: 2026-03-20 — Session 34*
+*Last updated: 2026-03-23 — Session 34*
 
 ---
 
 ## CURRENT STATE — update this after each session
 
-**Session 34: C3 fully verified. Prospecting Queue redesigned (State first, Account Name, Deal Level, Parent District columns). C4 designed — cold license requests via Outreach API (read-only). Ready to build Outreach integration in Session 35.**
+**Session 34: C3 fully verified. C4 built end-to-end (Outreach API → territory matching → Claude inference → Prospecting Queue). 5 issues found during spot-check that need fixing in Session 35. territory_matcher.py created as core utility.**
 
 ### What was done (Session 34)
-- **C3 verified end-to-end** — all 5 tests passed:
-  - Test 1: CSV import (257 opps to Closed Lost tab)
-  - Test 2: Winback scan (245 targets, 146 school / 99 district, 17 territory-resolved)
-  - Test 3: Spot-check queue data (columns verified after redesign)
-  - Test 4: Approve + research (Irving STEAM Magnet + Epic Charter School)
-  - Test 5: Sequence draft generation (Google Docs created, status="draft", links shared)
+- **C3 verified end-to-end** — all 5 tests passed (import, scan, spot-check, approve+research, sequence draft)
 - **C3 date window logic** — dual-edge: `buffer_months=6` + `lookback_months=18`. `/prospect_winback all` disables both. Custom params: `buffer=N lookback=N`.
-- **New CSV column mappings**: Lost Reason, Contact: Email, Fiscal Period, Lead Source
-- **Winback sequence context** updated with actual loss-reason percentages (61% Unresponsive, 19% Budget, 5% Not using, 4% Turnover, 2% Competitor)
 - **Prospecting Queue redesigned** — new column order: State | Account Name | Deal Level | Parent District | Name Key | Strategy | Source | Status | Priority | Date Added | Date Approved | Sequence Doc URL | Est. Enrollment | School Count | Total Licenses | Notes (always last)
-- **Winback grouping fixed** — groups by Account Name (the actual deal target), not Parent Account. School deals stay school-level. Parent district is context, not grouping key.
-- **Territory cross-check** — schools with no Parent Account matched against NCES Territory Schools tab to find parent district (17 of ~93 matched via exact name). Fuzzy matching needed for more (saved as TODO).
 - **Full roadmap recovered and saved to memory** — `memory/roadmap_full.md`
-- **C4 fully designed** — "cold license request re-engagement" strategy:
-  - Outreach API integration (read-only, OAuth2)
-  - Pull prospects from ~2 license request sequences
-  - Filter: no opp created + no pricing sent (PandaDoc link or pricing template)
-  - Strategy: "cold_license_request" in Prospecting Queue
-  - Steven has Outreach OAuth credentials (app URL, secret, app ID)
+- **Outreach API integration** — OAuth2 connected (user ID 11), tokens persist via GitHub, read-only scopes (sequences, prospects, mailings, calls, events, users, templates)
+- **C4 cold license request scan built** — `/c4` command:
+  - Pulls prospects from 3 US license request sequences (507, 1768, 1860)
+  - Bulk mailing scan for pricing detection (PandaDoc + subject + body content)
+  - Territory matcher (5-tier fuzzy matching against NCES data)
+  - Claude Sonnet batch inference for unresolved locations
+  - International TLD exclusion
+  - Cross-check against Active Accounts, Pipeline, Closed Lost
+  - Strategy: "cold_license_request", Source: "outreach"
+  - Scan takes ~10 min (bulk mailing + Claude inference)
+  - Current results: 1,290 targets from 2,118 prospects (after all filters)
+- **territory_matcher.py created** — core matching utility:
+  - 5-tier matching: exact name, suffix-stripped, email domain, city+token overlap, containment
+  - In-memory cache (1-hour TTL, 48K records)
+  - Claude batch inference for unknowns
+  - Used by C4, will be used by C3, B2, future features
+- **New commands**: `/connect_outreach [force]`, `/outreach_status`, `/outreach_sequences`, `/c4` (also `/prospect_cold_requests`, `/cold_requests`), `/c4_clear`
+- **Outreach token persistence** via GitHub (memory/outreach_tokens.json) — survives Railway deploys
+- **Speed optimization** — bulk mailing scan (3 queries vs 1,600+), background task execution
+
+### C4 issues to fix (Session 35) — documented in memory/c4_issues_to_fix.md
+1. **Email domain must rank higher than company name** — Salesforce company names are unreliable (educators pick wrong school). Email domain is the most reliable signal. Example: `mstewart2@udallas.edu` with "Corsica High School" → should be TX not SD.
+2. **Known SoCal domains excluded incorrectly** — `lausd.net`, `sandi.net`, `ucsd.edu` are SoCal but excluded as "CA - not in SoCal territory". Must check email domain against territory districts before excluding CA.
+3. **Claude prompt needs email domain emphasis** — Tell Claude: "email domain is the MOST reliable signal."
+4. **Student emails must be excluded** — `students.` subdomain = student, not educator. Exclude.
+5. **Need lead-level columns** — C4 prospects need email, first name, last name visible (not buried in Notes). Either add columns or create separate C4 tab.
 
 ### What still needs to be done (Session 35+)
-- **C4: Build Outreach API integration** — OAuth2 connection, read sequences/prospects/engagement data
-- **C4: Build cold license request filter** — no opp + no pricing sent = target
-- **C4: Add to Prospecting Queue** with strategy="cold_license_request"
+- **C4: Fix 5 issues** listed above, re-run, spot-check again
 - **C2: Research engine improvements** (after C4)
 - **C5: Proximity + regional service centers** (deferred)
-- **Fuzzy matching** for territory school→district cross-check (only 17/93 matched exact)
 - **Sequence copy improvements** — Outreach.io variables not being used (hardcoded), product accuracy (AI Junior = beta)
 - **Active Accounts column rename:** "Display Name" → "Active Account Name"
 
@@ -49,7 +57,8 @@
 - Enhancements A1-A3 + B1: ✅ implemented (Session 23)
 - Enhancement B2: ✅ fully verified (Session 30) — all 8 tests passed
 - Enhancement C1 (Territory Master List): ✅ fully verified (Session 32)
-- Enhancement C3 (Closed-Lost Winback): ✅ implemented (Session 33) — needs closed-lost CSV to verify
+- Enhancement C3 (Closed-Lost Winback): ✅ fully verified (Session 34)
+- Enhancement C4 (Cold License Requests): 🔧 built, 5 issues to fix (Session 35)
 - SoCal CSV filtering: ✅ 5 passes complete (Session 26)
 
 ### Phase 6 roadmap
@@ -172,7 +181,42 @@
 - SoCal counties: Los Angeles, San Diego, Orange, Riverside, San Bernardino, Kern, Ventura, Santa Barbara, San Luis Obispo, Imperial
 - Salesforce CSV files use latin-1 encoding (not utf-8)
 - Pass order matters: run 1→2→3→5→4 (pass 5 before 4 saves Serper credits)
-- Serper credits used: ~819 total. Steven has ~1,140 remaining.
+- Serper credits used: ~819 total. Steven has ~1,056 remaining.
+
+### Outreach.io API Integration (Session 34)
+- OAuth app: "AI Coco Automation" (Development mode), shared with CodeCombat team
+- Steven's Outreach user ID: **11** — all queries filter by this owner ID
+- Tokens persist via GitHub (`memory/outreach_tokens.json`) — survives Railway deploys
+- `/connect_outreach [force]` — OAuth flow, sends auth link in Telegram
+- `/outreach_status` — shows connection status + user ID
+- `/outreach_sequences` — lists Steven's sequences with engagement stats
+- Read-only scopes: accounts, prospects, sequences, sequenceStates, sequenceSteps, sequenceTemplates, templates, mailings, calls, events, users, callDispositions
+- **NEVER write to Outreach** — read-only. Don't add write operations without Steven's explicit approval.
+- Railway env vars: `OUTREACH_CLIENT_ID`, `OUTREACH_CLIENT_SECRET`, `OUTREACH_REDIRECT_URI`
+
+### C4 Cold License Requests (Session 34)
+- Strategy: "cold_license_request" — people who requested licenses but Steven never connected with
+- **NOT generic unresponsive leads.** These are inbound license requests that went cold — no opp created, no pricing sent.
+- Primary filter: no opp + no pricing sent = cold (pricing detection via PandaDoc links + template content)
+- 3 US license request sequences: IDs 507, 1768, 1860
+- `/c4` (also `/prospect_cold_requests`, `/cold_requests`) — runs scan in background (~10 min)
+- `/c4_clear` — clears only cold_license_request entries from Prospecting Queue
+- Bulk mailing scan for speed (3 API calls vs 1,600+)
+- territory_matcher.py for location resolution (5-tier fuzzy matching + Claude inference)
+- Claude batch inference: batches of 40 unknowns → Claude Sonnet identifies state/district
+- C4 Audit tab in Google Sheet for spot-checking exclusions
+- **Email domain ranks higher than company name for location** — Salesforce company names unreliable
+- **Student emails (students. subdomain) should be excluded**
+
+### territory_matcher.py (Session 34)
+- Core utility for matching messy school/district names against NCES Territory Master List
+- Used by C4, will be integrated into C3 winback and B2 lead imports
+- 5-tier matching: exact name → suffix-stripped → email domain → city+token overlap → containment
+- In-memory cache with 1-hour TTL (~48K records from Territory Schools + Districts tabs)
+- `match_record(name, email=, city=, state=)` → MatchResult or None
+- `match_records(records, ...)` → batch matching
+- `infer_locations_with_claude(unknowns)` → Claude batch inference for unresolved
+- `extract_domain_root(email)` and `generate_domain_roots(name)` — domain utilities
 
 ---
 
