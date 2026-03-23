@@ -2078,6 +2078,8 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                         lines.append(f"🏢 {result['already_active']} are active customers (excluded)")
                     if result.get("already_known"):
                         lines.append(f"📌 {result['already_known']} already in queue (excluded)")
+                    if result.get("student_emails"):
+                        lines.append(f"🎓 {result['student_emails']} student emails (excluded)")
                     if result.get("international"):
                         lines.append(f"🌍 {result['international']} international (excluded)")
                     if result.get("out_of_territory"):

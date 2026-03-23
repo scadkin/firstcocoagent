@@ -310,22 +310,46 @@ def _filter_by_state(records: list[dict], state: str) -> list[dict]:
     return [r for r in records if (r.get("State") or "").strip().upper() == state.upper()]
 
 
+def _match_by_email_domain(email: str, name_key: str, state: str) -> MatchResult | None:
+    """Try to match by email domain root against territory districts."""
+    domain_root = extract_domain_root(email)
+    if not domain_root:
+        return None
+    matches = _cache["by_domain_root"].get(domain_root, [])
+    if state:
+        matches = _filter_by_state(matches, state)
+    if len(matches) == 1:
+        return _record_to_result(matches[0], "district", "high", "email_domain")
+    elif len(matches) > 1:
+        # Multiple districts match this domain — try to disambiguate with name
+        for m in matches:
+            d_key = (m.get("Name Key") or "").lower()
+            if d_key and (d_key in name_key or name_key in d_key):
+                return _record_to_result(m, "district", "high", "email_domain+name")
+        # Fall back to first match
+        if matches:
+            return _record_to_result(matches[0], "district", "medium", "email_domain_ambiguous")
+    return None
+
+
 def match_record(
     name: str,
     *,
     email: str = "",
     city: str = "",
     state: str = "",
+    email_priority: bool = False,
 ) -> MatchResult | None:
     """
     Match a school/district name against the Territory Master List.
 
     Uses tiered matching (first match wins):
-      1. Exact normalized name
-      2. Suffix-stripped name
-      3. Email domain → district
-      4. City + token overlap
-      5. Containment match
+      Default order: 1.Exact name → 2.Suffix-stripped → 3.Email domain → 4.City+token → 5.Containment
+      email_priority=True: 1.Email domain → 2.Exact name → 3.Suffix-stripped → 4.City+token → 5.Containment
+
+    email_priority=True is recommended when company names are self-reported and
+    unreliable (e.g., Outreach/Salesforce prospects). Email domains from institutional
+    accounts (.edu, .k12) are more reliable indicators of location.
 
     Returns MatchResult or None if no match found.
     """
@@ -340,6 +364,12 @@ def match_record(
     name_key = csv_importer.normalize_name(name).lower()
     stripped = _strip_school_suffixes(name)
     state = state.strip().upper() if state else ""
+
+    # When email_priority=True, try email domain FIRST (before name matching)
+    if email_priority and email:
+        result = _match_by_email_domain(email, name_key, state)
+        if result:
+            return result
 
     # ── Tier 1: Exact normalized name match ──
     for entity_type, index in [("school", _cache["schools_by_key"]),
@@ -363,24 +393,11 @@ def match_record(
                 # Multiple matches in same state — return first (usually correct)
                 return _record_to_result(matches[0], entity_type, "high", "suffix_stripped")
 
-    # ── Tier 3: Email domain match ──
-    if email:
-        domain_root = extract_domain_root(email)
-        if domain_root:
-            matches = _cache["by_domain_root"].get(domain_root, [])
-            if state:
-                matches = _filter_by_state(matches, state)
-            if len(matches) == 1:
-                return _record_to_result(matches[0], "district", "high", "email_domain")
-            elif len(matches) > 1:
-                # Multiple districts match this domain — try to disambiguate with name
-                for m in matches:
-                    d_key = (m.get("Name Key") or "").lower()
-                    if d_key and (d_key in name_key or name_key in d_key):
-                        return _record_to_result(m, "district", "high", "email_domain+name")
-                # Fall back to first match if state matches
-                if matches:
-                    return _record_to_result(matches[0], "district", "medium", "email_domain_ambiguous")
+    # ── Tier 3: Email domain match (skipped if already tried via email_priority) ──
+    if email and not email_priority:
+        result = _match_by_email_domain(email, name_key, state)
+        if result:
+            return result
 
     # ── Tier 4: City + token overlap ──
     city_lower = city.strip().lower() if city else ""
@@ -441,6 +458,7 @@ def match_records(
     email_field: str = "email",
     city_field: str = "city",
     state_field: str = "state",
+    email_priority: bool = False,
 ) -> list[tuple[dict, MatchResult | None]]:
     """
     Match a batch of records. Loads cache once, then matches each record.
@@ -456,7 +474,8 @@ def match_records(
         # Handle email as list (Outreach returns emails as list)
         if isinstance(email, list):
             email = email[0] if email else ""
-        match = match_record(name, email=email, city=city_val, state=state_val)
+        match = match_record(name, email=email, city=city_val, state=state_val,
+                             email_priority=email_priority)
         results.append((rec, match))
     return results
 
@@ -513,6 +532,12 @@ For each record, use the company name, email domain, contact name, and title to 
 - city: the city if you can determine it. Use "" if unknown.
 - entity_type: "school" or "district"
 - is_us: true if this is a US institution, false if international or non-education
+
+CRITICAL: The email domain is the MOST reliable signal for determining location. Company names in Salesforce are self-reported and often WRONG — educators frequently pick the wrong school when signing up. Always prioritize the email domain over the company name when they conflict.
+
+Examples of unreliable company names:
+- "Corsica High School" with email @udallas.edu → this is University of Dallas in TEXAS, not Corsica HS in SD
+- "wfisd.net" → Wichita Falls ISD in TEXAS regardless of what the company name says
 
 Use your knowledge of US school districts, email domain patterns (.k12.xx.us, district-specific domains), and school naming conventions. Most US public schools have email domains that indicate their district and state.
 

@@ -137,8 +137,8 @@ district_prospector.clear_queue()  # Wipes all data rows, keeps header
 district_prospector.format_batch_for_telegram(districts, label="Prospecting Suggestions") -> str
 district_prospector.format_all_for_telegram(districts) -> str
 
-# Prospecting Queue tab columns:
-# State | Account Name | Deal Level | Parent District | Name Key | Strategy |
+# Prospecting Queue tab columns (19 columns):
+# State | Account Name | Email | First Name | Last Name | Deal Level | Parent District | Name Key | Strategy |
 # Source | Status | Priority | Date Added | Date Approved | Sequence Doc URL |
 # Est. Enrollment | School Count | Total Licenses | Notes (always last)
 # Deal Level values: school | district | ""

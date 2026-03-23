@@ -41,11 +41,14 @@ TAB_PROSPECT_QUEUE = "Prospecting Queue"
 PROSPECT_COLUMNS = [
     "State",
     "Account Name",     # the actual deal target (school name or district name)
+    "Email",            # contact email (populated by C4, blank for other strategies)
+    "First Name",       # contact first name (populated by C4)
+    "Last Name",        # contact last name (populated by C4)
     "Deal Level",       # "school" | "district" — was the deal at a school or district?
     "Parent District",  # for school-level deals: the parent district name. Empty for district-level.
     "Name Key",         # normalized via csv_importer.normalize_name()
-    "Strategy",         # "upward" | "cold" | "winback"
-    "Source",           # "web_search" | "manual" | "upward_auto" | "pipeline_closed"
+    "Strategy",         # "upward" | "cold" | "winback" | "cold_license_request"
+    "Source",           # "web_search" | "manual" | "upward_auto" | "pipeline_closed" | "outreach"
     "Status",           # "pending" | "approved" | "researching" | "draft" | "complete" | "skipped"
     "Priority",         # numeric score (higher = more important)
     "Date Added",
@@ -130,7 +133,7 @@ def _ensure_tab():
             body={"requests": [{"addSheet": {"properties": {"title": TAB_PROSPECT_QUEUE}}}]}
         ).execute()
 
-    # Clear entire header row first (removes stale columns from old schema)
+    # Clear entire header row first (removes stale columns from old schema — 19 cols now)
     service.spreadsheets().values().clear(
         spreadsheetId=sheet_id,
         range=f"'{TAB_PROSPECT_QUEUE}'!A1:Z1",
@@ -152,7 +155,7 @@ def _load_all_prospects() -> list[dict]:
         sheet_id = _get_sheet_id()
         result = service.spreadsheets().values().get(
             spreadsheetId=sheet_id,
-            range=f"'{TAB_PROSPECT_QUEUE}'!A:P"
+            range=f"'{TAB_PROSPECT_QUEUE}'!A:S"
         ).execute()
         rows = result.get("values", [])
         if len(rows) < 2:
@@ -186,7 +189,7 @@ def clear_by_strategy(strategy: str) -> dict:
 
     result = service.spreadsheets().values().get(
         spreadsheetId=sheet_id,
-        range=f"'{TAB_PROSPECT_QUEUE}'!A:P"
+        range=f"'{TAB_PROSPECT_QUEUE}'!A:S"
     ).execute()
     rows = result.get("values", [])
     if len(rows) < 2:
@@ -245,7 +248,7 @@ def _update_status(name_key: str, new_status: str, extra_updates: dict | None = 
 
     result = service.spreadsheets().values().get(
         spreadsheetId=sheet_id,
-        range=f"'{TAB_PROSPECT_QUEUE}'!A:P"
+        range=f"'{TAB_PROSPECT_QUEUE}'!A:S"
     ).execute()
     rows = result.get("values", [])
     if len(rows) < 2:
@@ -516,6 +519,9 @@ def discover_districts(state: str, max_results: int = 15) -> dict:
             row = [
                 d["state"],          # State
                 d["name"],           # Account Name
+                "",                  # Email
+                "",                  # First Name
+                "",                  # Last Name
                 "district",          # Deal Level
                 "",                  # Parent District
                 name_key,            # Name Key
@@ -601,6 +607,9 @@ def suggest_upward_targets() -> dict:
             row = [
                 dist.get("state", ""),     # State
                 dist["display_name"],      # Account Name
+                "",                        # Email
+                "",                        # First Name
+                "",                        # Last Name
                 "district",                # Deal Level
                 "",                        # Parent District
                 name_key,                  # Name Key
@@ -794,6 +803,9 @@ def suggest_closed_lost_targets(buffer_months: int = 6, lookback_months: int = 1
             row = [
                 state,               # State
                 account_name,        # Account Name (school name or district name — the actual deal)
+                "",                  # Email
+                "",                  # First Name
+                "",                  # Last Name
                 deal_level,          # Deal Level — "school" or "district"
                 parent_info,         # Parent District — for school deals, the district name
                 name_key,            # Name Key
@@ -815,9 +827,9 @@ def suggest_closed_lost_targets(buffer_months: int = 6, lookback_months: int = 1
         if new_rows:
             _write_rows(new_rows)
 
-        # Deal Level is column index 2
-        school_deal_count = sum(1 for r in new_rows if r[2] == "school")
-        district_deal_count = sum(1 for r in new_rows if r[2] == "district")
+        # Deal Level is column index 5 (after State, Account Name, Email, First Name, Last Name)
+        school_deal_count = sum(1 for r in new_rows if r[5] == "school")
+        district_deal_count = sum(1 for r in new_rows if r[5] == "district")
         return {
             "success": True,
             "new_added": len(new_rows),
@@ -974,6 +986,7 @@ def suggest_cold_license_requests(sequence_ids: list[int] = None, progress_callb
         has_opp_count = 0
         out_of_territory = 0
         international_count = 0
+        student_email_count = 0
         claude_inferred_count = 0
         audit_pricing_sent = []
         audit_has_opp = []
@@ -981,6 +994,7 @@ def suggest_cold_license_requests(sequence_ids: list[int] = None, progress_callb
         audit_no_company = 0
         audit_out_of_territory = []
         audit_international = []
+        audit_student_emails = []
 
         # Collect candidates that pass quick filters but need location resolution
         candidates = []  # list of (pid, pdata, company, company_key, email_str, full_name, title, territory_match)
@@ -1002,6 +1016,15 @@ def suggest_cold_license_requests(sequence_ids: list[int] = None, progress_callb
                 audit_no_company += 1
                 continue
             email_str = emails[0] if emails else ""
+
+            # Quick filter 0: Student email? (students. subdomain = student, not educator)
+            if email_str:
+                email_lower_check = email_str.lower()
+                domain_check = email_lower_check.split("@")[-1] if "@" in email_lower_check else ""
+                if domain_check.startswith("students.") or domain_check.startswith("student."):
+                    student_email_count += 1
+                    audit_student_emails.append([company, full_name, email_str, title, "Student email"])
+                    continue
 
             # Quick filter 1: Already an active customer?
             if company_key in active_keys:
@@ -1031,8 +1054,8 @@ def suggest_cold_license_requests(sequence_ids: list[int] = None, progress_callb
                 audit_international.append([company, full_name, email_str, title, f"International ({domain})"])
                 continue
 
-            # Territory matching (tiers 1-5)
-            territory_match = territory_matcher.match_record(company, email=email_str)
+            # Territory matching (email_priority=True: email domain ranks above company name)
+            territory_match = territory_matcher.match_record(company, email=email_str, email_priority=True)
             if territory_match and territory_match.state not in territory_states:
                 out_of_territory += 1
                 audit_out_of_territory.append([
@@ -1093,8 +1116,19 @@ def suggest_cold_license_requests(sequence_ids: list[int] = None, progress_callb
                             f"State: {c_state} (Claude inferred)"
                         ])
                         continue
-                    # CA check — if Claude says CA but not matched in SoCal territory, likely NorCal
+                    # CA check — if Claude says CA, verify via email domain against SoCal territory
                     if c_state == "CA":
+                        # Check if email domain matches a known SoCal district before excluding
+                        email_domain_match = territory_matcher._match_by_email_domain(
+                            email_str, csv_importer.normalize_name(company).lower(), "CA"
+                        ) if email_str else None
+                        if email_domain_match:
+                            # Email domain matches SoCal district — keep it!
+                            filtered_candidates.append((pid, pdata, company, company_key, email_str, full_name, title,
+                                                        "CA", email_domain_match.parent_district or email_domain_match.canonical_name,
+                                                        email_domain_match.canonical_name, email_domain_match.entity_type))
+                            continue
+                        # No SoCal domain match — likely NorCal, exclude
                         out_of_territory += 1
                         audit_out_of_territory.append([
                             company, full_name, email_str, title,
@@ -1133,11 +1167,8 @@ def suggest_cold_license_requests(sequence_ids: list[int] = None, progress_callb
                 notes_parts.append(f"{pdata['reply_count']} replies (no pricing sent)")
             else:
                 notes_parts.append("no reply")
-            if emails:
-                notes_parts.append(f"Email: {emails[0] if emails else ''}")
             if title:
                 notes_parts.append(f"Title: {title}")
-            notes_parts.append(f"Contact: {full_name}")
             notes_parts.append(f"Seqs: {','.join(str(s) for s in pdata['sequences'])}")
 
             engagement_score = min(pdata["open_count"] * 5 + pdata["reply_count"] * 20, 99)
@@ -1146,6 +1177,9 @@ def suggest_cold_license_requests(sequence_ids: list[int] = None, progress_callb
             row = [
                 resolved_state,      # State (from territory match or Claude inference)
                 resolved_name,       # Account Name (canonical NCES name or original)
+                email_str,           # Email
+                first_name,          # First Name
+                last_name,           # Last Name
                 resolved_type,       # Deal Level
                 resolved_district,   # Parent District
                 company_key,         # Name Key
@@ -1172,6 +1206,7 @@ def suggest_cold_license_requests(sequence_ids: list[int] = None, progress_callb
             _write_c4_audit(
                 audit_pricing_sent, audit_has_opp, audit_active,
                 audit_no_company, audit_out_of_territory, audit_international,
+                audit_student_emails,
             )
         except Exception as e:
             logger.warning(f"C4: could not write audit tab: {e}")
@@ -1182,6 +1217,7 @@ def suggest_cold_license_requests(sequence_ids: list[int] = None, progress_callb
             f"{len(pricing_prospect_ids)} pricing (bulk), {pricing_sent_count} pricing (applied), "
             f"{has_opp_count} opps, {already_active} active, {already_known} queued, "
             f"{out_of_territory} out of territory, {international_count} international, "
+            f"{student_email_count} student emails, "
             f"{claude_inferred_count} Claude inferred, {audit_no_company} no company."
         )
 
@@ -1198,6 +1234,7 @@ def suggest_cold_license_requests(sequence_ids: list[int] = None, progress_callb
             "claude_inferred": claude_inferred_count,
             "out_of_territory": out_of_territory,
             "international": international_count,
+            "student_emails": student_email_count,
             "prospects": [r[1] for r in new_rows[:20]],
             "error": "",
         }
@@ -1215,7 +1252,7 @@ def suggest_cold_license_requests(sequence_ids: list[int] = None, progress_callb
 
 def _write_c4_audit(pricing_sent: list, has_opp: list, active: list,
                     no_company: int, out_of_territory: list = None,
-                    international: list = None):
+                    international: list = None, student_emails: list = None):
     """Write C4 exclusion audit data to a 'C4 Audit' tab for spot-checking."""
     service = _get_service()
     sheet_id = _get_sheet_id()
@@ -1223,6 +1260,7 @@ def _write_c4_audit(pricing_sent: list, has_opp: list, active: list,
     tab_name = "C4 Audit"
     out_of_territory = out_of_territory or []
     international = international or []
+    student_emails = student_emails or []
 
     # Ensure tab exists
     meta = service.spreadsheets().get(spreadsheetId=sheet_id).execute()
@@ -1261,6 +1299,11 @@ def _write_c4_audit(pricing_sent: list, has_opp: list, active: list,
         rows.append(["=== INTERNATIONAL ===", f"{len(international)} prospects", "", "", ""])
         rows.extend(international)
 
+    if student_emails:
+        rows.append(["", "", "", "", ""])
+        rows.append(["=== STUDENT EMAILS ===", f"{len(student_emails)} prospects", "", "", ""])
+        rows.extend(student_emails)
+
     if out_of_territory:
         rows.append(["", "", "", "", ""])
         rows.append(["=== OUT OF TERRITORY ===", f"{len(out_of_territory)} prospects", "", "", ""])
@@ -1279,8 +1322,8 @@ def _write_c4_audit(pricing_sent: list, has_opp: list, active: list,
 
     logger.info(
         f"C4 Audit tab written: {len(pricing_sent)} pricing, {len(has_opp)} opps, "
-        f"{len(active)} active, {len(international)} intl, {len(out_of_territory)} out of territory, "
-        f"{no_company} no company"
+        f"{len(active)} active, {len(international)} intl, {len(student_emails)} students, "
+        f"{len(out_of_territory)} out of territory, {no_company} no company"
     )
 
 
@@ -1323,6 +1366,9 @@ def add_district(name: str, state: str, notes: str = "", strategy: str = "cold")
         row = [
             state_abbr,     # State
             name,           # Account Name
+            "",             # Email
+            "",             # First Name
+            "",             # Last Name
             "",             # Deal Level
             "",             # Parent District
             name_key,       # Name Key
@@ -1447,6 +1493,10 @@ def format_batch_for_telegram(districts: list[dict], label: str = "Prospecting S
             details.append(f"{school_count} active schools")
         if enrollment and str(enrollment) != "0" and str(enrollment) != "":
             details.append(f"~{enrollment} students")
+        # Show contact info for C4 (cold_license_request)
+        contact_name = f"{d.get('First Name', '')} {d.get('Last Name', '')}".strip()
+        if strategy == "cold_license_request" and contact_name:
+            details.append(contact_name)
         if details:
             line += f" — {', '.join(details)}"
         lines.append(line)

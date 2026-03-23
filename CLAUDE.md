@@ -1,16 +1,24 @@
 # SCOUT — Claude Code Reference
-*Last updated: 2026-03-23 — Session 34*
+*Last updated: 2026-03-23 — Session 35*
 
 ---
 
 ## CURRENT STATE — update this after each session
 
-**Session 34: C3 fully verified. C4 built end-to-end (Outreach API → territory matching → Claude inference → Prospecting Queue). 5 issues found during spot-check that need fixing in Session 35. territory_matcher.py created as core utility.**
+**Session 35: C4 — 5 spot-check issues FIXED. Email domain priority, SoCal domain check, student email exclusion, Claude prompt emphasis, lead-level columns (Email/First Name/Last Name) added to Prospecting Queue. Ready for re-run + spot-check.**
+
+### What was done (Session 35)
+- **Fix 1: Email domain priority** — `match_record()` gets `email_priority=True` param. When enabled, email domain matching runs BEFORE name matching (Tier 3 → Tier 0). C4 scan uses this. Fixes: `mstewart2@udallas.edu` with "Corsica HS" → correctly resolves to TX, not SD.
+- **Fix 2: SoCal domain check** — Before excluding CA Claude-inferred prospects, checks email domain against SoCal territory districts. `lausd.net`, `sandi.net`, `ucsd.edu` etc. now correctly kept as SoCal.
+- **Fix 3: Claude prompt emphasis** — Inference prompt explicitly states email domain is the MOST reliable signal with examples.
+- **Fix 4: Student email exclusion** — `students.` and `student.` subdomain emails excluded from C4 results. Separate audit category + Telegram counter.
+- **Fix 5: Lead-level columns** — Email, First Name, Last Name added to Prospecting Queue after Account Name. C4 populates them; other strategies leave blank. Removed from Notes field for C4. All 5 row-building locations updated.
+- **`_match_by_email_domain()` extracted** — Internal helper in territory_matcher for reuse by both `match_record()` and C4 SoCal domain check.
 
 ### What was done (Session 34)
 - **C3 verified end-to-end** — all 5 tests passed (import, scan, spot-check, approve+research, sequence draft)
 - **C3 date window logic** — dual-edge: `buffer_months=6` + `lookback_months=18`. `/prospect_winback all` disables both. Custom params: `buffer=N lookback=N`.
-- **Prospecting Queue redesigned** — new column order: State | Account Name | Deal Level | Parent District | Name Key | Strategy | Source | Status | Priority | Date Added | Date Approved | Sequence Doc URL | Est. Enrollment | School Count | Total Licenses | Notes (always last)
+- **Prospecting Queue redesigned** — new column order: State | Account Name | Email | First Name | Last Name | Deal Level | Parent District | Name Key | Strategy | Source | Status | Priority | Date Added | Date Approved | Sequence Doc URL | Est. Enrollment | School Count | Total Licenses | Notes (always last)
 - **Full roadmap recovered and saved to memory** — `memory/roadmap_full.md`
 - **Outreach API integration** — OAuth2 connected (user ID 11), tokens persist via GitHub, read-only scopes (sequences, prospects, mailings, calls, events, users, templates)
 - **C4 cold license request scan built** — `/c4` command:
@@ -32,15 +40,15 @@
 - **Outreach token persistence** via GitHub (memory/outreach_tokens.json) — survives Railway deploys
 - **Speed optimization** — bulk mailing scan (3 queries vs 1,600+), background task execution
 
-### C4 issues to fix (Session 35) — documented in memory/c4_issues_to_fix.md
-1. **Email domain must rank higher than company name** — Salesforce company names are unreliable (educators pick wrong school). Email domain is the most reliable signal. Example: `mstewart2@udallas.edu` with "Corsica High School" → should be TX not SD.
-2. **Known SoCal domains excluded incorrectly** — `lausd.net`, `sandi.net`, `ucsd.edu` are SoCal but excluded as "CA - not in SoCal territory". Must check email domain against territory districts before excluding CA.
-3. **Claude prompt needs email domain emphasis** — Tell Claude: "email domain is the MOST reliable signal."
-4. **Student emails must be excluded** — `students.` subdomain = student, not educator. Exclude.
-5. **Need lead-level columns** — C4 prospects need email, first name, last name visible (not buried in Notes). Either add columns or create separate C4 tab.
+### C4 issues — ALL 5 FIXED (Session 35)
+1. ✅ **Email domain ranks higher** — `email_priority=True` in C4's `match_record()` call
+2. ✅ **SoCal domains kept** — email domain checked against territory before CA exclusion
+3. ✅ **Claude prompt updated** — explicit "email domain is MOST reliable signal" with examples
+4. ✅ **Student emails excluded** — `students.`/`student.` subdomain filter, audit category
+5. ✅ **Lead-level columns added** — Email, First Name, Last Name in Prospecting Queue
 
 ### What still needs to be done (Session 35+)
-- **C4: Fix 5 issues** listed above, re-run, spot-check again
+- **C4: Re-run /c4, spot-check again** — all 5 fixes applied, need to verify with fresh scan
 - **C2: Research engine improvements** (after C4)
 - **C5: Proximity + regional service centers** (deferred)
 - **Sequence copy improvements** — Outreach.io variables not being used (hardcoded), product accuracy (AI Junior = beta)
@@ -58,7 +66,7 @@
 - Enhancement B2: ✅ fully verified (Session 30) — all 8 tests passed
 - Enhancement C1 (Territory Master List): ✅ fully verified (Session 32)
 - Enhancement C3 (Closed-Lost Winback): ✅ fully verified (Session 34)
-- Enhancement C4 (Cold License Requests): 🔧 built, 5 issues to fix (Session 35)
+- Enhancement C4 (Cold License Requests): 🔧 5 issues fixed, re-run + spot-check needed (Session 35)
 - SoCal CSV filtering: ✅ 5 passes complete (Session 26)
 
 ### Phase 6 roadmap
