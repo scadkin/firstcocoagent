@@ -1149,7 +1149,10 @@ def suggest_cold_license_requests(sequence_ids: list[int] = None, progress_callb
         for (pid, pdata, company, company_key, email_str, full_name, title,
              resolved_state, resolved_district, resolved_name, resolved_type) in filtered_candidates:
 
-            emails = pdata["prospect"].get("emails") or []
+            prospect = pdata["prospect"]
+            emails = prospect.get("emails") or []
+            p_first = (prospect.get("first_name") or "")
+            p_last = (prospect.get("last_name") or "")
 
             # Check pricing — fast set lookup from bulk scan (Step 1b)
             if str(pid) in pricing_prospect_ids:
@@ -1178,8 +1181,8 @@ def suggest_cold_license_requests(sequence_ids: list[int] = None, progress_callb
                 resolved_state,      # State (from territory match or Claude inference)
                 resolved_name,       # Account Name (canonical NCES name or original)
                 email_str,           # Email
-                first_name,          # First Name
-                last_name,           # Last Name
+                p_first,             # First Name
+                p_last,              # Last Name
                 resolved_type,       # Deal Level
                 resolved_district,   # Parent District
                 company_key,         # Name Key

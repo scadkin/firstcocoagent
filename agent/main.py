@@ -2093,7 +2093,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             except Exception as e:
                 await send_message(f"C4 scan error: {e}")
 
-        await send_message("🔍 Scanning Outreach license request sequences for cold prospects...\nThis runs in the background — I'll send results when done (15-20 min).")
+        await send_message("🔍 Scanning Outreach license request sequences for cold prospects...\nThis runs in the background — I'll send results when done (~10 min).")
         asyncio.create_task(_run_c4_scan())
         return
 
