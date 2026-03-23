@@ -120,7 +120,8 @@ def _get_sheet_id():
 
 
 def _ensure_tab():
-    """Create Prospecting Queue tab if missing. Always overwrite header row."""
+    """Create Prospecting Queue tab if missing. Always overwrite header row.
+    Also migrates old 16-column rows to 19-column layout (adds Email, First Name, Last Name)."""
     service = _get_service()
     sheet_id = _get_sheet_id()
 
@@ -132,6 +133,50 @@ def _ensure_tab():
             spreadsheetId=sheet_id,
             body={"requests": [{"addSheet": {"properties": {"title": TAB_PROSPECT_QUEUE}}}]}
         ).execute()
+
+    # ── Migrate old 16-column rows to 19-column layout ──
+    # Old layout: State, Account Name, Deal Level, Parent District, Name Key, Strategy, ...
+    # New layout: State, Account Name, EMAIL, FIRST NAME, LAST NAME, Deal Level, Parent District, Name Key, Strategy, ...
+    # Detect old rows: if value at index 5 (old Strategy col) is a known strategy,
+    # the row needs 3 empty columns inserted after index 1.
+    _KNOWN_STRATEGIES = {"upward", "cold", "winback", "cold_license_request"}
+    try:
+        result = service.spreadsheets().values().get(
+            spreadsheetId=sheet_id,
+            range=f"'{TAB_PROSPECT_QUEUE}'!A2:S9999"
+        ).execute()
+        data_rows = result.get("values", [])
+        if data_rows:
+            migrated = False
+            new_rows = []
+            for row in data_rows:
+                padded = row + [""] * (max(16, 19) - len(row))
+                # Old format: Strategy is at index 5. New format: Strategy is at index 8.
+                old_strategy = padded[5] if len(padded) > 5 else ""
+                new_strategy = padded[8] if len(padded) > 8 else ""
+                if old_strategy in _KNOWN_STRATEGIES and new_strategy not in _KNOWN_STRATEGIES:
+                    # Old format — insert 3 empty cols after Account Name (index 1)
+                    migrated_row = padded[:2] + ["", "", ""] + padded[2:16]
+                    new_rows.append(migrated_row)
+                    migrated = True
+                else:
+                    # Already in new format or new C4 row
+                    new_rows.append(padded[:19])
+            if migrated:
+                logger.info(f"Migrating Prospecting Queue rows to 19-column layout")
+                service.spreadsheets().values().clear(
+                    spreadsheetId=sheet_id,
+                    range=f"'{TAB_PROSPECT_QUEUE}'!A2:S9999",
+                ).execute()
+                service.spreadsheets().values().update(
+                    spreadsheetId=sheet_id,
+                    range=f"'{TAB_PROSPECT_QUEUE}'!A2",
+                    valueInputOption="RAW",
+                    body={"values": new_rows}
+                ).execute()
+                logger.info(f"Migrated {len(new_rows)} rows to 19-column layout")
+    except Exception as e:
+        logger.warning(f"Prospecting Queue migration check failed (non-fatal): {e}")
 
     # Clear entire header row first (removes stale columns from old schema — 19 cols now)
     service.spreadsheets().values().clear(
