@@ -2116,6 +2116,26 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await send_message(f"Migration error: {e}")
         return
 
+    elif user_text.lower() in ["/cleanup_queue", "/clean_queue"]:
+        try:
+            loop = asyncio.get_event_loop()
+            result = await loop.run_in_executor(
+                None, district_prospector.cleanup_prospect_queue
+            )
+            if result.get("errors"):
+                await send_message(f"⚠️ Cleanup error: {result['errors']}")
+            else:
+                await send_message(
+                    f"✅ Prospecting Queue cleaned up.\n"
+                    f"Before: *{result['total_before']}* rows\n"
+                    f"After: *{result['total_after']}* rows\n"
+                    f"Removed invalid strategy: *{result['removed_invalid']}*\n"
+                    f"Removed duplicates: *{result['removed_duplicate']}*"
+                )
+        except Exception as e:
+            await send_message(f"Cleanup error: {e}")
+        return
+
     elif user_text.lower() in ["/c4_clear", "/clear_c4", "/clear_cold_requests"]:
         try:
             loop = asyncio.get_event_loop()

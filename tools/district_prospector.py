@@ -312,6 +312,95 @@ def clear_by_strategy(strategy: str) -> dict:
     return {"cleared": cleared, "total_before": total_before, "total_after": len(kept_rows) - 1}
 
 
+_KNOWN_STRATEGIES = {"upward", "cold", "winback", "cold_license_request"}
+
+
+def cleanup_prospect_queue() -> dict:
+    """Remove rows with invalid/empty Strategy and deduplicate by Name Key (keep last).
+
+    Returns {total_before, total_after, removed_invalid, removed_duplicate, errors}.
+    """
+    try:
+        service = _get_service()
+        sheet_id = _get_sheet_id()
+
+        result = service.spreadsheets().values().get(
+            spreadsheetId=sheet_id,
+            range=f"'{TAB_PROSPECT_QUEUE}'!A:S"
+        ).execute()
+        rows = result.get("values", [])
+        if len(rows) < 2:
+            return {"total_before": 0, "total_after": 0,
+                    "removed_invalid": 0, "removed_duplicate": 0, "errors": []}
+
+        headers = rows[0]
+        strategy_idx = headers.index("Strategy") if "Strategy" in headers else 8
+        name_key_idx = headers.index("Name Key") if "Name Key" in headers else 7
+
+        total_before = len(rows) - 1
+
+        # Step 1: filter out rows with invalid or empty strategy
+        valid_rows = []
+        removed_invalid = 0
+        for row in rows[1:]:
+            padded = row + [""] * (len(headers) - len(row))
+            strategy = padded[strategy_idx].strip().lower()
+            if strategy in _KNOWN_STRATEGIES:
+                valid_rows.append(row)
+            else:
+                removed_invalid += 1
+
+        # Step 2: deduplicate by Name Key (keep last occurrence)
+        seen = {}
+        for i, row in enumerate(valid_rows):
+            padded = row + [""] * (len(headers) - len(row))
+            nk = padded[name_key_idx].strip().lower()
+            if nk:
+                seen[nk] = i  # overwrite — keeps last
+            else:
+                # No name key — keep the row (don't drop unknowns)
+                seen[f"__no_key_{i}"] = i
+
+        deduped_indices = sorted(seen.values())
+        deduped_rows = [valid_rows[i] for i in deduped_indices]
+        removed_duplicate = len(valid_rows) - len(deduped_rows)
+
+        total_after = len(deduped_rows)
+
+        # Rewrite sheet: clear all then write header + clean rows
+        service.spreadsheets().values().clear(
+            spreadsheetId=sheet_id,
+            range=f"'{TAB_PROSPECT_QUEUE}'!A1:Z9999",
+        ).execute()
+
+        write_data = [headers] + deduped_rows
+        service.spreadsheets().values().update(
+            spreadsheetId=sheet_id,
+            range=f"'{TAB_PROSPECT_QUEUE}'!A1",
+            valueInputOption="RAW",
+            body={"values": write_data}
+        ).execute()
+
+        logger.info(
+            f"Prospecting Queue cleanup: {total_before} → {total_after} "
+            f"(removed {removed_invalid} invalid, {removed_duplicate} dupes)"
+        )
+        return {
+            "total_before": total_before,
+            "total_after": total_after,
+            "removed_invalid": removed_invalid,
+            "removed_duplicate": removed_duplicate,
+            "errors": [],
+        }
+    except Exception as e:
+        logger.error(f"cleanup_prospect_queue error: {e}")
+        return {
+            "total_before": 0, "total_after": 0,
+            "removed_invalid": 0, "removed_duplicate": 0,
+            "errors": [str(e)],
+        }
+
+
 def _write_rows(rows: list[list]):
     """Append rows to the Prospecting Queue tab."""
     if not rows:
