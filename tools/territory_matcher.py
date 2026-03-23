@@ -90,6 +90,46 @@ _GENERIC_DOMAINS = {
 }
 
 
+def extract_state_from_email(email: str) -> str:
+    """
+    Extract 2-letter US state code from k12/state email domains.
+    e.g. teacher@spring.k12.tx.us → "TX"
+         admin@avsd.k12.pa.us → "PA"
+         user@russell.k12.va.us → "VA"
+    Returns empty string if no state can be extracted.
+    """
+    if not email or "@" not in email:
+        return ""
+    domain = email.lower().split("@")[-1].strip()
+    parts = domain.split(".")
+    # Pattern: *.k12.STATE.us or *.STATE.us
+    if len(parts) >= 4 and parts[-1] == "us":
+        state_candidate = parts[-2]
+        if len(state_candidate) == 2 and state_candidate.isalpha():
+            # Verify it's after k12 or similar edu marker
+            if "k12" in parts or "pvt" in parts or "tec" in parts or "cc" in parts:
+                return state_candidate.upper()
+    # Also handle *.state.STATE.us pattern
+    if len(parts) >= 4 and parts[-1] == "us" and "state" in parts:
+        state_candidate = parts[-2]
+        if len(state_candidate) == 2 and state_candidate.isalpha():
+            return state_candidate.upper()
+    return ""
+
+
+def is_student_email(email: str) -> bool:
+    """
+    Check if an email belongs to a student (not an educator).
+    Detects: students.kleinisd.net, student.district.org,
+             waltonstudent.org, cusdstudent.com, wusdstudent.us
+    """
+    if not email or "@" not in email:
+        return False
+    domain = email.lower().split("@")[-1].strip()
+    # Check for "student" anywhere in the domain (covers all patterns)
+    return "student" in domain
+
+
 def extract_domain_root(email: str) -> str:
     """
     Extract meaningful root from an email domain.
@@ -105,8 +145,8 @@ def extract_domain_root(email: str) -> str:
 
     # Handle k12-style: spring.k12.tx.us → "spring"
     parts = domain.split(".")
-    if len(parts) >= 4 and parts[-2] == "us":
-        # state.us domain
+    if len(parts) >= 4 and parts[-1] == "us":
+        # state.us domain (fixed: was parts[-2], now parts[-1])
         for p in parts:
             if p not in ("k12", "us", "pvt", "tec", "cc", "lib", "state",
                          "org", "net", "edu", "com", "gov") and len(p) > 1:
@@ -116,10 +156,10 @@ def extract_domain_root(email: str) -> str:
 
     # Handle multi-level: staff.austinisd.org → "austinisd"
     if len(parts) >= 3:
-        # Skip common prefixes
+        # Skip common prefixes (including student-related)
         prefixes = {"staff", "mail", "email", "webmail", "my", "students", "student",
                     "stu", "apps", "portal", "admin"}
-        for p in parts[:-2]:  # skip TLD parts
+        for p in parts[:-1]:  # skip only TLD, check all other parts
             if p not in prefixes and len(p) > 2:
                 return p
 
@@ -136,6 +176,8 @@ def generate_domain_roots(name: str) -> set[str]:
     """
     Generate plausible email domain roots from a school/district name.
     e.g. "Austin Independent School District" → {"austinisd", "austin", "aisd"}
+         "Los Angeles Unified" → {"losangeles", "los", "lau", "lausd"}
+         "Garden Grove Unified" → {"gardengrove", "gg", "ggu", "ggusd"}
     """
     if not name:
         return set()
@@ -160,11 +202,19 @@ def generate_domain_roots(name: str) -> set[str]:
             acronym = "".join(w[0] for w in words if w)
             if len(acronym) >= 3:
                 roots.add(acronym)
+            # Acronym + "sd" — many districts use acronym+SD in domains
+            # "Los Angeles Unified" → "lau" + "sd" → "lausd"
+            # "Garden Grove Unified" → "ggu" + "sd" → "ggusd"
+            if len(acronym) >= 2:
+                roots.add(acronym + "sd")
+                roots.add(acronym + "usd")
         # Content word acronym
         if len(content_words) >= 2:
             c_acronym = "".join(w[0] for w in content_words)
             if len(c_acronym) >= 2:
                 roots.add(c_acronym)
+                roots.add(c_acronym + "sd")
+                roots.add(c_acronym + "usd")
 
     return {r for r in roots if len(r) >= 3}
 
