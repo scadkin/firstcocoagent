@@ -1048,6 +1048,24 @@ def suggest_cold_license_requests(sequence_ids: list[int] = None, progress_callb
                         f"State: {territory_state} ({territory_match.match_method})"
                     ])
                     continue
+            else:
+                # No territory match — check if this looks like a CA prospect
+                # CA territory data only has SoCal, so unmatched CA = likely NorCal
+                is_ca = False
+                if email_str:
+                    domain = email_str.lower().split("@")[-1] if "@" in email_str else ""
+                    if ".ca.us" in domain or domain.endswith(".ca.gov"):
+                        is_ca = True
+                ca_words = {"california", "ca"}
+                if any(w in company.lower().split() for w in ca_words):
+                    is_ca = True
+                if is_ca:
+                    out_of_territory += 1
+                    audit_out_of_territory.append([
+                        company, full_name, email_str, title,
+                        "CA - not in SoCal territory (likely NorCal)"
+                    ])
+                    continue
 
             # Check 4: Was pricing sent? Multiple detection signals.
             # Check all prospects that had any emails delivered (not just replies)
