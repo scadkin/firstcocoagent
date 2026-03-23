@@ -542,6 +542,93 @@ def get_mailings_for_prospect(prospect_id: int | str, sequence_id: int | str = N
     return mailings
 
 
+def get_pricing_prospect_ids(sequence_ids: list[int | str]) -> set[str]:
+    """
+    Bulk scan: pull ALL mailings for the given sequences and find prospect IDs
+    where pricing was sent. Returns set of prospect ID strings.
+
+    Much faster than checking mailings per-prospect (3 bulk queries vs 1600+ individual).
+    """
+    pricing_prospect_ids = set()
+    total_mailings = 0
+
+    pricing_signals_subject = ["codecombat licensing and pricing guide"]
+    pricing_phrases = [
+        "here is the link to your digital quote for",
+        "you can edit these quotes yourself",
+        "standard tiered pricing", "site license (unlimited)",
+        "$70/license", "$49/license", "$38/license",
+        "up to 99 students", "100 to 171 students", "multi-site & districts",
+    ]
+
+    for seq_id in sequence_ids:
+        logger.info(f"Outreach: bulk scanning mailings for sequence {seq_id}")
+        params = {
+            "filter[sequence][id]": str(seq_id),
+            "page[size]": "100",
+        }
+        pages = 0
+        max_pages = 200  # safety limit
+
+        while pages < max_pages:
+            try:
+                result = _api_get("/mailings", params)
+            except Exception as e:
+                logger.warning(f"Outreach: mailing bulk scan error on page {pages}: {e}")
+                break
+
+            data = result.get("data", [])
+            if not data:
+                break
+
+            for item in data:
+                total_mailings += 1
+                attrs = item.get("attributes", {})
+                subject = (attrs.get("subject") or "").lower()
+                body_text = (attrs.get("bodyText") or "").lower()
+                body_html = (attrs.get("bodyHtml") or "").lower()
+                body = body_text + body_html
+
+                is_pricing = False
+
+                # Signal 1: PandaDoc quote link
+                if "pandadoc.com/d/" in body:
+                    is_pricing = True
+                # Signal 2: Pricing subject line
+                elif any(s in subject for s in pricing_signals_subject):
+                    is_pricing = True
+                # Signal 3: Quote template content
+                else:
+                    has_quote = "here is the link to your digital quote for" in body
+                    has_edit = "you can edit these quotes yourself" in body
+                    has_tier = any(p in body for p in pricing_phrases[2:])  # tier indicators
+                    if has_quote and (has_edit or has_tier):
+                        is_pricing = True
+                    elif has_edit and has_tier:
+                        is_pricing = True
+
+                if is_pricing:
+                    # Extract prospect ID from relationship
+                    prospect_ref = item.get("relationships", {}).get("prospect", {}).get("data", {})
+                    pid = prospect_ref.get("id") if prospect_ref else None
+                    if pid:
+                        pricing_prospect_ids.add(str(pid))
+
+            pages += 1
+            next_link = result.get("links", {}).get("next")
+            if not next_link:
+                break
+            import urllib.parse
+            parsed = urllib.parse.urlparse(next_link)
+            next_params = dict(urllib.parse.parse_qsl(parsed.query))
+            params.update(next_params)
+
+        logger.info(f"Outreach: sequence {seq_id} — scanned {total_mailings} mailings so far, {len(pricing_prospect_ids)} pricing found")
+
+    logger.info(f"Outreach: bulk mailing scan complete — {total_mailings} total mailings, {len(pricing_prospect_ids)} prospects with pricing")
+    return pricing_prospect_ids
+
+
 def get_sequence_steps(sequence_id: int | str) -> list[dict]:
     """Get the steps for a sequence (email, call, task)."""
     params = {"filter[sequence][id]": str(sequence_id)}

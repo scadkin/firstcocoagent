@@ -896,6 +896,11 @@ def suggest_cold_license_requests(sequence_ids: list[int] = None, progress_callb
 
         logger.info(f"C4: found {len(all_prospects)} unique prospects across {total_states} sequence states")
 
+        # ── Step 1b: Bulk pricing detection — scan all mailings at once ──
+        logger.info("C4: bulk scanning mailings for pricing signals...")
+        pricing_prospect_ids = outreach_client.get_pricing_prospect_ids(sequence_ids)
+        logger.info(f"C4: {len(pricing_prospect_ids)} prospects had pricing sent (bulk scan)")
+
         # ── Step 2: Build opp lookup from Pipeline + Closed Lost ──
         # If an opp exists for this company/account, it's not C4
         opp_account_keys = set()
@@ -967,7 +972,6 @@ def suggest_cold_license_requests(sequence_ids: list[int] = None, progress_callb
         already_active = 0
         pricing_sent_count = 0
         has_opp_count = 0
-        checked_mailings = 0
         out_of_territory = 0
         international_count = 0
         claude_inferred_count = 0
@@ -1113,51 +1117,10 @@ def suggest_cold_license_requests(sequence_ids: list[int] = None, progress_callb
 
             emails = pdata["prospect"].get("emails") or []
 
-            # Check pricing
-            pricing_sent = False
-            _pricing_reason = ""
-            if pdata["deliver_count"] > 0:
-                try:
-                    if checked_mailings > 0 and checked_mailings % 10 == 0:
-                        time.sleep(1.0)
-                    if checked_mailings > 0 and checked_mailings % 100 == 0:
-                        logger.info(f"C4: checked {checked_mailings} mailings, {pricing_sent_count} pricing, {len(new_rows)} targets")
-                    mailings = outreach_client.get_mailings_for_prospect(pid)
-                    checked_mailings += 1
-                    for m in mailings:
-                        subject = (m.get("subject") or "").lower()
-                        body = ((m.get("body_text") or "") + (m.get("body_html") or "")).lower()
-
-                        if "pandadoc.com/d/" in body:
-                            pricing_sent = True
-                            _pricing_reason = "PandaDoc quote link"
-                            break
-                        if "codecombat licensing and pricing guide" in subject:
-                            pricing_sent = True
-                            _pricing_reason = "Pricing subject line"
-                            break
-                        has_quote_link_phrase = "here is the link to your digital quote for" in body
-                        has_edit_quotes = "you can edit these quotes yourself" in body
-                        pricing_tier_indicators = [
-                            "standard tiered pricing", "site license (unlimited)",
-                            "$70/license", "$49/license", "$38/license",
-                            "up to 99 students", "100 to 171 students", "multi-site & districts",
-                        ]
-                        has_pricing_tier = any(p in body for p in pricing_tier_indicators)
-                        if has_quote_link_phrase and (has_edit_quotes or has_pricing_tier):
-                            pricing_sent = True
-                            _pricing_reason = "Quote template (digital quote + pricing tiers)"
-                            break
-                        elif has_edit_quotes and has_pricing_tier:
-                            pricing_sent = True
-                            _pricing_reason = "Quote template (edit quotes + pricing tiers)"
-                            break
-                except Exception as e:
-                    logger.warning(f"C4: could not fetch mailings for prospect {pid}: {e}")
-
-            if pricing_sent:
+            # Check pricing — fast set lookup from bulk scan (Step 1b)
+            if str(pid) in pricing_prospect_ids:
                 pricing_sent_count += 1
-                audit_pricing_sent.append([company, full_name, email_str, title, _pricing_reason])
+                audit_pricing_sent.append([company, full_name, email_str, title, "Pricing detected (bulk scan)"])
                 continue
 
             # ── This prospect is a C4 target ──
@@ -1215,9 +1178,9 @@ def suggest_cold_license_requests(sequence_ids: list[int] = None, progress_callb
 
         logger.info(
             f"C4: {len(new_rows)} cold license requests added. "
-            f"Scanned {len(all_prospects)} prospects, {checked_mailings} mailing checks, "
-            f"{pricing_sent_count} had pricing, {has_opp_count} had opps, "
-            f"{already_active} active, {already_known} already queued, "
+            f"Scanned {len(all_prospects)} prospects, "
+            f"{len(pricing_prospect_ids)} pricing (bulk), {pricing_sent_count} pricing (applied), "
+            f"{has_opp_count} opps, {already_active} active, {already_known} queued, "
             f"{out_of_territory} out of territory, {international_count} international, "
             f"{claude_inferred_count} Claude inferred, {audit_no_company} no company."
         )
@@ -1228,9 +1191,9 @@ def suggest_cold_license_requests(sequence_ids: list[int] = None, progress_callb
             "already_known": already_known,
             "already_active": already_active,
             "pricing_sent": pricing_sent_count,
+            "pricing_bulk_detected": len(pricing_prospect_ids),
             "has_opp": has_opp_count,
             "total_scanned": len(all_prospects),
-            "mailings_checked": checked_mailings,
             "no_company": audit_no_company,
             "claude_inferred": claude_inferred_count,
             "out_of_territory": out_of_territory,
