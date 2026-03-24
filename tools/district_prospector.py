@@ -1388,13 +1388,9 @@ def suggest_cold_license_requests(sequence_ids: list[int] = None, progress_callb
                         filtered_candidates.append((pid, pdata, company, company_key, email_str, full_name, title,
                                                     last_resort_state, "", company, "school"))
                     else:
-                        # Truly unknown — skip, don't add with empty state
-                        audit_out_of_territory.append([
-                            company, full_name, email_str, title,
-                            "State unknown (no match, no Claude result, no email signal)"
-                        ])
-                        out_of_territory += 1
-                        continue
+                        # Unknown state — keep in queue for review (don't exclude yet)
+                        filtered_candidates.append((pid, pdata, company, company_key, email_str, full_name, title,
+                                                    "", "", company, "school"))
 
         logger.info(f"C4: {len(filtered_candidates)} candidates after Claude inference filtering")
 

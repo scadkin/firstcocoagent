@@ -7,45 +7,13 @@
 
 **Session 35: C4 — 5 spot-check issues FIXED. Email domain priority, SoCal domain check, student email exclusion, Claude prompt emphasis, lead-level columns (Email/First Name/Last Name) added to Prospecting Queue. Ready for re-run + spot-check.**
 
-### What was done (Session 35)
-- **Fix 1: Email domain priority** — `match_record()` gets `email_priority=True` param. When enabled, email domain matching runs BEFORE name matching (Tier 3 → Tier 0). C4 scan uses this. Fixes: `mstewart2@udallas.edu` with "Corsica HS" → correctly resolves to TX, not SD.
-- **Fix 2: SoCal domain check** — Before excluding CA Claude-inferred prospects, checks email domain against SoCal territory districts. `lausd.net`, `sandi.net`, `ucsd.edu` etc. now correctly kept as SoCal.
-- **Fix 3: Claude prompt emphasis** — Inference prompt explicitly states email domain is the MOST reliable signal with examples.
-- **Fix 4: Student email exclusion** — `students.` and `student.` subdomain emails excluded from C4 results. Separate audit category + Telegram counter.
-- **Fix 5: Lead-level columns** — Email, First Name, Last Name added to Prospecting Queue after Account Name. C4 populates them; other strategies leave blank. Removed from Notes field for C4. All 5 row-building locations updated.
-- **`_match_by_email_domain()` extracted** — Internal helper in territory_matcher for reuse by both `match_record()` and C4 SoCal domain check.
-
-### What was done (Session 34)
-- **C3 verified end-to-end** — all 5 tests passed (import, scan, spot-check, approve+research, sequence draft)
-- **C3 date window logic** — dual-edge: `buffer_months=6` + `lookback_months=18`. `/prospect_winback all` disables both. Custom params: `buffer=N lookback=N`.
-- **Prospecting Queue redesigned** — new column order: State | Account Name | Email | First Name | Last Name | Deal Level | Parent District | Name Key | Strategy | Source | Status | Priority | Date Added | Date Approved | Sequence Doc URL | Est. Enrollment | School Count | Total Licenses | Notes (always last)
-- **Full roadmap recovered and saved to memory** — `memory/roadmap_full.md`
-- **Outreach API integration** — OAuth2 connected (user ID 11), tokens persist via GitHub, read-only scopes (sequences, prospects, mailings, calls, events, users, templates)
-- **C4 cold license request scan built** — `/c4` command:
-  - Pulls prospects from 3 US license request sequences (507, 1768, 1860)
-  - Bulk mailing scan for pricing detection (PandaDoc + subject + body content)
-  - Territory matcher (5-tier fuzzy matching against NCES data)
-  - Claude Sonnet batch inference for unresolved locations
-  - International TLD exclusion
-  - Cross-check against Active Accounts, Pipeline, Closed Lost
-  - Strategy: "cold_license_request", Source: "outreach"
-  - Scan takes ~10 min (bulk mailing + Claude inference)
-  - Current results: 1,290 targets from 2,118 prospects (after all filters)
-- **territory_matcher.py created** — core matching utility:
-  - 5-tier matching: exact name, suffix-stripped, email domain, city+token overlap, containment
-  - In-memory cache (1-hour TTL, 48K records)
-  - Claude batch inference for unknowns
-  - Used by C4, will be used by C3, B2, future features
-- **New commands**: `/connect_outreach [force]`, `/outreach_status`, `/outreach_sequences`, `/c4` (also `/prospect_cold_requests`, `/cold_requests`), `/c4_clear`
-- **Outreach token persistence** via GitHub (memory/outreach_tokens.json) — survives Railway deploys
-- **Speed optimization** — bulk mailing scan (3 queries vs 1,600+), background task execution
-
-### C4 issues — ALL 5 FIXED (Session 35)
-1. ✅ **Email domain ranks higher** — `email_priority=True` in C4's `match_record()` call
-2. ✅ **SoCal domains kept** — email domain checked against territory before CA exclusion
-3. ✅ **Claude prompt updated** — explicit "email domain is MOST reliable signal" with examples
-4. ✅ **Student emails excluded** — `students.`/`student.` subdomain filter, audit category
-5. ✅ **Lead-level columns added** — Email, First Name, Last Name in Prospecting Queue
+### What was done (Sessions 34-35)
+- **C3 verified**, C4 built end-to-end, Outreach API connected, territory_matcher.py created
+- **C4 fixes:** email domain priority, SoCal domain check, student exclusion, Claude prompt, lead-level columns
+- **Prospecting Queue columns:** State | Account Name | Email | First Name | Last Name | Deal Level | Parent District | Name Key | Strategy | Source | Status | Priority | Date Added | Date Approved | Sequence Doc URL | Est. Enrollment | School Count | Total Licenses | Notes
+- **Comprehensive state extraction** from email domains (k12, .gov, state suffixes, city names)
+- **Known SoCal domain lookup** (KNOWN_SOCAL_DOMAIN_ROOTS in territory_matcher.py)
+- **Still in progress:** domain→state mapping from real SF/Territory data, spot-check accuracy
 
 ### What still needs to be done (Session 35+)
 - **C4: Re-run /c4, spot-check again** — all 5 fixes applied, need to verify with fresh scan
@@ -69,162 +37,51 @@
 - Enhancement C4 (Cold License Requests): 🔧 5 issues fixed, re-run + spot-check needed (Session 35)
 - SoCal CSV filtering: ✅ 5 passes complete (Session 26)
 
-### Phase 6 roadmap
-- **6E** — District Prospecting Queue ✅ complete
-- **6F** — Pipeline Snapshot ✅ complete (Session 22)
+### Other completed features
+- **Weekend scheduler (B1):** Sat 11am, Sun 1pm greeting. No auto check-ins. `/eod` works manually.
+- **Lead row coloring (A3):** Auto-colors by confidence after research. `/color_leads` for manual recolor.
 
-### Weekend scheduler (B1, Session 23)
-- Saturday: greeting at 11:00am CST, Sunday: greeting at 1:00pm CST
-- No auto check-ins or auto EOD on weekends
-- `/eod` command triggers EOD report manually (works any day)
-- `scheduler.mark_user_active_today()` called from `handle_message()` on weekends — suppresses auto-greeting if Steven messages first
-- `_is_user_active_today()` resets daily (compares against current date)
+### SF Leads & Contacts import (B2, Sessions 24-28) — VERIFIED
+- Tabs: SF Leads, SF Contacts (separate from research Leads). Separate sheet: `GOOGLE_SHEETS_SF_ID` env var.
+- `/import_leads`, `/import_contacts`, `/enrich_leads`, `/clear_leads`, `/clear_contacts`
+- Cross-checks against Active Accounts (email domain, name, district). Math filter tabs for math-related titles.
+- Mutually exclusive routing: math+active → math active, math only → math, active only → assoc active, neither → main.
+- `lead_importer` is a flat module imported at top of main.py (NOT lazy). Chunked at 2,000 rows.
+- Cross-check rules: school-level active accounts only block SAME school. District-level blocks whole district.
+- `clear_tab()` uses `values().clear()` + `updateSheetProperties` grid resize (NOT `deleteDimension`).
+- "Leads from Research" = renamed research Leads tab. `TAB_LEADS` constant.
 
-### Lead row coloring (A3, Session 23)
-- `_color_leads_by_confidence()` auto-runs after `write_contacts()` appends to Leads tab
-- `/color_leads` command recolors all existing rows (one-time cleanup)
-- Colors: VERIFIED/HIGH = light green, LIKELY/MEDIUM = yellowish-green, INFERRED/LOW = light yellow, UNKNOWN = light grey
-- Batches in chunks of 500 requests for Sheets API safety
+### C1 Territory Master List (Sessions 31-32) — VERIFIED
+- NCES CCD 2023 data via Urban Institute API. 13 states + CA (SoCal counties only). 8,133 districts, 40,317 schools.
+- Separate sheet: `GOOGLE_SHEETS_TERRITORY_ID`. Tabs: Territory Districts, Territory Schools.
+- `/territory_sync`, `/territory_stats`, `/territory_gaps`. Cached in `/tmp/` with 7-day TTL.
+- **API returns county_code as strings** (e.g., `"6037"`), not integers.
+- Gap coverage: only district-level deals = "covered". School account = "upward opportunity".
 
-### SF Leads & Contacts import (B2, Session 24)
-- Two new tabs: **SF Leads** (from Salesforce Leads report) and **SF Contacts** (from Salesforce Contacts report)
-- SEPARATE from the existing Leads tab (which is research-generated contacts)
-- `/import_leads` — next CSV goes to SF Leads tab; `/import_contacts` — next CSV goes to SF Contacts tab
-- Auto-detect: lead CSV has 2+ of {Lead Source, Lead Status, Company}; contact CSV has 2+ of {Account Name, Department, Contact Owner} + name columns
-- Auto-detect priority: pipeline > sf_leads > sf_contacts > accounts
-- Natural language: "salesforce leads" / "my leads" routes to SF Leads; "contacts" / "sf contacts" routes to SF Contacts
-- Cross-checks each record against Active Accounts by email domain, account/company name, and district name
-- Enrichment columns: Verified School, Verified District, Verified State, Verified County (CA only), Active Account Match, Enrichment Status, Enrichment Notes, Last Enriched, Date Imported
-- `/enrich_leads` runs Serper web search on unenriched records (up to 20 at a time); `/enrich_leads contacts` for SF Contacts tab
-- `_leads_import_mode` global: None | "leads" | "contacts" — resets after use (same pattern as `_pipeline_import_mode`)
-- `lead_importer` is a flat module imported at top of main.py (NOT lazy)
-- Large CSV imports chunked at 2,000 rows per batch with 3-attempt retry + 2s/4s backoff
-- Append range uses tight `A:{last_col}` based on header count (NOT `A:AZ`) — prevents 10M cell limit hits
-- Two extra tabs: **Leads Assoc Active Accounts** and **Contacts Assoc Active Accounts** — populated during import with cross-checked records only
-- Four math filter tabs: **SF Leads - Math**, **Leads Assoc Active - Math**, **SF Contacts - Math**, **Contacts Assoc Active - Math** — leads/contacts with math/algebra/mathematics/calculus/geometry in Title auto-routed here
-- **Mutually exclusive routing** — each record goes to exactly ONE tab: (1) math + active → math active, (2) math only → math, (3) active only → assoc active, (4) neither → main. No duplicates across tabs.
-- `/clear_leads` — clears all 4 SF Leads tabs (main + active + math + math active) data rows + shrinks grid
-- `/clear_contacts` — clears all 4 SF Contacts tabs (main + active + math + math active) data rows + shrinks grid
-- `clear_tab()` uses `values().clear()` + `updateSheetProperties` grid resize (NOT `deleteDimension` which fails on frozen rows)
-- **Separate Google Sheet for SF imports** — `GOOGLE_SHEETS_SF_ID` env var. `_get_sf_sheet_id()` reads it (falls back to main sheet). All SF lead/contact operations use this. Cross-check still reads Active Accounts from main sheet via `csv_importer`.
-- **Tab formatting** — `_format_tab()` runs after every import: column widths sized to header text (~7px/char), alternating row banding (blue header, white/light gray-blue), frozen row 1. Replaced `_auto_resize_columns()`.
-- **Column order** — State/Province first, then name/title/company/email, then Active Account Match right after Email, then Last Enriched right after that, then remaining columns.
-- **State column first** — State/Province is column A in both SF Leads and SF Contacts schemas
-- **"Leads from Research"** — the research-generated Leads tab was renamed from "Leads". `TAB_LEADS` constant in sheets_writer.py. Auto-migration renames on startup via `cleanup_and_format_sheets()`.
+### C3 Closed-Lost Winback (Session 33) — VERIFIED
+- Separate "Closed Lost" tab (NOT Pipeline). `/import_closed_lost`, `/prospect_winback`.
+- Date window: `buffer_months=6` + `lookback_months=18`. Strategy: "winback", Source: "pipeline_closed".
+- **Why deals close lost:** 61% Unresponsive, 19% Budget, 5% Not using, 4% Turnover, 2% Competitor.
+- All sequences are DRAFTS → Google Doc → Steven reviews. Status includes "draft".
 
-### Cross-check rules (B2, Sessions 27-28)
-- **Exact Match - School**: lead's company = same school as active account → match
-- **Exact Match - District**: lead's company = same district as active account → match
-- **District is Active Account**: active account is a district-level deal, lead is at any school or the district itself → match
-- **NOT a match**: active account is just a school, lead is at a DIFFERENT school or the district → Steven can freely prospect
-- Key rule: school-level active accounts only block the SAME school. District-level active accounts block the whole district.
-- Pre-built lookup structures: `_build_account_lookups()` runs once per import, creates by_name, districts_by_name, schools_by_parent, domain_to_accounts dicts
-- Email domain matching: `_generate_domain_roots()` creates plausible roots from account names (e.g., "Austin ISD" → {"austinisd", "austin", "aisd"})
-- `_generate_domain_roots()` now includes **acronym-based roots**: first letters of all words → "Los Angeles Unified School District" → "lausd"; also acronym + suffixes → "Cypress-Fairbanks ISD" → "cfisd"
-- `_extract_domain_root()` handles k12-style domains (spring.k12.tx.us → "spring") and multi-level domains (staff.austinisd.org → "austinisd")
-- State filtering: matches require same state (or either side blank)
-- **Step 2 (District Name) validation**: Salesforce District Name field is unreliable — leads can be tagged to wrong district. If lead has non-generic institutional email, domain root must match the matched district's generated roots. Generic emails (gmail etc.) still trust SF data. `_domain_matches_account()` handles this check.
-- Uses lead's District Name and Parent Account fields for district detection (Step 2)
-- `_classify_lead_company()` uses `csv_importer.classify_account()` to determine if lead's company is a school vs district
-
-### C1 Territory Master List (Sessions 31-32)
-- Data source: Urban Institute Education Data API (`educationdata.urban.org`), wrapping NCES CCD 2023
-- No auth required, JSON responses, filter by FIPS state code
-- 13 states: IL, PA, OH, MI, CT, OK, MA, IN, NV, TN, NE, TX + CA (SoCal counties only)
-- CA filtered by `county_code` to 10 SoCal counties — **API returns county_code as strings** (e.g., `"6037"`), not integers
-- Separate Google Sheet: `GOOGLE_SHEETS_TERRITORY_ID` env var (falls back to main sheet)
-- Two tabs: `Territory Districts` (17 columns) and `Territory Schools` (18 columns)
-- `/territory_sync [state]` — downloads + writes to sheet; processes one state at a time
-- `/territory_stats [state]` — coverage summary by state
-- `/territory_gaps <state>` — cross-refs against Active Accounts + Prospecting Queue; creates Google Doc for 20+ uncovered
-- API responses cached in `/tmp/territory_{kind}_{state}.json` with 7-day TTL (cleared on Railway redeploy)
-- Sync clears existing rows for each state before writing (idempotent re-sync)
-- Chunked writes at 2,000 rows with 3-attempt retry
-- `territory_data` is a flat module imported at top of main.py
-- **Gap analysis coverage rules:** district-level Active Account deal = "covered". School account in a district = "upward opportunity" (NOT coverage). Coverage % only counts district deals. Unmatched schools (private/charter not in NCES) shown separately with ⚠️.
-- **Full territory size:** 8,133 districts, 40,317 schools, 20.6M students across all states
-
-### C3 Closed-Lost Winback (Session 33)
-- **Data source:** Separate Salesforce "Closed Lost Opportunities" report CSV — NOT from Pipeline tab
-- **Closed-lost opps are not in Steven's pipeline data.** He must run a dedicated report in Salesforce, export CSV, upload to Scout
-- `/import_closed_lost` — sets next CSV upload to route to the "Closed Lost" tab (dedicated, separate from Pipeline)
-- Natural language: "closed lost" / "winback" in caption or pre-message also routes to Closed Lost tab
-- `get_closed_lost_opps()` reads from Closed Lost tab first, falls back to Pipeline tab
-- Filter: Date window with dual edges — `buffer_months=6` (exclude too-recent) + `lookback_months=18` (how far back from buffer edge). Default: ~24mo ago to ~6mo ago. `lookback_months=0` = no oldest cutoff.
-- Groups by district: uses Parent Account if available, else Account Name
-- `/prospect_winback` (also `/winback`) — scans Closed Lost tab, adds to Prospecting Queue
-- Strategy label: `"winback"`, Source: `"pipeline_closed"`
-- Priority 550-749: higher deal amounts score higher. Between upward (600-999) and cold (300-700)
-- Dedupes against Active Accounts (skips — they're already customers) and existing Prospecting Queue
-- Notes field captures: opp count, total value, last close date, opp names
-- **Winback sequences are DRAFTS** — written to Google Doc, link shared in Telegram, Steven reviews before finalizing. Status set to "draft" (not "complete") until approved.
-- **Sequence requirements:** 5 steps, Outreach.io variables ({{first_name}}, {{state}}, {{company}}), at least one "reply" email, highlight what's new/improved, include incentivization, breakup email last
-- **Why deals close lost (actual data):** 61% Unresponsive (teacher went dark after admin pushback), 19% Budget (admin said no), 5% Not using/didn't start, 4% Teacher turnover, 2% Competitor. Teachers get discouraged asking admins.
-- Status values now include "draft" between "researching" and "complete"
-
-### Merged territory CSV files (Session 27)
-- `~/Downloads/My merged leads list - Including SoCal - as of 3-7-26.csv` — 86,993 leads (all territory states + SoCal)
-- `~/Downloads/My merged contacts list - Including SoCal - as of 3-7-26.csv` — 19,775 contacts (all territory states + SoCal)
-- Non-SoCal files use latin-1 encoding; merged output is utf-8-sig
-- SoCal rows have County/SoCal/County_Method columns filled; non-SoCal rows have those columns blank
-
-### SoCal Lead/Contact Filtering (Sessions 25-26)
-- **Offline data cleaning scripts** in `scripts/` — NOT Scout feature code
-- `scripts/socal_filter.py` — Pass 1: CDE public school/district name matching + zip + city + email domain
-- `scripts/socal_filter_pass2.py` — Pass 2: Parent account matching, city names embedded in school names, deeper email domain
-- `scripts/socal_filter_pass3.py` — Pass 3: CDE + NCES private school database matching
-- `scripts/socal_filter_pass4.py` — Pass 4: Serper web search on uncertain school-keyword records
-- `scripts/socal_filter_pass5.py` — Pass 5: Free lookups (email domain→district→county, phone area codes, city/District Name fields)
-- `scripts/socal_rebuild_leads.py` — Utility: replays passes 1-4 from original source (used for recovery)
-- Data sources cached in `/tmp/`: `cde_schools.txt` (CDE public schools), `cde_districts.txt` (CDE districts), `cde_private_schools.xlsx` (CDE private), `nces_private/pss2122_pu.csv` (NCES private)
-- Download URLs: CDE public = `https://www.cde.ca.gov/schooldirectory/report?rid=dl1&tp=txt`, CDE districts = `rid=dl2`, CDE private = `https://www.cde.ca.gov/ds/si/ps/documents/privateschooldata2425.xlsx`, NCES = `https://nces.ed.gov/surveys/pss/zip/pss2122_pu_csv.zip`
-- Input: `~/Downloads/My Leads - SoCal Only.csv` (20,737 records) and `~/Downloads/My Contacts - SoCal Only.csv` (8,040 records)
-- Final output (4 files):
-  - `~/Downloads/Leads_SoCal_Filtered.csv` — 10,677 confirmed SoCal leads
-  - `~/Downloads/Contacts_SoCal_Filtered.csv` — 4,170 confirmed SoCal contacts
-  - `~/Downloads/Leads_SoCal_Uncertain.csv` — 1,128 uncertain leads (separate)
-  - `~/Downloads/Contacts_SoCal_Uncertain.csv` — 69 uncertain contacts (separate)
-  - `*_NORCAL_REMOVED.csv` — NorCal/non-CA records removed (for audit)
-- Each output has 3 added columns: County, SoCal (Yes/No/Uncertain), County_Method
+### SoCal CSV Filtering (Sessions 25-27) — COMPLETE
+- Offline scripts in `scripts/socal_filter*.py` (5 passes). NOT Scout feature code.
+- Merged output: `~/Downloads/My merged leads list - Including SoCal - as of 3-7-26.csv` (86,993 leads), contacts (19,775)
 - SoCal counties: Los Angeles, San Diego, Orange, Riverside, San Bernardino, Kern, Ventura, Santa Barbara, San Luis Obispo, Imperial
-- Salesforce CSV files use latin-1 encoding (not utf-8)
-- Pass order matters: run 1→2→3→5→4 (pass 5 before 4 saves Serper credits)
-- Serper credits used: ~819 total. Steven has ~1,056 remaining.
 
-### Outreach.io API Integration (Session 34)
-- OAuth app: "AI Coco Automation" (Development mode), shared with CodeCombat team
-- Steven's Outreach user ID: **11** — all queries filter by this owner ID
-- Tokens persist via GitHub (`memory/outreach_tokens.json`) — survives Railway deploys
-- `/connect_outreach [force]` — OAuth flow, sends auth link in Telegram
-- `/outreach_status` — shows connection status + user ID
-- `/outreach_sequences` — lists Steven's sequences with engagement stats
-- Read-only scopes: accounts, prospects, sequences, sequenceStates, sequenceSteps, sequenceTemplates, templates, mailings, calls, events, users, callDispositions
-- **NEVER write to Outreach** — read-only. Don't add write operations without Steven's explicit approval.
-- Railway env vars: `OUTREACH_CLIENT_ID`, `OUTREACH_CLIENT_SECRET`, `OUTREACH_REDIRECT_URI`
+### Outreach.io API (Session 34)
+- Steven's user ID: **11**. Read-only. **NEVER write to Outreach.**
+- Tokens persist via GitHub (`memory/outreach_tokens.json`). Railway env vars: `OUTREACH_CLIENT_ID`, `OUTREACH_CLIENT_SECRET`, `OUTREACH_REDIRECT_URI`.
 
-### C4 Cold License Requests (Session 34)
-- Strategy: "cold_license_request" — people who requested licenses but Steven never connected with
-- **NOT generic unresponsive leads.** These are inbound license requests that went cold — no opp created, no pricing sent.
-- Primary filter: no opp + no pricing sent = cold (pricing detection via PandaDoc links + template content)
-- 3 US license request sequences: IDs 507, 1768, 1860
-- `/c4` (also `/prospect_cold_requests`, `/cold_requests`) — runs scan in background (~10 min)
-- `/c4_clear` — clears only cold_license_request entries from Prospecting Queue
-- Bulk mailing scan for speed (3 API calls vs 1,600+)
-- territory_matcher.py for location resolution (5-tier fuzzy matching + Claude inference)
-- Claude batch inference: batches of 40 unknowns → Claude Sonnet identifies state/district
-- C4 Audit tab in Google Sheet for spot-checking exclusions
-- **Email domain ranks higher than company name for location** — Salesforce company names unreliable
-- **Student emails (students. subdomain) should be excluded**
-
-### territory_matcher.py (Session 34)
-- Core utility for matching messy school/district names against NCES Territory Master List
-- Used by C4, will be integrated into C3 winback and B2 lead imports
-- 5-tier matching: exact name → suffix-stripped → email domain → city+token overlap → containment
-- In-memory cache with 1-hour TTL (~48K records from Territory Schools + Districts tabs)
-- `match_record(name, email=, city=, state=)` → MatchResult or None
-- `match_records(records, ...)` → batch matching
-- `infer_locations_with_claude(unknowns)` → Claude batch inference for unresolved
-- `extract_domain_root(email)` and `generate_domain_roots(name)` — domain utilities
+### C4 Cold License Requests (Sessions 34-35)
+- Strategy: "cold_license_request" — inbound license requests that went cold (no opp, no pricing sent).
+- 3 sequences: IDs 507, 1768, 1860. `/c4`, `/c4_clear`, `/cleanup_queue`, `/fix_queue`.
+- **Email domain ranks higher than company name** (`email_priority=True`). Student emails excluded.
+- territory_matcher.py: 5-tier matching + Claude inference + comprehensive state extraction.
+- `extract_state_from_email()`: k12 domains, .gov, state suffixes, state names, city names.
+- `is_socal_domain()`: known SoCal district abbreviations (KNOWN_SOCAL_DOMAIN_ROOTS).
+- `is_student_email()`: "student" anywhere in domain.
+- C4 Audit tab for spot-checking exclusions.
 
 ---
 
