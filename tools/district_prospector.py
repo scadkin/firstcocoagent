@@ -1130,13 +1130,18 @@ def suggest_cold_license_requests(sequence_ids: list[int] = None, progress_callb
 
         # ── Step 3b: Load territory matcher for name resolution + filtering ──
         import tools.territory_matcher as territory_matcher
-        logger.info(f"C4: territory_matcher has is_student_email={hasattr(territory_matcher, 'is_student_email')}, "
-                    f"extract_state_from_email={hasattr(territory_matcher, 'extract_state_from_email')}")
         try:
-            territory_matcher.ensure_cache(force_reload=True)  # force reload to pick up new domain roots
+            territory_matcher.ensure_cache(force_reload=True)
             logger.info(f"C4: territory matcher cache loaded — {territory_matcher.get_cache_stats()}")
         except Exception as e:
             logger.warning(f"C4: could not load territory matcher: {e}")
+
+        # Build domain→state lookup from real SF Leads/Contacts emails
+        try:
+            sf_lookup = territory_matcher.build_domain_state_lookup(force_reload=True)
+            logger.info(f"C4: SF domain→state lookup built — {len(sf_lookup)} domain roots")
+        except Exception as e:
+            logger.warning(f"C4: could not build SF domain lookup: {e}")
 
         # Steven's territory states
         territory_states = {
@@ -1236,12 +1241,16 @@ def suggest_cold_license_requests(sequence_ids: list[int] = None, progress_callb
                 audit_international.append([company, full_name, email_str, title, f"International ({domain})"])
                 continue
 
-            # Quick filter 5: Extract state from k12.STATE.us email domain
-            # This is the most reliable signal — state is embedded in the domain
+            # Quick filter 5: Extract state from email domain
+            # Priority: k12/gov domain → SF data lookup → territory matching
             email_state = ""
             if email_str:
                 try:
+                    # First try k12/gov/suffix/city patterns
                     email_state = territory_matcher.extract_state_from_email(email_str)
+                    # If that didn't work, try SF data-driven lookup
+                    if not email_state:
+                        email_state = territory_matcher.lookup_domain_state(email_str)
                 except Exception:
                     email_state = ""
             if email_state and email_state not in territory_states:
@@ -1371,10 +1380,13 @@ def suggest_cold_license_requests(sequence_ids: list[int] = None, progress_callb
                                                 c_state, claude_info.get("district", ""),
                                                 company, claude_info.get("entity_type", "school")))
                 else:
-                    # No Claude result — try email state extraction as last resort
+                    # No Claude result — try email state extraction + SF lookup as last resort
                     last_resort_state = ""
                     try:
-                        last_resort_state = territory_matcher.extract_state_from_email(email_str) if email_str else ""
+                        if email_str:
+                            last_resort_state = territory_matcher.extract_state_from_email(email_str)
+                        if not last_resort_state and email_str:
+                            last_resort_state = territory_matcher.lookup_domain_state(email_str)
                     except Exception:
                         pass
                     if last_resort_state:

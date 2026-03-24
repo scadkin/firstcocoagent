@@ -436,6 +436,155 @@ def ensure_cache(force_reload: bool = False):
     )
 
 
+# ─────────────────────────────────────────────
+# DOMAIN → STATE LOOKUP (from real SF data)
+# ─────────────────────────────────────────────
+
+_domain_state_lookup = None
+_domain_state_loaded_at = 0.0
+
+
+def build_domain_state_lookup(force_reload: bool = False) -> dict:
+    """
+    Build a domain_root → state mapping from real email data in SF Leads + SF Contacts.
+
+    Reads all emails from SF Leads and SF Contacts tabs, extracts domain roots,
+    and maps each to the most common state for that domain. This captures real-world
+    abbreviations (sandi→CA, ggusd→CA, swisd→TX) that can't be derived from NCES names.
+
+    Returns dict: {domain_root: {"state": "TX", "count": 15, "source": "sf_leads"}}
+    Also stored in module-level _domain_state_lookup for reuse.
+    """
+    global _domain_state_lookup, _domain_state_loaded_at
+
+    if _domain_state_lookup and not force_reload and (time.time() - _domain_state_loaded_at) < _CACHE_TTL:
+        return _domain_state_lookup
+
+    logger.info("territory_matcher: building domain→state lookup from SF data...")
+    t0 = time.time()
+
+    # domain_root → {state: count}
+    domain_state_counts = {}
+
+    def _process_rows(rows, email_col, state_col, source_name):
+        """Extract domain→state pairs from sheet rows."""
+        if len(rows) < 2:
+            return
+        headers = rows[0]
+        try:
+            email_idx = headers.index(email_col)
+            state_idx = headers.index(state_col)
+        except ValueError:
+            logger.warning(f"domain_state_lookup: {source_name} missing {email_col} or {state_col} column")
+            return
+
+        for row in rows[1:]:
+            if len(row) <= max(email_idx, state_idx):
+                continue
+            email = (row[email_idx] or "").strip()
+            state = (row[state_idx] or "").strip().upper()
+            if not email or not state or len(state) != 2:
+                continue
+            if is_student_email(email):
+                continue
+            root = extract_domain_root(email)
+            if not root or len(root) < 3:
+                continue
+            domain_state_counts.setdefault(root, {})
+            domain_state_counts[root][state] = domain_state_counts[root].get(state, 0) + 1
+
+    # Read SF Leads and SF Contacts from Google Sheets
+    try:
+        import json
+        import os
+        from google.oauth2.service_account import Credentials
+        from googleapiclient.discovery import build as gapi_build
+
+        creds_json = os.environ.get("GOOGLE_SERVICE_ACCOUNT_JSON")
+        if not creds_json:
+            logger.warning("domain_state_lookup: no GOOGLE_SERVICE_ACCOUNT_JSON")
+            _domain_state_lookup = {}
+            return {}
+
+        creds = Credentials.from_service_account_info(
+            json.loads(creds_json),
+            scopes=["https://www.googleapis.com/auth/spreadsheets.readonly"]
+        )
+        service = gapi_build("sheets", "v4", credentials=creds)
+
+        sf_sheet_id = os.environ.get("GOOGLE_SHEETS_SF_ID") or os.environ.get("GOOGLE_SHEETS_ID")
+        if not sf_sheet_id:
+            logger.warning("domain_state_lookup: no sheet ID")
+            _domain_state_lookup = {}
+            return {}
+
+        # Read SF Leads
+        try:
+            result = service.spreadsheets().values().get(
+                spreadsheetId=sf_sheet_id, range="'SF Leads'!A1:ZZ"
+            ).execute()
+            _process_rows(result.get("values", []), "Email", "State/Province", "SF Leads")
+        except Exception as e:
+            logger.warning(f"domain_state_lookup: SF Leads read failed: {e}")
+
+        # Read SF Contacts
+        try:
+            result = service.spreadsheets().values().get(
+                spreadsheetId=sf_sheet_id, range="'SF Contacts'!A1:ZZ"
+            ).execute()
+            _process_rows(result.get("values", []), "Email", "Mailing State/Province", "SF Contacts")
+        except Exception as e:
+            logger.warning(f"domain_state_lookup: SF Contacts read failed: {e}")
+
+    except Exception as e:
+        logger.error(f"domain_state_lookup: Google Sheets error: {e}")
+        _domain_state_lookup = {}
+        return {}
+
+    # Build final lookup: for each domain root, pick the state with highest count
+    lookup = {}
+    for root, state_counts in domain_state_counts.items():
+        if not state_counts:
+            continue
+        best_state = max(state_counts, key=state_counts.get)
+        total = sum(state_counts.values())
+        # Only include if we have confidence (at least 2 records, or single record with 100%)
+        if total >= 2 or len(state_counts) == 1:
+            lookup[root] = {
+                "state": best_state,
+                "count": state_counts[best_state],
+                "total": total,
+                "source": "sf_data",
+            }
+
+    _domain_state_lookup = lookup
+    _domain_state_loaded_at = time.time()
+
+    elapsed = time.time() - t0
+    logger.info(
+        f"territory_matcher: domain→state lookup built in {elapsed:.1f}s — "
+        f"{len(lookup)} unique domain roots from {sum(v['total'] for v in lookup.values())} email records"
+    )
+    return lookup
+
+
+def lookup_domain_state(email: str) -> str:
+    """
+    Look up the state for an email domain using the SF-data-driven lookup.
+    Returns 2-letter state code or empty string.
+    Must call build_domain_state_lookup() first.
+    """
+    if not _domain_state_lookup or not email:
+        return ""
+    root = extract_domain_root(email)
+    if not root:
+        return ""
+    entry = _domain_state_lookup.get(root)
+    if entry:
+        return entry["state"]
+    return ""
+
+
 def get_cache_stats() -> dict:
     """Return cache info for diagnostics."""
     if not _cache:
@@ -447,6 +596,7 @@ def get_cache_stats() -> dict:
         "school_keys": len(_cache["schools_by_key"]),
         "district_keys": len(_cache["districts_by_key"]),
         "domain_roots": len(_cache["by_domain_root"]),
+        "sf_domain_lookup": len(_domain_state_lookup) if _domain_state_lookup else 0,
         "city_state_combos": len(_cache["by_city_state"]),
         "age_seconds": int(time.time() - _cache_loaded_at),
     }
