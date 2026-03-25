@@ -1345,7 +1345,7 @@ def suggest_cold_license_requests(sequence_ids: list[int] = None, progress_callb
                             f"State: {c_state} (Claude inferred)"
                         ])
                         continue
-                    # CA check — if Claude says CA, check SoCal via domain match OR known SoCal domains
+                    # CA check — if Claude says CA, check SoCal via domain match OR known SoCal domains OR company name
                     if c_state == "CA":
                         is_socal = False
                         # Check 1: email domain matches SoCal territory district
@@ -1361,6 +1361,20 @@ def suggest_cold_license_requests(sequence_ids: list[int] = None, progress_callb
                         if not is_socal and email_str:
                             try:
                                 if territory_matcher.is_socal_domain(email_str):
+                                    is_socal = True
+                                    filtered_candidates.append((pid, pdata, company, company_key, email_str, full_name, title,
+                                                                "CA", claude_info.get("district", ""),
+                                                                company, claude_info.get("entity_type", "school")))
+                            except Exception:
+                                pass
+                        # Check 3: company name or Claude city/district contains SoCal signals
+                        if not is_socal:
+                            try:
+                                if territory_matcher.is_socal_by_name(
+                                    company,
+                                    city=claude_info.get("city", ""),
+                                    district=claude_info.get("district", ""),
+                                ):
                                     is_socal = True
                                     filtered_candidates.append((pid, pdata, company, company_key, email_str, full_name, title,
                                                                 "CA", claude_info.get("district", ""),

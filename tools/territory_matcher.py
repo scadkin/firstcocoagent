@@ -102,6 +102,24 @@ KNOWN_SOCAL_DOMAIN_ROOTS = {
     "olphriverside", "stodiliaschool",
 }
 
+# SoCal city/region names for company name verification (used by district_prospector)
+SOCAL_CITIES = {
+    "los angeles", "san diego", "bakersfield", "riverside", "san bernardino",
+    "long beach", "anaheim", "santa ana", "irvine", "glendale", "oceanside",
+    "oxnard", "ventura", "santa barbara", "san luis obispo", "palmdale",
+    "lancaster", "pomona", "torrance", "pasadena", "el monte", "downey",
+    "inglewood", "carlsbad", "escondido", "temecula", "murrieta", "compton",
+    "huntington beach", "garden grove", "santa clarita", "corona", "ontario",
+    "fontana", "rancho cucamonga", "moreno valley", "el cajon", "vista",
+    "east la", "south bay", "la puente", "west covina", "whittier",
+    "fullerton", "costa mesa", "mission viejo", "lake elsinore",
+    "san clemente", "san marcos", "encinitas", "chula vista", "national city",
+    "imperial beach", "el centro", "calexico", "brawley",
+}
+SOCAL_KEYWORDS = {"socal", "so cal", "inland empire", "lausd", "lacoe"}
+SOCAL_COUNTIES = {"kern", "imperial", "ventura", "santa barbara", "san luis obispo",
+                  "los angeles", "san diego", "orange", "riverside", "san bernardino"}
+
 _GENERIC_DOMAINS = {
     "gmail.com", "yahoo.com", "hotmail.com", "outlook.com", "aol.com",
     "icloud.com", "mail.com", "protonmail.com", "comcast.net", "msn.com",
@@ -134,18 +152,19 @@ _STATE_NAME_TO_ABBR = {
     "wisconsin": "WI", "wyoming": "WY",
 }
 
-# Known US cities/regions → state mapping (major cities that appear in email domains)
+# Known US cities/regions/counties → state mapping (appear in email domains)
 _CITY_TO_STATE = {
     "nyc": "NY", "newyork": "NY", "brooklyn": "NY", "bronx": "NY", "queens": "NY",
-    "manhattan": "NY", "statenisland": "NY", "buffalo": "NY",
+    "manhattan": "NY", "statenisland": "NY", "buffalo": "NY", "brocton": "NY",
     "chicago": "IL", "springfield": "IL",
     "houston": "TX", "dallas": "TX", "sanantonio": "TX", "austin": "TX",
     "fortworth": "TX", "elpaso": "TX", "wichitafalls": "TX",
     "losangeles": "CA", "sandiego": "CA", "sanfrancisco": "CA", "sacramento": "CA",
     "sanjose": "CA", "riverside": "CA", "longbeach": "CA", "oakland": "CA",
+    "newark": "CA", "livermore": "CA",
     "philadelphia": "PA", "pittsburgh": "PA",
     "detroit": "MI", "grandrapids": "MI",
-    "columbus": "OH", "cleveland": "OH", "cincinnati": "OH",
+    "columbus": "OH", "cleveland": "OH", "cincinnati": "OH", "wooster": "OH",
     "indianapolis": "IN",
     "nashville": "TN", "memphis": "TN", "knoxville": "TN",
     "oklahomacity": "OK", "tulsa": "OK",
@@ -154,7 +173,24 @@ _CITY_TO_STATE = {
     "boston": "MA", "cambridge": "MA", "worcester": "MA",
     "hartford": "CT", "newhaven": "CT", "bridgeport": "CT", "stamford": "CT",
     "dc": "DC", "washington": "DC",
+    # Counties/cities commonly in school email domains
+    "oldham": "KY", "fayette": "KY", "jefferson": "KY", "boone": "KY",
+    "leon": "FL", "duval": "FL", "hillsborough": "FL", "pinellas": "FL",
+    "brevard": "FL", "seminole": "FL", "volusia": "FL", "levy": "FL",
+    "tangipahoa": "LA", "tangi": "LA", "ponchatoula": "LA", "calcasieu": "LA",
+    "ladue": "MO", "stlouis": "MO",
+    "woonsocket": "RI",
+    "mcgehee": "AR", "bauxite": "AR",
+    "metter": "GA", "forsyth": "GA", "gwinnett": "GA",
+    "calhoun": "AL",
+    "adams12": "CO", "denver": "CO",
 }
+
+# Education suffixes to strip from domain parts when looking for state codes
+_EDUCATION_SUFFIXES = [
+    "schools", "school", "unified", "usd", "isd", "jsd", "csd",
+    "sd", "county", "k12", "education", "ed", "learn",
+]
 
 
 def extract_state_from_email(email: str) -> str:
@@ -191,6 +227,29 @@ def extract_state_from_email(email: str) -> str:
         state_candidate = parts[-2]
         if len(state_candidate) == 2 and state_candidate in _US_STATE_ABBRS:
             return state_candidate.upper()
+
+    # ── Pattern 2b: State abbreviation + education keyword in domain parts ──
+    # Handles: kyschools.us → "ky" + "schools" → KY, txeducation.org → TX
+    # Also handles: oldham.kyschools.us → "kyschools" → KY
+    for part in parts[:-1]:  # skip TLD
+        for suffix in _EDUCATION_SUFFIXES:
+            if part.endswith(suffix) and len(part) > len(suffix):
+                remainder = part[:len(part) - len(suffix)]
+                if len(remainder) == 2 and remainder in _US_STATE_ABBRS:
+                    return remainder.upper()
+        # Also check if part STARTS with state abbr followed by education keyword
+        # Require rest to be EXACTLY an education suffix (optionally + digits)
+        # e.g. "kyschools" = "ky" + "schools" ✓, but "scsdk8" = "sc" + "sdk8" ✗
+        for suffix in _EDUCATION_SUFFIXES:
+            if part.startswith(suffix):
+                continue  # "schoolsky" doesn't mean KY
+            if len(part) > 2:
+                prefix2 = part[:2]
+                rest = part[2:]
+                for edu_suf in _EDUCATION_SUFFIXES:
+                    if rest == edu_suf or (rest.startswith(edu_suf) and rest[len(edu_suf):].isdigit()):
+                        if prefix2 in _US_STATE_ABBRS:
+                            return prefix2.upper()
 
     # ── Pattern 3: State abbreviation embedded in domain name ──
     # Get the meaningful part of the domain (first non-prefix, non-TLD part)
@@ -248,6 +307,25 @@ def is_socal_domain(email: str) -> bool:
     domain = email.lower().split("@")[-1]
     if "-la." in domain or domain.startswith("la") or "losangeles" in domain:
         return True
+    return False
+
+
+def is_socal_by_name(company: str, city: str = "", district: str = "") -> bool:
+    """
+    Check if a company/city/district name indicates SoCal location.
+    Used as fallback when email domain can't confirm SoCal for CA prospects.
+    """
+    texts = [company.lower(), city.lower(), district.lower()]
+    combined = " ".join(texts)
+    for signal in SOCAL_CITIES:
+        if signal in combined:
+            return True
+    for signal in SOCAL_KEYWORDS:
+        if signal in combined:
+            return True
+    for signal in SOCAL_COUNTIES:
+        if signal in combined:
+            return True
     return False
 
 
@@ -856,24 +934,39 @@ def infer_locations_with_claude(
             email = u.get("email", "")
             title = u.get("title", "")
             contact = u.get("name", "")
-            records_text += f"{idx}. Company: {company} | Email: {email} | Contact: {contact} | Title: {title}\n"
+            # Extract domain separately for emphasis
+            domain = email.split("@")[-1] if "@" in email else ""
+            records_text += f"{idx}. Company: {company} | Email: {email} | Domain: {domain} | Contact: {contact} | Title: {title}\n"
 
-        prompt = f"""I need you to identify the US state and school district for each of these schools/organizations. These are K-12 education institutions.
+        prompt = f"""I need you to identify the US state and school district for each of these schools/organizations. These are K-12 education institutions or organizations that requested coding/education software licenses.
 
 For each record, use the company name, email domain, contact name, and title to determine:
-- state: 2-letter US state code (e.g., "TX", "CA"). Use "" if truly unknown or international.
+- state: 2-letter US state code (e.g., "TX", "CA"). Use "" ONLY if truly impossible to determine.
 - district: the parent school district name. Use the company name itself if it IS a district.
 - city: the city if you can determine it. Use "" if unknown.
 - entity_type: "school" or "district"
 - is_us: true if this is a US institution, false if international or non-education
 
-CRITICAL: The email domain is the MOST reliable signal for determining location. Company names in Salesforce are self-reported and often WRONG — educators frequently pick the wrong school when signing up. Always prioritize the email domain over the company name when they conflict.
+CRITICAL RULES:
 
-Examples of unreliable company names:
-- "Corsica High School" with email @udallas.edu → this is University of Dallas in TEXAS, not Corsica HS in SD
-- "wfisd.net" → Wichita Falls ISD in TEXAS regardless of what the company name says
+1. The email DOMAIN is the MOST reliable signal. Company names are self-reported and often wrong. Always prioritize the email domain.
 
-Use your knowledge of US school districts, email domain patterns (.k12.xx.us, district-specific domains), and school naming conventions. Most US public schools have email domains that indicate their district and state.
+2. DECODE the domain carefully. Many school districts use creative abbreviations:
+   - leonschools.net → Leon County Schools → FL
+   - tangischools.org → Tangipahoa Parish Schools → LA
+   - adams12.org → Adams 12 Five Star Schools → CO
+   - lvjusd.org → Livermore Valley Joint USD → CA
+   - micds.org → Mary Institute and Country Day School → MO
+   - rsd7.net → Reynolds School District #7 → OR
+   - metter.org → City of Metter / Metter schools → GA
+   - isd742.org → ISD 742 (St. Cloud) → MN
+   - anwsd.org → Addison Northwest School District → VT
+   - broctoncsd.org → Brocton Central School District → NY
+   - wsd3.org → Woodland School District #3 → WA/OR
+
+3. For generic emails (gmail, yahoo, hotmail), use the company name and any context clues to determine state. Many company names include the city or state.
+
+4. TRY HARD to determine the state. Only return "" for state if you genuinely cannot figure it out. Even partial signals (city names in company, regional references) should be used.
 
 RECORDS:
 {records_text}
@@ -888,7 +981,7 @@ For international institutions (non-.edu, non-US domains, non-US school names), 
         try:
             response = client.messages.create(
                 model="claude-sonnet-4-6",
-                max_tokens=4000,
+                max_tokens=6000,
                 messages=[{"role": "user", "content": prompt}],
             )
             text = response.content[0].text.strip()

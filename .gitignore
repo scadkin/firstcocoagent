@@ -1,2 +1,5 @@
+# Environment variables (secrets — never commit)
+.env
+
 # Raw terminal captures (cleaned versions are in docs/sessions/)
 docs/sessions/.raw/
