@@ -6,7 +6,29 @@
 
 ---
 
-## Session 35 (2026-03-23/24) — C4 Spot-Check Fixes + State Extraction
+## Session 35 (2026-03-23/25) — C4 Spot-Check Fixes + State Extraction + Plan Infrastructure
+
+### Session Summary
+Fixed all 5 C4 spot-check issues from Session 34 (email domain priority, SoCal detection, student exclusion, Claude prompt, lead-level columns). Built comprehensive state extraction from email domains (k12, .gov, state suffixes, city names). Built SF data-driven domain→state lookup from real SF Leads/Contacts emails. Added Prospecting Queue column migration (16→19 cols), /fix_queue, /cleanup_queue commands. Trimmed CLAUDE.md from 43.6k→28.9k for performance. Created SCOUT_PLAN.md as living master plan and docs/SESSION_HISTORY.md as detailed history. Paused mid-spot-check — latest /c4 run produced 1,452 targets, Steven needs to review accuracy.
+
+### Key Decisions
+- Email domain always ranks higher than company name for location (email_priority=True)
+- Build domain→state mapping from real SF data rather than hardcoded lists
+- Don't exclude unknown-state prospects yet — keep in queue for review until confident
+- SCOUT_PLAN.md maintained as detailed living plan, brief view shown in terminal
+- CLAUDE.md kept lean (under 40k combined), SESSION_HISTORY.md has full details
+
+### Feedback Captured
+- Always ask for Steven's input before implementing fixes
+- Always give exact next steps (no dev jargon)
+- Always acknowledge Steven's points before jumping to action
+- Never tell Steven to push/deploy — always do it yourself
+- Plan brief view should be moderately detailed, not too short
+- Keep comprehensive records — Steven should never have to remember what he told Claude
+
+---
+
+### Detailed Implementation Notes (Session 35)
 
 ### C4 Issues Found During Spot-Check
 1. **Email domain must rank higher than company name** — Salesforce company names are unreliable (educators pick wrong school when signing up). Example: `mstewart2@udallas.edu` with "Corsica High School" → should be TX not SD.

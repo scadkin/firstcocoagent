@@ -5,7 +5,7 @@
 
 ## CURRENT STATE — update this after each session
 
-**Session 35: C4 — 5 spot-check issues FIXED. Email domain priority, SoCal domain check, student email exclusion, Claude prompt emphasis, lead-level columns (Email/First Name/Last Name) added to Prospecting Queue. Ready for re-run + spot-check.**
+**Session 35 (paused mid-session): C4 spot-check fixes applied + comprehensive state extraction built. Last /c4 run produced 1,452 targets. Steven needs to spot-check accuracy of states and SoCal exclusions before final sign-off. No uncommitted code changes. All code pushed and deployed.**
 
 ### What was done (Sessions 34-35)
 - **C3 verified**, C4 built end-to-end, Outreach API connected, territory_matcher.py created
@@ -15,12 +15,11 @@
 - **Known SoCal domain lookup** (KNOWN_SOCAL_DOMAIN_ROOTS in territory_matcher.py)
 - **Still in progress:** domain→state mapping from real SF/Territory data, spot-check accuracy
 
-### What still needs to be done (Session 35+)
-- **C4: Re-run /c4, spot-check again** — all 5 fixes applied, need to verify with fresh scan
+### What still needs to be done (Session 36+)
+- **C4: Spot-check accuracy** — Steven needs to review Prospecting Queue states + C4 Audit SoCal exclusions for the latest /c4 run (1,452 targets). Then final sign-off.
 - **C2: Research engine improvements** (after C4)
 - **C5: Proximity + regional service centers** (deferred)
-- **Sequence copy improvements** — Outreach.io variables not being used (hardcoded), product accuracy (AI Junior = beta)
-- **Active Accounts column rename:** "Display Name" → "Active Account Name"
+- See `SCOUT_PLAN.md` for full roadmap, parked items, and detailed context
 
 ### Current status
 - Phases 1–5: ✅ all verified

@@ -3,7 +3,7 @@
 
 ---
 
-## YOU ARE HERE → C4: Cold License Requests — Spot-Check Accuracy
+## YOU ARE HERE → C4: Cold License Requests — Spot-Check Accuracy (Session 35 paused here)
 
 ---
 
@@ -49,8 +49,8 @@ Surviving prospects are added to the Prospecting Queue with email, first name, l
 | 12 | SF data-driven domain→state lookup | ✅ Done (Session 35) | Reads real emails from SF Leads/Contacts tabs |
 | 13 | Known SoCal domain abbreviation list | ✅ Done (Session 35) | 90+ hardcoded + containment matching |
 | 14 | Column migration (16→19 cols) | ✅ Done (Session 35) | `/fix_queue`, `/cleanup_queue` commands |
-| 15 | Spot-check accuracy of states | 🔧 In progress | ← YOU ARE HERE |
-| 16 | Spot-check SoCal exclusions | 🔧 In progress | Check C4 Audit tab |
+| 15 | Spot-check accuracy of states | 🔧 In progress | ← PAUSED HERE. Last /c4 run: 1,452 targets, 228 Claude inferred. Steven has not yet spot-checked this run. |
+| 16 | Spot-check SoCal exclusions | ⬜ Not started | Check C4 Audit tab OUT OF TERRITORY section |
 | 17 | Final verification + sign-off | ⬜ Not started | Steven reviews, confirms results are clean |
 
 ### Mid-flight additions to C4 (things that came up during implementation)
