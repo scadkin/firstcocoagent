@@ -109,7 +109,7 @@ Surviving prospects are added to the Prospecting Queue with email, first name, l
 
 ---
 
-## WHAT'S NEXT (after C4 is verified)
+## UP NEXT (after C4 is verified)
 
 ### C2: Research Engine Improvements
 **What:** Make the district research engine faster and more accurate.
@@ -125,10 +125,41 @@ Surviving prospects are added to the Prospecting Queue with email, first name, l
 - **Depends on:** C1 (done — territory data with lat/lon), geocoding
 - **Estimated effort:** TBD
 
-### Other known future work
-- **Sequence copy improvements** — Outreach.io variables not being used (hardcoded), product accuracy (AI Junior = beta)
-- **Active Accounts column rename** — "Display Name" → "Active Account Name" (happens automatically on next CSV import)
-- **Fuzzy matching for territory cross-check** — only 17/93 matched with exact matching in initial test (documented in memory)
+---
+
+## PARKED FOR LATER (Steven asked to revisit at a future time)
+
+### Sequence Copy Improvements
+- Outreach.io variables not being used — sequences have hardcoded names instead of `{{first_name}}`, `{{company}}`, `{{state}}` etc.
+- Product accuracy in sequences: **AI Junior = still in beta (NOT released)**, AI Algebra = launched (reference as new offering), CyberSecurity course = planned fall 2026 (can say "coming soon")
+- Inaccurate product claims in sequences damage credibility
+- **When:** After C4 is done, when we next build/edit sequences
+
+### Fuzzy Matching for Territory Cross-Check
+- Territory school→district lookup currently uses exact normalized name matching
+- Only 17 out of ~93 schools matched their parent district (very low hit rate)
+- NCES and Salesforce spell school names differently (e.g., "Huntington Beach High School" vs "Huntington Beach Senior High School")
+- **Fix needed:** Levenshtein distance, token overlap, or substring matching. Could also try city+state+school-type as secondary lookup.
+- Would improve Parent District values for winback and C4 targets
+- **When:** Future enhancement, could be folded into C2 research engine improvements
+
+### Active Accounts Column Rename
+- "Display Name" → "Active Account Name" in the Google Sheet header
+- Will happen automatically on next account CSV import (csv_importer rewrites header)
+- Until then, all code reading Active Accounts must check BOTH column names
+- **When:** Automatic on next CSV import — no action needed
+
+### Automate Sequence Creation for C4 Prospects
+- Once C4 is verified and producing clean results, automate building outreach sequences for the cold license request prospects
+- Would connect C4 scan → sequence builder → Google Doc draft
+- **When:** After C4 is fully verified and producing clean, trusted results
+
+### Original C4 Concept: Track Outbound Non-Response
+- The original roadmap described C4 as "unresponsive leads" — tracking outbound contact attempts + detecting non-response
+- We redefined C4 to focus on cold license requests (more specific and actionable)
+- The broader "contacted 30+ days ago, no reply detected" concept could still be built as a separate feature
+- Would need activity tracking to distinguish sent vs replied
+- **When:** TBD, after current C4 and C2 are done
 
 ---
 
