@@ -705,3 +705,30 @@ No tasks completed today — ready to start fresh tomorrow.
 Sierra Vista HS ($26,460) is now 42 days silent and has been flagged every single night. Three straight days of zero KPIs. Tomorrow isn't optional — Sierra Vista gets called first, then work down the cold list before anything else.
 
 On it.
+
+### 2026-03-25
+📊 EOD Report — March 25, 2026
+
+*ACCOMPLISHED TODAY:*
+No tasks completed today — ready to start fresh tomorrow.
+
+*KPI RESULTS:*
+• Calls: 0/10 ❌ missed
+• Districts researched: 0/2 ❌ missed
+• Emails drafted/saved: 0/5 ❌ missed
+
+*PIPELINE ALERTS:* 🚨
+65 open opps, zero movement — now pushing 8 weeks of silence.
+• *22 going cold* — Neil Armstrong MS ($7,850) at 79 days, Ecole Seven Oaks ($2,000) at 78 days, Greencastle-Antrim ($9,500) at 78 days, Ad Wheat MS ($9,500) at 75 days, Hamilton-Wenham ($2,600) at 75 days + 17 more
+• *30 stale* — Midway MS ($2,600) at 44 days, Sierra Vista HS ($26,460) at 43 days, Sevier County HS ($9,500) at 43 days + 27 more
+• *13 need update* — Providence Academy ($1,340) at 29 days, Ranchero Middle ($7,850) at 27 days, Thomas A. Edison MS ($5,000) at 26 days — *close date 72 days past due* ⚠️
+
+*PENDING / TOMORROW:*
+• 65 pipeline opps rotting with zero contact
+• Q1 prospecting plan — still not launched
+• Superintendents campaign — still not launched
+
+*ONE OBSERVATION:*
+Sierra Vista HS ($26,460) has now been flagged *every single night for weeks* and still hasn't been called. Four straight days of zero KPIs. At this point the pipeline isn't going cold — it's gone. Tomorrow, one job: pick up the phone.
+
+On it.
