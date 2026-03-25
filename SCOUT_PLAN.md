@@ -1,9 +1,9 @@
 # SCOUT MASTER PLAN
-*Last updated: 2026-03-25 — Session 35*
+*Last updated: 2026-03-25 — Session 36*
 
 ---
 
-## YOU ARE HERE → C4: Cold License Requests — Spot-Check Accuracy (Session 35 paused here)
+## YOU ARE HERE → C4: Cold License Requests — Spot-Check Accuracy (Session 35 paused here, Session 36 was infrastructure/plan formatting)
 
 ---
 
@@ -91,7 +91,7 @@ Surviving prospects are added to the Prospecting Queue with email, first name, l
 |---|------------|-------------|--------|
 | C1 | Territory Master List | NCES CCD data for 13 states + SoCal. 8,133 districts, 40,317 schools. Gap analysis. | ✅ Done (Sessions 31-32) |
 | C3 | Closed-Lost Winback | Scan closed-lost opps, add to Prospecting Queue. Date window filtering. Draft sequences. | ✅ Done (Sessions 33-34, verified) |
-| C4 | Cold License Requests | Scan Outreach sequences for cold inbound requests. Territory matching + state extraction. | 🔧 In progress (Sessions 34-35) |
+| C4 | Cold License Requests | Scan Outreach sequences for cold inbound requests. Territory matching + state extraction. | 🔧 In progress (Sessions 34-36) |
 | C2 | Research Engine Improvements | Parallelize layers, better prompts, Claude tool_use. Est. 2-3 sessions. | ⬜ Next after C4 |
 | C5 | Proximity + Regional Service Centers | Go after schools near active accounts. ESC/BOCES mapping. | ⬜ Deferred |
 
@@ -106,6 +106,8 @@ Surviving prospects are added to the Prospecting Queue with email, first name, l
 | Session 34 | Prospecting Queue column redesign | C4 needed email/name columns visible, not buried in Notes |
 | Session 35 | CLAUDE.md trimming + SESSION_HISTORY.md | Performance warning at 41.9k chars. Moved detailed history to separate file. |
 | Session 35 | `/fix_queue`, `/cleanup_queue` commands | Column migration from 16→19 created data alignment issues |
+| Session 36 | Session transcript auto-capture | `scout` command wraps Claude Code with `script`, auto-cleans + commits transcripts to `docs/sessions/` |
+| Session 36 | Plan view format locked in | Dialed in exact format for plan brief view — saved to memory as template for all future sessions |
 
 ---
 
@@ -175,3 +177,6 @@ Surviving prospects are added to the Prospecting Queue with email, first name, l
 | 2026-03-23 | Build domain→state from real SF data | Hardcoded lists can't capture all creative abbreviations | SF Leads/Contacts emails used as training data |
 | 2026-03-24 | Don't exclude unknown-state prospects yet | Need to verify state extraction works well first | Keep in queue for review, exclude later once confident |
 | 2026-03-24 | SCOUT_PLAN.md as living detailed plan | Steven needs visibility into where we are, what changed, and why | Updated every session, brief view in terminal/Telegram |
+| 2026-03-25 | Session transcript auto-capture via `scout` command | Steven needs to search/scroll past sessions verbatim | `scout` wraps `claude` with `script`, auto-cleans + commits to docs/sessions/ |
+| 2026-03-25 | Plan view format locked in | Spent time dialing in — saved exact template to memory | No tables, emoji markers, ➕ nested additions, consistent structure |
+| 2026-03-25 | Use `/exit` not `/clear` between sessions | `scout` wrapper needs Claude Code to exit to finalize transcript | Each `scout` run = one clean transcript file |

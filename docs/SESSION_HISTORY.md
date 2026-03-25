@@ -6,6 +6,40 @@
 
 ---
 
+## Session 36 (2026-03-25) — Session Transcript Capture + Plan View Format
+
+### Session Summary
+Infrastructure session — no changes to Scout bot code. Built session transcript auto-capture system so Steven can go back and search/scroll through any past session verbatim. Locked in the exact plan view format after multiple rounds of feedback. C4 spot-check still pending — Steven decided to start fresh in Session 37 with the `scout` wrapper active so the transcript is captured.
+
+### What was built
+- **`scripts/scout_session.sh`** — Shell wrapper that replaces `claude` command. Runs macOS `script` to capture full terminal I/O, then auto-cleans and saves readable markdown to `docs/sessions/session_N.md`. Auto-detects session number (increments from last file). Safety check prevents overwriting existing transcripts. Fallback auto-commit if end-of-session routine is skipped.
+- **`scripts/clean_transcript.py`** — Strips ANSI escape codes, control characters, terminal artifacts, spinner lines from raw `script` output. Produces clean, searchable markdown.
+- **`docs/sessions/`** — Directory for clean transcripts. `.raw/` subdirectory (gitignored) holds raw terminal captures.
+- **`.gitignore`** — Created to exclude `docs/sessions/.raw/`.
+- **`~/.zshrc` alias** — `scout` → `scout_session.sh` so Steven just types `scout` to start.
+
+### Key Decisions
+- Use `/exit` not `/clear` between sessions — `scout` wrapper needs Claude Code to exit to finalize transcript
+- Session transcript cleanup + commit happens during end-of-session routine (env vars: `SCOUT_RAW_TRANSCRIPT`, `SCOUT_CLEAN_TRANSCRIPT`)
+- Plan view format locked in: no tables, emoji markers, ➕ additions nested under parent features, moderate detail level
+
+### Feedback Captured
+- Plan view format: dialed in over multiple iterations. Exact template saved to `memory/feedback_plan_view_format.md`.
+- Session transcripts: Steven wants full verbatim transcripts saved and searchable, not summaries.
+- Use `/exit` between sessions so each `scout` run = one clean transcript.
+
+### Files Changed
+- `scripts/scout_session.sh` (new)
+- `scripts/clean_transcript.py` (new)
+- `.gitignore` (new)
+- `~/.zshrc` (added `scout` alias)
+- `CLAUDE.md` (updated current state, added transcript capture section)
+- `SCOUT_PLAN.md` (updated Session 36 additions, key decisions)
+- `docs/SESSION_HISTORY.md` (this entry)
+- Memory files: `feedback_plan_view_format.md`, `feedback_session_transcript.md`, `feedback_exit_not_clear.md` (all new)
+
+---
+
 ## Session 35 (2026-03-23/25) — C4 Spot-Check Fixes + State Extraction + Plan Infrastructure
 
 ### Session Summary

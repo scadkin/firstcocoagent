@@ -1,21 +1,19 @@
 # SCOUT — Claude Code Reference
-*Last updated: 2026-03-23 — Session 35*
+*Last updated: 2026-03-25 — Session 36*
 
 ---
 
 ## CURRENT STATE — update this after each session
 
-**Session 35 (paused mid-session): C4 spot-check fixes applied + comprehensive state extraction built. Last /c4 run produced 1,452 targets. Steven needs to spot-check accuracy of states and SoCal exclusions before final sign-off. No uncommitted code changes. All code pushed and deployed.**
+**Session 36: Infrastructure session — built session transcript auto-capture system (`scout` command) and locked in plan view format. No code changes to Scout itself. C4 spot-check still pending from Session 35. All Scout code is deployed and running. No uncommitted code changes (except the new scripts and .gitignore from this session).**
 
-### What was done (Sessions 34-35)
-- **C3 verified**, C4 built end-to-end, Outreach API connected, territory_matcher.py created
-- **C4 fixes:** email domain priority, SoCal domain check, student exclusion, Claude prompt, lead-level columns
-- **Prospecting Queue columns:** State | Account Name | Email | First Name | Last Name | Deal Level | Parent District | Name Key | Strategy | Source | Status | Priority | Date Added | Date Approved | Sequence Doc URL | Est. Enrollment | School Count | Total Licenses | Notes
-- **Comprehensive state extraction** from email domains (k12, .gov, state suffixes, city names)
-- **Known SoCal domain lookup** (KNOWN_SOCAL_DOMAIN_ROOTS in territory_matcher.py)
-- **Still in progress:** domain→state mapping from real SF/Territory data, spot-check accuracy
+### What was done (Session 36)
+- **Session transcript auto-capture:** `scout` shell command wraps `claude` with macOS `script`, auto-cleans terminal output to readable markdown, saves to `docs/sessions/session_N.md`. Fallback auto-commit if end-of-session routine is skipped.
+- **Plan view format locked in:** Exact template saved to memory — no tables, emoji markers, ➕ additions nested under parent features, consistent structure across all sessions.
+- **New files:** `scripts/scout_session.sh`, `scripts/clean_transcript.py`, `docs/sessions/` directory, `.gitignore`
+- **Shell alias:** `scout` added to `~/.zshrc`
 
-### What still needs to be done (Session 36+)
+### What still needs to be done (Session 37+)
 - **C4: Spot-check accuracy** — Steven needs to review Prospecting Queue states + C4 Audit SoCal exclusions for the latest /c4 run (1,452 targets). Then final sign-off.
 - **C2: Research engine improvements** (after C4)
 - **C5: Proximity + regional service centers** (deferred)
@@ -33,8 +31,9 @@
 - Enhancement B2: ✅ fully verified (Session 30) — all 8 tests passed
 - Enhancement C1 (Territory Master List): ✅ fully verified (Session 32)
 - Enhancement C3 (Closed-Lost Winback): ✅ fully verified (Session 34)
-- Enhancement C4 (Cold License Requests): 🔧 5 issues fixed, re-run + spot-check needed (Session 35)
+- Enhancement C4 (Cold License Requests): 🔧 all fixes deployed, spot-check pending (Session 35-36)
 - SoCal CSV filtering: ✅ 5 passes complete (Session 26)
+- Session transcript capture: ✅ set up (Session 36)
 
 ### Other completed features
 - **Weekend scheduler (B1):** Sat 11am, Sun 1pm greeting. No auto check-ins. `/eod` works manually.
@@ -81,6 +80,16 @@
 - `is_socal_domain()`: known SoCal district abbreviations (KNOWN_SOCAL_DOMAIN_ROOTS).
 - `is_student_email()`: "student" anywhere in domain.
 - C4 Audit tab for spot-checking exclusions.
+
+---
+
+### Session transcript capture
+- Steven starts sessions with `scout` in terminal (not `claude`). This wraps Claude Code with `script` to capture full transcripts.
+- Transcripts save to `docs/sessions/session_N.md`. Raw captures in `docs/sessions/.raw/` (gitignored).
+- During end-of-session routine: run `python3 scripts/clean_transcript.py "$SCOUT_RAW_TRANSCRIPT" "$SCOUT_CLEAN_TRANSCRIPT"`, then include the clean file in the commit.
+- Env vars available: `SCOUT_SESSION_NUM`, `SCOUT_RAW_TRANSCRIPT`, `SCOUT_CLEAN_TRANSCRIPT`.
+- Steven uses `/exit` between sessions (not `/clear`) so each `scout` run = one transcript file.
+- Wrapper script auto-commits as fallback if end-of-session routine is skipped.
 
 ---
 
