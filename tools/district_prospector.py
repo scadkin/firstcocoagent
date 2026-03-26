@@ -637,50 +637,42 @@ def _scrape_resolve_locations(unknowns: list[dict], claude_batch_size: int = 25)
         return ""
 
     if SERPER_API_KEY:
-        # Search each prospect with school name + full email (most specific query)
-        # Like Steven does: "Corpus Christi School jonathan.sam@cchristi.org"
-        # This finds the exact person's school page, LinkedIn, staff directory
-        def _search_prospect(u):
-            company = u.get("company", "")
-            email = u.get("email", "")
-            domain = email.split("@")[-1].lower() if "@" in email else ""
-            all_parts = []
+        # Search strategy (like Steven does manually):
+        # 1. Search "school name + full email" — most specific, finds exact person + school
+        # 2. Search just the domain — catches district homepages
+        # Deduplicate domains for search 2, but search 1 is per-prospect
 
-            # Search 1: school name + full email (best — finds exact person + school)
-            if company and company != "Unknown" and "@" not in company and email:
-                result = _serper_search(f"{company} {email}")
-                if result:
-                    all_parts.append(result)
-
-            # Search 2: just the domain (catches district homepages)
-            if domain:
-                result = _serper_search(domain)
-                if result:
-                    all_parts.append(result)
-
-            return "\n".join(all_parts) if all_parts else ""
-
-        # Parallel search — 20 concurrent
-        prospect_content = {}  # email → search results
+        # Search 1: domain-level search (deduped — one per unique domain)
         with ThreadPoolExecutor(max_workers=20) as executor:
-            future_to_email = {executor.submit(_search_prospect, u): u.get("email", "") for u in unknowns
-                               if u.get("email", "").split("@")[-1].lower() not in _GENERIC_EMAIL_DOMAINS
-                               and "@" in u.get("email", "")}
-            for future in as_completed(future_to_email):
-                email = future_to_email[future]
+            future_to_domain = {executor.submit(_serper_search, d): d for d in unique_domains}
+            for future in as_completed(future_to_domain):
+                domain = future_to_domain[future]
                 try:
-                    prospect_content[email] = future.result()
+                    domain_content[domain] = future.result()
                 except Exception:
-                    prospect_content[email] = ""
+                    domain_content[domain] = ""
 
-        # Map back to domain_content for compatibility
-        for u in unknowns:
-            email = u.get("email", "")
-            domain = email.split("@")[-1].lower() if "@" in email else ""
-            if email in prospect_content and prospect_content[email]:
-                domain_content[domain] = prospect_content[email]
-            elif domain and domain not in domain_content:
-                domain_content[domain] = ""
+        # Search 2: per-prospect "school name + email" search (more specific)
+        # Only for institutional emails — adds results ON TOP of domain search
+        prospect_extra = {}  # email → additional search results
+        institutional_unknowns = [
+            u for u in unknowns
+            if "@" in u.get("email", "")
+            and u.get("email", "").split("@")[-1].lower() not in _GENERIC_EMAIL_DOMAINS
+            and u.get("company", "") and u["company"] != "Unknown" and "@" not in u["company"]
+        ]
+        if institutional_unknowns:
+            def _search_with_email(u):
+                return _serper_search(f"{u['company']} {u['email']}")
+
+            with ThreadPoolExecutor(max_workers=20) as executor:
+                future_to_email = {executor.submit(_search_with_email, u): u["email"] for u in institutional_unknowns}
+                for future in as_completed(future_to_email):
+                    email = future_to_email[future]
+                    try:
+                        prospect_extra[email] = future.result()
+                    except Exception:
+                        prospect_extra[email] = ""
     else:
         # Fallback: direct scraping if no Serper key
         with ThreadPoolExecutor(max_workers=20) as executor:
@@ -737,15 +729,25 @@ def _scrape_resolve_locations(unknowns: list[dict], claude_batch_size: int = 25)
                         generic_content[company] = ""
 
     # ── Step 2: Build context for all prospects ──
+    # Combine domain search + per-prospect email search + generic company search
     page_context = []
     for u in unknowns:
         company = u.get("company", "")
         email = u.get("email", "")
         domain = email.split("@")[-1].lower() if "@" in email else ""
-        content = domain_content.get(domain, "") if domain else ""
+        parts = []
+        # Domain search results
+        if domain and domain_content.get(domain):
+            parts.append(domain_content[domain])
+        # Per-prospect "school name + email" search results (more specific)
+        if email and prospect_extra.get(email):
+            parts.append(prospect_extra[email])
         # For generic emails, use company name search results
-        if not content and company:
-            content = generic_content.get(company, "") if 'generic_content' in dir() else ""
+        if not parts and company:
+            gc = generic_content.get(company, "") if 'generic_content' in dir() else ""
+            if gc:
+                parts.append(gc)
+        content = "\n".join(parts)
         page_context.append({"company": company, "email": email, "content": content})
 
     # ── Step 2b: Deterministic international detection from search results ──
