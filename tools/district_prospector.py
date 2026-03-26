@@ -756,6 +756,8 @@ def _scrape_resolve_locations(unknowns: list[dict], claude_batch_size: int = 25)
         content = "\n".join(parts)
         page_context.append({"company": company, "email": email, "content": content})
 
+    results = {}  # email/company → {state, district, city}
+
     # ── Step 2b: Deterministic international detection from search results ──
     # Catch Canadian/international schools that have .org/.com domains
     # by checking search result content for UNAMBIGUOUS signals only.
@@ -841,6 +843,11 @@ Always return a district — use the school name itself if no parent district is
                 if text.startswith("json"):
                     text = text[4:]
                 text = text.strip()
+            # Strip text preamble before JSON array
+            if "[" in text:
+                text = text[text.index("["):]
+            if "]" in text:
+                text = text[:text.rindex("]") + 1]
 
             parsed = _json.loads(text)
             for item in parsed:

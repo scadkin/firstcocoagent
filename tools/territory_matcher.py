@@ -1107,12 +1107,19 @@ For international institutions (non-.edu, non-US domains, non-US school names), 
                 logger.error(f"territory_matcher: Claude returned empty response for batch {i // batch_size + 1} after 2 attempts")
                 continue
 
-            # Parse JSON — handle markdown code blocks
+            # Parse JSON — handle markdown code blocks and text preamble
+            # Claude sometimes writes "I'll analyze..." or "Here's my analysis..." before JSON
             if text.startswith("```"):
                 text = text.split("```")[1]
                 if text.startswith("json"):
                     text = text[4:]
                 text = text.strip()
+            # Strip any text before the JSON array
+            if "[" in text:
+                text = text[text.index("["):]
+            # Strip any text after the JSON array
+            if "]" in text:
+                text = text[:text.rindex("]") + 1]
 
             parsed = _json.loads(text)
             for item in parsed:
