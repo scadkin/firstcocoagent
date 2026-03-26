@@ -1443,7 +1443,25 @@ def suggest_cold_license_requests(sequence_ids: list[int] = None, progress_callb
             ".no", ".dk", ".fi", ".ie", ".be", ".at", ".ch", ".pt", ".pl",
             ".cz", ".hu", ".ro", ".bg", ".hr", ".rs", ".ae", ".sa", ".qa",
             ".eg", ".pk", ".bd", ".lk", ".th", ".vn", ".id",
+            ".pa", ".gt", ".sv", ".hn", ".ni", ".cr", ".bo", ".py", ".uy",
+            ".pe", ".ec", ".ve", ".do", ".cu", ".tt", ".jm",
+            ".name",
         }
+        # International domain patterns (edu.XX = foreign education system)
+        intl_domain_patterns = (
+            ".edu.pa", ".edu.mx", ".edu.br", ".edu.ar", ".edu.co", ".edu.pe",
+            ".edu.cl", ".edu.au", ".edu.uk", ".edu.sg", ".edu.hk", ".edu.ph",
+            ".edu.my", ".edu.in", ".edu.pk", ".edu.ng", ".edu.za",
+            ".ac.uk", ".ac.nz", ".ac.jp", ".ac.kr", ".ac.in", ".ac.za",
+            ".gc.ca", ".on.ca", ".bc.ca", ".ab.ca", ".qc.ca",
+        )
+        # International keywords in company names (deterministic, not Claude-dependent)
+        intl_company_keywords = (
+            "école", "ecole", "lycée", "lycee", "colegio", "liceo", "escuela",
+            "instituto", "técnica", "tecnica", "buen pastor", "scolaire",
+            "collège", "komisyon", "schule", "grundschule",
+            "gymnasium", "scuola", "escola",
+        )
 
         # ── Step 4: First pass — quick filters + territory matching + pricing ──
         now = datetime.now().strftime("%Y-%m-%d %H:%M")
@@ -1514,18 +1532,36 @@ def suggest_cold_license_requests(sequence_ids: list[int] = None, progress_callb
                 has_opp_count += 1
                 audit_has_opp.append([company, full_name, email_str, title, "Has Opp"])
                 continue
-            # Quick filter 4: International email?
+            # Quick filter 4: International email/company?
             is_intl = False
+            intl_reason = ""
             if email_str:
                 email_lower = email_str.lower()
                 domain = email_lower.split("@")[-1] if "@" in email_lower else ""
+                # Check country-code TLDs
                 for tld in intl_tlds:
                     if domain.endswith(tld):
                         is_intl = True
+                        intl_reason = f"International TLD ({domain})"
+                        break
+                # Check foreign education domain patterns (edu.pa, ac.uk, etc.)
+                if not is_intl:
+                    for pattern in intl_domain_patterns:
+                        if domain.endswith(pattern):
+                            is_intl = True
+                            intl_reason = f"International edu domain ({domain})"
+                            break
+            # Check company name for non-US school keywords
+            if not is_intl and company:
+                company_lower = company.lower()
+                for kw in intl_company_keywords:
+                    if kw in company_lower:
+                        is_intl = True
+                        intl_reason = f"International name ({kw} in '{company}')"
                         break
             if is_intl:
                 international_count += 1
-                audit_international.append([company, full_name, email_str, title, f"International ({domain})"])
+                audit_international.append([company, full_name, email_str, title, intl_reason])
                 continue
 
             # Quick filter 5: Extract state from email domain
