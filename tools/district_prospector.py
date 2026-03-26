@@ -512,6 +512,141 @@ def _normalize_state(state_input: str) -> str:
     return _STATE_NAME_TO_ABBR.get(s.lower(), s.upper()[:2])
 
 
+def _serper_resolve_locations(unknowns: list[dict], batch_size: int = 10) -> dict:
+    """
+    Use Serper web search + Claude to determine state for unknown prospects.
+    Each unknown has: company, email.
+
+    Searches for the email domain (most reliable) or school name,
+    then uses Claude to extract state from search results.
+
+    Returns dict: company_or_email → {state, district, city}
+    """
+    import anthropic
+    import json as _json
+
+    if not SERPER_API_KEY:
+        return {}
+    api_key = os.environ.get("ANTHROPIC_API_KEY", "")
+    if not api_key:
+        return {}
+
+    headers = {"X-API-KEY": SERPER_API_KEY, "Content-Type": "application/json"}
+    client = anthropic.Anthropic(api_key=api_key, timeout=90.0)
+    results = {}
+
+    # Search in batches to avoid rate limits
+    for batch_start in range(0, len(unknowns), batch_size):
+        batch = unknowns[batch_start:batch_start + batch_size]
+        search_context = []
+
+        with httpx.Client(timeout=15.0) as http:
+            for u in batch:
+                company = u.get("company", "")
+                email = u.get("email", "")
+                domain = email.split("@")[-1] if "@" in email else ""
+
+                # Prefer domain search (more specific), fall back to school name
+                query = ""
+                if domain and domain not in ("gmail.com", "yahoo.com", "hotmail.com",
+                        "outlook.com", "aol.com", "icloud.com", "protonmail.com",
+                        "comcast.net", "live.com"):
+                    query = f'"{domain}" school district location'
+                elif company and company != "Unknown":
+                    query = f'"{company}" school district state'
+
+                if not query:
+                    search_context.append({"company": company, "email": email, "snippets": ""})
+                    continue
+
+                try:
+                    resp = http.post(SERPER_URL, headers=headers,
+                                     json={"q": query, "num": 3})
+                    if resp.status_code == 200:
+                        data = resp.json()
+                        snippets = []
+                        for item in data.get("organic", [])[:3]:
+                            title = item.get("title", "")
+                            snippet = item.get("snippet", "")
+                            link = item.get("link", "")
+                            snippets.append(f"{title} — {snippet} ({link})")
+                        # Also check knowledge graph
+                        kg = data.get("knowledgeGraph", {})
+                        if kg:
+                            kg_text = f"{kg.get('title', '')} — {kg.get('description', '')} — {kg.get('attributes', {}).get('Address', '')}"
+                            snippets.append(kg_text)
+                        search_context.append({
+                            "company": company, "email": email,
+                            "snippets": "\n".join(snippets)
+                        })
+                    else:
+                        search_context.append({"company": company, "email": email, "snippets": ""})
+                except Exception:
+                    search_context.append({"company": company, "email": email, "snippets": ""})
+
+        # Now use Claude to extract states from search results
+        records_with_results = [sc for sc in search_context if sc["snippets"]]
+        if not records_with_results:
+            continue
+
+        records_text = ""
+        for idx, sc in enumerate(records_with_results, 1):
+            records_text += f"{idx}. School: {sc['company']} | Email: {sc['email']}\n"
+            records_text += f"   Search results:\n   {sc['snippets'][:500]}\n\n"
+
+        prompt = f"""Based on the web search results below, determine the US state for each school/organization.
+
+For each record, return:
+- state: 2-letter US state code
+- district: parent school district name
+- city: city name
+
+RECORDS:
+{records_text}
+
+Respond with ONLY a JSON array:
+{{"idx": 1, "state": "TX", "district": "Austin ISD", "city": "Austin"}}
+"""
+        try:
+            response = client.messages.create(
+                model="claude-sonnet-4-6",
+                max_tokens=4000,
+                messages=[{"role": "user", "content": prompt}],
+            )
+            text = response.content[0].text.strip()
+            if text.startswith("```"):
+                text = text.split("```")[1]
+                if text.startswith("json"):
+                    text = text[4:]
+                text = text.strip()
+
+            parsed = _json.loads(text)
+            for item in parsed:
+                idx = item.get("idx", 0)
+                if 1 <= idx <= len(records_with_results):
+                    sc = records_with_results[idx - 1]
+                    key = sc["company"] or sc["email"]
+                    state = (item.get("state") or "").strip().upper()
+                    if state and len(state) == 2:
+                        results[key] = {
+                            "state": state,
+                            "district": item.get("district", ""),
+                            "city": item.get("city", ""),
+                        }
+                        # Also index by email for lookup
+                        if sc["email"]:
+                            results[sc["email"]] = results[key]
+
+            logger.info(f"C4 Serper: resolved {len(parsed)} of {len(records_with_results)} searched (batch {batch_start // batch_size + 1})")
+        except Exception as e:
+            logger.error(f"C4 Serper: Claude extraction failed: {e}")
+
+        import time as _time
+        _time.sleep(0.5)
+
+    return results
+
+
 def _search_districts_serper(state: str) -> list[dict]:
     """
     Run 2-3 Serper queries to discover districts in a state.
@@ -1422,6 +1557,72 @@ def suggest_cold_license_requests(sequence_ids: list[int] = None, progress_callb
                                                     "", "", company, "school"))
 
         logger.info(f"C4: {len(filtered_candidates)} candidates after Claude inference filtering")
+
+        # ── Step 4c: Serper web search for remaining unknowns ──
+        # For prospects with empty state, search the web to determine location
+        still_unknown = []
+        still_unknown_indices = []
+        for i, fc in enumerate(filtered_candidates):
+            resolved_state = fc[7]
+            if not resolved_state:
+                email_str_fc = fc[4]
+                company_fc = fc[2]
+                still_unknown.append({"company": company_fc, "email": email_str_fc})
+                still_unknown_indices.append(i)
+
+        if still_unknown and SERPER_API_KEY:
+            logger.info(f"C4: running Serper web search for {len(still_unknown)} still-unknown prospects")
+            if progress_callback:
+                progress_callback(f"Web searching {len(still_unknown)} unknown locations...")
+            try:
+                serper_results = _serper_resolve_locations(still_unknown)
+                serper_resolved = 0
+                for idx, search_result in zip(still_unknown_indices, [serper_results.get(u["company"]) or serper_results.get(u["email"]) for u in still_unknown]):
+                    if not search_result:
+                        continue
+                    s_state = search_result.get("state", "")
+                    if not s_state:
+                        continue
+                    fc = filtered_candidates[idx]
+                    if s_state not in territory_states:
+                        out_of_territory += 1
+                        audit_out_of_territory.append([
+                            fc[2], fc[5], fc[4], "",
+                            f"State: {s_state} (Serper web search)"
+                        ])
+                        # Mark for removal by setting state to a sentinel
+                        filtered_candidates[idx] = (*fc[:7], "__OOT__", *fc[8:])
+                    else:
+                        # CA SoCal check
+                        if s_state == "CA":
+                            is_socal = False
+                            try:
+                                if fc[4] and territory_matcher.is_socal_domain(fc[4]):
+                                    is_socal = True
+                                if not is_socal and territory_matcher.is_socal_by_name(
+                                    fc[2], city=search_result.get("city", ""),
+                                    district=search_result.get("district", "")
+                                ):
+                                    is_socal = True
+                            except Exception:
+                                pass
+                            if not is_socal:
+                                out_of_territory += 1
+                                audit_out_of_territory.append([
+                                    fc[2], fc[5], fc[4], "",
+                                    "CA - not in SoCal territory (Serper)"
+                                ])
+                                filtered_candidates[idx] = (*fc[:7], "__OOT__", *fc[8:])
+                                continue
+                        filtered_candidates[idx] = (*fc[:7], s_state, search_result.get("district", fc[8]),
+                                                    fc[9], fc[10])
+                        serper_resolved += 1
+
+                # Remove OOT-marked candidates
+                filtered_candidates = [fc for fc in filtered_candidates if fc[7] != "__OOT__"]
+                logger.info(f"C4: Serper resolved {serper_resolved} locations, excluded {len(still_unknown) - serper_resolved} more")
+            except Exception as e:
+                logger.error(f"C4: Serper location resolution failed: {e}")
 
         # ── Step 5: Check pricing for remaining candidates ──
         for (pid, pdata, company, company_key, email_str, full_name, title,
