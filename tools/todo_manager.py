@@ -93,8 +93,7 @@ def _ensure_tab():
 
 def _read_all_rows():
     """Read all data rows from the Todo List tab. Returns list of dicts."""
-    service = _get_service()
-    sheet_id = _get_sheet_id()
+    service, sheet_id = _ensure_tab()
     result = service.spreadsheets().values().get(
         spreadsheetId=sheet_id,
         range=f"'{TAB_TODOS}'!A:G",
