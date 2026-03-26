@@ -722,11 +722,45 @@ def _scrape_resolve_locations(unknowns: list[dict], claude_batch_size: int = 25)
             content = generic_content.get(company, "") if 'generic_content' in dir() else ""
         page_context.append({"company": company, "email": email, "content": content})
 
+    # ── Step 2b: Deterministic international detection from search results ──
+    # Catch Canadian/international schools that have .org/.com domains
+    # by checking search result content for obvious signals
+    _INTL_SIGNALS_IN_CONTENT = [
+        # Canadian provinces/cities in search results or URLs
+        ".bc.ca", ".on.ca", ".ab.ca", ".qc.ca", "ontario", "british columbia",
+        "toronto", "vancouver", "calgary", "edmonton", "montreal", "ottawa",
+        "winnipeg", "quebec", "manitoba", "saskatchewan", "nova scotia",
+        "salt spring island", "gulf islands",
+        # Other international
+        "australia", "new zealand", "united kingdom", "england",
+        "scotland", "ireland", "south africa", "nigeria", "kenya",
+        "philippines", "singapore", "malaysia", "india",
+        "méxico", "mexico city", "bogotá", "bogota", "lima", "santiago",
+        "buenos aires", "são paulo", "sao paulo",
+    ]
+
+    for pc in page_context:
+        if not pc["content"]:
+            continue
+        content_lower = pc["content"].lower()
+        for signal in _INTL_SIGNALS_IN_CONTENT:
+            if signal in content_lower:
+                # Mark as international — use special state marker
+                entry = {"state": "__INTL__", "district": "", "city": ""}
+                if pc["email"]:
+                    results[pc["email"]] = entry
+                if pc["company"]:
+                    results[pc["company"]] = entry
+                break
+
     # ── Step 3: Send to Claude in batches for extraction ──
     client = anthropic.Anthropic(api_key=api_key, timeout=90.0)
-    results = {}
 
-    records_with_content = [pc for pc in page_context if pc["content"]]
+    # Only send non-international records to Claude
+    records_with_content = [pc for pc in page_context
+                            if pc["content"]
+                            and not results.get(pc["email"], {}).get("state") == "__INTL__"
+                            and not results.get(pc["company"], {}).get("state") == "__INTL__"]
     if not records_with_content:
         return results
 
@@ -1779,6 +1813,17 @@ def suggest_cold_license_requests(sequence_ids: list[int] = None, progress_callb
                     # Look up by email first (unique), then company name
                     search_result = serper_results.get(u["email"]) or serper_results.get(u["company"])
                     if not search_result:
+                        continue
+
+                    # Check for international marker from deterministic detection
+                    if search_result.get("state") == "__INTL__":
+                        fc = filtered_candidates[idx]
+                        international_count += 1
+                        audit_international.append([
+                            fc[2], fc[5], fc[4], "",
+                            "International (web search content)"
+                        ])
+                        filtered_candidates[idx] = (*fc[:7], "__OOT__", *fc[8:])
                         continue
 
                     fc = filtered_candidates[idx]
