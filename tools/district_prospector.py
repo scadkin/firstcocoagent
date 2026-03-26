@@ -1720,17 +1720,23 @@ def suggest_cold_license_requests(sequence_ids: list[int] = None, progress_callb
 
         logger.info(f"C4: {len(filtered_candidates)} candidates after Claude inference filtering")
 
-        # ── Step 4c: Serper web search for remaining unknowns ──
-        # For prospects with empty state, search the web to determine location
+        # ── Step 4c: Serper web search for unknowns (state OR district) ──
+        # Search web for prospects that are missing state OR missing parent district.
+        # One search per prospect resolves both — cuts API calls vs separate passes.
         still_unknown = []
         still_unknown_indices = []
+        still_unknown_needs = []  # track what each needs: "state", "district", or "both"
         for i, fc in enumerate(filtered_candidates):
             resolved_state = fc[7]
+            resolved_district = fc[8]
             if not resolved_state:
-                email_str_fc = fc[4]
-                company_fc = fc[2]
-                still_unknown.append({"company": company_fc, "email": email_str_fc})
+                still_unknown.append({"company": fc[2], "email": fc[4]})
                 still_unknown_indices.append(i)
+                still_unknown_needs.append("state")
+            elif not resolved_district:
+                still_unknown.append({"company": fc[2], "email": fc[4]})
+                still_unknown_indices.append(i)
+                still_unknown_needs.append("district")
 
         if still_unknown and SERPER_API_KEY:
             logger.info(f"C4: running Serper web search for {len(still_unknown)} still-unknown prospects")
@@ -1740,15 +1746,27 @@ def suggest_cold_license_requests(sequence_ids: list[int] = None, progress_callb
                 serper_results = _serper_resolve_locations(still_unknown)
                 logger.info(f"C4: Serper returned {len(serper_results)} results for {len(still_unknown)} unknowns")
                 serper_resolved = 0
-                for idx, u in zip(still_unknown_indices, still_unknown):
+                serper_districts = 0
+                for idx, u, need in zip(still_unknown_indices, still_unknown, still_unknown_needs):
                     # Look up by email first (unique), then company name
                     search_result = serper_results.get(u["email"]) or serper_results.get(u["company"])
                     if not search_result:
                         continue
+
+                    fc = filtered_candidates[idx]
+
+                    # District-only lookup: already has state, just needs district
+                    if need == "district":
+                        s_district = search_result.get("district", "")
+                        if s_district:
+                            filtered_candidates[idx] = (*fc[:8], s_district, fc[9], fc[10])
+                            serper_districts += 1
+                        continue
+
+                    # State lookup (need == "state")
                     s_state = search_result.get("state", "")
                     if not s_state:
                         continue
-                    fc = filtered_candidates[idx]
                     if s_state not in territory_states:
                         out_of_territory += 1
                         audit_out_of_territory.append([
@@ -1785,7 +1803,7 @@ def suggest_cold_license_requests(sequence_ids: list[int] = None, progress_callb
 
                 # Remove OOT-marked candidates
                 filtered_candidates = [fc for fc in filtered_candidates if fc[7] != "__OOT__"]
-                logger.info(f"C4: Serper resolved {serper_resolved} locations, excluded {len(still_unknown) - serper_resolved} more")
+                logger.info(f"C4: Serper resolved {serper_resolved} states + {serper_districts} districts")
             except Exception as e:
                 logger.error(f"C4: Serper location resolution failed: {e}")
 
@@ -1815,36 +1833,6 @@ def suggest_cold_license_requests(sequence_ids: list[int] = None, progress_callb
                     pass
         if enriched_district_count:
             logger.info(f"C4: enriched {enriched_district_count} parent districts via territory re-matching")
-
-        # ── Step 4e: Serper web search for remaining missing parent districts ──
-        # For prospects that have a state but STILL no parent district after NCES re-matching,
-        # search the web using domain + school name to find the parent district.
-        still_no_district = []
-        still_no_district_indices = []
-        for i, fc in enumerate(filtered_candidates):
-            if fc[7] and not fc[8]:  # has state, no district
-                still_no_district.append({
-                    "company": fc[2], "email": fc[4], "state": fc[7]
-                })
-                still_no_district_indices.append(i)
-
-        if still_no_district and SERPER_API_KEY:
-            logger.info(f"C4: Serper searching for {len(still_no_district)} missing parent districts")
-            if progress_callback:
-                progress_callback(f"Searching for {len(still_no_district)} parent districts...")
-            try:
-                district_results = _serper_resolve_districts(still_no_district)
-                serper_district_count = 0
-                for idx, u in zip(still_no_district_indices, still_no_district):
-                    result = district_results.get(u["email"]) or district_results.get(u["company"])
-                    if result and result.get("district"):
-                        fc = filtered_candidates[idx]
-                        filtered_candidates[idx] = (*fc[:8], result["district"], fc[9], fc[10])
-                        serper_district_count += 1
-                if serper_district_count:
-                    logger.info(f"C4: enriched {serper_district_count} parent districts via Serper web search")
-            except Exception as e:
-                logger.error(f"C4: Serper district enrichment failed: {e}")
 
         # ── Step 5: Check pricing for remaining candidates ──
         for (pid, pdata, company, company_key, email_str, full_name, title,
