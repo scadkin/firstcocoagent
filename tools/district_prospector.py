@@ -617,25 +617,29 @@ def _scrape_resolve_locations(unknowns: list[dict], claude_batch_size: int = 25)
                 domain_to_company[domain] = company
                 break
 
+    _serper_hdrs = dict(serper_headers)  # copy for thread safety
+
     def _serper_search(query):
         """Run a single Serper search. Returns snippet text."""
         try:
             with httpx.Client(timeout=10.0) as http:
-                resp = http.post(SERPER_URL, headers=serper_headers,
+                resp = http.post(SERPER_URL, headers=_serper_hdrs,
                                  json={"q": query, "num": 3})
-                if resp.status_code == 200:
-                    data = resp.json()
-                    parts = []
-                    for item in data.get("organic", [])[:3]:
-                        parts.append(f"{item.get('title','')} | {item.get('snippet','')} | {item.get('link','')}")
-                    kg = data.get("knowledgeGraph", {})
-                    if kg:
-                        attrs = kg.get("attributes", {})
-                        addr = attrs.get("Address", "") or attrs.get("Headquarters", "")
-                        parts.append(f"[KG] {kg.get('title','')} | {kg.get('description','')} | {addr}")
-                    return "\n".join(parts) if parts else ""
-        except Exception:
-            pass
+                if resp.status_code != 200:
+                    logger.warning(f"C4 Serper: HTTP {resp.status_code} for query: {query[:50]}")
+                    return ""
+                data = resp.json()
+                parts = []
+                for item in data.get("organic", [])[:3]:
+                    parts.append(f"{item.get('title','')} | {item.get('snippet','')} | {item.get('link','')}")
+                kg = data.get("knowledgeGraph", {})
+                if kg:
+                    attrs = kg.get("attributes", {})
+                    addr = attrs.get("Address", "") or attrs.get("Headquarters", "")
+                    parts.append(f"[KG] {kg.get('title','')} | {kg.get('description','')} | {addr}")
+                return "\n".join(parts) if parts else ""
+        except Exception as e:
+            logger.warning(f"C4 Serper search error for '{query[:50]}': {e}")
         return ""
 
     if SERPER_API_KEY:
@@ -788,10 +792,13 @@ def _scrape_resolve_locations(unknowns: list[dict], claude_batch_size: int = 25)
     client = anthropic.Anthropic(api_key=api_key, timeout=90.0)
 
     # Only send non-international records to Claude
-    records_with_content = [pc for pc in page_context
-                            if pc["content"]
-                            and results.get(pc["email"], {}).get("state") != "__INTL__"
-                            and results.get(pc["company"], {}).get("state") != "__INTL__"]
+    with_content = [pc for pc in page_context if pc["content"]]
+    intl_flagged = [pc for pc in with_content
+                    if results.get(pc["email"], {}).get("state") == "__INTL__"
+                    or results.get(pc["company"], {}).get("state") == "__INTL__"]
+    records_with_content = [pc for pc in with_content if pc not in intl_flagged]
+    logger.info(f"C4 scrape: {len(page_context)} total, {len(with_content)} have content, "
+                f"{len(intl_flagged)} flagged intl, {len(records_with_content)} to Claude")
     if not records_with_content:
         return results
 
