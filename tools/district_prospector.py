@@ -669,6 +669,146 @@ Use "" for state only if the search results give NO location clue at all.
     return results
 
 
+def _serper_resolve_districts(unknowns: list[dict], batch_size: int = 20) -> dict:
+    """
+    Use Serper web search + Claude to find parent school districts for prospects
+    that already have a state but no parent district.
+
+    Each unknown has: company (school name), email, state.
+
+    Strategy: Google the email domain — the school's website or district site
+    usually shows up first, making the parent district obvious.
+
+    Returns dict keyed by email → {district: "District Name"}
+    """
+    import anthropic
+    import json as _json
+
+    if not SERPER_API_KEY:
+        return {}
+    api_key = os.environ.get("ANTHROPIC_API_KEY", "")
+    if not api_key:
+        return {}
+
+    _GENERIC_EMAIL_DOMAINS = {
+        "gmail.com", "yahoo.com", "hotmail.com", "outlook.com", "aol.com",
+        "icloud.com", "mail.com", "protonmail.com", "comcast.net", "msn.com",
+        "att.net", "sbcglobal.net", "verizon.net", "cox.net", "charter.net",
+        "earthlink.net", "me.com", "live.com", "ymail.com",
+    }
+
+    serper_headers = {"X-API-KEY": SERPER_API_KEY, "Content-Type": "application/json"}
+    client = anthropic.Anthropic(api_key=api_key, timeout=90.0)
+    results = {}
+
+    for batch_start in range(0, len(unknowns), batch_size):
+        batch = unknowns[batch_start:batch_start + batch_size]
+        search_context = []
+
+        with httpx.Client(timeout=15.0) as http:
+            for u in batch:
+                company = u.get("company", "")
+                email = u.get("email", "")
+                state = u.get("state", "")
+                domain = email.split("@")[-1].lower() if "@" in email else ""
+
+                # Search: domain directly (like Steven does), or school name + state
+                query = ""
+                if domain and domain not in _GENERIC_EMAIL_DOMAINS:
+                    query = domain
+                elif company and company != "Unknown" and company != email:
+                    query = f'"{company}" {state} school district'
+
+                if not query:
+                    search_context.append({"company": company, "email": email, "state": state, "snippets": ""})
+                    continue
+
+                try:
+                    resp = http.post(SERPER_URL, headers=serper_headers,
+                                     json={"q": query, "num": 3})
+                    all_snippets = []
+                    if resp.status_code == 200:
+                        data = resp.json()
+                        for item in data.get("organic", [])[:3]:
+                            all_snippets.append(f"{item.get('title','')} | {item.get('snippet','')} | {item.get('link','')}")
+                        kg = data.get("knowledgeGraph", {})
+                        if kg:
+                            attrs = kg.get("attributes", {})
+                            addr = attrs.get("Address", "") or attrs.get("Headquarters", "")
+                            all_snippets.append(f"[KG] {kg.get('title','')} | {kg.get('description','')} | {addr}")
+                    search_context.append({
+                        "company": company, "email": email, "state": state,
+                        "snippets": "\n".join(all_snippets) if all_snippets else ""
+                    })
+                except Exception:
+                    search_context.append({"company": company, "email": email, "state": state, "snippets": ""})
+
+        records_with_results = [sc for sc in search_context if sc["snippets"]]
+        if not records_with_results:
+            continue
+
+        records_text = ""
+        for idx, sc in enumerate(records_with_results, 1):
+            domain = sc["email"].split("@")[-1] if "@" in sc["email"] else ""
+            records_text += (f"{idx}. School: {sc['company']} | Domain: {domain} "
+                            f"| State: {sc['state']} | Email: {sc['email']}\n")
+            records_text += f"   Google results:\n{sc['snippets'][:500]}\n\n"
+
+        prompt = f"""I searched Google for these school email domains. I already know the state for each one.
+I need you to determine the PARENT SCHOOL DISTRICT for each school.
+
+Rules:
+- The email domain often IS the district (e.g., neisd.net = North East ISD, austinisd.org = Austin ISD)
+- Look at the Google results for district names in page titles, URLs, and snippets
+- If the school IS a district (ISD, USD, etc.), the parent district is itself
+- For private/charter schools, use the school name as the district
+- Look at the website footer or "about" info in snippets for district affiliation
+
+RECORDS:
+{records_text}
+
+Respond with ONLY a JSON array:
+{{"idx": 1, "district": "North East Independent School District"}}
+
+Always return a district name — use the school name itself if you can't find a parent district.
+"""
+        try:
+            response = client.messages.create(
+                model="claude-sonnet-4-6",
+                max_tokens=4000,
+                messages=[{"role": "user", "content": prompt}],
+            )
+            text = response.content[0].text.strip()
+            if text.startswith("```"):
+                text = text.split("```")[1]
+                if text.startswith("json"):
+                    text = text[4:]
+                text = text.strip()
+
+            parsed = _json.loads(text)
+            for item in parsed:
+                idx = item.get("idx", 0)
+                if 1 <= idx <= len(records_with_results):
+                    sc = records_with_results[idx - 1]
+                    district = (item.get("district") or "").strip()
+                    if district:
+                        entry = {"district": district}
+                        if sc["email"]:
+                            results[sc["email"]] = entry
+                        if sc["company"]:
+                            results[sc["company"]] = entry
+
+            logger.info(f"C4 Serper districts: found {len([i for i in parsed if (i.get('district') or '').strip()])} "
+                        f"of {len(records_with_results)} (batch {batch_start // batch_size + 1})")
+        except Exception as e:
+            logger.error(f"C4 Serper districts: Claude extraction failed: {e}")
+
+        import time as _time
+        _time.sleep(0.5)
+
+    return results
+
+
 def _search_districts_serper(state: str) -> list[dict]:
     """
     Run 2-3 Serper queries to discover districts in a state.
@@ -1675,6 +1815,36 @@ def suggest_cold_license_requests(sequence_ids: list[int] = None, progress_callb
                     pass
         if enriched_district_count:
             logger.info(f"C4: enriched {enriched_district_count} parent districts via territory re-matching")
+
+        # ── Step 4e: Serper web search for remaining missing parent districts ──
+        # For prospects that have a state but STILL no parent district after NCES re-matching,
+        # search the web using domain + school name to find the parent district.
+        still_no_district = []
+        still_no_district_indices = []
+        for i, fc in enumerate(filtered_candidates):
+            if fc[7] and not fc[8]:  # has state, no district
+                still_no_district.append({
+                    "company": fc[2], "email": fc[4], "state": fc[7]
+                })
+                still_no_district_indices.append(i)
+
+        if still_no_district and SERPER_API_KEY:
+            logger.info(f"C4: Serper searching for {len(still_no_district)} missing parent districts")
+            if progress_callback:
+                progress_callback(f"Searching for {len(still_no_district)} parent districts...")
+            try:
+                district_results = _serper_resolve_districts(still_no_district)
+                serper_district_count = 0
+                for idx, u in zip(still_no_district_indices, still_no_district):
+                    result = district_results.get(u["email"]) or district_results.get(u["company"])
+                    if result and result.get("district"):
+                        fc = filtered_candidates[idx]
+                        filtered_candidates[idx] = (*fc[:8], result["district"], fc[9], fc[10])
+                        serper_district_count += 1
+                if serper_district_count:
+                    logger.info(f"C4: enriched {serper_district_count} parent districts via Serper web search")
+            except Exception as e:
+                logger.error(f"C4: Serper district enrichment failed: {e}")
 
         # ── Step 5: Check pricing for remaining candidates ──
         for (pid, pdata, company, company_key, email_str, full_name, title,
