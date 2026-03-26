@@ -605,6 +605,8 @@ def _scrape_resolve_locations(unknowns: list[dict], claude_batch_size: int = 25)
     # Parallel Serper searches — 20 concurrent
     serper_headers = {"X-API-KEY": SERPER_API_KEY, "Content-Type": "application/json"}
     domain_content = {}  # domain → search result text
+    prospect_extra = {}  # email → additional per-prospect search results
+    generic_content = {}  # company → search results for generic email prospects
 
     # Build domain → school name mapping for second search query
     domain_to_company = {}
@@ -744,7 +746,7 @@ def _scrape_resolve_locations(unknowns: list[dict], claude_batch_size: int = 25)
             parts.append(prospect_extra[email])
         # For generic emails, use company name search results
         if not parts and company:
-            gc = generic_content.get(company, "") if 'generic_content' in dir() else ""
+            gc = generic_content.get(company, "")
             if gc:
                 parts.append(gc)
         content = "\n".join(parts)
@@ -1906,7 +1908,8 @@ def suggest_cold_license_requests(sequence_ids: list[int] = None, progress_callb
                 filtered_candidates = [fc for fc in filtered_candidates if fc[7] != "__OOT__"]
                 logger.info(f"C4: scrape resolved {serper_resolved} states + {serper_districts} districts")
             except Exception as e:
-                logger.error(f"C4: scrape location resolution failed: {e}")
+                import traceback
+                logger.error(f"C4: scrape location resolution failed: {e}\n{traceback.format_exc()}")
 
         # ── Step 4d: Enrich parent districts for prospects with state but no district ──
         # Now that states are resolved (via Claude, Serper, patterns), re-run territory
