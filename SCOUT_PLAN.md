@@ -3,7 +3,7 @@
 
 ---
 
-## YOU ARE HERE → C4: Cold License Requests — Spot-Check Accuracy (Session 35 paused here, Session 36 was infrastructure/plan formatting)
+## YOU ARE HERE → C4: SIGNED OFF (Session 37). Next: Todo List Feature or C2 Research Engine
 
 ---
 
@@ -49,9 +49,13 @@ Surviving prospects are added to the Prospecting Queue with email, first name, l
 | 12 | SF data-driven domain→state lookup | ✅ Done (Session 35) | Reads real emails from SF Leads/Contacts tabs |
 | 13 | Known SoCal domain abbreviation list | ✅ Done (Session 35) | 90+ hardcoded + containment matching |
 | 14 | Column migration (16→19 cols) | ✅ Done (Session 35) | `/fix_queue`, `/cleanup_queue` commands |
-| 15 | Spot-check accuracy of states | 🔧 In progress | ← PAUSED HERE. Last /c4 run: 1,452 targets, 228 Claude inferred. Steven has not yet spot-checked this run. |
-| 16 | Spot-check SoCal exclusions | ⬜ Not started | Check C4 Audit tab OUT OF TERRITORY section |
-| 17 | Final verification + sign-off | ⬜ Not started | Steven reviews, confirms results are clean |
+| 15 | Spot-check accuracy of states | ✅ Done (Session 37) | Multiple rounds of spot-checking + fixes. Empty states: 301→113. |
+| 16 | Spot-check SoCal exclusions | ✅ Done (Session 37) | SoCal false exclusions: 11→3. Company name verification added. |
+| 17 | Serper web search (school name + email) | ✅ Done (Session 37) | Searches like Steven does manually. Parallel, deduped. |
+| 18 | Parent district enrichment | ✅ Done (Session 37) | NCES re-matching + Serper extraction. 100% coverage. |
+| 19 | Deterministic international detection | ✅ Done (Session 37) | TLDs, edu domains, school name keywords, search content signals. |
+| 20 | API cost tracking | ✅ Done (Session 37) | Shows est. cost in /c4 completion message. |
+| 21 | Final verification + sign-off | ✅ Done (Session 37) | Steven verified: 1,274 targets, 113 empty, 100% district coverage. |
 
 ### Mid-flight additions to C4 (things that came up during implementation)
 - **Prospecting Queue column redesign** — added Email, First Name, Last Name columns so contact info isn't buried in Notes. Required migrating all existing rows from 16→19 columns.
@@ -91,7 +95,7 @@ Surviving prospects are added to the Prospecting Queue with email, first name, l
 |---|------------|-------------|--------|
 | C1 | Territory Master List | NCES CCD data for 13 states + SoCal. 8,133 districts, 40,317 schools. Gap analysis. | ✅ Done (Sessions 31-32) |
 | C3 | Closed-Lost Winback | Scan closed-lost opps, add to Prospecting Queue. Date window filtering. Draft sequences. | ✅ Done (Sessions 33-34, verified) |
-| C4 | Cold License Requests | Scan Outreach sequences for cold inbound requests. Territory matching + state extraction. | 🔧 In progress (Sessions 34-36) |
+| C4 | Cold License Requests | Scan Outreach sequences for cold inbound requests. Full pipeline: pattern extraction → SF lookup → NCES matching → Claude inference → Serper web search → district enrichment. 1,274 targets, 113 empty states, 100% district coverage. | ✅ Done (Sessions 34-37, verified) |
 | C2 | Research Engine Improvements | Parallelize layers, better prompts, Claude tool_use. Est. 2-3 sessions. | ⬜ Next after C4 |
 | C5 | Proximity + Regional Service Centers | Go after schools near active accounts. ESC/BOCES mapping. | ⬜ Deferred |
 
