@@ -1242,15 +1242,15 @@ def suggest_cold_license_requests(sequence_ids: list[int] = None, progress_callb
                 continue
 
             # Quick filter 5: Extract state from email domain
-            # Priority: k12/gov domain → NCES city/district lookup → SF data lookup → territory matching
+            # Priority: k12/gov domain → SF data lookup → territory matching
+            # NOTE: NCES city lookup NOT used here — our NCES data only covers 13 states,
+            # so "unique" city matches are false positives (e.g., "charlottesville" maps to
+            # IN because VA isn't in our data). Will revisit when we have full US coverage.
             email_state = ""
             if email_str:
                 try:
                     # First try k12/gov/suffix/city patterns
                     email_state = territory_matcher.extract_state_from_email(email_str)
-                    # Try NCES city/district name lookup from domain
-                    if not email_state:
-                        email_state = territory_matcher.lookup_state_from_nces(email_str)
                     # If that didn't work, try SF data-driven lookup
                     if not email_state:
                         email_state = territory_matcher.lookup_domain_state(email_str)
