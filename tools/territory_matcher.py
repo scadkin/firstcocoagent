@@ -493,6 +493,30 @@ def ensure_cache(force_reload: bool = False):
         if city and state:
             by_city_state.setdefault((city, state), []).append(d)
 
+    # Build city → set of states map (for domain-based city lookup)
+    # Include both original city names AND space-stripped versions
+    # (domain roots have no spaces: "kippneworleans" needs to match "new orleans")
+    city_to_states = {}
+    for (city, state) in by_city_state:
+        city_to_states.setdefault(city, set()).add(state)
+        # Also add space-stripped version for domain containment matching
+        city_nospace = city.replace(" ", "")
+        if city_nospace != city:
+            city_to_states.setdefault(city_nospace, set()).add(state)
+
+    # Also build district name roots → state map (for domain matching)
+    district_name_to_states = {}
+    for d in districts:
+        d_name = (d.get("District Name") or "").strip().lower()
+        d_state = (d.get("State") or "").strip().upper()
+        if d_name and d_state:
+            # Normalize: strip common suffixes
+            core = _strip_school_suffixes(d_name)
+            if core and len(core) >= 4:
+                # Also strip spaces for domain matching
+                core_nospace = core.replace(" ", "")
+                district_name_to_states.setdefault(core_nospace, set()).add(d_state)
+
     _cache = {
         "schools": schools,
         "districts": districts,
@@ -502,6 +526,8 @@ def ensure_cache(force_reload: bool = False):
         "districts_by_stripped": districts_by_stripped,
         "by_domain_root": by_domain_root,
         "by_city_state": by_city_state,
+        "city_to_states": city_to_states,
+        "district_name_to_states": district_name_to_states,
     }
     _cache_loaded_at = time.time()
 
@@ -510,8 +536,88 @@ def ensure_cache(force_reload: bool = False):
         f"territory_matcher: cache loaded in {elapsed:.1f}s — "
         f"{len(schools)} schools, {len(districts)} districts, "
         f"{len(schools_by_key)} school keys, {len(districts_by_key)} district keys, "
-        f"{len(by_domain_root)} domain roots, {len(by_city_state)} city+state combos"
+        f"{len(by_domain_root)} domain roots, {len(by_city_state)} city+state combos, "
+        f"{len(city_to_states)} unique cities, {len(district_name_to_states)} district name roots"
     )
+
+
+# ─────────────────────────────────────────────
+# DOMAIN → STATE LOOKUP (from NCES city/district data)
+# ─────────────────────────────────────────────
+
+# Education keywords to strip from domain roots when looking for city/district names
+_DOMAIN_STRIP_WORDS = [
+    "countyschools", "publicschools", "cityschools", "areaschools",
+    "schools", "school", "unified", "public", "city", "county",
+    "usd", "isd", "jsd", "csd", "k12",
+]
+# Sort longest first for greedy stripping
+_DOMAIN_STRIP_WORDS.sort(key=len, reverse=True)
+
+
+def lookup_state_from_nces(email: str) -> str:
+    """
+    Look up state from email domain using NCES territory city/district data.
+    Requires cache to be loaded (call ensure_cache() first).
+
+    Approach:
+      1. Extract domain root, strip education keywords → "core name"
+      2. Check if core name matches an NCES city (uniquely in one state)
+      3. Check if core name matches an NCES district name root
+      4. Check if a known NCES city name is CONTAINED in the domain root
+         (catches "kippneworleans" → "neworleans" → LA)
+
+    Returns 2-letter state code or empty string.
+    """
+    if not _cache or not email or "@" not in email:
+        return ""
+
+    domain = email.lower().split("@")[-1].strip()
+    if domain in _GENERIC_DOMAINS:
+        return ""
+
+    domain_root = extract_domain_root(email)
+    if not domain_root or len(domain_root) < 4:
+        return ""
+
+    city_to_states = _cache.get("city_to_states", {})
+    district_name_to_states = _cache.get("district_name_to_states", {})
+
+    # Step 1: Strip education keywords from domain root to get core name
+    core = domain_root
+    for word in _DOMAIN_STRIP_WORDS:
+        if core.endswith(word) and len(core) > len(word):
+            core = core[:len(core) - len(word)]
+            break
+        if core.startswith(word) and len(core) > len(word):
+            core = core[len(word):]
+            break
+
+    # Also strip trailing digits (lakeland272 → lakeland, laurens55 → laurens)
+    core_no_digits = re.sub(r'\d+$', '', core)
+    if len(core_no_digits) >= 3:
+        core = core_no_digits
+
+    # Step 2: Check core name against NCES cities
+    if core and len(core) >= 4:
+        states = city_to_states.get(core)
+        if states and len(states) == 1:
+            return next(iter(states))
+
+    # Step 3: Check core name against NCES district name roots
+    if core and len(core) >= 4:
+        states = district_name_to_states.get(core)
+        if states and len(states) == 1:
+            return next(iter(states))
+
+    # Step 4: Check if a known NCES city is CONTAINED in domain root
+    # Only check cities with 6+ chars to avoid false positives (troy, mesa, etc.)
+    for city_name, states in city_to_states.items():
+        if len(city_name) >= 6 and len(states) == 1:
+            if city_name in domain_root and city_name != domain_root:
+                return next(iter(states))
+
+    return ""
 
 
 # ─────────────────────────────────────────────
