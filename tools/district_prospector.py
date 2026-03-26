@@ -1649,6 +1649,33 @@ def suggest_cold_license_requests(sequence_ids: list[int] = None, progress_callb
             except Exception as e:
                 logger.error(f"C4: Serper location resolution failed: {e}")
 
+        # ── Step 4d: Enrich parent districts for prospects with state but no district ──
+        # Now that states are resolved (via Claude, Serper, patterns), re-run territory
+        # matching WITH the known state to find parent districts. Also use Claude's
+        # district field and Serper results where available.
+        enriched_district_count = 0
+        for i, fc in enumerate(filtered_candidates):
+            resolved_state = fc[7]
+            resolved_district = fc[8]
+            if resolved_state and not resolved_district:
+                company_fc = fc[2]
+                email_fc = fc[4]
+                # Try territory matching with the now-known state
+                try:
+                    match = territory_matcher.match_record(
+                        company_fc, email=email_fc, state=resolved_state, email_priority=True
+                    )
+                    if match and match.parent_district:
+                        filtered_candidates[i] = (*fc[:8], match.parent_district, match.canonical_name, match.entity_type)
+                        enriched_district_count += 1
+                    elif match and match.entity_type == "district":
+                        filtered_candidates[i] = (*fc[:8], match.canonical_name, match.canonical_name, "district")
+                        enriched_district_count += 1
+                except Exception:
+                    pass
+        if enriched_district_count:
+            logger.info(f"C4: enriched {enriched_district_count} parent districts via territory re-matching")
+
         # ── Step 5: Check pricing for remaining candidates ──
         for (pid, pdata, company, company_key, email_str, full_name, title,
              resolved_state, resolved_district, resolved_name, resolved_type) in filtered_candidates:
