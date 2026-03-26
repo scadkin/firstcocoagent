@@ -566,7 +566,7 @@ def _scrape_resolve_locations(unknowns: list[dict], claude_batch_size: int = 25)
         "earthlink.net", "me.com", "live.com", "ymail.com",
     }
 
-    # ── Step 1: Deduplicate domains and fetch in parallel ──
+    # ── Step 1: Deduplicate domains and search in parallel via Serper ──
     domain_to_prospects = {}  # domain → list of unknowns
     generic_prospects = []
     for u in unknowns:
@@ -578,24 +578,58 @@ def _scrape_resolve_locations(unknowns: list[dict], claude_batch_size: int = 25)
             domain_to_prospects.setdefault(domain, []).append(u)
 
     unique_domains = list(domain_to_prospects.keys())
-    logger.info(f"C4 scrape: {len(unique_domains)} unique domains to fetch "
+    logger.info(f"C4 resolve: {len(unique_domains)} unique domains to search "
                 f"({len(unknowns)} prospects, {len(generic_prospects)} generic skipped)")
 
-    # Parallel fetch — 20 concurrent connections
-    domain_content = {}  # domain → page_text
-    with ThreadPoolExecutor(max_workers=20) as executor:
-        future_to_domain = {executor.submit(_fetch_domain_page, d): d for d in unique_domains}
-        for future in as_completed(future_to_domain):
-            domain = future_to_domain[future]
-            try:
-                domain_content[domain] = future.result()
-            except Exception:
-                domain_content[domain] = ""
+    # Parallel Serper searches — 20 concurrent
+    serper_headers = {"X-API-KEY": SERPER_API_KEY, "Content-Type": "application/json"}
+    domain_content = {}  # domain → search result text
+
+    def _search_domain(domain):
+        """Search a single domain via Serper. Returns snippet text."""
+        try:
+            with httpx.Client(timeout=10.0) as http:
+                resp = http.post(SERPER_URL, headers=serper_headers,
+                                 json={"q": domain, "num": 3})
+                if resp.status_code == 200:
+                    data = resp.json()
+                    parts = []
+                    for item in data.get("organic", [])[:3]:
+                        parts.append(f"{item.get('title','')} | {item.get('snippet','')} | {item.get('link','')}")
+                    kg = data.get("knowledgeGraph", {})
+                    if kg:
+                        attrs = kg.get("attributes", {})
+                        addr = attrs.get("Address", "") or attrs.get("Headquarters", "")
+                        parts.append(f"[KG] {kg.get('title','')} | {kg.get('description','')} | {addr}")
+                    return "\n".join(parts) if parts else ""
+        except Exception:
+            pass
+        return ""
+
+    if SERPER_API_KEY:
+        with ThreadPoolExecutor(max_workers=20) as executor:
+            future_to_domain = {executor.submit(_search_domain, d): d for d in unique_domains}
+            for future in as_completed(future_to_domain):
+                domain = future_to_domain[future]
+                try:
+                    domain_content[domain] = future.result()
+                except Exception:
+                    domain_content[domain] = ""
+    else:
+        # Fallback: direct scraping if no Serper key
+        with ThreadPoolExecutor(max_workers=20) as executor:
+            future_to_domain = {executor.submit(_fetch_domain_page, d): d for d in unique_domains}
+            for future in as_completed(future_to_domain):
+                domain = future_to_domain[future]
+                try:
+                    domain_content[domain] = future.result()
+                except Exception:
+                    domain_content[domain] = ""
 
     fetched_count = sum(1 for v in domain_content.values() if v)
-    logger.info(f"C4 scrape: fetched {fetched_count} of {len(unique_domains)} domains")
+    logger.info(f"C4 resolve: got results for {fetched_count} of {len(unique_domains)} domains")
 
-    # ── Step 2: Build page context for all prospects ──
+    # ── Step 2: Build context for all prospects ──
     page_context = []
     for u in unknowns:
         company = u.get("company", "")
@@ -619,14 +653,14 @@ def _scrape_resolve_locations(unknowns: list[dict], claude_batch_size: int = 25)
         for idx, pc in enumerate(batch, 1):
             domain = pc["email"].split("@")[-1] if "@" in pc["email"] else ""
             records_text += f"{idx}. Domain: {domain} | School: {pc['company']} | Email: {pc['email']}\n"
-            records_text += f"   Homepage content:\n{pc['content'][:800]}\n\n"
+            records_text += f"   Search results:\n{pc['content'][:800]}\n\n"
 
-        prompt = f"""I fetched the homepages of these school/district email domains. Based on the page content, determine the US state, city, and parent school district for each.
+        prompt = f"""I searched for these school/district email domains. Based on the results, determine the US state, city, and parent school district for each.
 
 Look for:
-- Address in the footer (street, city, state, zip)
-- District name in the page title or body
-- State abbreviations anywhere on the page
+- Address or location in search results or knowledge graph
+- District name in page titles or URLs
+- State abbreviations in URLs or snippets
 - If the domain IS a school district (e.g., neisd.net = North East ISD), use that as the parent district
 
 RECORDS:
