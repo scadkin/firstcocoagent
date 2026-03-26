@@ -1086,14 +1086,26 @@ For international institutions (non-.edu, non-US domains, non-US school names), 
 """
 
         try:
-            response = client.messages.create(
-                model="claude-sonnet-4-6",
-                max_tokens=6000,
-                messages=[{"role": "user", "content": prompt}],
-            )
-            if usage_callback:
-                usage_callback(response)
-            text = response.content[0].text.strip()
+            # Try up to 2 times (retry once on empty/malformed response)
+            text = ""
+            for attempt in range(2):
+                response = client.messages.create(
+                    model="claude-sonnet-4-6",
+                    max_tokens=6000,
+                    messages=[{"role": "user", "content": prompt}],
+                )
+                if usage_callback:
+                    usage_callback(response)
+                text = response.content[0].text.strip() if response.content else ""
+                if text:
+                    break
+                logger.warning(f"territory_matcher: empty response on attempt {attempt + 1}, retrying...")
+                import time as _time2
+                _time2.sleep(2.0)
+
+            if not text:
+                logger.error(f"territory_matcher: Claude returned empty response for batch {i // batch_size + 1} after 2 attempts")
+                continue
 
             # Parse JSON — handle markdown code blocks
             if text.startswith("```"):
@@ -1119,7 +1131,7 @@ For international institutions (non-.edu, non-US domains, non-US school names), 
             logger.info(f"territory_matcher: Claude inferred {len(parsed)} of {len(batch)} records (batch {i // batch_size + 1})")
 
         except Exception as e:
-            logger.error(f"territory_matcher: Claude inference failed for batch {i // batch_size + 1}: {e}")
+            logger.error(f"territory_matcher: Claude inference failed for batch {i // batch_size + 1}: {e} | response text: {text[:200] if text else '(empty)'}")
 
         # Small pause between batches
         import time as _time
