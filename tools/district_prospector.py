@@ -512,21 +512,48 @@ def _normalize_state(state_input: str) -> str:
     return _STATE_NAME_TO_ABBR.get(s.lower(), s.upper()[:2])
 
 
-def _scrape_resolve_locations(unknowns: list[dict], batch_size: int = 20) -> dict:
+def _fetch_domain_page(domain: str) -> str:
+    """Fetch a domain homepage and extract text content. Returns page text or empty string."""
+    from bs4 import BeautifulSoup
+    _HEADERS = {"User-Agent": "Mozilla/5.0 (compatible; ScoutBot/2.0; K12 Education Research)"}
+    for scheme in ["https", "http"]:
+        try:
+            with httpx.Client(timeout=8.0, follow_redirects=True, verify=False) as http:
+                resp = http.get(f"{scheme}://{domain}", headers=_HEADERS)
+                if resp.status_code == 200:
+                    soup = BeautifulSoup(resp.text, "lxml")
+                    title = soup.title.string.strip() if soup.title and soup.title.string else ""
+                    meta_desc = ""
+                    meta_tag = soup.find("meta", attrs={"name": "description"})
+                    if meta_tag:
+                        meta_desc = meta_tag.get("content", "")[:200]
+                    for tag in soup(["script", "style", "nav"]):
+                        tag.decompose()
+                    body_text = soup.get_text(separator=" ", strip=True)[:1500]
+                    footer = soup.find("footer")
+                    footer_text = footer.get_text(separator=" ", strip=True)[:300] if footer else ""
+                    page_text = f"Title: {title}\nMeta: {meta_desc}\nBody: {body_text}"
+                    if footer_text:
+                        page_text += f"\nFooter: {footer_text}"
+                    return page_text
+        except Exception:
+            continue
+    return ""
+
+
+def _scrape_resolve_locations(unknowns: list[dict], claude_batch_size: int = 25) -> dict:
     """
-    Fetch school/district homepages directly and use Claude to extract
-    state, district, and city from the page content. FREE — no search API needed.
+    Fetch school/district homepages in parallel and use Claude to extract
+    state, district, and city. FREE — no search API needed.
 
-    For institutional emails: fetch https://{domain} — school/district websites
-    almost always show their address on the homepage or in the footer.
-
-    For generic emails (gmail etc): skip — no domain to fetch.
+    Fetches up to 20 domains concurrently via ThreadPoolExecutor.
+    Deduplicates domains (multiple prospects from same district share one fetch).
 
     Returns dict keyed by email → {state, district, city}
     """
     import anthropic
     import json as _json
-    from bs4 import BeautifulSoup
+    from concurrent.futures import ThreadPoolExecutor, as_completed
 
     api_key = os.environ.get("ANTHROPIC_API_KEY", "")
     if not api_key:
@@ -539,57 +566,57 @@ def _scrape_resolve_locations(unknowns: list[dict], batch_size: int = 20) -> dic
         "earthlink.net", "me.com", "live.com", "ymail.com",
     }
 
+    # ── Step 1: Deduplicate domains and fetch in parallel ──
+    domain_to_prospects = {}  # domain → list of unknowns
+    generic_prospects = []
+    for u in unknowns:
+        email = u.get("email", "")
+        domain = email.split("@")[-1].lower() if "@" in email else ""
+        if not domain or domain in _GENERIC_EMAIL_DOMAINS:
+            generic_prospects.append(u)
+        else:
+            domain_to_prospects.setdefault(domain, []).append(u)
+
+    unique_domains = list(domain_to_prospects.keys())
+    logger.info(f"C4 scrape: {len(unique_domains)} unique domains to fetch "
+                f"({len(unknowns)} prospects, {len(generic_prospects)} generic skipped)")
+
+    # Parallel fetch — 20 concurrent connections
+    domain_content = {}  # domain → page_text
+    with ThreadPoolExecutor(max_workers=20) as executor:
+        future_to_domain = {executor.submit(_fetch_domain_page, d): d for d in unique_domains}
+        for future in as_completed(future_to_domain):
+            domain = future_to_domain[future]
+            try:
+                domain_content[domain] = future.result()
+            except Exception:
+                domain_content[domain] = ""
+
+    fetched_count = sum(1 for v in domain_content.values() if v)
+    logger.info(f"C4 scrape: fetched {fetched_count} of {len(unique_domains)} domains")
+
+    # ── Step 2: Build page context for all prospects ──
+    page_context = []
+    for u in unknowns:
+        company = u.get("company", "")
+        email = u.get("email", "")
+        domain = email.split("@")[-1].lower() if "@" in email else ""
+        content = domain_content.get(domain, "") if domain else ""
+        page_context.append({"company": company, "email": email, "content": content})
+
+    # ── Step 3: Send to Claude in batches for extraction ──
     client = anthropic.Anthropic(api_key=api_key, timeout=90.0)
     results = {}
-    _HEADERS = {"User-Agent": "Mozilla/5.0 (compatible; ScoutBot/2.0; K12 Education Research)"}
 
-    for batch_start in range(0, len(unknowns), batch_size):
-        batch = unknowns[batch_start:batch_start + batch_size]
-        page_context = []
+    records_with_content = [pc for pc in page_context if pc["content"]]
+    if not records_with_content:
+        return results
 
-        with httpx.Client(timeout=10.0, follow_redirects=True, verify=False) as http:
-            for u in batch:
-                company = u.get("company", "")
-                email = u.get("email", "")
-                domain = email.split("@")[-1].lower() if "@" in email else ""
-
-                if not domain or domain in _GENERIC_EMAIL_DOMAINS:
-                    page_context.append({"company": company, "email": email, "content": ""})
-                    continue
-
-                # Fetch the domain homepage directly
-                page_text = ""
-                for scheme in ["https", "http"]:
-                    try:
-                        resp = http.get(f"{scheme}://{domain}", headers=_HEADERS)
-                        if resp.status_code == 200:
-                            soup = BeautifulSoup(resp.text, "lxml")
-                            title = soup.title.string.strip() if soup.title and soup.title.string else ""
-                            meta_desc = ""
-                            meta_tag = soup.find("meta", attrs={"name": "description"})
-                            if meta_tag:
-                                meta_desc = meta_tag.get("content", "")[:200]
-                            for tag in soup(["script", "style", "nav"]):
-                                tag.decompose()
-                            body_text = soup.get_text(separator=" ", strip=True)[:1500]
-                            footer = soup.find("footer")
-                            footer_text = footer.get_text(separator=" ", strip=True)[:300] if footer else ""
-
-                            page_text = f"Title: {title}\nMeta: {meta_desc}\nBody: {body_text}"
-                            if footer_text:
-                                page_text += f"\nFooter: {footer_text}"
-                            break
-                    except Exception:
-                        continue
-
-                page_context.append({"company": company, "email": email, "content": page_text})
-
-        records_with_content = [pc for pc in page_context if pc["content"]]
-        if not records_with_content:
-            continue
+    for batch_start in range(0, len(records_with_content), claude_batch_size):
+        batch = records_with_content[batch_start:batch_start + claude_batch_size]
 
         records_text = ""
-        for idx, pc in enumerate(records_with_content, 1):
+        for idx, pc in enumerate(batch, 1):
             domain = pc["email"].split("@")[-1] if "@" in pc["email"] else ""
             records_text += f"{idx}. Domain: {domain} | School: {pc['company']} | Email: {pc['email']}\n"
             records_text += f"   Homepage content:\n{pc['content'][:800]}\n\n"
@@ -627,8 +654,8 @@ Always return a district — use the school name itself if no parent district is
             parsed = _json.loads(text)
             for item in parsed:
                 idx = item.get("idx", 0)
-                if 1 <= idx <= len(records_with_content):
-                    pc = records_with_content[idx - 1]
+                if 1 <= idx <= len(batch):
+                    pc = batch[idx - 1]
                     state = (item.get("state") or "").strip().upper()
                     district = (item.get("district") or "").strip()
                     entry = {
@@ -643,13 +670,10 @@ Always return a district — use the school name itself if no parent district is
                             results[pc["company"]] = entry
 
             resolved_count = len([i for i in parsed if (i.get("state") or "").strip()])
-            logger.info(f"C4 scrape: resolved {resolved_count} of {len(records_with_content)} "
-                        f"(batch {batch_start // batch_size + 1})")
+            logger.info(f"C4 scrape: resolved {resolved_count}/{len(batch)} "
+                        f"(batch {batch_start // claude_batch_size + 1})")
         except Exception as e:
             logger.error(f"C4 scrape: Claude extraction failed: {e}")
-
-        import time as _time
-        _time.sleep(0.3)
 
     return results
 
