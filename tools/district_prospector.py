@@ -512,24 +512,22 @@ def _normalize_state(state_input: str) -> str:
     return _STATE_NAME_TO_ABBR.get(s.lower(), s.upper()[:2])
 
 
-def _serper_resolve_locations(unknowns: list[dict], batch_size: int = 15) -> dict:
+def _scrape_resolve_locations(unknowns: list[dict], batch_size: int = 20) -> dict:
     """
-    Use Serper web search + Claude to determine state for unknown prospects.
-    Each unknown has: company, email.
+    Fetch school/district homepages directly and use Claude to extract
+    state, district, and city from the page content. FREE — no search API needed.
 
-    Strategy (like Steven does manually):
-      1. For institutional emails: search the email domain directly (e.g., "kippneworleans.org")
-         — first result is usually the school/district homepage showing location
-      2. For generic emails: search the school/company name
-      3. Feed search results to Claude to extract state, district, city
+    For institutional emails: fetch https://{domain} — school/district websites
+    almost always show their address on the homepage or in the footer.
+
+    For generic emails (gmail etc): skip — no domain to fetch.
 
     Returns dict keyed by email → {state, district, city}
     """
     import anthropic
     import json as _json
+    from bs4 import BeautifulSoup
 
-    if not SERPER_API_KEY:
-        return {}
     api_key = os.environ.get("ANTHROPIC_API_KEY", "")
     if not api_key:
         return {}
@@ -541,90 +539,77 @@ def _serper_resolve_locations(unknowns: list[dict], batch_size: int = 15) -> dic
         "earthlink.net", "me.com", "live.com", "ymail.com",
     }
 
-    serper_headers = {"X-API-KEY": SERPER_API_KEY, "Content-Type": "application/json"}
     client = anthropic.Anthropic(api_key=api_key, timeout=90.0)
     results = {}
+    _HEADERS = {"User-Agent": "Mozilla/5.0 (compatible; ScoutBot/2.0; K12 Education Research)"}
 
     for batch_start in range(0, len(unknowns), batch_size):
         batch = unknowns[batch_start:batch_start + batch_size]
-        search_context = []
+        page_context = []
 
-        with httpx.Client(timeout=15.0) as http:
+        with httpx.Client(timeout=10.0, follow_redirects=True, verify=False) as http:
             for u in batch:
                 company = u.get("company", "")
                 email = u.get("email", "")
                 domain = email.split("@")[-1].lower() if "@" in email else ""
 
-                # Build search query — simple and direct, like googling the domain
-                queries = []
-                if domain and domain not in _GENERIC_EMAIL_DOMAINS:
-                    # Search 1: just the domain (most natural — like typing it in Google)
-                    queries.append(domain)
-                    # Search 2: domain + school name for more context
-                    if company and company != "Unknown" and company != email:
-                        queries.append(f"{domain} {company}")
-                elif company and company != "Unknown" and company != email:
-                    # Generic email — search by school name
-                    queries.append(f'"{company}" school')
-
-                if not queries:
-                    search_context.append({"company": company, "email": email, "snippets": ""})
+                if not domain or domain in _GENERIC_EMAIL_DOMAINS:
+                    page_context.append({"company": company, "email": email, "content": ""})
                     continue
 
-                all_snippets = []
-                for query in queries[:2]:  # max 2 searches per prospect
+                # Fetch the domain homepage directly
+                page_text = ""
+                for scheme in ["https", "http"]:
                     try:
-                        resp = http.post(SERPER_URL, headers=serper_headers,
-                                         json={"q": query, "num": 3})
+                        resp = http.get(f"{scheme}://{domain}", headers=_HEADERS)
                         if resp.status_code == 200:
-                            data = resp.json()
-                            # Organic results — title + snippet + URL
-                            for item in data.get("organic", [])[:3]:
-                                title = item.get("title", "")
-                                snippet = item.get("snippet", "")
-                                link = item.get("link", "")
-                                all_snippets.append(f"{title} | {snippet} | {link}")
-                            # Knowledge graph — often has address directly
-                            kg = data.get("knowledgeGraph", {})
-                            if kg:
-                                attrs = kg.get("attributes", {})
-                                addr = attrs.get("Address", "") or attrs.get("Headquarters", "")
-                                kg_desc = kg.get("description", "")
-                                kg_title = kg.get("title", "")
-                                all_snippets.append(f"[Knowledge Graph] {kg_title} | {kg_desc} | Address: {addr}")
-                    except Exception as e:
-                        logger.debug(f"C4 Serper search failed for '{query}': {e}")
+                            soup = BeautifulSoup(resp.text, "lxml")
+                            title = soup.title.string.strip() if soup.title and soup.title.string else ""
+                            meta_desc = ""
+                            meta_tag = soup.find("meta", attrs={"name": "description"})
+                            if meta_tag:
+                                meta_desc = meta_tag.get("content", "")[:200]
+                            for tag in soup(["script", "style", "nav"]):
+                                tag.decompose()
+                            body_text = soup.get_text(separator=" ", strip=True)[:1500]
+                            footer = soup.find("footer")
+                            footer_text = footer.get_text(separator=" ", strip=True)[:300] if footer else ""
 
-                search_context.append({
-                    "company": company, "email": email,
-                    "snippets": "\n".join(all_snippets) if all_snippets else ""
-                })
+                            page_text = f"Title: {title}\nMeta: {meta_desc}\nBody: {body_text}"
+                            if footer_text:
+                                page_text += f"\nFooter: {footer_text}"
+                            break
+                    except Exception:
+                        continue
 
-        # Send search results to Claude for state extraction
-        records_with_results = [sc for sc in search_context if sc["snippets"]]
-        if not records_with_results:
+                page_context.append({"company": company, "email": email, "content": page_text})
+
+        records_with_content = [pc for pc in page_context if pc["content"]]
+        if not records_with_content:
             continue
 
         records_text = ""
-        for idx, sc in enumerate(records_with_results, 1):
-            domain = sc["email"].split("@")[-1] if "@" in sc["email"] else ""
-            records_text += f"{idx}. Domain: {domain} | School: {sc['company']} | Email: {sc['email']}\n"
-            records_text += f"   Google results:\n{sc['snippets'][:600]}\n\n"
+        for idx, pc in enumerate(records_with_content, 1):
+            domain = pc["email"].split("@")[-1] if "@" in pc["email"] else ""
+            records_text += f"{idx}. Domain: {domain} | School: {pc['company']} | Email: {pc['email']}\n"
+            records_text += f"   Homepage content:\n{pc['content'][:800]}\n\n"
 
-        prompt = f"""I searched Google for these school/district email domains. Based on the search results, determine the US state, city, and parent school district for each.
+        prompt = f"""I fetched the homepages of these school/district email domains. Based on the page content, determine the US state, city, and parent school district for each.
 
 Look for:
-- Address or location in the search results or knowledge graph
-- District name in page titles or URLs (e.g., "kippneworleans.org" → KIPP New Orleans → Louisiana)
-- State abbreviations in URLs or snippets
+- Address in the footer (street, city, state, zip)
+- District name in the page title or body
+- State abbreviations anywhere on the page
+- If the domain IS a school district (e.g., neisd.net = North East ISD), use that as the parent district
 
 RECORDS:
 {records_text}
 
 Respond with ONLY a JSON array, no other text. Each element:
-{{"idx": 1, "state": "MO", "district": "Mary Institute and Country Day School", "city": "St. Louis"}}
+{{"idx": 1, "state": "TX", "district": "North East Independent School District", "city": "San Antonio"}}
 
-Use "" for state only if the search results give NO location clue at all.
+Use "" for state only if the page gives NO location clue at all.
+Always return a district — use the school name itself if no parent district is apparent.
 """
         try:
             response = client.messages.create(
@@ -642,169 +627,29 @@ Use "" for state only if the search results give NO location clue at all.
             parsed = _json.loads(text)
             for item in parsed:
                 idx = item.get("idx", 0)
-                if 1 <= idx <= len(records_with_results):
-                    sc = records_with_results[idx - 1]
+                if 1 <= idx <= len(records_with_content):
+                    pc = records_with_content[idx - 1]
                     state = (item.get("state") or "").strip().upper()
-                    if state and len(state) == 2:
-                        entry = {
-                            "state": state,
-                            "district": item.get("district", ""),
-                            "city": item.get("city", ""),
-                        }
-                        # Index by email (unique and reliable for lookup)
-                        if sc["email"]:
-                            results[sc["email"]] = entry
-                        # Also index by company as fallback
-                        if sc["company"]:
-                            results[sc["company"]] = entry
-
-            logger.info(f"C4 Serper: resolved {len([i for i in parsed if (i.get('state') or '').strip()])} "
-                        f"of {len(records_with_results)} searched (batch {batch_start // batch_size + 1})")
-        except Exception as e:
-            logger.error(f"C4 Serper: Claude extraction failed for batch {batch_start // batch_size + 1}: {e}")
-
-        import time as _time
-        _time.sleep(0.5)
-
-    return results
-
-
-def _serper_resolve_districts(unknowns: list[dict], batch_size: int = 20) -> dict:
-    """
-    Use Serper web search + Claude to find parent school districts for prospects
-    that already have a state but no parent district.
-
-    Each unknown has: company (school name), email, state.
-
-    Strategy: Google the email domain — the school's website or district site
-    usually shows up first, making the parent district obvious.
-
-    Returns dict keyed by email → {district: "District Name"}
-    """
-    import anthropic
-    import json as _json
-
-    if not SERPER_API_KEY:
-        return {}
-    api_key = os.environ.get("ANTHROPIC_API_KEY", "")
-    if not api_key:
-        return {}
-
-    _GENERIC_EMAIL_DOMAINS = {
-        "gmail.com", "yahoo.com", "hotmail.com", "outlook.com", "aol.com",
-        "icloud.com", "mail.com", "protonmail.com", "comcast.net", "msn.com",
-        "att.net", "sbcglobal.net", "verizon.net", "cox.net", "charter.net",
-        "earthlink.net", "me.com", "live.com", "ymail.com",
-    }
-
-    serper_headers = {"X-API-KEY": SERPER_API_KEY, "Content-Type": "application/json"}
-    client = anthropic.Anthropic(api_key=api_key, timeout=90.0)
-    results = {}
-
-    for batch_start in range(0, len(unknowns), batch_size):
-        batch = unknowns[batch_start:batch_start + batch_size]
-        search_context = []
-
-        with httpx.Client(timeout=15.0) as http:
-            for u in batch:
-                company = u.get("company", "")
-                email = u.get("email", "")
-                state = u.get("state", "")
-                domain = email.split("@")[-1].lower() if "@" in email else ""
-
-                # Search: domain directly (like Steven does), or school name + state
-                query = ""
-                if domain and domain not in _GENERIC_EMAIL_DOMAINS:
-                    query = domain
-                elif company and company != "Unknown" and company != email:
-                    query = f'"{company}" {state} school district'
-
-                if not query:
-                    search_context.append({"company": company, "email": email, "state": state, "snippets": ""})
-                    continue
-
-                try:
-                    resp = http.post(SERPER_URL, headers=serper_headers,
-                                     json={"q": query, "num": 3})
-                    all_snippets = []
-                    if resp.status_code == 200:
-                        data = resp.json()
-                        for item in data.get("organic", [])[:3]:
-                            all_snippets.append(f"{item.get('title','')} | {item.get('snippet','')} | {item.get('link','')}")
-                        kg = data.get("knowledgeGraph", {})
-                        if kg:
-                            attrs = kg.get("attributes", {})
-                            addr = attrs.get("Address", "") or attrs.get("Headquarters", "")
-                            all_snippets.append(f"[KG] {kg.get('title','')} | {kg.get('description','')} | {addr}")
-                    search_context.append({
-                        "company": company, "email": email, "state": state,
-                        "snippets": "\n".join(all_snippets) if all_snippets else ""
-                    })
-                except Exception:
-                    search_context.append({"company": company, "email": email, "state": state, "snippets": ""})
-
-        records_with_results = [sc for sc in search_context if sc["snippets"]]
-        if not records_with_results:
-            continue
-
-        records_text = ""
-        for idx, sc in enumerate(records_with_results, 1):
-            domain = sc["email"].split("@")[-1] if "@" in sc["email"] else ""
-            records_text += (f"{idx}. School: {sc['company']} | Domain: {domain} "
-                            f"| State: {sc['state']} | Email: {sc['email']}\n")
-            records_text += f"   Google results:\n{sc['snippets'][:500]}\n\n"
-
-        prompt = f"""I searched Google for these school email domains. I already know the state for each one.
-I need you to determine the PARENT SCHOOL DISTRICT for each school.
-
-Rules:
-- The email domain often IS the district (e.g., neisd.net = North East ISD, austinisd.org = Austin ISD)
-- Look at the Google results for district names in page titles, URLs, and snippets
-- If the school IS a district (ISD, USD, etc.), the parent district is itself
-- For private/charter schools, use the school name as the district
-- Look at the website footer or "about" info in snippets for district affiliation
-
-RECORDS:
-{records_text}
-
-Respond with ONLY a JSON array:
-{{"idx": 1, "district": "North East Independent School District"}}
-
-Always return a district name — use the school name itself if you can't find a parent district.
-"""
-        try:
-            response = client.messages.create(
-                model="claude-sonnet-4-6",
-                max_tokens=4000,
-                messages=[{"role": "user", "content": prompt}],
-            )
-            text = response.content[0].text.strip()
-            if text.startswith("```"):
-                text = text.split("```")[1]
-                if text.startswith("json"):
-                    text = text[4:]
-                text = text.strip()
-
-            parsed = _json.loads(text)
-            for item in parsed:
-                idx = item.get("idx", 0)
-                if 1 <= idx <= len(records_with_results):
-                    sc = records_with_results[idx - 1]
                     district = (item.get("district") or "").strip()
-                    if district:
-                        entry = {"district": district}
-                        if sc["email"]:
-                            results[sc["email"]] = entry
-                        if sc["company"]:
-                            results[sc["company"]] = entry
+                    entry = {
+                        "state": state if state and len(state) == 2 else "",
+                        "district": district,
+                        "city": item.get("city", ""),
+                    }
+                    if entry["state"] or entry["district"]:
+                        if pc["email"]:
+                            results[pc["email"]] = entry
+                        if pc["company"]:
+                            results[pc["company"]] = entry
 
-            logger.info(f"C4 Serper districts: found {len([i for i in parsed if (i.get('district') or '').strip()])} "
-                        f"of {len(records_with_results)} (batch {batch_start // batch_size + 1})")
+            resolved_count = len([i for i in parsed if (i.get("state") or "").strip()])
+            logger.info(f"C4 scrape: resolved {resolved_count} of {len(records_with_content)} "
+                        f"(batch {batch_start // batch_size + 1})")
         except Exception as e:
-            logger.error(f"C4 Serper districts: Claude extraction failed: {e}")
+            logger.error(f"C4 scrape: Claude extraction failed: {e}")
 
         import time as _time
-        _time.sleep(0.5)
+        _time.sleep(0.3)
 
     return results
 
@@ -1741,10 +1586,10 @@ def suggest_cold_license_requests(sequence_ids: list[int] = None, progress_callb
         if still_unknown and SERPER_API_KEY:
             logger.info(f"C4: running Serper web search for {len(still_unknown)} still-unknown prospects")
             if progress_callback:
-                progress_callback(f"Web searching {len(still_unknown)} unknown locations...")
+                progress_callback(f"Fetching {len(still_unknown)} school websites for location data...")
             try:
-                serper_results = _serper_resolve_locations(still_unknown)
-                logger.info(f"C4: Serper returned {len(serper_results)} results for {len(still_unknown)} unknowns")
+                serper_results = _scrape_resolve_locations(still_unknown)
+                logger.info(f"C4: scrape returned {len(serper_results)} results for {len(still_unknown)} unknowns")
                 serper_resolved = 0
                 serper_districts = 0
                 for idx, u, need in zip(still_unknown_indices, still_unknown, still_unknown_needs):
@@ -1803,9 +1648,9 @@ def suggest_cold_license_requests(sequence_ids: list[int] = None, progress_callb
 
                 # Remove OOT-marked candidates
                 filtered_candidates = [fc for fc in filtered_candidates if fc[7] != "__OOT__"]
-                logger.info(f"C4: Serper resolved {serper_resolved} states + {serper_districts} districts")
+                logger.info(f"C4: scrape resolved {serper_resolved} states + {serper_districts} districts")
             except Exception as e:
-                logger.error(f"C4: Serper location resolution failed: {e}")
+                logger.error(f"C4: scrape location resolution failed: {e}")
 
         # ── Step 4d: Enrich parent districts for prospects with state but no district ──
         # Now that states are resolved (via Claude, Serper, patterns), re-run territory
