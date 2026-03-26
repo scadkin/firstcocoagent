@@ -615,16 +615,15 @@ def _scrape_resolve_locations(unknowns: list[dict], claude_batch_size: int = 25)
                 domain_to_company[domain] = company
                 break
 
-    def _search_domain(domain):
-        """Search a domain via Serper — 2 queries: domain alone + domain with school name."""
-        parts = []
+    def _serper_search(query):
+        """Run a single Serper search. Returns snippet text."""
         try:
             with httpx.Client(timeout=10.0) as http:
-                # Search 1: just the domain
                 resp = http.post(SERPER_URL, headers=serper_headers,
-                                 json={"q": domain, "num": 3})
+                                 json={"q": query, "num": 3})
                 if resp.status_code == 200:
                     data = resp.json()
+                    parts = []
                     for item in data.get("organic", [])[:3]:
                         parts.append(f"{item.get('title','')} | {item.get('snippet','')} | {item.get('link','')}")
                     kg = data.get("knowledgeGraph", {})
@@ -632,29 +631,56 @@ def _scrape_resolve_locations(unknowns: list[dict], claude_batch_size: int = 25)
                         attrs = kg.get("attributes", {})
                         addr = attrs.get("Address", "") or attrs.get("Headquarters", "")
                         parts.append(f"[KG] {kg.get('title','')} | {kg.get('description','')} | {addr}")
-
-                # Search 2: domain + school name (adds context for edge cases)
-                company = domain_to_company.get(domain, "")
-                if company:
-                    resp2 = http.post(SERPER_URL, headers=serper_headers,
-                                      json={"q": f"{domain} {company}", "num": 3})
-                    if resp2.status_code == 200:
-                        data2 = resp2.json()
-                        for item in data2.get("organic", [])[:2]:
-                            parts.append(f"{item.get('title','')} | {item.get('snippet','')} | {item.get('link','')}")
+                    return "\n".join(parts) if parts else ""
         except Exception:
             pass
-        return "\n".join(parts) if parts else ""
+        return ""
 
     if SERPER_API_KEY:
+        # Search each prospect with school name + full email (most specific query)
+        # Like Steven does: "Corpus Christi School jonathan.sam@cchristi.org"
+        # This finds the exact person's school page, LinkedIn, staff directory
+        def _search_prospect(u):
+            company = u.get("company", "")
+            email = u.get("email", "")
+            domain = email.split("@")[-1].lower() if "@" in email else ""
+            all_parts = []
+
+            # Search 1: school name + full email (best — finds exact person + school)
+            if company and company != "Unknown" and "@" not in company and email:
+                result = _serper_search(f"{company} {email}")
+                if result:
+                    all_parts.append(result)
+
+            # Search 2: just the domain (catches district homepages)
+            if domain:
+                result = _serper_search(domain)
+                if result:
+                    all_parts.append(result)
+
+            return "\n".join(all_parts) if all_parts else ""
+
+        # Parallel search — 20 concurrent
+        prospect_content = {}  # email → search results
         with ThreadPoolExecutor(max_workers=20) as executor:
-            future_to_domain = {executor.submit(_search_domain, d): d for d in unique_domains}
-            for future in as_completed(future_to_domain):
-                domain = future_to_domain[future]
+            future_to_email = {executor.submit(_search_prospect, u): u.get("email", "") for u in unknowns
+                               if u.get("email", "").split("@")[-1].lower() not in _GENERIC_EMAIL_DOMAINS
+                               and "@" in u.get("email", "")}
+            for future in as_completed(future_to_email):
+                email = future_to_email[future]
                 try:
-                    domain_content[domain] = future.result()
+                    prospect_content[email] = future.result()
                 except Exception:
-                    domain_content[domain] = ""
+                    prospect_content[email] = ""
+
+        # Map back to domain_content for compatibility
+        for u in unknowns:
+            email = u.get("email", "")
+            domain = email.split("@")[-1].lower() if "@" in email else ""
+            if email in prospect_content and prospect_content[email]:
+                domain_content[domain] = prospect_content[email]
+            elif domain and domain not in domain_content:
+                domain_content[domain] = ""
     else:
         # Fallback: direct scraping if no Serper key
         with ThreadPoolExecutor(max_workers=20) as executor:
