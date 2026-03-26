@@ -512,15 +512,18 @@ def _normalize_state(state_input: str) -> str:
     return _STATE_NAME_TO_ABBR.get(s.lower(), s.upper()[:2])
 
 
-def _serper_resolve_locations(unknowns: list[dict], batch_size: int = 10) -> dict:
+def _serper_resolve_locations(unknowns: list[dict], batch_size: int = 15) -> dict:
     """
     Use Serper web search + Claude to determine state for unknown prospects.
     Each unknown has: company, email.
 
-    Searches for the email domain (most reliable) or school name,
-    then uses Claude to extract state from search results.
+    Strategy (like Steven does manually):
+      1. For institutional emails: search the email domain directly (e.g., "kippneworleans.org")
+         — first result is usually the school/district homepage showing location
+      2. For generic emails: search the school/company name
+      3. Feed search results to Claude to extract state, district, city
 
-    Returns dict: company_or_email → {state, district, city}
+    Returns dict keyed by email → {state, district, city}
     """
     import anthropic
     import json as _json
@@ -531,11 +534,17 @@ def _serper_resolve_locations(unknowns: list[dict], batch_size: int = 10) -> dic
     if not api_key:
         return {}
 
-    headers = {"X-API-KEY": SERPER_API_KEY, "Content-Type": "application/json"}
+    _GENERIC_EMAIL_DOMAINS = {
+        "gmail.com", "yahoo.com", "hotmail.com", "outlook.com", "aol.com",
+        "icloud.com", "mail.com", "protonmail.com", "comcast.net", "msn.com",
+        "att.net", "sbcglobal.net", "verizon.net", "cox.net", "charter.net",
+        "earthlink.net", "me.com", "live.com", "ymail.com",
+    }
+
+    serper_headers = {"X-API-KEY": SERPER_API_KEY, "Content-Type": "application/json"}
     client = anthropic.Anthropic(api_key=api_key, timeout=90.0)
     results = {}
 
-    # Search in batches to avoid rate limits
     for batch_start in range(0, len(unknowns), batch_size):
         batch = unknowns[batch_start:batch_start + batch_size]
         search_context = []
@@ -544,73 +553,83 @@ def _serper_resolve_locations(unknowns: list[dict], batch_size: int = 10) -> dic
             for u in batch:
                 company = u.get("company", "")
                 email = u.get("email", "")
-                domain = email.split("@")[-1] if "@" in email else ""
+                domain = email.split("@")[-1].lower() if "@" in email else ""
 
-                # Prefer domain search (more specific), fall back to school name
-                query = ""
-                if domain and domain not in ("gmail.com", "yahoo.com", "hotmail.com",
-                        "outlook.com", "aol.com", "icloud.com", "protonmail.com",
-                        "comcast.net", "live.com"):
-                    query = f'"{domain}" school district location'
-                elif company and company != "Unknown":
-                    query = f'"{company}" school district state'
+                # Build search query — simple and direct, like googling the domain
+                queries = []
+                if domain and domain not in _GENERIC_EMAIL_DOMAINS:
+                    # Search 1: just the domain (most natural — like typing it in Google)
+                    queries.append(domain)
+                    # Search 2: domain + school name for more context
+                    if company and company != "Unknown" and company != email:
+                        queries.append(f"{domain} {company}")
+                elif company and company != "Unknown" and company != email:
+                    # Generic email — search by school name
+                    queries.append(f'"{company}" school')
 
-                if not query:
+                if not queries:
                     search_context.append({"company": company, "email": email, "snippets": ""})
                     continue
 
-                try:
-                    resp = http.post(SERPER_URL, headers=headers,
-                                     json={"q": query, "num": 3})
-                    if resp.status_code == 200:
-                        data = resp.json()
-                        snippets = []
-                        for item in data.get("organic", [])[:3]:
-                            title = item.get("title", "")
-                            snippet = item.get("snippet", "")
-                            link = item.get("link", "")
-                            snippets.append(f"{title} — {snippet} ({link})")
-                        # Also check knowledge graph
-                        kg = data.get("knowledgeGraph", {})
-                        if kg:
-                            kg_text = f"{kg.get('title', '')} — {kg.get('description', '')} — {kg.get('attributes', {}).get('Address', '')}"
-                            snippets.append(kg_text)
-                        search_context.append({
-                            "company": company, "email": email,
-                            "snippets": "\n".join(snippets)
-                        })
-                    else:
-                        search_context.append({"company": company, "email": email, "snippets": ""})
-                except Exception:
-                    search_context.append({"company": company, "email": email, "snippets": ""})
+                all_snippets = []
+                for query in queries[:2]:  # max 2 searches per prospect
+                    try:
+                        resp = http.post(SERPER_URL, headers=serper_headers,
+                                         json={"q": query, "num": 3})
+                        if resp.status_code == 200:
+                            data = resp.json()
+                            # Organic results — title + snippet + URL
+                            for item in data.get("organic", [])[:3]:
+                                title = item.get("title", "")
+                                snippet = item.get("snippet", "")
+                                link = item.get("link", "")
+                                all_snippets.append(f"{title} | {snippet} | {link}")
+                            # Knowledge graph — often has address directly
+                            kg = data.get("knowledgeGraph", {})
+                            if kg:
+                                attrs = kg.get("attributes", {})
+                                addr = attrs.get("Address", "") or attrs.get("Headquarters", "")
+                                kg_desc = kg.get("description", "")
+                                kg_title = kg.get("title", "")
+                                all_snippets.append(f"[Knowledge Graph] {kg_title} | {kg_desc} | Address: {addr}")
+                    except Exception as e:
+                        logger.debug(f"C4 Serper search failed for '{query}': {e}")
 
-        # Now use Claude to extract states from search results
+                search_context.append({
+                    "company": company, "email": email,
+                    "snippets": "\n".join(all_snippets) if all_snippets else ""
+                })
+
+        # Send search results to Claude for state extraction
         records_with_results = [sc for sc in search_context if sc["snippets"]]
         if not records_with_results:
             continue
 
         records_text = ""
         for idx, sc in enumerate(records_with_results, 1):
-            records_text += f"{idx}. School: {sc['company']} | Email: {sc['email']}\n"
-            records_text += f"   Search results:\n   {sc['snippets'][:500]}\n\n"
+            domain = sc["email"].split("@")[-1] if "@" in sc["email"] else ""
+            records_text += f"{idx}. Domain: {domain} | School: {sc['company']} | Email: {sc['email']}\n"
+            records_text += f"   Google results:\n{sc['snippets'][:600]}\n\n"
 
-        prompt = f"""Based on the web search results below, determine the US state for each school/organization.
+        prompt = f"""I searched Google for these school/district email domains. Based on the search results, determine the US state, city, and parent school district for each.
 
-For each record, return:
-- state: 2-letter US state code
-- district: parent school district name
-- city: city name
+Look for:
+- Address or location in the search results or knowledge graph
+- District name in page titles or URLs (e.g., "kippneworleans.org" → KIPP New Orleans → Louisiana)
+- State abbreviations in URLs or snippets
 
 RECORDS:
 {records_text}
 
-Respond with ONLY a JSON array:
-{{"idx": 1, "state": "TX", "district": "Austin ISD", "city": "Austin"}}
+Respond with ONLY a JSON array, no other text. Each element:
+{{"idx": 1, "state": "MO", "district": "Mary Institute and Country Day School", "city": "St. Louis"}}
+
+Use "" for state only if the search results give NO location clue at all.
 """
         try:
             response = client.messages.create(
                 model="claude-sonnet-4-6",
-                max_tokens=4000,
+                max_tokens=6000,
                 messages=[{"role": "user", "content": prompt}],
             )
             text = response.content[0].text.strip()
@@ -625,21 +644,24 @@ Respond with ONLY a JSON array:
                 idx = item.get("idx", 0)
                 if 1 <= idx <= len(records_with_results):
                     sc = records_with_results[idx - 1]
-                    key = sc["company"] or sc["email"]
                     state = (item.get("state") or "").strip().upper()
                     if state and len(state) == 2:
-                        results[key] = {
+                        entry = {
                             "state": state,
                             "district": item.get("district", ""),
                             "city": item.get("city", ""),
                         }
-                        # Also index by email for lookup
+                        # Index by email (unique and reliable for lookup)
                         if sc["email"]:
-                            results[sc["email"]] = results[key]
+                            results[sc["email"]] = entry
+                        # Also index by company as fallback
+                        if sc["company"]:
+                            results[sc["company"]] = entry
 
-            logger.info(f"C4 Serper: resolved {len(parsed)} of {len(records_with_results)} searched (batch {batch_start // batch_size + 1})")
+            logger.info(f"C4 Serper: resolved {len([i for i in parsed if (i.get('state') or '').strip()])} "
+                        f"of {len(records_with_results)} searched (batch {batch_start // batch_size + 1})")
         except Exception as e:
-            logger.error(f"C4 Serper: Claude extraction failed: {e}")
+            logger.error(f"C4 Serper: Claude extraction failed for batch {batch_start // batch_size + 1}: {e}")
 
         import time as _time
         _time.sleep(0.5)
