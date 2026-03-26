@@ -606,15 +606,25 @@ def _scrape_resolve_locations(unknowns: list[dict], claude_batch_size: int = 25)
     serper_headers = {"X-API-KEY": SERPER_API_KEY, "Content-Type": "application/json"}
     domain_content = {}  # domain → search result text
 
+    # Build domain → school name mapping for second search query
+    domain_to_company = {}
+    for domain, prospects_list in domain_to_prospects.items():
+        for u in prospects_list:
+            company = u.get("company", "")
+            if company and company != "Unknown" and "@" not in company and len(company) > 3:
+                domain_to_company[domain] = company
+                break
+
     def _search_domain(domain):
-        """Search a single domain via Serper. Returns snippet text."""
+        """Search a domain via Serper — 2 queries: domain alone + domain with school name."""
+        parts = []
         try:
             with httpx.Client(timeout=10.0) as http:
+                # Search 1: just the domain
                 resp = http.post(SERPER_URL, headers=serper_headers,
                                  json={"q": domain, "num": 3})
                 if resp.status_code == 200:
                     data = resp.json()
-                    parts = []
                     for item in data.get("organic", [])[:3]:
                         parts.append(f"{item.get('title','')} | {item.get('snippet','')} | {item.get('link','')}")
                     kg = data.get("knowledgeGraph", {})
@@ -622,10 +632,19 @@ def _scrape_resolve_locations(unknowns: list[dict], claude_batch_size: int = 25)
                         attrs = kg.get("attributes", {})
                         addr = attrs.get("Address", "") or attrs.get("Headquarters", "")
                         parts.append(f"[KG] {kg.get('title','')} | {kg.get('description','')} | {addr}")
-                    return "\n".join(parts) if parts else ""
+
+                # Search 2: domain + school name (adds context for edge cases)
+                company = domain_to_company.get(domain, "")
+                if company:
+                    resp2 = http.post(SERPER_URL, headers=serper_headers,
+                                      json={"q": f"{domain} {company}", "num": 3})
+                    if resp2.status_code == 200:
+                        data2 = resp2.json()
+                        for item in data2.get("organic", [])[:2]:
+                            parts.append(f"{item.get('title','')} | {item.get('snippet','')} | {item.get('link','')}")
         except Exception:
             pass
-        return ""
+        return "\n".join(parts) if parts else ""
 
     if SERPER_API_KEY:
         with ThreadPoolExecutor(max_workers=20) as executor:
