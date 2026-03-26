@@ -790,8 +790,8 @@ def _scrape_resolve_locations(unknowns: list[dict], claude_batch_size: int = 25)
     # Only send non-international records to Claude
     records_with_content = [pc for pc in page_context
                             if pc["content"]
-                            and not results.get(pc["email"], {}).get("state") == "__INTL__"
-                            and not results.get(pc["company"], {}).get("state") == "__INTL__"]
+                            and results.get(pc["email"], {}).get("state") != "__INTL__"
+                            and results.get(pc["company"], {}).get("state") != "__INTL__"]
     if not records_with_content:
         return results
 
