@@ -2088,6 +2088,8 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                         lines.append(f"🤖 {result['claude_inferred']} locations inferred by Claude")
                     if result.get("pricing_bulk_detected"):
                         lines.append(f"📧 {result['pricing_bulk_detected']} pricing emails detected (bulk scan)")
+                    if result.get("estimated_cost"):
+                        lines.append(f"\n💲 Est. API cost: ${result['estimated_cost']:.2f} ({result.get('api_calls', 0)} Claude calls)")
                     lines.append(f"\n📋 Check the *C4 Audit* tab in your Google Sheet to spot-check exclusions.")
                     await send_message("\n".join(lines))
             except Exception as e:

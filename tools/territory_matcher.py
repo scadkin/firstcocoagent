@@ -1005,6 +1005,7 @@ def match_records(
 def infer_locations_with_claude(
     unknowns: list[dict],
     batch_size: int = 40,
+    usage_callback=None,
 ) -> dict[str, dict]:
     """
     Use Claude (Sonnet) to infer school/district state and details for
@@ -1090,6 +1091,8 @@ For international institutions (non-.edu, non-US domains, non-US school names), 
                 max_tokens=6000,
                 messages=[{"role": "user", "content": prompt}],
             )
+            if usage_callback:
+                usage_callback(response)
             text = response.content[0].text.strip()
 
             # Parse JSON — handle markdown code blocks

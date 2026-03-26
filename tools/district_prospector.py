@@ -36,6 +36,27 @@ logger = logging.getLogger(__name__)
 SERPER_API_KEY = os.environ.get("SERPER_API_KEY", "")
 SERPER_URL = "https://google.serper.dev/search"
 
+# Cost tracking for C4 scans — Sonnet pricing: $3/MTok input, $15/MTok output
+_c4_cost_tracker = {"input_tokens": 0, "output_tokens": 0, "api_calls": 0}
+
+def _reset_cost_tracker():
+    _c4_cost_tracker["input_tokens"] = 0
+    _c4_cost_tracker["output_tokens"] = 0
+    _c4_cost_tracker["api_calls"] = 0
+
+def _track_claude_usage(response):
+    """Extract and accumulate token usage from a Claude API response."""
+    usage = getattr(response, "usage", None)
+    if usage:
+        _c4_cost_tracker["input_tokens"] += getattr(usage, "input_tokens", 0)
+        _c4_cost_tracker["output_tokens"] += getattr(usage, "output_tokens", 0)
+        _c4_cost_tracker["api_calls"] += 1
+
+def _get_estimated_cost() -> float:
+    """Estimate cost in USD. Sonnet: $3/MTok in, $15/MTok out."""
+    return (_c4_cost_tracker["input_tokens"] * 3.0 / 1_000_000 +
+            _c4_cost_tracker["output_tokens"] * 15.0 / 1_000_000)
+
 TAB_PROSPECT_QUEUE = "Prospecting Queue"
 
 PROSPECT_COLUMNS = [
@@ -629,6 +650,47 @@ def _scrape_resolve_locations(unknowns: list[dict], claude_batch_size: int = 25)
     fetched_count = sum(1 for v in domain_content.values() if v)
     logger.info(f"C4 resolve: got results for {fetched_count} of {len(unique_domains)} domains")
 
+    # ── Step 1b: Search generic-email prospects by school name ──
+    if SERPER_API_KEY and generic_prospects:
+        def _search_company(company):
+            try:
+                with httpx.Client(timeout=10.0) as http:
+                    resp = http.post(SERPER_URL, headers=serper_headers,
+                                     json={"q": f'"{company}" school', "num": 3})
+                    if resp.status_code == 200:
+                        data = resp.json()
+                        parts = []
+                        for item in data.get("organic", [])[:3]:
+                            parts.append(f"{item.get('title','')} | {item.get('snippet','')} | {item.get('link','')}")
+                        kg = data.get("knowledgeGraph", {})
+                        if kg:
+                            attrs = kg.get("attributes", {})
+                            addr = attrs.get("Address", "") or attrs.get("Headquarters", "")
+                            parts.append(f"[KG] {kg.get('title','')} | {kg.get('description','')} | {addr}")
+                        return "\n".join(parts) if parts else ""
+            except Exception:
+                pass
+            return ""
+
+        # Only search prospects with real school names (skip junk like "Unknown", email-as-name, etc.)
+        searchable_generic = [
+            u for u in generic_prospects
+            if u.get("company", "") and u["company"] != "Unknown"
+            and "@" not in u["company"] and len(u["company"]) > 3
+        ]
+        generic_content = {}  # company → search results
+        if searchable_generic:
+            logger.info(f"C4 resolve: searching {len(searchable_generic)} generic-email prospects by school name")
+            with ThreadPoolExecutor(max_workers=20) as executor:
+                future_to_company = {executor.submit(_search_company, u["company"]): u["company"]
+                                     for u in searchable_generic}
+                for future in as_completed(future_to_company):
+                    company = future_to_company[future]
+                    try:
+                        generic_content[company] = future.result()
+                    except Exception:
+                        generic_content[company] = ""
+
     # ── Step 2: Build context for all prospects ──
     page_context = []
     for u in unknowns:
@@ -636,6 +698,9 @@ def _scrape_resolve_locations(unknowns: list[dict], claude_batch_size: int = 25)
         email = u.get("email", "")
         domain = email.split("@")[-1].lower() if "@" in email else ""
         content = domain_content.get(domain, "") if domain else ""
+        # For generic emails, use company name search results
+        if not content and company:
+            content = generic_content.get(company, "") if 'generic_content' in dir() else ""
         page_context.append({"company": company, "email": email, "content": content})
 
     # ── Step 3: Send to Claude in batches for extraction ──
@@ -678,6 +743,7 @@ Always return a district — use the school name itself if no parent district is
                 max_tokens=6000,
                 messages=[{"role": "user", "content": prompt}],
             )
+            _track_claude_usage(response)
             text = response.content[0].text.strip()
             if text.startswith("```"):
                 text = text.split("```")[1]
@@ -1237,6 +1303,8 @@ def suggest_cold_license_requests(sequence_ids: list[int] = None, progress_callb
     """
     import tools.outreach_client as outreach_client
 
+    _reset_cost_tracker()
+
     if not outreach_client.is_authenticated():
         return {"success": False, "new_added": 0, "error": "Outreach not connected. Use /connect_outreach."}
 
@@ -1518,7 +1586,9 @@ def suggest_cold_license_requests(sequence_ids: list[int] = None, progress_callb
         if unresolved:
             logger.info(f"C4: running Claude inference on {len(unresolved)} unresolved prospects")
             try:
-                claude_results = territory_matcher.infer_locations_with_claude(unresolved)
+                claude_results = territory_matcher.infer_locations_with_claude(
+                    unresolved, usage_callback=_track_claude_usage
+                )
                 claude_inferred_count = len(claude_results)
                 logger.info(f"C4: Claude inferred {claude_inferred_count} locations")
             except Exception as e:
@@ -1831,6 +1901,8 @@ def suggest_cold_license_requests(sequence_ids: list[int] = None, progress_callb
             "international": international_count,
             "student_emails": student_email_count,
             "prospects": [r[1] for r in new_rows[:20]],
+            "estimated_cost": round(_get_estimated_cost(), 2),
+            "api_calls": _c4_cost_tracker["api_calls"],
             "error": "",
         }
 
