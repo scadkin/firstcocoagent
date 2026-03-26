@@ -318,3 +318,49 @@ See `memory/roadmap_full.md` for the complete approved roadmap (A1-A3, B1-B2, C1
 - Enhancement C4 (Cold License Requests): 🔧 in progress (Session 35)
 - Enhancement C2 (Research Engine): next after C4
 - Enhancement C5 (Proximity): deferred
+
+---
+
+## Session 37 (2026-03-25 to 2026-03-26) — C4 Cold License Requests: SIGNED OFF
+
+### What changed
+- **C4 fully verified and signed off.** Final: 1,274 targets, 113 empty states (11 institutional), 100% parent district coverage, $1.38/run.
+- **State extraction:** Added education keyword stripping (kyschools→KY), expanded city/county→state map (30+ entries), improved Claude prompt with domain decoding examples.
+- **SoCal verification:** Added `is_socal_by_name()` — checks company name + Claude city/district for SoCal city names. Fixed gmail CA prospects being falsely excluded.
+- **Serper web search pipeline:** Searches school name + full email address (per-prospect), plus domain-only (deduped). Parallel via ThreadPoolExecutor (20 concurrent). Generic emails searched by school name.
+- **Parent district enrichment:** NCES re-matching with known state + Serper extraction. 100% coverage (1 missing of 1,161).
+- **Deterministic international detection:** TLDs (.pa, .name), foreign edu domains (.edu.pa, .ac.uk, .bc.ca), company name keywords (école, liceo, colegio, escuela), search content signals (british columbia, .bc.ca/).
+- **Claude JSON preamble fix:** Claude Sonnet sometimes writes "I'll analyze each record carefully..." before JSON. Fix: strip text before `[` and after `]`.
+- **API cost tracking:** `_track_claude_usage()` accumulates tokens, shows est. cost in `/c4` completion message.
+- **Local dev setup:** `.env` with GOOGLE_SHEETS_ID, GOOGLE_SERVICE_ACCOUNT_JSON, SERPER_API_KEY (gitignored). `scripts/spot_check_c4.py` for direct sheet reading.
+- **Railway CLI:** Installed, authenticated, linked. `railway logs --lines N --since Xm` for live debugging.
+- **NCES cache:** Added city_to_states and district_name_to_states indexes. `lookup_state_from_nces()` function exists but NOT used in C4 (partial state data gives false positives).
+- **SOCAL_CITIES, SOCAL_KEYWORDS, SOCAL_COUNTIES** constants added to territory_matcher.py.
+
+### Key decisions
+- **Serper web search is primary resolution tool** — direct domain scraping was slower and less accurate.
+- **Search school name + full email** — `"Corpus Christi School jonathan.sam@cchristi.org"` returns exact person's school page. Domain-only search returns wrong results for ambiguous names.
+- **Do NOT use NCES city lookup for state extraction** — 13-state partial data makes "unique" matches wrong (charlottesville→IN because VA not in data).
+- **International detection must be deterministic** — Claude's `is_us` flag varies across runs. Use TLDs, domain patterns, and company name keywords instead.
+- **Do NOT use substring matching for geographic signals** — "india" matches "Indiana", "england" matches "New England", "ontario" matches "Ontario, CA". Only use unambiguous multi-word signals.
+
+### Bugs found and fixed
+1. NCES city lookup false positives (partial state data)
+2. Python `not x == y` precedence (confirmed NOT a bug — was correct)
+3. `results` dict NameError (used before initialization)
+4. Claude text preamble before JSON (strip before `[`)
+5. Silent `except Exception: pass` hiding errors
+6. International content filter matching US states ("india"→"Indiana")
+7. Serper rate limits from too many concurrent connections
+8. Separate district Serper pass burning double API credits
+
+### Files modified
+- `tools/territory_matcher.py` — extract_state_from_email patterns, SOCAL constants, is_socal_by_name(), infer_locations_with_claude prompt + JSON preamble fix, lookup_state_from_nces (unused)
+- `tools/district_prospector.py` — _scrape_resolve_locations (Serper search), international detection, cost tracking, parent district enrichment, SoCal company name check
+- `agent/main.py` — cost display in /c4 completion message
+- `scripts/spot_check_c4.py` — new local spot-check script
+- `.gitignore` — added .env
+- `.env` — local credentials (gitignored)
+
+### New feature request captured
+- **Todo List Feature** — Replace Scout's hourly check-ins with todo list management. Steven wants Scout to keep him on task, accept status updates, add/complete items via Telegram. Captured in memory/project_todo_feature.md.

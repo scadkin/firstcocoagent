@@ -1,21 +1,27 @@
 # SCOUT — Claude Code Reference
-*Last updated: 2026-03-25 — Session 36*
+*Last updated: 2026-03-26 — Session 37*
 
 ---
 
 ## CURRENT STATE — update this after each session
 
-**Session 36: Infrastructure session — built session transcript auto-capture system (`scout` command) and locked in plan view format. No code changes to Scout itself. C4 spot-check still pending from Session 35. All Scout code is deployed and running. No uncommitted code changes (except the new scripts and .gitignore from this session).**
+**Session 37: C4 Cold License Requests — SIGNED OFF. Full pipeline built and verified: pattern extraction → SF lookup → NCES matching → Claude inference → Serper web search (school name + email) → district enrichment. Final: 1,274 targets, 113 empty states, 100% district coverage, $1.38/run. Also set up local .env for Google Sheets + Serper access, Railway CLI for live log debugging, and spot_check_c4.py script.**
 
-### What was done (Session 36)
-- **Session transcript auto-capture:** `scout` shell command wraps `claude` with macOS `script`, auto-cleans terminal output to readable markdown, saves to `docs/sessions/session_N.md`. Fallback auto-commit if end-of-session routine is skipped.
-- **Plan view format locked in:** Exact template saved to memory — no tables, emoji markers, ➕ additions nested under parent features, consistent structure across all sessions.
-- **New files:** `scripts/scout_session.sh`, `scripts/clean_transcript.py`, `docs/sessions/` directory, `.gitignore`
-- **Shell alias:** `scout` added to `~/.zshrc`
+### What was done (Session 37)
+- **C4 spot-check + fixes:** Multiple rounds of spot-checking and fixing state extraction, SoCal verification, parent district enrichment
+- **Pattern extraction improvements:** Education keyword stripping (kyschools→KY), expanded city/county map (30+ entries)
+- **SoCal company name verification:** `is_socal_by_name()` catches gmail CA prospects via company name + Claude city/district
+- **Serper web search pipeline:** Searches school name + full email address (like Steven does manually). Parallel, deduped. Falls back to scraping if no Serper key.
+- **Parent district enrichment:** NCES re-matching with known state + Serper extraction. 100% coverage.
+- **Deterministic international detection:** TLDs, foreign edu domains, school name keywords, search content signals. No longer depends on Claude's nondeterministic `is_us` flag.
+- **Claude JSON preamble fix:** Strip text before `[` and after `]` — Claude sometimes writes "I'll analyze..." before JSON
+- **API cost tracking:** Shows estimated cost in `/c4` completion message
+- **Local development setup:** `.env` with GOOGLE_SHEETS_ID, GOOGLE_SERVICE_ACCOUNT_JSON, SERPER_API_KEY (gitignored). `scripts/spot_check_c4.py` for direct sheet reading.
+- **Railway CLI:** Installed, authenticated, linked to project. `railway logs` for live debugging.
 
-### What still needs to be done (Session 37+)
-- **C4: Spot-check accuracy** — Steven needs to review Prospecting Queue states + C4 Audit SoCal exclusions for the latest /c4 run (1,452 targets). Then final sign-off.
-- **C2: Research engine improvements** (after C4)
+### What still needs to be done (Session 38+)
+- **Todo List Feature** — Replace Scout's hourly check-ins with todo list management (Steven's request, captured in memory)
+- **C2: Research engine improvements** — Parallelize layers, better prompts, Claude tool_use
 - **C5: Proximity + regional service centers** (deferred)
 - See `SCOUT_PLAN.md` for full roadmap, parked items, and detailed context
 
@@ -31,7 +37,7 @@
 - Enhancement B2: ✅ fully verified (Session 30) — all 8 tests passed
 - Enhancement C1 (Territory Master List): ✅ fully verified (Session 32)
 - Enhancement C3 (Closed-Lost Winback): ✅ fully verified (Session 34)
-- Enhancement C4 (Cold License Requests): 🔧 all fixes deployed, spot-check pending (Session 35-36)
+- Enhancement C4 (Cold License Requests): ✅ fully verified + signed off (Session 37)
 - SoCal CSV filtering: ✅ 5 passes complete (Session 26)
 - Session transcript capture: ✅ set up (Session 36)
 
@@ -71,15 +77,23 @@
 - Steven's user ID: **11**. Read-only. **NEVER write to Outreach.**
 - Tokens persist via GitHub (`memory/outreach_tokens.json`). Railway env vars: `OUTREACH_CLIENT_ID`, `OUTREACH_CLIENT_SECRET`, `OUTREACH_REDIRECT_URI`.
 
-### C4 Cold License Requests (Sessions 34-35)
+### C4 Cold License Requests (Sessions 34-37) — VERIFIED
 - Strategy: "cold_license_request" — inbound license requests that went cold (no opp, no pricing sent).
 - 3 sequences: IDs 507, 1768, 1860. `/c4`, `/c4_clear`, `/cleanup_queue`, `/fix_queue`.
+- **Final results:** 1,274 targets, 113 empty states, 100% district coverage, $1.38/run.
+- **Full pipeline:** pattern extraction → SF domain lookup → NCES territory matching → Claude batch inference → Serper web search (school name + full email) → NCES district re-matching → Claude extraction from search results.
 - **Email domain ranks higher than company name** (`email_priority=True`). Student emails excluded.
-- territory_matcher.py: 5-tier matching + Claude inference + comprehensive state extraction.
-- `extract_state_from_email()`: k12 domains, .gov, state suffixes, state names, city names.
+- territory_matcher.py: pattern extraction + Claude inference + Serper search + comprehensive state extraction.
+- `extract_state_from_email()`: k12 domains, .gov, state suffixes, education keyword stripping, state names, expanded city/county map.
 - `is_socal_domain()`: known SoCal district abbreviations (KNOWN_SOCAL_DOMAIN_ROOTS).
+- `is_socal_by_name()`: company name + Claude city/district checked for SoCal city names.
 - `is_student_email()`: "student" anywhere in domain.
+- `_scrape_resolve_locations()`: Serper search (school name + email) with parallel ThreadPoolExecutor, deduped domains, generic email school name search. Claude extracts state + district from results.
+- **Deterministic international detection:** TLDs, foreign edu domains (.edu.pa, .ac.uk, .bc.ca), company name keywords (école, liceo, colegio), search content signals (british columbia, .bc.ca/). Do NOT use ambiguous signals ("india" matches "Indiana").
+- **Claude JSON preamble fix:** Strip text before `[` and after `]` before json.loads(). Claude Sonnet sometimes writes analysis text before JSON.
+- **API cost tracking:** `_track_claude_usage()` + `_get_estimated_cost()` in district_prospector.py. Shows in `/c4` completion message.
 - C4 Audit tab for spot-checking exclusions.
+- `scripts/spot_check_c4.py`: local script to read Prospecting Queue + C4 Audit directly via Google Sheets API.
 
 ---
 
