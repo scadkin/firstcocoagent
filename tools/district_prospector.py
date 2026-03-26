@@ -1576,8 +1576,11 @@ def suggest_cold_license_requests(sequence_ids: list[int] = None, progress_callb
                 progress_callback(f"Web searching {len(still_unknown)} unknown locations...")
             try:
                 serper_results = _serper_resolve_locations(still_unknown)
+                logger.info(f"C4: Serper returned {len(serper_results)} results for {len(still_unknown)} unknowns")
                 serper_resolved = 0
-                for idx, search_result in zip(still_unknown_indices, [serper_results.get(u["company"]) or serper_results.get(u["email"]) for u in still_unknown]):
+                for idx, u in zip(still_unknown_indices, still_unknown):
+                    # Look up by email first (unique), then company name
+                    search_result = serper_results.get(u["email"]) or serper_results.get(u["company"])
                     if not search_result:
                         continue
                     s_state = search_result.get("state", "")
