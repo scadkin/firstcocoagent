@@ -361,6 +361,40 @@ TOOLS = [
             "required": ["state"],
         },
     },
+    # Todo List Management
+    {
+        "name": "manage_todos",
+        "description": (
+            "Manage Steven's todo list — add items, mark done, show list, change priority. "
+            "Use when Steven mentions tasks, to-dos, things to do, reminders, or when he says "
+            "things like 'remind me to...', 'I need to...', 'add to my list...'. "
+            "Actions: add, complete, list, remove, clear_completed, update_priority."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["add", "complete", "list", "remove", "clear_completed", "update_priority"],
+                    "description": "The action to perform on the todo list",
+                },
+                "task": {
+                    "type": "string",
+                    "description": "For 'add': the task description. For 'complete': task text or #ID to match.",
+                },
+                "priority": {
+                    "type": "string",
+                    "enum": ["high", "medium", "low"],
+                    "description": "Priority level (default: medium)",
+                },
+                "todo_id": {
+                    "type": "integer",
+                    "description": "Todo ID for 'complete', 'remove', or 'update_priority' actions",
+                },
+            },
+            "required": ["action"],
+        },
+    },
     # Phase 5: Call Intelligence
     {
         "name": "process_call_transcript",

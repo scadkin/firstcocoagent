@@ -32,6 +32,7 @@ import tools.district_prospector as district_prospector
 import tools.pipeline_tracker as pipeline_tracker
 import tools.lead_importer as lead_importer
 import tools.territory_data as territory_data
+import tools.todo_manager as todo_manager
 from tools.telegram_bot import send_message
 # Phase 4/5 modules imported lazily inside execute_tool() — safe to boot without them
 
@@ -944,6 +945,60 @@ async def execute_tool(tool_name: str, tool_input: dict) -> str:
             return msg
         except Exception as e:
             return f"Discovery error: {e}"
+
+    elif tool_name == "manage_todos":
+        action = tool_input.get("action", "")
+        try:
+            loop = asyncio.get_event_loop()
+            if action == "add":
+                task = tool_input.get("task", "")
+                if not task:
+                    return "Need a task description."
+                priority = tool_input.get("priority", "medium")
+                item = await loop.run_in_executor(None, todo_manager.add_todo, task, priority)
+                icon = {"high": "🔴", "medium": "🟡", "low": "⚪"}.get(priority, "🟡")
+                return f"✅ Added #{item['ID']}: {icon} {task}"
+            elif action == "complete":
+                todo_id = tool_input.get("todo_id")
+                task = tool_input.get("task", "")
+                if todo_id:
+                    result = await loop.run_in_executor(None, todo_manager.complete_todo, int(todo_id))
+                elif task:
+                    result = await loop.run_in_executor(None, todo_manager.complete_todo_by_match, task)
+                else:
+                    return "Need a todo_id or task text to complete."
+                if "error" in result:
+                    return result["error"]
+                return f"✅ Done! Checked off #{result['ID']}: {result['Task']}"
+            elif action == "list":
+                items = await loop.run_in_executor(None, todo_manager.get_all_todos, True)
+                msg = todo_manager.format_todos_for_telegram(items)
+                await send_message(msg)
+                return "Todo list shown."
+            elif action == "remove":
+                todo_id = tool_input.get("todo_id")
+                if not todo_id:
+                    return "Need a todo_id to remove."
+                result = await loop.run_in_executor(None, todo_manager.remove_todo, int(todo_id))
+                if "error" in result:
+                    return result["error"]
+                return f"🗑 Removed todo #{todo_id}"
+            elif action == "clear_completed":
+                result = await loop.run_in_executor(None, todo_manager.clear_completed)
+                return f"🗑 Cleared {result['cleared']} completed items. {result['remaining']} open."
+            elif action == "update_priority":
+                todo_id = tool_input.get("todo_id")
+                priority = tool_input.get("priority", "medium")
+                if not todo_id:
+                    return "Need a todo_id to update priority."
+                result = await loop.run_in_executor(None, todo_manager.update_priority, int(todo_id), priority)
+                if "error" in result:
+                    return result["error"]
+                return f"Updated #{todo_id} priority to {priority}"
+            else:
+                return f"Unknown todo action: {action}"
+        except Exception as e:
+            return f"Todo error: {e}"
 
     return f"❓ Unknown tool: {tool_name}"
 
@@ -2231,6 +2286,86 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await send_message(f"✅ Recipient set to `{email_addr}`. Say *looks good* to save.")
         return
 
+    # ── Todo list commands ───────────────────────────────────────────────────
+
+    elif user_text.lower() in ["/todos", "/todo", "todos", "todo list", "my todos", "show todos"]:
+        try:
+            loop = asyncio.get_event_loop()
+            items = await loop.run_in_executor(None, todo_manager.get_all_todos, True)
+            await send_message(todo_manager.format_todos_for_telegram(items))
+        except Exception as e:
+            await send_message(f"Todo error: {e}")
+        return
+
+    elif user_text.lower().startswith("add:") or user_text.lower().startswith("todo:"):
+        prefix = "add:" if user_text.lower().startswith("add:") else "todo:"
+        task_text = user_text[len(prefix):].strip()
+        if not task_text:
+            await send_message("What do you want to add? e.g. `add: Follow up with Austin ISD`")
+            return
+        # Parse optional priority: "add: call Jennifer !high" or "add: call Jennifer (high)"
+        priority = "medium"
+        for p in ["high", "medium", "low"]:
+            if f"!{p}" in task_text.lower() or f"({p})" in task_text.lower():
+                priority = p
+                task_text = re.sub(rf'\s*[!(]{p}[)]?\s*', '', task_text, flags=re.IGNORECASE).strip()
+                break
+        try:
+            loop = asyncio.get_event_loop()
+            item = await loop.run_in_executor(None, todo_manager.add_todo, task_text, priority)
+            icon = {"high": "🔴", "medium": "🟡", "low": "⚪"}.get(priority, "🟡")
+            await send_message(f"✅ Added #{item['ID']}: {icon} {task_text}")
+        except Exception as e:
+            await send_message(f"Add error: {e}")
+        return
+
+    elif user_text.lower().startswith("done:") or user_text.lower().startswith("done "):
+        prefix = "done:" if user_text.lower().startswith("done:") else "done "
+        done_text = user_text[len(prefix):].strip()
+        if not done_text:
+            await send_message("What did you finish? e.g. `done: Austin follow-up` or `done: #3`")
+            return
+        try:
+            loop = asyncio.get_event_loop()
+            # Check if it's an ID reference like "#3" or "3"
+            id_match = re.match(r'^#?(\d+)$', done_text.strip())
+            if id_match:
+                result = await loop.run_in_executor(None, todo_manager.complete_todo, int(id_match.group(1)))
+            else:
+                result = await loop.run_in_executor(None, todo_manager.complete_todo_by_match, done_text)
+            if "error" in result:
+                await send_message(f"⚠️ {result['error']}")
+            else:
+                await send_message(f"✅ Done! Checked off #{result['ID']}: {result['Task']}")
+        except Exception as e:
+            await send_message(f"Done error: {e}")
+        return
+
+    elif user_text.lower() in ["/todo_clear", "/clear_todos", "clear todos", "clear completed todos"]:
+        try:
+            loop = asyncio.get_event_loop()
+            result = await loop.run_in_executor(None, todo_manager.clear_completed)
+            await send_message(f"🗑 Cleared {result['cleared']} completed items. {result['remaining']} open items remain.")
+        except Exception as e:
+            await send_message(f"Clear error: {e}")
+        return
+
+    elif user_text.lower().startswith("/todo_remove"):
+        id_text = user_text[len("/todo_remove"):].strip().lstrip("#")
+        if not id_text.isdigit():
+            await send_message("Usage: `/todo_remove #3` or `/todo_remove 3`")
+            return
+        try:
+            loop = asyncio.get_event_loop()
+            result = await loop.run_in_executor(None, todo_manager.remove_todo, int(id_text))
+            if "error" in result:
+                await send_message(f"⚠️ {result['error']}")
+            else:
+                await send_message(f"🗑 Removed todo #{id_text}")
+        except Exception as e:
+            await send_message(f"Remove error: {e}")
+        return
+
     # ── CSV upload description (pre-message before file upload) ─────────────
     # Steven can describe what a CSV is before uploading it, e.g.:
     # "this is a list of all the open opps in my pipeline"
@@ -2416,8 +2551,13 @@ async def send_eod_report():
 
 
 async def send_checkin():
-    msg = "📊 Hourly check-in — anything you need, Steven?"
-    # Suggest pending prospects when research queue is idle
+    # Todo-based check-in: reference open items instead of generic greeting
+    try:
+        loop = asyncio.get_event_loop()
+        msg = await loop.run_in_executor(None, todo_manager.get_checkin_summary)
+    except Exception:
+        msg = "📊 Hourly check-in — anything you need, Steven?"
+    # Also suggest pending prospects when research queue is idle
     try:
         if not research_queue.current_job:
             loop = asyncio.get_event_loop()

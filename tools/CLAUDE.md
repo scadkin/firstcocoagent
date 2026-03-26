@@ -116,6 +116,23 @@ lead_importer.clear_contacts_tabs() -> dict
 lead_importer.enrich_record_via_serper(record, tab_type) -> dict  # sync
 ```
 
+## todo_manager — MODULE not class
+```python
+import tools.todo_manager as todo_manager
+todo_manager.add_todo(task, priority="medium", due_date="") -> dict
+todo_manager.complete_todo(todo_id) -> dict
+todo_manager.complete_todo_by_match(text) -> dict   # fuzzy match open items by text
+todo_manager.get_open_todos() -> list[dict]
+todo_manager.get_all_todos(include_done=False) -> list[dict]
+todo_manager.remove_todo(todo_id) -> dict
+todo_manager.clear_completed() -> dict
+todo_manager.update_priority(todo_id, priority) -> dict
+todo_manager.format_todos_for_telegram(items, title="") -> str
+todo_manager.get_checkin_summary() -> str   # used by hourly check-ins
+# Todo List tab: ID | Task | Priority | Status | Created | Completed | Due Date
+# Priority: high | medium | low. Status: open | done.
+```
+
 ## github_pusher — lazy import
 ```python
 import tools.github_pusher as github_pusher
