@@ -754,19 +754,21 @@ def _scrape_resolve_locations(unknowns: list[dict], claude_batch_size: int = 25)
 
     # ── Step 2b: Deterministic international detection from search results ──
     # Catch Canadian/international schools that have .org/.com domains
-    # by checking search result content for obvious signals
+    # by checking search result content for UNAMBIGUOUS signals only.
+    # IMPORTANT: avoid signals that match US places:
+    #   "india" matches "Indiana", "ontario" matches "Ontario, CA",
+    #   "england" matches "New England" — DO NOT use these.
     _INTL_SIGNALS_IN_CONTENT = [
-        # Canadian provinces/cities in search results or URLs
-        ".bc.ca", ".on.ca", ".ab.ca", ".qc.ca", "ontario", "british columbia",
-        "toronto", "vancouver", "calgary", "edmonton", "montreal", "ottawa",
-        "winnipeg", "quebec", "manitoba", "saskatchewan", "nova scotia",
-        "salt spring island", "gulf islands",
-        # Other international
-        "australia", "new zealand", "united kingdom", "england",
-        "scotland", "ireland", "south africa", "nigeria", "kenya",
-        "philippines", "singapore", "malaysia", "india",
-        "méxico", "mexico city", "bogotá", "bogota", "lima", "santiago",
-        "buenos aires", "são paulo", "sao paulo",
+        # Canadian domain patterns in URLs (unambiguous)
+        ".bc.ca/", ".on.ca/", ".ab.ca/", ".qc.ca/", ".ns.ca/", ".nb.ca/",
+        ".bc.ca ", ".on.ca ", ".ab.ca ", ".qc.ca ",
+        # Canadian provinces (full, unambiguous)
+        "british columbia", "salt spring island", "gulf islands",
+        # Specific enough international signals
+        "australia nsw", "australia vic", "new south wales",
+        "united kingdom", "south africa",
+        "são paulo", "sao paulo", "buenos aires",
+        "méxico, d.f", "bogotá, colombia", "bogota, colombia",
     ]
 
     for pc in page_context:
@@ -775,7 +777,6 @@ def _scrape_resolve_locations(unknowns: list[dict], claude_batch_size: int = 25)
         content_lower = pc["content"].lower()
         for signal in _INTL_SIGNALS_IN_CONTENT:
             if signal in content_lower:
-                # Mark as international — use special state marker
                 entry = {"state": "__INTL__", "district": "", "city": ""}
                 if pc["email"]:
                     results[pc["email"]] = entry
