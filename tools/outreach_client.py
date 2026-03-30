@@ -1,14 +1,17 @@
+from __future__ import annotations
+
 """
-tools/outreach_client.py — Outreach.io API client (READ-ONLY).
+tools/outreach_client.py — Outreach.io API client.
 
 OAuth2 Authorization Code flow. Tokens stored in environment + refreshed
-automatically. All operations are read-only — Scout never writes to Outreach.
+automatically. Write access scoped to sequence creation only (Session 38).
 
 Usage:
   import tools.outreach_client as outreach_client
   outreach_client.get_sequences()
   outreach_client.get_sequence_states(sequence_id)
   outreach_client.get_prospect(prospect_id)
+  outreach_client.create_sequence(name, steps=[{subject, body_html, interval_minutes}])
 """
 
 import json
@@ -336,6 +339,28 @@ def _api_get(path: str, params: dict | None = None) -> dict:
     return resp.json()
 
 
+def _api_post(path: str, payload: dict) -> dict:
+    """
+    Make a POST request to the Outreach API (JSON:API format).
+    Returns the JSON response or raises on error.
+    """
+    url = f"{API_BASE}{path}"
+    headers = _get_headers()
+
+    resp = httpx.post(url, headers=headers, json=payload, timeout=30.0)
+    if resp.status_code == 401:
+        if _refresh_access_token():
+            headers = _get_headers()
+            resp = httpx.post(url, headers=headers, json=payload, timeout=30.0)
+
+    if resp.status_code not in (200, 201):
+        body = resp.text[:500]
+        logger.error(f"Outreach POST {path} HTTP {resp.status_code}: {body}")
+        raise Exception(f"Outreach API error {resp.status_code}: {body}")
+
+    return resp.json()
+
+
 def _api_get_all(path: str, params: dict | None = None, max_pages: int = 50) -> list:
     """
     Paginate through all results for a GET endpoint.
@@ -644,3 +669,184 @@ def get_sequence_steps(sequence_id: int | str) -> list[dict]:
             "name": attrs.get("name", ""),
         })
     return sorted(steps, key=lambda s: s.get("order", 0))
+
+
+# ─────────────────────────────────────────────
+# WRITE METHODS — Sequence Creation (Session 38+)
+# ─────────────────────────────────────────────
+
+def get_mailboxes() -> list[dict]:
+    """Get available mailboxes for sending sequences."""
+    raw = _api_get_all("/mailboxes")
+    mailboxes = []
+    for item in raw:
+        attrs = item.get("attributes", {})
+        mailboxes.append({
+            "id": item.get("id"),
+            "email": attrs.get("email", ""),
+            "username": attrs.get("username", ""),
+        })
+    return mailboxes
+
+
+def create_sequence(
+    name: str,
+    steps: list[dict],
+    description: str = "",
+    tags: list[str] | None = None,
+) -> dict:
+    """
+    Create a complete sequence in Outreach with email steps.
+
+    Args:
+        name: Sequence name (shown in Outreach UI)
+        steps: List of step dicts, each with:
+            - subject: Email subject line
+            - body_html: HTML email body
+            - interval_minutes: Minutes after previous step (first step = 5 min)
+        description: Optional sequence description
+        tags: Optional list of tags
+
+    Returns dict with sequence details + step/template IDs, or error.
+
+    Flow:
+        1. Create sequence
+        2. For each step: create template → create sequenceStep → link via sequenceTemplate
+    """
+    logger.info(f"Creating Outreach sequence: {name} ({len(steps)} steps)")
+
+    # Step 1: Create the sequence
+    seq_attrs = {
+        "name": name,
+        "sequenceType": "interval",
+    }
+    if description:
+        seq_attrs["description"] = description
+    if tags:
+        seq_attrs["tags"] = tags
+
+    seq_payload = {
+        "data": {
+            "type": "sequence",
+            "attributes": seq_attrs,
+        }
+    }
+
+    try:
+        seq_result = _api_post("/sequences", seq_payload)
+    except Exception as e:
+        return {"error": f"Failed to create sequence: {e}"}
+
+    seq_id = seq_result.get("data", {}).get("id")
+    if not seq_id:
+        return {"error": f"No sequence ID returned: {seq_result}"}
+
+    logger.info(f"  Created sequence ID: {seq_id}")
+
+    created_steps = []
+
+    for i, step in enumerate(steps):
+        subject = step.get("subject", f"Step {i+1}")
+        body_html = step.get("body_html", "")
+        interval = step.get("interval_minutes", 5 if i == 0 else 1440)
+
+        # Step 2a: Create template
+        template_payload = {
+            "data": {
+                "type": "template",
+                "attributes": {
+                    "subject": subject,
+                    "bodyHtml": body_html,
+                },
+            }
+        }
+
+        try:
+            template_result = _api_post("/templates", template_payload)
+            template_id = template_result.get("data", {}).get("id")
+        except Exception as e:
+            logger.error(f"  Failed to create template for step {i+1}: {e}")
+            created_steps.append({"step": i+1, "error": str(e)})
+            continue
+
+        # Step 2b: Create sequence step
+        step_payload = {
+            "data": {
+                "type": "sequenceStep",
+                "attributes": {
+                    "stepType": "auto_email",
+                    "interval": interval,
+                    "order": i + 1,
+                },
+                "relationships": {
+                    "sequence": {
+                        "data": {
+                            "type": "sequence",
+                            "id": int(seq_id),
+                        }
+                    }
+                },
+            }
+        }
+
+        try:
+            step_result = _api_post("/sequenceSteps", step_payload)
+            step_id = step_result.get("data", {}).get("id")
+        except Exception as e:
+            logger.error(f"  Failed to create step {i+1}: {e}")
+            created_steps.append({"step": i+1, "template_id": template_id, "error": str(e)})
+            continue
+
+        # Step 2c: Link template to step
+        link_payload = {
+            "data": {
+                "type": "sequenceTemplate",
+                "relationships": {
+                    "sequenceStep": {
+                        "data": {
+                            "type": "sequenceStep",
+                            "id": int(step_id),
+                        }
+                    },
+                    "template": {
+                        "data": {
+                            "type": "template",
+                            "id": int(template_id),
+                        }
+                    },
+                },
+            }
+        }
+
+        try:
+            _api_post("/sequenceTemplates", link_payload)
+        except Exception as e:
+            logger.error(f"  Failed to link template to step {i+1}: {e}")
+            created_steps.append({
+                "step": i+1, "step_id": step_id,
+                "template_id": template_id, "error": f"Link failed: {e}",
+            })
+            continue
+
+        created_steps.append({
+            "step": i+1,
+            "step_id": step_id,
+            "template_id": template_id,
+            "subject": subject,
+            "interval_minutes": interval,
+        })
+        logger.info(f"  Step {i+1}: template={template_id}, step={step_id}, interval={interval}min, subject={subject[:50]}")
+
+    result = {
+        "sequence_id": seq_id,
+        "name": name,
+        "steps": created_steps,
+        "errors": [s for s in created_steps if "error" in s],
+    }
+
+    if result["errors"]:
+        logger.warning(f"  Sequence created with {len(result['errors'])} errors")
+    else:
+        logger.info(f"  Sequence '{name}' created successfully with {len(created_steps)} steps")
+
+    return result

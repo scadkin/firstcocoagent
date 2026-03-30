@@ -118,15 +118,8 @@ async def handle_outreach_oauth_callback(request: web.Request) -> web.Response:
             content_type="text/plain",
         )
 
-    # Skip if we already have valid tokens (prevents stale browser retries from clobbering)
+    # Always exchange — re-auth with new scopes needs fresh tokens
     import tools.outreach_client as outreach_client
-    if outreach_client.is_authenticated() and outreach_client.get_user_id():
-        logger.info("[Outreach OAuth] Already authenticated — ignoring duplicate callback")
-        return web.Response(
-            text="Outreach is already connected. You can close this tab.",
-            status=200,
-            content_type="text/plain",
-        )
 
     # Exchange code for tokens
     result = outreach_client.exchange_code_for_tokens(code)
