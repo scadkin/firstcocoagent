@@ -1,9 +1,9 @@
 # SCOUT MASTER PLAN
-*Last updated: 2026-03-25 — Session 36*
+*Last updated: 2026-03-29 — Session 38*
 
 ---
 
-## YOU ARE HERE → C4: SIGNED OFF (Session 37). Next: Todo List Feature or C2 Research Engine
+## YOU ARE HERE → Todo List + CUE Enrichment DONE (Session 38). Outreach write access enabled. Next: Build Outreach sequence creation, then C2 Research Engine
 
 ---
 
@@ -96,7 +96,7 @@ Surviving prospects are added to the Prospecting Queue with email, first name, l
 | C1 | Territory Master List | NCES CCD data for 13 states + SoCal. 8,133 districts, 40,317 schools. Gap analysis. | ✅ Done (Sessions 31-32) |
 | C3 | Closed-Lost Winback | Scan closed-lost opps, add to Prospecting Queue. Date window filtering. Draft sequences. | ✅ Done (Sessions 33-34, verified) |
 | C4 | Cold License Requests | Scan Outreach sequences for cold inbound requests. Full pipeline: pattern extraction → SF lookup → NCES matching → Claude inference → Serper web search → district enrichment. 1,274 targets, 113 empty states, 100% district coverage. | ✅ Done (Sessions 34-37, verified) |
-| C2 | Research Engine Improvements | Parallelize layers, better prompts, Claude tool_use. Est. 2-3 sessions. | ⬜ Next after C4 |
+| C2 | Research Engine Improvements | Parallelize layers, better prompts, Claude tool_use. Est. 2-3 sessions. | ⬜ After Outreach sequences |
 | C5 | Proximity + Regional Service Centers | Go after schools near active accounts. ESC/BOCES mapping. | ⬜ Deferred |
 
 **Note:** C4 was originally described as "Unresponsive leads strategy" in the roadmap but evolved during implementation into "Cold License Requests" — specifically targeting inbound license requests from Outreach sequences that went cold (no opp, no pricing). This is a more focused and actionable definition than generic "unresponsive leads." The original C4 concept of tracking outbound attempts + non-response may still be built later as a separate feature.
@@ -112,10 +112,23 @@ Surviving prospects are added to the Prospecting Queue with email, first name, l
 | Session 35 | `/fix_queue`, `/cleanup_queue` commands | Column migration from 16→19 created data alignment issues |
 | Session 36 | Session transcript auto-capture | `scout` command wraps Claude Code with `script`, auto-cleans + commits transcripts to `docs/sessions/` |
 | Session 36 | Plan view format locked in | Dialed in exact format for plan brief view — saved to memory as template for all future sessions |
+| Session 38 | Todo List Feature | Replace hourly check-ins with todo list management. Google Sheet tab, Telegram commands, Claude tool. |
+| Session 38 | CUE 2026 lead enrichment | 1,298 conference leads enriched via 5-layer pipeline. State, district/school, county, NorCal/SoCal. Rep routing tabs (Steven/Tom/Liz/Shan). `scripts/enrich_cue_leads.py` |
+| Session 38 | Outreach write access | OAuth re-authorized with write scopes for sequences, steps, templates, prospects. Ready to build sequence creation. |
+| Session 38 | Session transcript numbering fix | `scout_session.sh` checks .raw/ files + CLAUDE.md cross-check |
+| Session 38 | GitHub token regenerated | Fine-grained PAT expired, regenerated |
 
 ---
 
-## UP NEXT (after C4 is verified)
+## UP NEXT
+
+### Outreach Sequence Creation (Session 39)
+**What:** Build the ability to create email sequences directly in Outreach.io from Scout/Claude.
+- Create sequences with auto_email steps (first step sends after 5 minutes)
+- Set subject lines and HTML email body for each step
+- Steven reviews sequences in Outreach before adding prospects
+- Immediate use: CUE booth follow-up sequence + CUE opt-in attendee sequence
+- **OAuth write access: DONE** (Session 38). Scoped to sequence creation only.
 
 ### C2: Research Engine Improvements
 **What:** Make the district research engine faster and more accurate.
@@ -176,7 +189,9 @@ Surviving prospects are added to the Prospecting Queue with email, first name, l
 | 2026-03-08 | Approved roadmap A1-C5 in order | Steven reviewed full system, identified priorities | Authoritative plan — don't deviate without approval |
 | 2026-03-19 | C3 winback: all sequences are DRAFTS | Steven must review before sending | Applies to ALL strategies, not just winback |
 | 2026-03-20 | C4 redefined as cold license requests | Original "unresponsive leads" too broad. Cold license requests = specific, actionable | Changed strategy from "re-engage" to "cold_license_request" |
-| 2026-03-20 | Outreach API: read-only ONLY | Steven's explicit instruction. Never add write operations. | Hard rule for all Outreach integration |
+| 2026-03-20 | Outreach API: read-only ONLY | Steven's explicit instruction. Never add write operations. | ~~Hard rule~~ **SUPERSEDED Session 38** |
+| 2026-03-29 | Outreach API: write access for sequences only | Steven wants to create sequences programmatically instead of manual copy/paste | Write scopes: sequences, sequenceSteps, sequenceStates, sequenceTemplates, templates, prospects. Do NOT write to other resources without approval. |
+| 2026-03-29 | Steven's territory: TX, CA-SoCal, IL, PA, OH, MI, CT, OK, MA, IN, NV, TN, NE | These are the 13 states from C1 Territory Master List | Must know this by heart — never ask again |
 | 2026-03-23 | Email domain > company name for location | Salesforce company names are self-reported, often wrong | `email_priority=True` in territory matching for C4 |
 | 2026-03-23 | Build domain→state from real SF data | Hardcoded lists can't capture all creative abbreviations | SF Leads/Contacts emails used as training data |
 | 2026-03-24 | Don't exclude unknown-state prospects yet | Need to verify state extraction works well first | Keep in queue for review, exclude later once confident |

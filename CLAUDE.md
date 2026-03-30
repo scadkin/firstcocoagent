@@ -1,26 +1,22 @@
 # SCOUT — Claude Code Reference
-*Last updated: 2026-03-26 — Session 37*
+*Last updated: 2026-03-29 — Session 38*
 
 ---
 
 ## CURRENT STATE — update this after each session
 
-**Session 37: C4 Cold License Requests — SIGNED OFF. Full pipeline built and verified: pattern extraction → SF lookup → NCES matching → Claude inference → Serper web search (school name + email) → district enrichment. Final: 1,274 targets, 113 empty states, 100% district coverage, $1.38/run. Also set up local .env for Google Sheets + Serper access, Railway CLI for live log debugging, and spot_check_c4.py script.**
+**Session 38: Todo List Feature built + deployed. CUE 2026 conference lead enrichment (1,298 leads, 5-layer C4-style pipeline, rep routing tabs). Outreach API write access enabled for sequence creation. GitHub token regenerated. Session transcript numbering fixed.**
 
-### What was done (Session 37)
-- **C4 spot-check + fixes:** Multiple rounds of spot-checking and fixing state extraction, SoCal verification, parent district enrichment
-- **Pattern extraction improvements:** Education keyword stripping (kyschools→KY), expanded city/county map (30+ entries)
-- **SoCal company name verification:** `is_socal_by_name()` catches gmail CA prospects via company name + Claude city/district
-- **Serper web search pipeline:** Searches school name + full email address (like Steven does manually). Parallel, deduped. Falls back to scraping if no Serper key.
-- **Parent district enrichment:** NCES re-matching with known state + Serper extraction. 100% coverage.
-- **Deterministic international detection:** TLDs, foreign edu domains, school name keywords, search content signals. No longer depends on Claude's nondeterministic `is_us` flag.
-- **Claude JSON preamble fix:** Strip text before `[` and after `]` — Claude sometimes writes "I'll analyze..." before JSON
-- **API cost tracking:** Shows estimated cost in `/c4` completion message
-- **Local development setup:** `.env` with GOOGLE_SHEETS_ID, GOOGLE_SERVICE_ACCOUNT_JSON, SERPER_API_KEY (gitignored). `scripts/spot_check_c4.py` for direct sheet reading.
-- **Railway CLI:** Installed, authenticated, linked to project. `railway logs` for live debugging.
+### What was done (Session 38)
+- **Todo List Feature:** `tools/todo_manager.py` — Google Sheet "Todo List" tab, Telegram commands (`add:`, `done:`, `/todos`, `/todo_clear`, `/todo_remove`), Claude tool (`manage_todos`), hourly check-ins now reference open todos.
+- **CUE 2026 lead enrichment:** `scripts/enrich_cue_leads.py` — offline script. 1,472 raw → 1,298 deduped. 5-layer pipeline: email domain parsing → SF domain→state lookup (859 roots) → Serper web search (parallel, deduped) → Claude extraction from search results → Claude inference for remaining. NCES name normalization against 8,038 districts + 36,145 schools. Rep routing tabs (Steven/Tom/Liz/Shan/CUE-CALIE). Output to Google Sheet + CSV.
+- **Outreach API write access:** Re-authorized OAuth with write scopes for sequences, sequenceSteps, sequenceStates, sequenceTemplates, templates, prospects. Ready to build sequence creation feature.
+- **Session transcript numbering fix:** `scout_session.sh` now checks `.raw/` files + cross-references CLAUDE.md for correct session number.
+- **GitHub token regenerated:** Fine-grained PAT was expired, regenerated with 1-year expiry.
+- **Local .env:** Added ANTHROPIC_API_KEY, GOOGLE_SHEETS_TERRITORY_ID.
 
-### What still needs to be done (Session 38+)
-- **Todo List Feature** — Replace Scout's hourly check-ins with todo list management (Steven's request, captured in memory)
+### What still needs to be done (Session 39+)
+- **Outreach sequence creation** — Build feature to create sequences with email steps directly in Outreach. Steven has CUE booth + CUE opt-in sequences ready.
 - **C2: Research engine improvements** — Parallelize layers, better prompts, Claude tool_use
 - **C5: Proximity + regional service centers** (deferred)
 - See `SCOUT_PLAN.md` for full roadmap, parked items, and detailed context
@@ -38,6 +34,9 @@
 - Enhancement C1 (Territory Master List): ✅ fully verified (Session 32)
 - Enhancement C3 (Closed-Lost Winback): ✅ fully verified (Session 34)
 - Enhancement C4 (Cold License Requests): ✅ fully verified + signed off (Session 37)
+- Todo List Feature: ✅ built + deployed (Session 38)
+- CUE 2026 lead enrichment: ✅ 1,298 leads enriched + rep tabs (Session 38)
+- Outreach write access: ✅ OAuth re-authorized (Session 38)
 - SoCal CSV filtering: ✅ 5 passes complete (Session 26)
 - Session transcript capture: ✅ set up (Session 36)
 
@@ -73,9 +72,12 @@
 - Merged output: `~/Downloads/My merged leads list - Including SoCal - as of 3-7-26.csv` (86,993 leads), contacts (19,775)
 - SoCal counties: Los Angeles, San Diego, Orange, Riverside, San Bernardino, Kern, Ventura, Santa Barbara, San Luis Obispo, Imperial
 
-### Outreach.io API (Session 34)
-- Steven's user ID: **11**. Read-only. **NEVER write to Outreach.**
+### Outreach.io API (Sessions 34, 38)
+- Steven's user ID: **11**. OAuth app: "AI Coco Automation" (Development mode).
+- **Write access enabled (Session 38)** for: sequences, sequenceSteps, sequenceStates, sequenceTemplates, templates, prospects. Scoped to sequence creation — do not write to other resources without Steven's approval.
 - Tokens persist via GitHub (`memory/outreach_tokens.json`). Railway env vars: `OUTREACH_CLIENT_ID`, `OUTREACH_CLIENT_SECRET`, `OUTREACH_REDIRECT_URI`.
+- JSON:API format required. Content-Type: `application/vnd.api+json`.
+- Sequence creation flow: create sequence → create steps (interval in minutes, stepType=auto_email) → create templates (subject + bodyHtml) → link via sequenceTemplates.
 
 ### C4 Cold License Requests (Sessions 34-37) — VERIFIED
 - Strategy: "cold_license_request" — inbound license requests that went cold (no opp, no pricing sent).
