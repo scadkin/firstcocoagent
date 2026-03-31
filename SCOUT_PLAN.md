@@ -3,7 +3,7 @@
 
 ---
 
-## YOU ARE HERE → Todo List + CUE Enrichment DONE (Session 38). Outreach write access enabled. Next: Build Outreach sequence creation, then C2 Research Engine
+## YOU ARE HERE → Outreach sequence creation DONE (Session 38). 11 CUE sequences live. Next: C2 Research Engine
 
 ---
 
@@ -117,18 +117,20 @@ Surviving prospects are added to the Prospecting Queue with email, first name, l
 | Session 38 | Outreach write access | OAuth re-authorized with write scopes for sequences, steps, templates, prospects. Ready to build sequence creation. |
 | Session 38 | Session transcript numbering fix | `scout_session.sh` checks .raw/ files + CLAUDE.md cross-check |
 | Session 38 | GitHub token regenerated | Fine-grained PAT expired, regenerated |
+| Session 38 | Outreach sequence creation | Built create_sequence() API. 11 CUE sequences + 940 prospects loaded. Interval bug discovered (seconds not minutes). |
+| Session 38 | CUE booth apology sequence | Sent apology for 4-email spam caused by interval bug |
 
 ---
 
 ## UP NEXT
 
-### Outreach Sequence Creation (Session 39)
-**What:** Build the ability to create email sequences directly in Outreach.io from Scout/Claude.
-- Create sequences with auto_email steps (first step sends after 5 minutes)
-- Set subject lines and HTML email body for each step
-- Steven reviews sequences in Outreach before adding prospects
-- Immediate use: CUE booth follow-up sequence + CUE opt-in attendee sequence
-- **OAuth write access: DONE** (Session 38). Scoped to sequence creation only.
+### Outreach Sequence Creation — DONE (Session 38)
+**What:** Create email sequences directly in Outreach.io via API.
+- `create_sequence()` in `outreach_client.py` — creates sequence + steps + templates + links
+- 6 CUE booth sequences (4 steps: custom + existing template) + 5 CUE opt-in sequences (3 steps) + 1 apology sequence
+- 58 booth + 883 opt-in prospects loaded
+- **CRITICAL LESSON:** Outreach interval is in SECONDS not minutes. Caused all booth emails to fire in hours. Fixed + apology sent.
+- **Creation order:** create → Steven activates in UI → toggle templates → then add prospects via API
 
 ### C2: Research Engine Improvements
 **What:** Make the district research engine faster and more accurate.

@@ -364,3 +364,53 @@ See `memory/roadmap_full.md` for the complete approved roadmap (A1-A3, B1-B2, C1
 
 ### New feature request captured
 - **Todo List Feature** — Replace Scout's hourly check-ins with todo list management. Steven wants Scout to keep him on task, accept status updates, add/complete items via Telegram. Captured in memory/project_todo_feature.md.
+
+---
+
+## Session 38 (2026-03-26 to 2026-03-31) — Todo List, CUE Enrichment, Outreach Sequences
+
+### Todo List Feature
+- `tools/todo_manager.py` — flat module, top-level import in main.py
+- Google Sheet "Todo List" tab: ID, Task, Priority (high/medium/low), Status (open/done), Created, Completed, Due Date
+- Telegram commands: `add:`, `todo:`, `done:`, `/todos`, `/todo_clear`, `/todo_remove`
+- Claude tool: `manage_todos` with actions: add, complete, list, remove, clear_completed, update_priority
+- Hourly check-ins rewritten to reference open todos (top 3 shown, overdue flagged)
+- Priority parsing: `add: call Jennifer !high` or `(high)`
+
+### CUE 2026 Lead Enrichment
+- `scripts/enrich_cue_leads.py` — offline enrichment script for conference leads
+- 1,472 raw → 1,298 deduped unique leads
+- 5-layer resolution pipeline: (1) email domain patterns, (2) SF domain→state lookup from existing sheets (859 roots), (3) Serper web search (parallel, deduped by domain), (4) Claude extraction from search results, (5) Claude inference for remaining + company name fill
+- Final NorCal/SoCal resolution pass with Serper + Claude for CA county identification
+- NCES name normalization against 8,038 districts + 36,145 schools from Territory sheet
+- Abbreviation-to-full-name mapping for 40+ common abbreviations (LAUSD, SBCUSD, etc.)
+- Rep routing: Steven (SoCal + 12 states), Tom (NorCal + 21 states), Liz (17 states), Shan (non-Americas intl), CUE-CALIE (excluded)
+- Output: Google Sheet with Enriched tab + per-rep tabs + CSV
+- CA domain overrides for typo domains (lawndalesd.n.et, beaumontusd.k12.ca)
+- Full-domain overrides for ambiguous roots (pusd.org=Pomona, pusd.us=Pasadena)
+
+### Outreach Sequence Creation
+- Added `_api_post()`, `create_sequence()`, `get_mailboxes()` to `outreach_client.py`
+- Added `from __future__ import annotations` for Python 3.9 compat
+- Fixed webhook callback that was blocking OAuth re-authorization ("Already authenticated" guard removed)
+- Created 12 sequences total:
+  - 6 CUE booth: Universal, Elementary K-5, Middle School, High School, Admin/Ed Tech Lead, Pomona USD (4 steps each)
+  - 5 CUE opt-in: Teacher Universal (590), Admin/District (225), Teacher High School (46), Teacher Elementary (28), Teacher Middle School (16) (3 steps each)
+  - 1 Booth Apology (1 step)
+- 58 booth prospects + 883 opt-in prospects loaded
+- **CRITICAL BUG:** Outreach sequenceStep interval is in SECONDS, not minutes. Research said minutes. Used 8640 (intended 6 days), actually = 2h24m. All 4 booth emails sent within hours. Fixed all intervals. Apology sent.
+- **API limitations discovered:** `enabled` is private (can't activate via API), `sequenceStates` can't be PATCHed (can't resume paused prospects), need delete scope for step removal
+- **Template formatting:** Must use `<br><br>` not `<p>` tags — Outreach renders `<p>` with no spacing
+- Default settings for all sequences: owner=Steven (ID 11), sharing=private, throttle 150/day, capacity 200
+
+### Other
+- Session transcript numbering fix in `scout_session.sh`
+- GitHub fine-grained PAT regenerated (was expired)
+- Local .env: added ANTHROPIC_API_KEY, GOOGLE_SHEETS_TERRITORY_ID, Outreach vars, GITHUB_TOKEN
+- Steven's territory saved to memory: TX, CA-SoCal, IL, PA, OH, MI, CT, OK, MA, IN, NV, TN, NE
+
+### Key Decisions
+- Outreach write access lifted for sequences (was read-only since Session 34)
+- Outreach interval is in SECONDS — hard rule, never use minutes
+- Creation order: create sequence → Steven activates in UI → add prospects
+- Steven's territory must be known by heart (13 states + SoCal)

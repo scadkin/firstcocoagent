@@ -5,18 +5,18 @@
 
 ## CURRENT STATE — update this after each session
 
-**Session 38: Todo List Feature built + deployed. CUE 2026 conference lead enrichment (1,298 leads, 5-layer C4-style pipeline, rep routing tabs). Outreach API write access enabled for sequence creation. GitHub token regenerated. Session transcript numbering fixed.**
+**Session 38: Todo List Feature, CUE lead enrichment (1,298 leads), Outreach sequence creation (11 CUE sequences live with 940+ prospects), apology sequence for timing bug. MASSIVE session.**
 
 ### What was done (Session 38)
 - **Todo List Feature:** `tools/todo_manager.py` — Google Sheet "Todo List" tab, Telegram commands (`add:`, `done:`, `/todos`, `/todo_clear`, `/todo_remove`), Claude tool (`manage_todos`), hourly check-ins now reference open todos.
-- **CUE 2026 lead enrichment:** `scripts/enrich_cue_leads.py` — offline script. 1,472 raw → 1,298 deduped. 5-layer pipeline: email domain parsing → SF domain→state lookup (859 roots) → Serper web search (parallel, deduped) → Claude extraction from search results → Claude inference for remaining. NCES name normalization against 8,038 districts + 36,145 schools. Rep routing tabs (Steven/Tom/Liz/Shan/CUE-CALIE). Output to Google Sheet + CSV.
-- **Outreach API write access:** Re-authorized OAuth with write scopes for sequences, sequenceSteps, sequenceStates, sequenceTemplates, templates, prospects. Ready to build sequence creation feature.
-- **Session transcript numbering fix:** `scout_session.sh` now checks `.raw/` files + cross-references CLAUDE.md for correct session number.
-- **GitHub token regenerated:** Fine-grained PAT was expired, regenerated with 1-year expiry.
-- **Local .env:** Added ANTHROPIC_API_KEY, GOOGLE_SHEETS_TERRITORY_ID.
+- **CUE 2026 lead enrichment:** `scripts/enrich_cue_leads.py` — offline script. 1,472 raw → 1,298 deduped. 5-layer pipeline: email domain parsing → SF domain→state lookup (859 roots) → Serper web search (parallel, deduped) → Claude extraction from search results → Claude inference for remaining. NCES name normalization against 8,038 districts + 36,145 schools. Rep routing tabs (Steven/Tom/Liz/Shan/CUE-CALIE). Output: Google Sheet + CSV.
+- **Outreach sequence creation:** Built `create_sequence()` in `outreach_client.py`. Created 6 CUE booth sequences (4 steps each) + 5 CUE opt-in sequences (3 steps each) + 1 apology sequence. 58 booth + 883 opt-in prospects loaded.
+- **CRITICAL BUG:** Outreach API interval is in SECONDS, not minutes. Booth sequences sent all 4 emails within hours instead of days. Fixed intervals, sent apology email.
+- **Outreach API write access:** OAuth re-authorized with write scopes. Webhook callback fixed (was blocking re-auth).
+- **Session transcript numbering fix, GitHub token regenerated, local .env updates.**
 
 ### What still needs to be done (Session 39+)
-- **Outreach sequence creation** — Build feature to create sequences with email steps directly in Outreach. Steven has CUE booth + CUE opt-in sequences ready.
+- **Delete empty duplicate Step 3** in CUE 26' OPT-IN — Teacher High School (seq 1991, step 15582). Need delete scope or manual deletion.
 - **C2: Research engine improvements** — Parallelize layers, better prompts, Claude tool_use
 - **C5: Proximity + regional service centers** (deferred)
 - See `SCOUT_PLAN.md` for full roadmap, parked items, and detailed context
@@ -37,6 +37,7 @@
 - Todo List Feature: ✅ built + deployed (Session 38)
 - CUE 2026 lead enrichment: ✅ 1,298 leads enriched + rep tabs (Session 38)
 - Outreach write access: ✅ OAuth re-authorized (Session 38)
+- Outreach sequence creation: ✅ 11 CUE sequences created + prospects loaded (Session 38)
 - SoCal CSV filtering: ✅ 5 passes complete (Session 26)
 - Session transcript capture: ✅ set up (Session 36)
 
@@ -77,7 +78,12 @@
 - **Write access enabled (Session 38)** for: sequences, sequenceSteps, sequenceStates, sequenceTemplates, templates, prospects. Scoped to sequence creation — do not write to other resources without Steven's approval.
 - Tokens persist via GitHub (`memory/outreach_tokens.json`). Railway env vars: `OUTREACH_CLIENT_ID`, `OUTREACH_CLIENT_SECRET`, `OUTREACH_REDIRECT_URI`.
 - JSON:API format required. Content-Type: `application/vnd.api+json`.
-- Sequence creation flow: create sequence → create steps (interval in minutes, stepType=auto_email) → create templates (subject + bodyHtml) → link via sequenceTemplates.
+- **Sequence step interval is in SECONDS** (not minutes). 5 min=300, 4 days=345600, 6 days=518400.
+- Sequence creation flow: create sequence → create steps → create templates → link via sequenceTemplates → Steven activates in UI → Steven toggles templates active → THEN add prospects.
+- `enabled` is a private attribute — cannot activate sequences via API. Steven must toggle in UI.
+- `sequenceStates` cannot be PATCHed (no resume via API). `sequenceSteps` need delete scope to remove.
+- Use `<br><br>` between paragraphs in bodyHtml, NOT `<p>` tags (Outreach renders `<p>` with no spacing).
+- Default settings for all sequences: owner=Steven (ID 11), sharing=private, throttleMaxAddsPerDay=150, throttleCapacity=200, maxActivations=200.
 
 ### C4 Cold License Requests (Sessions 34-37) — VERIFIED
 - Strategy: "cold_license_request" — inbound license requests that went cold (no opp, no pricing sent).
