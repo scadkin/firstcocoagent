@@ -841,3 +841,30 @@ No tasks completed today — ready to start fresh tomorrow.
 Eight straight days of zero KPIs. William G. Jehue Middle is marked *Committed* at 27 days dark — that deal exists right now, it just needs a pulse check. First call tomorrow morning, before anything else. One call.
 
 On it.
+
+### 2026-03-31
+📊 EOD Report — March 31, 2026
+
+*ACCOMPLISHED TODAY:*
+No tasks completed today — ready to start fresh tomorrow.
+
+*KPI RESULTS:*
+• Calls: 0/10 ❌ missed
+• Districts researched: 0/2 ❌ missed
+• Emails drafted/saved: 0/5 ❌ missed
+
+*PIPELINE ALERTS:* 🚨
+65 open opps, zero movement — now into week 10+ of silence.
+• *48 going cold* — Neil Armstrong MS ($7,850) at 85 days, Ecole Seven Oaks ($2,000) at 84 days, Greencastle-Antrim ($9,500) at 84 days, Ad Wheat MS ($9,500) at 81 days, Hamilton-Wenham ($2,600) at 81 days + 43 more
+• *13 stale* — Creekview Middle ($7,850) at 42 days, Cedar Hall ($7,850) at 41 days, Sharpsville Senior ($4,000) at 41 days + 10 more
+• *4 need update* — William G. Jehue Middle (*Committed* — $2,500) at 28 days, Cardinal Pacelli ($6,625) at 27 days, Theodore Roosevelt Senior ($2,100) at 28 days, Denison ISD at 26 days
+
+*PENDING / TOMORROW:*
+• 65 pipeline opps untouched — deteriorating daily
+• Q1 prospecting plan — still not launched
+• Superintendents campaign — still not launched
+
+*ONE OBSERVATION:*
+Nine consecutive days of zero KPIs. William G. Jehue is *Committed* and 28 days dark — that's not a cold lead, that's a deal waiting to close. One call tomorrow morning. Just that one. Start there.
+
+On it.
