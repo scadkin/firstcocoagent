@@ -16,7 +16,6 @@
 - **Session transcript numbering fix, GitHub token regenerated, local .env updates.**
 
 ### What still needs to be done (Session 39+)
-- **Delete empty duplicate Step 3** in CUE 26' OPT-IN — Teacher High School (seq 1991, step 15582). Need delete scope or manual deletion.
 - **C2: Research engine improvements** — Parallelize layers, better prompts, Claude tool_use
 - **C5: Proximity + regional service centers** (deferred)
 - See `SCOUT_PLAN.md` for full roadmap, parked items, and detailed context
