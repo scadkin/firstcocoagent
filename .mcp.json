@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "parse": {
+      "type": "http",
+      "url": "https://api.parse.bot/mcp",
+      "headers": {
+        "X-API-Key": "pmx_d81ad3ce13f8f35bb012a811d72118ec"
+      }
+    }
+  }
+}

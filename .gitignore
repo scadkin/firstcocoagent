@@ -3,3 +3,10 @@
 
 # Raw terminal captures (cleaned versions are in docs/sessions/)
 docs/sessions/.raw/
+
+# Python virtual environment
+.venv/
+
+# Evaluation results (local-only, regenerable)
+scripts/eval_results/
+scripts/__pycache__/

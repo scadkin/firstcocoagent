@@ -1,9 +1,9 @@
 # SCOUT MASTER PLAN
-*Last updated: 2026-04-01 — Session 39*
+*Last updated: 2026-04-01 — Session 40*
 
 ---
 
-## YOU ARE HERE → C2 Research Engine Improvements. Parallelization analysis complete. Ready to code.
+## YOU ARE HERE → C2 Research Engine Improvements. Tool evaluation Phase 1 complete. Tavily+Exa leading. Claude extraction + Parse.bot MCP next.
 
 ---
 
@@ -145,10 +145,21 @@ Surviving prospects are added to the Prospecting Queue with email, first name, l
 
 **Sub-tasks:**
 - ✅ Layer dependency analysis + parallelization plan (Session 39)
+- ✅ Tool landscape research — 7 tools evaluated (Session 40)
+- ✅ Evaluation framework built — `scripts/eval_research_tools.py` (Session 40)
+- ✅ Phase 1 content comparison — Tavily (160K chars, 12s) + Exa (133K chars, 3s) = 3-4x more content than baseline (Session 40)
+  - ➕ Python 3.13 venv + all deps installed
+  - ➕ API keys: Jina, Tavily, Exa, Firecrawl, Parse.bot (all free tiers)
+  - ➕ Parse.bot MCP configured in `.mcp.json`
+- 🔧 **Test Parse.bot MCP + Firecrawl plugin after Claude Code restart** ← YOU ARE HERE
+- ⬜ Run Claude extraction on top tools to compare actual contact yield
+- ⬜ Scale evaluation to all 8 test districts
+- ⬜ Build v2 engine with best tool combination (A/B test alongside current)
 - ⬜ Implement parallel groups in `run()` method
 - ⬜ Better Claude extraction prompts with few-shot examples
 - ⬜ Claude tool_use for interactive, adaptive extraction
-- **Estimated effort:** 2-3 sessions
+- ⬜ Monthly improvement cadence (check-up on new tools/models)
+- **Estimated effort:** 3-4 sessions
 
 ### C5: Proximity + Regional Service Centers (deferred)
 **What:** Two related prospecting strategies:

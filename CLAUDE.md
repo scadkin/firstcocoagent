@@ -1,22 +1,29 @@
 # SCOUT — Claude Code Reference
-*Last updated: 2026-04-01 — Session 39*
+*Last updated: 2026-04-01 — Session 40*
 
 ---
 
 ## CURRENT STATE — update this after each session
 
-**Session 39: Short session. Fixed session transcript numbering (CLAUDE.md as source of truth). Analyzed C2 research engine parallelization — plan approved, ready to code.**
+**Session 40: C2 tool evaluation framework built. Researched 7 web research tools, signed up for free tiers, ran Phase 1 content comparison. Tavily and Exa are top performers. Parse.bot MCP configured, needs restart to test.**
 
-### What was done (Session 39)
-- **Session numbering fix:** `scripts/scout_session.sh` auto-detect now reads CLAUDE.md header as primary source of truth for session number. Previously only checked transcript files on disk — broke when sessions ran without `scout` wrapper (37+38 had no transcript files, so it reset to 37). Exit cross-check regex also fixed to match actual CLAUDE.md format.
-- **C2 parallelization analysis:** Read full `research_engine.py` (973 lines). Mapped all 15 layer dependencies. Identified 4 parallel groups: Group A (L1-L5, L13, L14 concurrent), Group B (L6→L7→L8 + L11/L12 after L4), Group C (L9 Claude extraction), Group D (L10→L15→L10). Steven approved the approach.
+### What was done (Session 40)
+- **C2 tool landscape research:** Deep-dived Serper, Crawl4AI, Firecrawl, Jina Reader, Parse.bot, Tavily, Exa. Compared pricing, features, content quality for K-12 district research.
+- **Evaluation framework built:** `scripts/eval_research_tools.py` + `scripts/eval_config.py`. 7 tool adapters, 8 test districts, CLI with `--phase1`, `--skip-claude`, `--summary-only` flags.
+- **Python 3.13 venv:** Created `.venv/` with all dependencies (Crawl4AI needs 3.10+, system had 3.9). Installed via Homebrew + venv.
+- **API key setup:** Signed up for Jina, Tavily, Exa, Firecrawl, Parse.bot free tiers. All keys in `.env`.
+- **Phase 1 results (content comparison, no Claude extraction):** Tavily (160K chars, 12s, $0.016) and Exa (133K chars, 3s, $0.030) return 3-4x more content than baseline (41K chars). Jina gets most content (1.36M) but is slow (71s). Firecrawl scrapes blocked by third-party sites. Parse.bot REST API returning 404 (backend migration) — MCP configured in `.mcp.json`.
+- **Steven's C2 goals clarified:** Speed + quality + cost optimization + monthly improvement cadence.
 
-### What still needs to be done (Session 40+)
-- **C2: Implement parallelization** — code the `asyncio.gather` groups in `run()`, add Lock for serper counter, shared httpx client. Plan is approved, just needs coding.
-- **C2: Better prompts** — few-shot examples for Claude extraction
-- **C2: Claude tool_use** — interactive adaptive extraction
+### What still needs to be done (continuing Session 40)
+- **Test Parse.bot via MCP** — `.mcp.json` configured, needs Claude Code restart
+- **Try Firecrawl plugin/MCP** — AI research suggests plugin is the primary integration path
+- **Run Claude extraction** on top 3 tools (Tavily, Exa, baseline) to compare actual contact yield
+- **Scale to all 8 districts** after validating Phase 1
+- **C2: Implement parallelization** — still planned after tool evaluation determines the best stack
+- **C2: Better prompts + tool_use** — after parallelization
 - **C5: Proximity + regional service centers** (deferred)
-- See `SCOUT_PLAN.md` for full roadmap, parked items, and detailed context
+- See `SCOUT_PLAN.md` for full roadmap
 
 ### Current status
 - Phases 1–5: ✅ all verified
@@ -37,7 +44,7 @@
 - Outreach sequence creation: ✅ 11 CUE sequences created + prospects loaded (Session 38)
 - SoCal CSV filtering: ✅ 5 passes complete (Session 26)
 - Session transcript capture: ✅ set up (Session 36), numbering fixed (Session 39)
-- C2 Research Engine: 🔧 parallelization analysis done, ready to implement (Session 39)
+- C2 Research Engine: 🔧 tool evaluation Phase 1 complete, Tavily+Exa leading. Claude extraction + Parse.bot MCP next. (Session 40)
 
 ### Other completed features
 - **Weekend scheduler (B1):** Sat 11am, Sun 1pm greeting. No auto check-ins. `/eod` works manually.
