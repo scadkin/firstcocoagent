@@ -403,12 +403,29 @@ CRITICAL:
     total_input = 0
     total_output = 0
     district_hint = _extract_district_domain_hint(district_name)
+    pages_skipped = 0
 
     for url, content in pages:
         if not content or len(content.strip()) < 50:
             continue
 
         chunk = content[:12000]
+
+        # TWO-PASS: Quick local classification before expensive Claude call
+        # Check if page likely contains contact data (names + emails/phones/titles)
+        content_lower = chunk.lower()
+        contact_signals = sum([
+            "@" in chunk,  # email addresses present
+            any(t in content_lower for t in ["director", "coordinator", "teacher",
+                "principal", "specialist", "superintendent", "staff"]),
+            any(p in content_lower for p in ["phone", "email", "ext.", "extension"]),
+            any(d in content_lower for d in ["department", "directory", "faculty",
+                "our team", "contact us", "administration"]),
+        ])
+        if contact_signals < 2:
+            pages_skipped += 1
+            continue
+
         prompt = f"District: {district_name}\nSource: {url}\n\n---\n{chunk}\n---\n\nExtract contacts. JSON array only."
 
         try:
@@ -463,6 +480,10 @@ CRITICAL:
 
         except (json.JSONDecodeError, Exception) as e:
             logger.debug(f"Extraction error for {url}: {e}")
+
+    if pages_skipped:
+        logger.info(f"    Two-pass filter: skipped {pages_skipped}/{pages_skipped + len(all_contacts) + (total_input > 0)} "
+                     f"pages (no contact signals) — saved ~${pages_skipped * 0.003:.3f}")
 
     usage = {
         "input_tokens": total_input,
@@ -703,17 +724,16 @@ async def firecrawl_agent_research(domain: str, district: str) -> tuple[list[dic
 
     try:
         logger.info(f"  [Stage 7] Firecrawl agent researching {district}...")
-        result = fc.agent(
+
+        # Use start_agent (async) with poll, more reliable than blocking agent()
+        job = fc.start_agent(
             urls=[f"https://{domain}"],
             prompt=(
-                f"Research {district} and find staff members in these roles: "
-                "Computer Science teachers, STEM coordinators, CTE directors, "
-                "Educational Technology specialists, Curriculum directors, "
-                "Technology coordinators, and school principals. "
-                "For each person, extract their full name, job title, email address, "
-                "phone number, and school/department. Navigate to staff directories, "
-                "department pages, and school pages to find this information. "
-                "Be thorough — check multiple schools and departments."
+                f"Go to https://{domain} and find staff members who work in "
+                "Computer Science, STEM, CTE, Educational Technology, Curriculum, "
+                "or Technology departments. Also find school principals. "
+                "Navigate to staff directory pages, department pages, and school pages. "
+                "Extract: full name, job title, email address, phone number, and department."
             ),
             schema={
                 "type": "object",
@@ -734,9 +754,28 @@ async def firecrawl_agent_research(domain: str, district: str) -> tuple[list[dic
                     }
                 }
             },
-            max_credits=25,
-            timeout=180,
+            max_credits=20,
         )
+
+        # Poll for results
+        job_id = job.id if hasattr(job, 'id') else (job.get('id') if isinstance(job, dict) else str(job))
+        if job_id:
+            for _ in range(30):  # max 150s
+                await asyncio.sleep(5)
+                status = fc.get_agent_status(job_id)
+                state = getattr(status, 'status', None) or (status.get('status') if isinstance(status, dict) else None)
+                if state == 'completed':
+                    result = status
+                    break
+                elif state in ('failed', 'error'):
+                    logger.warning(f"    Agent failed: {status}")
+                    result = None
+                    break
+            else:
+                logger.warning(f"    Agent timed out after 150s")
+                result = None
+        else:
+            result = job  # Fallback if no job_id
 
         data = None
         if hasattr(result, 'data'):
