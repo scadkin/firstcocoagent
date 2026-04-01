@@ -181,21 +181,83 @@ async def scrape_with_httpx(urls: list[str]) -> list[tuple[str, str]]:
     return pages
 
 
+def _extract_district_domain_hint(district_name: str) -> str:
+    """Derive likely email domain fragment from district name for validation."""
+    # "Houston ISD" → "houstonisd", "Guthrie Public Schools" → "guthrie"
+    name = district_name.lower()
+    # Strip common suffixes
+    for suffix in [" isd", " unified school district", " school district",
+                   " public schools", " city schools", " county superintendent of schools",
+                   " county schools"]:
+        if name.endswith(suffix):
+            name = name[: -len(suffix)]
+            break
+    return name.replace(" ", "")
+
+
+def _validate_email(email: str, first_name: str, last_name: str, district_hint: str) -> str:
+    """Validate email quality. Returns confidence adjustment or empty string to reject."""
+    if not email or "@" not in email:
+        return ""
+
+    local, domain = email.rsplit("@", 1)
+
+    # Reject obviously malformed emails
+    if email.startswith(".") or " " in email or email.count("@") != 1:
+        return "REJECT"
+
+    # Reject emails that are clearly from a different district
+    # e.g., @aisd.net when researching Houston ISD, @jarrellisd.org for Leander ISD
+    # Allow generic domains (gmail, yahoo, etc.) and .edu/.gov
+    generic_domains = {"gmail.com", "yahoo.com", "hotmail.com", "outlook.com", "aol.com"}
+    if domain in generic_domains:
+        return ""  # keep but don't boost
+
+    # Check if domain plausibly matches the target district
+    # District hint "houston" should match "houstonisd.org" but not "aisd.net"
+    if district_hint and len(district_hint) > 3:
+        domain_lower = domain.lower()
+        # Allow .edu, .gov, and state education domains (tea.texas.gov, etc.)
+        if not any(x in domain_lower for x in [district_hint, ".edu", ".gov"]):
+            return "CROSS_DISTRICT"
+
+    # Check name↔email alignment: local part should contain first or last name
+    fn = first_name.lower().strip()
+    ln = last_name.lower().strip()
+    local_lower = local.lower()
+    if fn and ln and len(fn) > 1 and len(ln) > 1 and local_lower:
+        # Check if the local part plausibly matches the person's name
+        # Patterns we accept: first.last, flast, firstl, first_last, first, last
+        fn_in_local = fn in local_lower
+        ln_in_local = ln in local_lower
+        # First initial + last name (e.g., "jeverett" for Jamie Everett)
+        fi_ln = fn[0] + ln in local_lower if len(fn) > 0 else False
+        # First name + last initial (e.g., "jamies" for Jamie Spradling)
+        fn_li = fn + ln[0] in local_lower if len(ln) > 0 else False
+        # Last name starts the local part (e.g., "scastil2" doesn't match "Rene Sanchez")
+        ln_starts = local_lower.startswith(ln[:3]) if len(ln) >= 3 else False
+
+        if not (fn_in_local or ln_in_local or fi_ln or fn_li or ln_starts):
+            return "NAME_MISMATCH"
+
+    return ""
+
+
 def run_claude_extraction(pages: list[tuple[str, str]], district_name: str) -> tuple[list[dict], dict]:
     """
     Run Claude extraction on pages. Returns (contacts, usage_info).
-    Uses the same prompt as contact_extractor.py for apples-to-apples comparison.
+    Includes post-extraction validation for cross-district and name↔email issues.
     """
     from anthropic import Anthropic
 
-    EXTRACT_SYSTEM = """You are a precise data extraction assistant for a K-12 education sales team.
+    EXTRACT_SYSTEM = f"""You are a precise data extraction assistant for a K-12 education sales team.
 
-Your job: extract CS/STEM/CTE contact information from raw text or HTML.
+Your job: extract CS/STEM/CTE contact information from raw text or HTML for the district "{district_name}".
 
 Return ONLY a valid JSON array. No explanation, no markdown, no preamble.
 
 Each contact object must have these exact keys:
-{
+{{
   "first_name": "",
   "last_name": "",
   "title": "",
@@ -206,22 +268,30 @@ Each contact object must have these exact keys:
   "source_url": "",
   "email_confidence": "",
   "notes": ""
-}
+}}
 
-Rules:
-- email_confidence must be one of: VERIFIED, LIKELY, INFERRED, or UNKNOWN
-  - VERIFIED: email explicitly shown in source
-  - LIKELY: email pattern confirmed by district, name matches
-  - INFERRED: email constructed from pattern but unconfirmed
-  - UNKNOWN: no email found
-- account: school name if school-level contact, district name if district-level
-- If a field is unknown, use empty string ""
-- Only include contacts whose title relates to: Computer Science, CS, Coding, Programming,
-  STEM, STEAM, CTE, Career & Technical Education, Educational Technology, Curriculum,
-  Instructional Technology, Digital Learning, Innovation, AP CSP, AP CS, Robotics, Esports,
-  Game Design, Makerspace, After-School, TOSA, Librarian, Superintendent, Principal, Title I
-- Do NOT include general admin staff, secretaries, HR, finance unless directly related to above
-- If no valid contacts found, return empty array: []
+CRITICAL RULES FOR ACCURACY:
+1. Each contact's email MUST belong to that specific person. In staff directory tables,
+   carefully match each row's name to that SAME row's email. Do NOT shift or misalign
+   rows. If a table has columns [Name | Title | Email], read each row independently.
+2. Only extract contacts who work at {district_name}. If the page contains staff from
+   a different school district, SKIP those contacts entirely.
+3. email_confidence must be one of: VERIFIED, LIKELY, INFERRED, or UNKNOWN
+   - VERIFIED: email explicitly shown on the SAME LINE or SAME ROW as the person's name
+   - LIKELY: email follows a confirmed pattern (e.g., first.last@domain) AND name matches
+   - INFERRED: email constructed from pattern but name alignment is uncertain
+   - UNKNOWN: no email found for this person
+4. If you see a phone number or extension but no email, set email to "" — do NOT put
+   a phone number in the email field.
+5. If a table row is truncated or ambiguous, set email_confidence to UNKNOWN rather than
+   guessing which email belongs to which person.
+6. account: school name if school-level contact, district name if district-level
+7. Only include contacts whose title relates to: Computer Science, CS, Coding, Programming,
+   STEM, STEAM, CTE, Career & Technical Education, Educational Technology, Curriculum,
+   Instructional Technology, Digital Learning, Innovation, AP CSP, AP CS, Robotics, Esports,
+   Game Design, Makerspace, After-School, TOSA, Librarian, Superintendent, Principal, Title I
+8. Do NOT include general admin staff, secretaries, HR, finance unless directly related to above
+9. If no valid contacts found, return empty array: []
 """
 
     client = Anthropic()
@@ -229,6 +299,8 @@ Rules:
     seen = set()
     total_input_tokens = 0
     total_output_tokens = 0
+    district_hint = _extract_district_domain_hint(district_name)
+    rejected = {"cross_district": 0, "name_mismatch": 0, "malformed": 0}
 
     for url, content in pages:
         if not content or len(content.strip()) < 50:
@@ -238,12 +310,16 @@ Rules:
         prompt = f"""District: {district_name}
 Source URL: {url}
 
+IMPORTANT: Only extract contacts who work at {district_name}. If this page contains
+staff from a different district, skip them. Match each person's name to their own email
+— do not mix up rows in tables or lists.
+
 Raw content to extract contacts from:
 ---
 {chunk}
 ---
 
-Extract all CS/STEM/CTE/EdTech contacts. Return JSON array only."""
+Extract all CS/STEM/CTE/EdTech contacts from {district_name} only. Return JSON array only."""
 
         try:
             response = client.messages.create(
@@ -257,34 +333,66 @@ Extract all CS/STEM/CTE/EdTech contacts. Return JSON array only."""
             total_output_tokens += response.usage.output_tokens
 
             raw = response.content[0].text.strip()
+            # Strip JSON preamble/postamble
             raw = re.sub(r"^```json\s*", "", raw)
             raw = re.sub(r"^```\s*", "", raw)
             raw = re.sub(r"\s*```$", "", raw)
+            # Strip text before first [ and after last ]
+            bracket_start = raw.find("[")
+            bracket_end = raw.rfind("]")
+            if bracket_start >= 0 and bracket_end > bracket_start:
+                raw = raw[bracket_start : bracket_end + 1]
 
             contacts = json.loads(raw)
             if not isinstance(contacts, list):
                 continue
 
             for c in contacts:
-                fn = str(c.get("first_name", "")).strip().lower()
-                ln = str(c.get("last_name", "")).strip().lower()
+                fn = str(c.get("first_name", "")).strip()
+                ln = str(c.get("last_name", "")).strip()
                 if not fn and not ln:
                     continue
-                key = f"{fn}|{ln}|{district_name.lower()}"
+
+                email = str(c.get("email", "")).strip().lower()
+                confidence = str(c.get("email_confidence", "UNKNOWN")).strip().upper()
+
+                # Post-extraction validation
+                if email:
+                    validation = _validate_email(email, fn, ln, district_hint)
+                    if validation == "REJECT":
+                        email = ""
+                        confidence = "UNKNOWN"
+                        rejected["malformed"] += 1
+                    elif validation == "CROSS_DISTRICT":
+                        logger.debug(f"  Cross-district email rejected: {fn} {ln} → {email}")
+                        email = ""
+                        confidence = "UNKNOWN"
+                        rejected["cross_district"] += 1
+                    elif validation == "NAME_MISMATCH":
+                        logger.debug(f"  Name↔email mismatch: {fn} {ln} → {email}")
+                        email = ""
+                        confidence = "UNKNOWN"
+                        rejected["name_mismatch"] += 1
+
+                key = f"{fn.lower()}|{ln.lower()}|{district_name.lower()}"
                 if key not in seen:
                     seen.add(key)
                     all_contacts.append({
-                        "first_name": str(c.get("first_name", "")).strip(),
-                        "last_name": str(c.get("last_name", "")).strip(),
+                        "first_name": fn,
+                        "last_name": ln,
                         "title": str(c.get("title", "")).strip(),
-                        "email": str(c.get("email", "")).strip().lower(),
-                        "email_confidence": str(c.get("email_confidence", "UNKNOWN")).strip().upper(),
+                        "email": email,
+                        "email_confidence": confidence,
                     })
 
         except json.JSONDecodeError:
             logger.debug(f"JSON parse error for {url}")
         except Exception as e:
             logger.warning(f"Claude extraction error for {url}: {e}")
+
+    if any(v > 0 for v in rejected.values()):
+        logger.info(f"    Validation: rejected {rejected['cross_district']} cross-district, "
+                     f"{rejected['name_mismatch']} name-mismatch, {rejected['malformed']} malformed")
 
     usage = {
         "input_tokens": total_input_tokens,
@@ -310,6 +418,87 @@ def save_content_sample(tool: str, district: str, pages: list[tuple[str, str]]):
             f.write("\n\n")
 
     logger.info(f"  Saved content sample: {sample_file}")
+
+
+# ─────────────────────────────────────────────
+# PAGE PRE-FILTERING
+# ─────────────────────────────────────────────
+
+# Domains that never contain useful K-12 contact data
+SKIP_DOMAINS = {
+    "linkedin.com", "twitter.com", "facebook.com", "wikipedia.org",
+    "niche.com", "greatschools.org", "schooldigger.com", "youtube.com",
+    "indeed.com", "glassdoor.com", "instagram.com", "contactout.com",
+    "rocketreach.co", "zoominfo.com", "signalhire.com", "lusha.com",
+    "tiktok.com", "pinterest.com", "reddit.com",
+}
+
+
+def filter_pages_for_district(
+    pages: list[tuple[str, str]], district_name: str, state: str
+) -> list[tuple[str, str]]:
+    """Pre-filter pages to remove cross-district content and noise.
+
+    Removes:
+    - Pages from skip-listed domains (social media, people-search sites)
+    - Pages that clearly belong to a different school district
+    - Pages with too little content to extract from
+    """
+    district_hint = _extract_district_domain_hint(district_name)
+    district_words = set(district_name.lower().split())
+    # Remove generic words that appear in many district names
+    district_words -= {"public", "schools", "school", "district", "unified",
+                       "county", "city", "of", "the", "superintendent"}
+
+    filtered = []
+    skipped_reasons = {}
+
+    for url, content in pages:
+        # Skip empty/tiny content
+        if not content or len(content.strip()) < 100:
+            skipped_reasons[url] = "too_short"
+            continue
+
+        # Skip social media and people-search sites
+        try:
+            domain = url.split("/")[2].lower()
+        except (IndexError, AttributeError):
+            domain = ""
+
+        if any(skip in domain for skip in SKIP_DOMAINS):
+            skipped_reasons[url] = "skip_domain"
+            continue
+
+        # Check if URL belongs to a different district's domain
+        # e.g., "aisd.net" when searching for Houston ISD, "jarrellisd.org" for Leander ISD
+        # Only flag if URL contains another district abbreviation that conflicts
+        if domain and district_hint:
+            # Extract the subdomain root (e.g., "houstonisd" from "www.houstonisd.org")
+            domain_parts = domain.replace("www.", "").split(".")
+            domain_root = domain_parts[0] if domain_parts else ""
+
+            # If domain root looks like a district domain and doesn't match our target
+            district_domain_patterns = ["isd", "usd", "k12", "schools", "ps"]
+            looks_like_district_domain = any(p in domain_root for p in district_domain_patterns)
+
+            if looks_like_district_domain and district_hint not in domain_root:
+                # It's another district's domain — check if any of our district words match
+                # to avoid false positives (e.g., "houstonisd.org" subdomains like "deady.houstonisd.org")
+                if not any(w in domain_root for w in district_words if len(w) > 3):
+                    skipped_reasons[url] = f"other_district_domain:{domain_root}"
+                    continue
+
+        filtered.append((url, content))
+
+    if skipped_reasons:
+        reasons_summary = {}
+        for reason in skipped_reasons.values():
+            key = reason.split(":")[0]
+            reasons_summary[key] = reasons_summary.get(key, 0) + 1
+        logger.info(f"    Pre-filter: kept {len(filtered)}/{len(pages)} pages "
+                     f"(dropped: {dict(reasons_summary)})")
+
+    return filtered
 
 
 # ─────────────────────────────────────────────
@@ -505,20 +694,17 @@ async def run_exa(district: str, state: str) -> tuple[list[tuple[str, str]], dic
 
 
 async def run_firecrawl(district: str, state: str) -> tuple[list[tuple[str, str]], dict]:
-    """Firecrawl: Serper search + Firecrawl /scrape for full markdown. Returns (pages, cost_info)."""
+    """Firecrawl: Serper search + Firecrawl scrape for full markdown. Returns (pages, cost_info)."""
     try:
-        from firecrawl import Firecrawl
+        from firecrawl import FirecrawlApp
     except ImportError:
-        try:
-            from firecrawl import FirecrawlApp as Firecrawl
-        except ImportError:
-            raise RuntimeError("firecrawl not installed. Run: pip install firecrawl-py")
+        raise RuntimeError("firecrawl not installed. Run: pip install firecrawl-py")
 
     api_key = os.environ.get("FIRECRAWL_API_KEY", "")
     if not api_key:
         raise RuntimeError("FIRECRAWL_API_KEY not set")
 
-    app = Firecrawl(api_key=api_key)
+    app = FirecrawlApp(api_key=api_key)
 
     # Use Serper for search (cheaper), Firecrawl for scraping (better quality)
     queries = build_search_queries(district, state)
@@ -536,10 +722,10 @@ async def run_firecrawl(district: str, state: str) -> tuple[list[tuple[str, str]
     t0 = time.time()
     for url in urls:
         try:
-            result = app.scrape_url(url, formats=["markdown"])
-            markdown = getattr(result, 'markdown', '') or ''
-            if isinstance(result, dict):
-                markdown = result.get('markdown', '')
+            doc = app.scrape(url, formats=["markdown"])
+            markdown = getattr(doc, 'markdown', '') or ''
+            if isinstance(doc, dict):
+                markdown = doc.get('markdown', '')
             if markdown:
                 pages.append((url, str(markdown)[:15000]))
                 scrape_credits += 1
@@ -553,6 +739,98 @@ async def run_firecrawl(district: str, state: str) -> tuple[list[tuple[str, str]
         "search_seconds": search_time,
         "scrape_seconds": scrape_time,
         "queries_used": len(queries) + scrape_credits,
+    }
+    return pages, costs
+
+
+async def run_exa_firecrawl(district: str, state: str) -> tuple[list[tuple[str, str]], dict]:
+    """Hybrid: Exa semantic search for broad content + Firecrawl scrape for district site pages."""
+    try:
+        from exa_py import Exa
+    except ImportError:
+        raise RuntimeError("exa not installed. Run: pip install exa-py")
+    try:
+        from firecrawl import FirecrawlApp
+    except ImportError:
+        raise RuntimeError("firecrawl not installed. Run: pip install firecrawl-py")
+
+    exa_key = os.environ.get("EXA_API_KEY", "")
+    fc_key = os.environ.get("FIRECRAWL_API_KEY", "")
+    if not exa_key:
+        raise RuntimeError("EXA_API_KEY not set")
+    if not fc_key:
+        raise RuntimeError("FIRECRAWL_API_KEY not set")
+
+    exa = Exa(api_key=exa_key)
+    fc = FirecrawlApp(api_key=fc_key)
+
+    pages = []
+
+    # Step 1: Exa broad semantic search (same as run_exa)
+    queries = [
+        f"{district} {state} computer science STEM staff directory",
+        f"{district} CTE curriculum technology coordinator contact email",
+    ]
+
+    t0 = time.time()
+    for query in queries:
+        try:
+            results = exa.search_and_contents(
+                query=query,
+                type="auto",
+                num_results=10,
+                text=True,
+            )
+            for r in results.results:
+                url = r.url or ""
+                content = r.text or ""
+                if url and content:
+                    pages.append((url, content[:15000]))
+        except Exception as e:
+            logger.warning(f"Exa search failed: {e}")
+    exa_time = time.time() - t0
+    exa_results = len(pages)
+
+    # Step 2: Firecrawl targeted scrape of district domain pages
+    # Use Firecrawl search to find district-specific pages, then scrape them
+    t0 = time.time()
+    fc_credits = 0
+    try:
+        fc_results = fc.search(
+            f"{district} staff directory contact email",
+            limit=5,
+        )
+        fc_urls = []
+        if hasattr(fc_results, 'web') and fc_results.web:
+            for r in fc_results.web:
+                url = r.url if hasattr(r, 'url') else ''
+                if url:
+                    fc_urls.append(url)
+        fc_credits += 1  # search costs 1 credit
+
+        # Scrape district-domain URLs found by Firecrawl (skip social/generic)
+        seen_urls = {u for u, _ in pages}
+        for url in fc_urls[:3]:
+            if url in seen_urls:
+                continue
+            try:
+                doc = fc.scrape(url, formats=["markdown"])
+                markdown = getattr(doc, 'markdown', '') or ''
+                if markdown and len(markdown) > 100:
+                    pages.append((url, str(markdown)[:15000]))
+                    fc_credits += 1
+            except Exception as e:
+                logger.debug(f"Firecrawl scrape failed for {url}: {e}")
+    except Exception as e:
+        logger.warning(f"Firecrawl search failed: {e}")
+    fc_time = time.time() - t0
+
+    costs = {
+        "search_cost": len(queries) * COST_PER_QUERY["exa_search"] + exa_results * COST_PER_QUERY["exa_content"],
+        "scrape_cost": fc_credits * COST_PER_QUERY["firecrawl_scrape"],
+        "search_seconds": exa_time,
+        "scrape_seconds": fc_time,
+        "queries_used": len(queries) + fc_credits,
     }
     return pages, costs
 
@@ -701,6 +979,7 @@ TOOL_RUNNERS = {
     "tavily": run_tavily,
     "exa": run_exa,
     "parsebot": run_parsebot,
+    "exa_firecrawl": run_exa_firecrawl,
 }
 
 
@@ -734,6 +1013,9 @@ async def evaluate_tool(tool: str, district_info: dict, skip_claude: bool = Fals
         pages, cost_info = await runner(district, state)
         total_time = time.time() - t_total
 
+        # Pre-filter pages to remove cross-district and noise
+        pages = filter_pages_for_district(pages, district, state)
+
         result["timings"]["search_seconds"] = cost_info.get("search_seconds", 0)
         result["timings"]["scrape_seconds"] = cost_info.get("scrape_seconds", 0)
         result["timings"]["total_seconds"] = total_time
@@ -745,7 +1027,7 @@ async def evaluate_tool(tool: str, district_info: dict, skip_claude: bool = Fals
         total_chars = sum(len(c) for _, c in pages)
         result["content"]["total_chars"] = total_chars
         result["content"]["total_tokens_est"] = total_chars // 4
-        if tool in ("crawl4ai", "firecrawl", "jina"):
+        if tool in ("crawl4ai", "firecrawl", "jina", "exa_firecrawl"):
             result["content"]["content_type"] = "markdown"
         elif tool == "parsebot":
             result["content"]["content_type"] = "structured"
@@ -779,7 +1061,9 @@ async def evaluate_tool(tool: str, district_info: dict, skip_claude: bool = Fals
             result["contacts"]["names"] = [
                 f"{c['first_name']} {c['last_name']}" for c in contacts
             ]
-            result["contacts"]["emails"] = [c["email"] for c in contacts if c.get("email")]
+            # Store emails as parallel array (empty string for contacts without email)
+            # so names[i] always corresponds to emails[i]
+            result["contacts"]["emails"] = [c.get("email", "") for c in contacts]
         else:
             result["costs"]["total_cost"] = result["costs"]["search_cost"] + result["costs"]["scrape_cost"]
 

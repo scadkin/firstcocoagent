@@ -59,13 +59,14 @@ def build_search_queries(district_name: str, state: str) -> list[str]:
 # ─────────────────────────────────────────────
 
 AVAILABLE_TOOLS = [
-    "baseline",     # Serper + httpx/BS4
-    "crawl4ai",     # Serper + Crawl4AI scrape
-    "firecrawl",    # Firecrawl /search (combined)
-    "jina",         # Jina s.jina.ai + r.jina.ai
-    "tavily",       # Tavily search with raw_content
-    "exa",          # Exa semantic search + contents
-    "parsebot",     # Parse.bot structured extraction
+    "baseline",        # Serper + httpx/BS4
+    "crawl4ai",        # Serper + Crawl4AI scrape
+    "firecrawl",       # Serper search + Firecrawl scrape
+    "jina",            # Jina s.jina.ai + r.jina.ai
+    "tavily",          # Tavily search with raw_content
+    "exa",             # Exa semantic search + contents
+    "parsebot",        # Parse.bot structured extraction
+    "exa_firecrawl",   # Hybrid: Exa search + Firecrawl district scrape
 ]
 
 # Tool-specific env var names
@@ -77,6 +78,7 @@ TOOL_API_KEYS = {
     "tavily": "TAVILY_API_KEY",
     "exa": "EXA_API_KEY",
     "parsebot": "PARSEBOT_API_KEY",
+    "exa_firecrawl": "EXA_API_KEY",     # checks Exa key; Firecrawl checked inside adapter
 }
 
 # Cost per operation (for tracking)
