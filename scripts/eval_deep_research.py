@@ -564,8 +564,13 @@ def infer_email_patterns(contacts: list[dict], domain: str) -> list[dict]:
     # Detect dominant email domain
     domain_votes = Counter()
     for c in verified_emails:
+        if "@" not in c["email"]:
+            continue
         _, dom = c["email"].rsplit("@", 1)
         domain_votes[dom] += 1
+    if not domain_votes:
+        logger.info("  [Stage 5] No valid emails with @ found")
+        return contacts
     email_domain = domain_votes.most_common(1)[0][0]
 
     # Detect patterns from verified emails (with name normalization)
