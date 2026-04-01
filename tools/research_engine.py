@@ -454,8 +454,20 @@ class ResearchJob:
     async def _layer10_dedup_and_score(self):
         self.layers_used.append("L10:dedup-score")
 
+        domain = self.district_domain.replace("www.", "") if self.district_domain else ""
+        # Derive district hint for cross-district validation
+        district_hint = self.district_name.lower()
+        for suffix in [" isd", " unified school district", " school district",
+                       " public schools", " city schools",
+                       " county superintendent of schools", " county schools"]:
+            if district_hint.endswith(suffix):
+                district_hint = district_hint[:-len(suffix)]
+                break
+        district_hint = district_hint.replace(" ", "")
+
         final = []
         seen = set()
+        rejected = {"cross_district": 0, "name_mismatch": 0}
 
         for c in self.all_contacts:
             fn = c.get("first_name", "").lower().strip()
@@ -466,16 +478,47 @@ class ResearchJob:
             key = f"{fn}|{ln}|{self.district_name.lower()}"
 
             if key in seen:
-                # If duplicate has email and current doesn't, skip (keep best)
                 continue
-
             seen.add(key)
+
+            # Cross-district email validation
+            if email and "@" in email and domain:
+                _, email_domain = email.rsplit("@", 1)
+                generic_domains = {"gmail.com", "yahoo.com", "hotmail.com", "outlook.com"}
+                if email_domain not in generic_domains:
+                    district_patterns = ["isd", "usd", "k12", "schools", "ps"]
+                    domain_root = email_domain.split(".")[0]
+                    looks_like_district = any(p in domain_root for p in district_patterns)
+                    if looks_like_district and district_hint not in domain_root:
+                        # Email is from a different district — clear it
+                        logger.debug(f"L10: Cross-district email dropped: {fn} {ln} → {email}")
+                        c["email"] = ""
+                        c["email_confidence"] = "UNKNOWN"
+                        rejected["cross_district"] += 1
+
+            # Name↔email alignment check
+            if email and "@" in email:
+                local = email.split("@")[0].lower()
+                if fn and ln and len(fn) > 1 and len(ln) > 1 and local:
+                    fn_in = fn in local
+                    ln_in = ln in local
+                    fi_ln = fn[0] + ln in local
+                    ln_starts = local.startswith(ln[:3]) if len(ln) >= 3 else False
+                    if not (fn_in or ln_in or fi_ln or ln_starts):
+                        logger.debug(f"L10: Name↔email mismatch: {fn} {ln} → {email}")
+                        c["email"] = ""
+                        c["email_confidence"] = "UNKNOWN"
+                        rejected["name_mismatch"] += 1
 
             # Upgrade confidence if email is in known_emails
             if email and email in [e.lower() for e in self.known_emails]:
                 c["email_confidence"] = "VERIFIED"
 
             final.append(c)
+
+        if any(v > 0 for v in rejected.values()):
+            logger.info(f"L10 validation: {rejected['cross_district']} cross-district, "
+                         f"{rejected['name_mismatch']} name-mismatch emails cleared")
 
         # Sort: VERIFIED > LIKELY > INFERRED > UNKNOWN, then by last name
         confidence_order = {"VERIFIED": 0, "LIKELY": 1, "INFERRED": 2, "UNKNOWN": 3}
