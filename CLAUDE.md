@@ -5,23 +5,24 @@
 
 ## CURRENT STATE — update this after each session
 
-**Session 40: C2 tool evaluation framework built. Researched 7 web research tools, signed up for free tiers, ran Phase 1 content comparison. Tavily and Exa are top performers. Parse.bot MCP configured, needs restart to test.**
+**Session 40: C2 deep research engine v4 built + integrated. 8-stage multi-tool pipeline (Exa + Firecrawl + Serper + agentic). Houston ISD: 1 email → 29-51 contacts all with emails. Production engine upgraded with L16-L19 + quality validation.**
 
 ### What was done (Session 40)
-- **C2 tool landscape research:** Deep-dived Serper, Crawl4AI, Firecrawl, Jina Reader, Parse.bot, Tavily, Exa. Compared pricing, features, content quality for K-12 district research.
-- **Evaluation framework built:** `scripts/eval_research_tools.py` + `scripts/eval_config.py`. 7 tool adapters, 8 test districts, CLI with `--phase1`, `--skip-claude`, `--summary-only` flags.
-- **Python 3.13 venv:** Created `.venv/` with all dependencies (Crawl4AI needs 3.10+, system had 3.9). Installed via Homebrew + venv.
-- **API key setup:** Signed up for Jina, Tavily, Exa, Firecrawl, Parse.bot free tiers. All keys in `.env`.
-- **Phase 1 results (content comparison, no Claude extraction):** Tavily (160K chars, 12s, $0.016) and Exa (133K chars, 3s, $0.030) return 3-4x more content than baseline (41K chars). Jina gets most content (1.36M) but is slow (71s). Firecrawl scrapes blocked by third-party sites. Parse.bot REST API returning 404 (backend migration) — MCP configured in `.mcp.json`.
-- **Steven's C2 goals clarified:** Speed + quality + cost optimization + monthly improvement cadence.
+- **C2 tool evaluation:** Tested 7 tools (Serper, Exa, Tavily, Firecrawl, Jina, Crawl4AI, Parse.bot) across 8 districts with Claude extraction. Built `scripts/eval_research_tools.py` + `scripts/eval_config.py`.
+- **Deep research engine built:** `scripts/eval_deep_research.py` — 8-stage pipeline orchestrating multiple tools with agentic reasoning. Stages: domain discovery → Firecrawl extract → site mapping → Exa+Serper search → Claude extraction → pattern inference → Brave search → agentic followup.
+- **Production integration:** Added L16 (Exa broad), L17 (Exa domain-scoped), L18 (Firecrawl extract), L19 (Firecrawl site map) to `tools/research_engine.py`. Upgraded L9 with two-pass filter, L10 with cross-district + name↔email validation.
+- **Firecrawl `/extract` breakthrough:** Schema-based extraction pulls structured contacts directly from district sites without Claude. Found 10-21 verified contacts per district with real emails.
+- **Quality fixes:** Cross-district pre-filter, name↔email validation, two-pass extraction filter (saves ~50% Claude cost), adaptive email pattern inference with name normalization.
+- **API keys:** Exa, Firecrawl, Tavily, Jina, Parse.bot all in `.env`. Brave Search needs signup ($5/mo).
+- **All-districts validation running** — 8 districts through full deep research pipeline.
 
-### What still needs to be done (continuing Session 40)
-- **Test Parse.bot via MCP** — `.mcp.json` configured, needs Claude Code restart
-- **Try Firecrawl plugin/MCP** — AI research suggests plugin is the primary integration path
-- **Run Claude extraction** on top 3 tools (Tavily, Exa, baseline) to compare actual contact yield
-- **Scale to all 8 districts** after validating Phase 1
-- **C2: Implement parallelization** — still planned after tool evaluation determines the best stack
-- **C2: Better prompts + tool_use** — after parallelization
+### What still needs to be done
+- **Deploy to Railway** — Add `EXA_API_KEY` and `FIRECRAWL_API_KEY` to Railway env vars
+- **Firecrawl paid plan** — Free credits exhausted from testing. Need paid plan for production.
+- **Sign up for Brave Search** — https://brave.com/search/api/ ($5/mo free credits)
+- **C2: Parallelization** — Run search stages concurrently (still planned)
+- **C2: Better prompts + tool_use** — After parallelization
+- **Explore:** ScrapeGraphAI, Perplexity Sonar API, Firecrawl `/interact` for pagination
 - **C5: Proximity + regional service centers** (deferred)
 - See `SCOUT_PLAN.md` for full roadmap
 
@@ -44,7 +45,7 @@
 - Outreach sequence creation: ✅ 11 CUE sequences created + prospects loaded (Session 38)
 - SoCal CSV filtering: ✅ 5 passes complete (Session 26)
 - Session transcript capture: ✅ set up (Session 36), numbering fixed (Session 39)
-- C2 Research Engine: 🔧 tool evaluation Phase 1 complete, Tavily+Exa leading. Claude extraction + Parse.bot MCP next. (Session 40)
+- C2 Research Engine: 🔧 deep research v4 built + integrated into production. Exa+Firecrawl+Serper multi-tool pipeline. Quality validation added. Needs Railway deploy + Firecrawl paid plan. (Session 40)
 
 ### Other completed features
 - **Weekend scheduler (B1):** Sat 11am, Sun 1pm greeting. No auto check-ins. `/eod` works manually.
