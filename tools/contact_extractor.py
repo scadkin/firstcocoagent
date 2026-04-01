@@ -37,20 +37,26 @@ Each contact object must have these exact keys:
   "notes": ""
 }
 
-Rules:
-- email_confidence must be one of: VERIFIED, LIKELY, INFERRED, or UNKNOWN
-  - VERIFIED: email explicitly shown in source
-  - LIKELY: email pattern confirmed by district, name matches
-  - INFERRED: email constructed from pattern but unconfirmed
-  - UNKNOWN: no email found
-- account: school name if school-level contact, district name if district-level
-- If a field is unknown, use empty string ""
-- Only include contacts whose title relates to: Computer Science, CS, Coding, Programming,
-  STEM, STEAM, CTE, Career & Technical Education, Educational Technology, Curriculum,
-  Instructional Technology, Digital Learning, Innovation, AP CSP, AP CS, Robotics, Esports,
-  Game Design, Makerspace, After-School, TOSA, Librarian, Superintendent, Principal, Title I
-- Do NOT include general admin staff, secretaries, HR, finance unless directly related to above
-- If no valid contacts found, return empty array: []
+CRITICAL RULES FOR ACCURACY:
+1. Each contact's email MUST belong to that specific person. In staff directory tables,
+   carefully match each row's name to that SAME row's email. Do NOT shift or misalign rows.
+2. email_confidence must be one of: VERIFIED, LIKELY, INFERRED, or UNKNOWN
+   - VERIFIED: email explicitly shown on the SAME LINE or SAME ROW as the person's name
+   - LIKELY: email follows a confirmed pattern AND name matches
+   - INFERRED: email constructed from pattern but name alignment is uncertain
+   - UNKNOWN: no email found for this person
+3. If you see a phone number or extension but no email, set email to "" — do NOT put
+   a phone number in the email field.
+4. If a table row is truncated or ambiguous, set email_confidence to UNKNOWN rather than
+   guessing which email belongs to which person.
+5. account: school name if school-level contact, district name if district-level
+6. If a field is unknown, use empty string ""
+7. Only include contacts whose title relates to: Computer Science, CS, Coding, Programming,
+   STEM, STEAM, CTE, Career & Technical Education, Educational Technology, Curriculum,
+   Instructional Technology, Digital Learning, Innovation, AP CSP, AP CS, Robotics, Esports,
+   Game Design, Makerspace, After-School, TOSA, Librarian, Superintendent, Principal, Title I
+8. Do NOT include general admin staff, secretaries, HR, finance unless directly related to above
+9. If no valid contacts found, return empty array: []
 """
 
 # ─────────────────────────────────────────────
@@ -92,6 +98,12 @@ Extract all CS/STEM/CTE/EdTech contacts. Return JSON array only."""
         raw = re.sub(r"^```json\s*", "", raw)
         raw = re.sub(r"^```\s*", "", raw)
         raw = re.sub(r"\s*```$", "", raw)
+
+        # Strip text before first [ and after last ] (Claude sometimes adds preamble)
+        bracket_start = raw.find("[")
+        bracket_end = raw.rfind("]")
+        if bracket_start >= 0 and bracket_end > bracket_start:
+            raw = raw[bracket_start:bracket_end + 1]
 
         contacts = json.loads(raw)
 
