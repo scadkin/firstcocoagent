@@ -1,22 +1,20 @@
 # SCOUT — Claude Code Reference
-*Last updated: 2026-03-29 — Session 38*
+*Last updated: 2026-04-01 — Session 39*
 
 ---
 
 ## CURRENT STATE — update this after each session
 
-**Session 38: Todo List Feature, CUE lead enrichment (1,298 leads), Outreach sequence creation (11 CUE sequences live with 940+ prospects), apology sequence for timing bug. MASSIVE session.**
+**Session 39: Short session. Fixed session transcript numbering (CLAUDE.md as source of truth). Analyzed C2 research engine parallelization — plan approved, ready to code.**
 
-### What was done (Session 38)
-- **Todo List Feature:** `tools/todo_manager.py` — Google Sheet "Todo List" tab, Telegram commands (`add:`, `done:`, `/todos`, `/todo_clear`, `/todo_remove`), Claude tool (`manage_todos`), hourly check-ins now reference open todos.
-- **CUE 2026 lead enrichment:** `scripts/enrich_cue_leads.py` — offline script. 1,472 raw → 1,298 deduped. 5-layer pipeline: email domain parsing → SF domain→state lookup (859 roots) → Serper web search (parallel, deduped) → Claude extraction from search results → Claude inference for remaining. NCES name normalization against 8,038 districts + 36,145 schools. Rep routing tabs (Steven/Tom/Liz/Shan/CUE-CALIE). Output: Google Sheet + CSV.
-- **Outreach sequence creation:** Built `create_sequence()` in `outreach_client.py`. Created 6 CUE booth sequences (4 steps each) + 5 CUE opt-in sequences (3 steps each) + 1 apology sequence. 58 booth + 883 opt-in prospects loaded.
-- **CRITICAL BUG:** Outreach API interval is in SECONDS, not minutes. Booth sequences sent all 4 emails within hours instead of days. Fixed intervals, sent apology email.
-- **Outreach API write access:** OAuth re-authorized with write scopes. Webhook callback fixed (was blocking re-auth).
-- **Session transcript numbering fix, GitHub token regenerated, local .env updates.**
+### What was done (Session 39)
+- **Session numbering fix:** `scripts/scout_session.sh` auto-detect now reads CLAUDE.md header as primary source of truth for session number. Previously only checked transcript files on disk — broke when sessions ran without `scout` wrapper (37+38 had no transcript files, so it reset to 37). Exit cross-check regex also fixed to match actual CLAUDE.md format.
+- **C2 parallelization analysis:** Read full `research_engine.py` (973 lines). Mapped all 15 layer dependencies. Identified 4 parallel groups: Group A (L1-L5, L13, L14 concurrent), Group B (L6→L7→L8 + L11/L12 after L4), Group C (L9 Claude extraction), Group D (L10→L15→L10). Steven approved the approach.
 
-### What still needs to be done (Session 39+)
-- **C2: Research engine improvements** — Parallelize layers, better prompts, Claude tool_use
+### What still needs to be done (Session 40+)
+- **C2: Implement parallelization** — code the `asyncio.gather` groups in `run()`, add Lock for serper counter, shared httpx client. Plan is approved, just needs coding.
+- **C2: Better prompts** — few-shot examples for Claude extraction
+- **C2: Claude tool_use** — interactive adaptive extraction
 - **C5: Proximity + regional service centers** (deferred)
 - See `SCOUT_PLAN.md` for full roadmap, parked items, and detailed context
 
@@ -38,7 +36,8 @@
 - Outreach write access: ✅ OAuth re-authorized (Session 38)
 - Outreach sequence creation: ✅ 11 CUE sequences created + prospects loaded (Session 38)
 - SoCal CSV filtering: ✅ 5 passes complete (Session 26)
-- Session transcript capture: ✅ set up (Session 36)
+- Session transcript capture: ✅ set up (Session 36), numbering fixed (Session 39)
+- C2 Research Engine: 🔧 parallelization analysis done, ready to implement (Session 39)
 
 ### Other completed features
 - **Weekend scheduler (B1):** Sat 11am, Sun 1pm greeting. No auto check-ins. `/eod` works manually.
@@ -111,6 +110,7 @@
 - Env vars available: `SCOUT_SESSION_NUM`, `SCOUT_RAW_TRANSCRIPT`, `SCOUT_CLEAN_TRANSCRIPT`.
 - Steven uses `/exit` between sessions (not `/clear`) so each `scout` run = one transcript file.
 - Wrapper script auto-commits as fallback if end-of-session routine is skipped.
+- **Session numbering source of truth is CLAUDE.md header** (`Session N`). The `scout_session.sh` script parses this, transcript files on disk, and raw files — uses the highest. This prevents drift when sessions run without the `scout` wrapper.
 
 ---
 

@@ -1,13 +1,13 @@
 # SCOUT MASTER PLAN
-*Last updated: 2026-03-29 — Session 38*
+*Last updated: 2026-04-01 — Session 39*
 
 ---
 
-## YOU ARE HERE → Outreach sequence creation DONE (Session 38). 11 CUE sequences live. Next: C2 Research Engine
+## YOU ARE HERE → C2 Research Engine Improvements. Parallelization analysis complete. Ready to code.
 
 ---
 
-## CURRENT FOCUS: C4 Cold License Requests
+## CURRENT FOCUS: C2 Research Engine Improvements
 
 ### What C4 is
 Cold license requests are inbound prospects who requested a CodeCombat license through Outreach sequences but Steven never connected with them — no opportunity was created, no pricing was sent. These are warm leads that went cold. Strategy label: `cold_license_request`.
@@ -96,7 +96,7 @@ Surviving prospects are added to the Prospecting Queue with email, first name, l
 | C1 | Territory Master List | NCES CCD data for 13 states + SoCal. 8,133 districts, 40,317 schools. Gap analysis. | ✅ Done (Sessions 31-32) |
 | C3 | Closed-Lost Winback | Scan closed-lost opps, add to Prospecting Queue. Date window filtering. Draft sequences. | ✅ Done (Sessions 33-34, verified) |
 | C4 | Cold License Requests | Scan Outreach sequences for cold inbound requests. Full pipeline: pattern extraction → SF lookup → NCES matching → Claude inference → Serper web search → district enrichment. 1,274 targets, 113 empty states, 100% district coverage. | ✅ Done (Sessions 34-37, verified) |
-| C2 | Research Engine Improvements | Parallelize layers, better prompts, Claude tool_use. Est. 2-3 sessions. | ⬜ After Outreach sequences |
+| C2 | Research Engine Improvements | Parallelize layers, better prompts, Claude tool_use. Est. 2-3 sessions. | 🔧 In progress (Session 39+) |
 | C5 | Proximity + Regional Service Centers | Go after schools near active accounts. ESC/BOCES mapping. | ⬜ Deferred |
 
 **Note:** C4 was originally described as "Unresponsive leads strategy" in the roadmap but evolved during implementation into "Cold License Requests" — specifically targeting inbound license requests from Outreach sequences that went cold (no opp, no pricing). This is a more focused and actionable definition than generic "unresponsive leads." The original C4 concept of tracking outbound attempts + non-response may still be built later as a separate feature.
@@ -119,6 +119,7 @@ Surviving prospects are added to the Prospecting Queue with email, first name, l
 | Session 38 | GitHub token regenerated | Fine-grained PAT expired, regenerated |
 | Session 38 | Outreach sequence creation | Built create_sequence() API. 11 CUE sequences + 940 prospects loaded. Interval bug discovered (seconds not minutes). |
 | Session 38 | CUE booth apology sequence | Sent apology for 4-email spam caused by interval bug |
+| Session 39 | Session numbering fix | `scout_session.sh` auto-detect now uses CLAUDE.md as source of truth, not just transcript files. Fixes drift when sessions run without `scout` wrapper. |
 
 ---
 
@@ -132,11 +133,21 @@ Surviving prospects are added to the Prospecting Queue with email, first name, l
 - **CRITICAL LESSON:** Outreach interval is in SECONDS not minutes. Caused all booth emails to fire in hours. Fixed + apology sent.
 - **Creation order:** create → Steven activates in UI → toggle templates → then add prospects via API
 
-### C2: Research Engine Improvements
+### C2: Research Engine Improvements — IN PROGRESS
 **What:** Make the district research engine faster and more accurate.
-- **Quick win:** Parallelize independent research layers (L1-5 concurrently, L11-14 concurrently) — est. 40-60% time reduction
-- **Medium:** Better Claude extraction prompts with few-shot examples for higher accuracy
-- **Advanced:** Claude tool_use for interactive, adaptive extraction
+
+**Session 39 analysis complete — parallelization plan approved:**
+- **Group A (parallel):** L1, L2, L3, L4, L5, L13, L14 — all independent Serper searches, run concurrently
+- **Group B (after L4):** L6→L7→L8 chain + L11, L12 in parallel — all need district_domain from L4
+- **Group C:** L9 Claude extraction (needs all raw_pages from A+B)
+- **Group D:** L10→L15→L10 sequential (unchanged)
+- Also: add asyncio.Lock for serper counter race condition, shared httpx client
+
+**Sub-tasks:**
+- ✅ Layer dependency analysis + parallelization plan (Session 39)
+- ⬜ Implement parallel groups in `run()` method
+- ⬜ Better Claude extraction prompts with few-shot examples
+- ⬜ Claude tool_use for interactive, adaptive extraction
 - **Estimated effort:** 2-3 sessions
 
 ### C5: Proximity + Regional Service Centers (deferred)

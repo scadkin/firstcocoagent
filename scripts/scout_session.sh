@@ -30,18 +30,21 @@ mkdir -p "$SESSIONS_DIR" "$RAW_DIR"
 if [ -n "$1" ]; then
     SESSION_NUM="$1"
 else
-    # Auto-detect: find highest existing session number and increment
-    # Check both clean .md files AND raw captures (raw exists even if clean failed)
+    # Auto-detect: use CLAUDE.md as the source of truth for the last session number.
+    # CLAUDE.md header line looks like: *Last updated: 2026-03-29 — Session 38*
+    # Falls back to checking transcript files on disk if CLAUDE.md parse fails.
+    CLAUDEMD_NUM=$(grep -oE 'Session [0-9]+' "$SCOUT_DIR/CLAUDE.md" | head -1 | grep -oE '[0-9]+')
     LAST_CLEAN=$(ls "$SESSIONS_DIR"/session_*.md 2>/dev/null | grep -oE '[0-9]+' | sort -n | tail -1)
     LAST_RAW=$(ls "$RAW_DIR"/session_*_raw.txt 2>/dev/null | grep -oE '[0-9]+' | sort -n | tail -1)
-    # Use whichever is higher
+    # Use whichever is highest across all sources
     LAST=0
+    [ -n "$CLAUDEMD_NUM" ] && [ "$CLAUDEMD_NUM" -gt "$LAST" ] && LAST="$CLAUDEMD_NUM"
     [ -n "$LAST_CLEAN" ] && [ "$LAST_CLEAN" -gt "$LAST" ] && LAST="$LAST_CLEAN"
     [ -n "$LAST_RAW" ] && [ "$LAST_RAW" -gt "$LAST" ] && LAST="$LAST_RAW"
     if [ "$LAST" -gt 0 ]; then
         SESSION_NUM=$((LAST + 1))
     else
-        SESSION_NUM=38
+        SESSION_NUM=39
     fi
 fi
 
@@ -81,11 +84,12 @@ echo "Cleaning transcript..."
 
 # Cross-check: if CLAUDE.md says a different session number, the script started with
 # a stale count. Detect and fix by renaming files to the correct number.
-ACTUAL_NUM=$(grep -oE 'Session [0-9]+:.*SIGNED OFF' "$SCOUT_DIR/CLAUDE.md" | grep -oE '[0-9]+' | sort -n | tail -1)
+# CLAUDE.md header: *Last updated: 2026-03-29 — Session 38*
+ACTUAL_NUM=$(grep -oE 'Session [0-9]+' "$SCOUT_DIR/CLAUDE.md" | head -1 | grep -oE '[0-9]+')
 if [ -n "$ACTUAL_NUM" ]; then
     CORRECT_NUM=$((ACTUAL_NUM + 1))
     if [ "$CORRECT_NUM" -ne "$SESSION_NUM" ]; then
-        echo "Session number correction: script said $SESSION_NUM, but CLAUDE.md says last signed-off session was $ACTUAL_NUM."
+        echo "Session number correction: script said $SESSION_NUM, but CLAUDE.md says last session was $ACTUAL_NUM."
         echo "Renaming files to session $CORRECT_NUM..."
         CORRECT_RAW="$RAW_DIR/session_${CORRECT_NUM}_raw.txt"
         CORRECT_CLEAN="$SESSIONS_DIR/session_${CORRECT_NUM}.md"

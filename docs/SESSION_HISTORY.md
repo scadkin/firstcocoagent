@@ -414,3 +414,35 @@ See `memory/roadmap_full.md` for the complete approved roadmap (A1-A3, B1-B2, C1
 - Outreach interval is in SECONDS — hard rule, never use minutes
 - Creation order: create sequence → Steven activates in UI → add prospects
 - Steven's territory must be known by heart (13 states + SoCal)
+
+---
+
+## Session 39 (2026-04-01) — Session Numbering Fix + C2 Parallelization Analysis
+
+### Session Summary
+Short session. Fixed the session transcript numbering system that was broken since Session 36 — sessions 37+38 ran without the `scout` wrapper, so auto-detect fell behind. Analyzed the full research engine for C2 parallelization and got the plan approved, but didn't code it yet.
+
+### What was built
+- **`scripts/scout_session.sh` fix** — Auto-detect now parses CLAUDE.md header (`*Last updated: ... — Session N*`) as the primary source of truth for session number. Previously only checked transcript files on disk. Exit cross-check regex also updated from `"Session N: ... SIGNED OFF"` (which never matched) to the actual CLAUDE.md format. Takes the highest of: CLAUDE.md number, clean transcript files, raw transcript files.
+
+### C2 Research Engine Analysis
+Read all 973 lines of `tools/research_engine.py`. Mapped the dependency graph for all 15 layers:
+- **Independent (no deps):** L1, L2, L3, L5, L13, L14 — all pure Serper searches
+- **Finds district_domain:** L4 — also a Serper search, but output needed by later layers
+- **Needs district_domain:** L6→L7→L8 (sequential website crawl chain), L11, L12
+- **Needs all raw_pages:** L9 (Claude extraction from all collected content)
+- **Sequential tail:** L10 (dedup) → L15 (email verify) → L10 (re-score)
+
+Proposed parallel groups:
+- **Group A:** L1, L2, L3, L4, L5, L13, L14 via `asyncio.gather` — all concurrent
+- **Group B:** After L4 completes — L6→L7→L8 chain + L11/L12 in parallel alongside
+- **Group C:** L9 Claude extraction (blocked on A+B)
+- **Group D:** L10→L15→L10 unchanged
+
+Additional fixes needed: asyncio.Lock for shared `_serper_count` (race condition in concurrent layers), shared httpx.AsyncClient instead of per-query client creation.
+
+Estimated speedup: 40-60% wall-time reduction. Steven approved the approach.
+
+### Key Decisions
+- CLAUDE.md is the authoritative source of truth for session numbering
+- C2 parallelization plan: 4 groups, serper lock, shared client — approved and ready to code
