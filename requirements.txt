@@ -21,6 +21,10 @@ google-api-python-client>=2.130.0
 # Memory / GitHub
 PyGithub>=2.3.0
 
+# C2: Multi-tool research engine
+exa-py>=1.0.0
+firecrawl-py>=2.0.0
+
 # Utilities
 python-dotenv>=1.0.0
 
