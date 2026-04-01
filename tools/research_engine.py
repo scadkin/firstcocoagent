@@ -1,21 +1,25 @@
 """
-research_engine.py — Scout's 15-layer K-12 lead research engine.
+research_engine.py — Scout's multi-tool K-12 lead research engine.
 
 Layers:
   1. Serper: direct title search
   2. Serper: title variation sweep
   3. Serper: LinkedIn-targeted search
-  4. Serper: district site deep search
+  4. Serper: district site deep search (also discovers domain)
   5. Serper: news + grants search (priority signals)
   6. Direct website scrape (BeautifulSoup)
   7. Keyword deep crawl across all pages found
-  8. Email pattern inference
+  8. Email pattern inference (adaptive, handles name swaps)
   11. Serper: school-level staff directories
   12. Serper: board meeting / agenda mining
   13. Serper: state DOE directory lookup
   14. Serper: conference presenter search
-  9. Claude extraction pass (all raw content from L1-L8 + L11-L14)
-  10. Dedup + confidence scoring
+  16. Exa: semantic search (broad)
+  17. Exa: domain-scoped search (targets district site)
+  18. Firecrawl: /extract with schema (structured contacts, no Claude needed)
+  19. Firecrawl: site map + targeted scrape (finds actual staff pages)
+  9. Claude extraction pass (with two-pass filter to skip non-contact pages)
+  10. Dedup + confidence scoring (with cross-district and name↔email validation)
   15. Email verification & discovery via search (runs after L10)
 """
 
@@ -137,7 +141,22 @@ class ResearchJob:
         # Layer 14: Conference presenter search
         await self._layer14_conference_presenter_search()
 
-        # Layer 9: Claude extraction pass (all raw pages from L1-L8 + L11-L14)
+        # C2 Layers: Multi-tool search + extraction
+        await self._progress(f"🔎 Running C2 layers (Exa + Firecrawl)...")
+
+        # Layer 16: Exa semantic search (broad)
+        await self._layer16_exa_broad_search()
+
+        # Layer 17: Exa domain-scoped search
+        await self._layer17_exa_domain_search()
+
+        # Layer 18: Firecrawl extract with schema (structured contacts, no Claude)
+        await self._layer18_firecrawl_extract()
+
+        # Layer 19: Firecrawl site map + targeted scrape
+        await self._layer19_firecrawl_site_map()
+
+        # Layer 9: Claude extraction pass (all raw pages, with two-pass filter)
         await self._layer9_claude_extraction()
 
         # Layer 10: Dedup + confidence scoring
@@ -375,14 +394,40 @@ class ResearchJob:
             logger.warning(f"No raw pages to extract from for {self.district_name}")
             return
 
-        await self._progress(f"🤖 Extracting contacts from {len(self.raw_pages)} pages...")
+        # Two-pass filter: skip pages unlikely to contain contacts
+        # Saves ~50% on Claude API costs
+        filtered_pages = []
+        skipped = 0
+        for url, content in self.raw_pages:
+            if not content or len(content.strip()) < 100:
+                skipped += 1
+                continue
+            content_lower = content[:12000].lower()
+            contact_signals = sum([
+                "@" in content[:12000],
+                any(t in content_lower for t in ["director", "coordinator", "teacher",
+                    "principal", "specialist", "superintendent", "staff"]),
+                any(p in content_lower for p in ["phone", "email", "ext.", "extension"]),
+                any(d in content_lower for d in ["department", "directory", "faculty",
+                    "our team", "contact us", "administration"]),
+            ])
+            if contact_signals >= 2:
+                filtered_pages.append((url, content))
+            else:
+                skipped += 1
+
+        if skipped:
+            logger.info(f"L9 two-pass filter: {len(filtered_pages)}/{len(self.raw_pages)} pages "
+                        f"have contact signals ({skipped} skipped)")
+
+        await self._progress(f"🤖 Extracting contacts from {len(filtered_pages)} pages...")
 
         # Run synchronous Claude extraction in a thread pool so it doesn't block the event loop.
         # extract_from_multiple makes one blocking Claude API call per page — without run_in_executor
         # it freezes asyncio entirely, preventing heartbeats and Telegram messages from processing.
         loop = asyncio.get_event_loop()
         contacts = await loop.run_in_executor(
-            None, extract_from_multiple, self.raw_pages, self.district_name
+            None, extract_from_multiple, filtered_pages, self.district_name
         )
 
         # Apply email inference to contacts that have name but no email
@@ -501,6 +546,265 @@ class ResearchJob:
         ]
         results = await self._serper_batch(queries)
         self._add_raw_from_serper(results, "L14:conference")
+
+    # ─────────────────────────────────────────────
+    # LAYER 16: Exa semantic search (broad)
+    # ─────────────────────────────────────────────
+
+    async def _layer16_exa_broad_search(self):
+        """Exa's neural search index finds pages Google often misses —
+        conference mentions, org directories, news articles with contacts."""
+        try:
+            from exa_py import Exa
+        except ImportError:
+            self._skipped_layers.append("L16:exa-broad (exa-py not installed)")
+            return
+
+        exa_key = os.environ.get("EXA_API_KEY", "")
+        if not exa_key:
+            self._skipped_layers.append("L16:exa-broad (EXA_API_KEY not set)")
+            return
+
+        self.layers_used.append("L16:exa-broad")
+        exa = Exa(api_key=exa_key)
+
+        queries = [
+            f"{self.district_name} {self.state} computer science STEM staff directory",
+            f"{self.district_name} CTE curriculum technology coordinator contact email",
+        ]
+
+        for query in queries:
+            try:
+                results = exa.search_and_contents(
+                    query=query, type="auto", num_results=10, text=True,
+                )
+                for r in results.results:
+                    if r.url and r.text:
+                        content = r.text[:15000]
+                        self.raw_pages.append((r.url, content))
+                        self._url_to_layer.setdefault(r.url, "L16:exa-broad")
+            except Exception as e:
+                logger.debug(f"Exa broad search failed: {e}")
+
+    # ─────────────────────────────────────────────
+    # LAYER 17: Exa domain-scoped search
+    # ─────────────────────────────────────────────
+
+    async def _layer17_exa_domain_search(self):
+        """Search within the district's own site using Exa's index.
+        Finds staff directory pages that generic search misses."""
+        if not self.district_domain:
+            self._skipped_layers.append("L17:exa-domain (no domain)")
+            return
+
+        try:
+            from exa_py import Exa
+        except ImportError:
+            return
+
+        exa_key = os.environ.get("EXA_API_KEY", "")
+        if not exa_key:
+            return
+
+        self.layers_used.append("L17:exa-domain")
+        exa = Exa(api_key=exa_key)
+        domain = self.district_domain.replace("www.", "")
+
+        queries = [
+            "staff directory faculty contact email",
+            "computer science technology CTE department",
+        ]
+
+        for query in queries:
+            try:
+                results = exa.search_and_contents(
+                    query=query, type="auto", num_results=10, text=True,
+                    include_domains=[domain],
+                )
+                for r in results.results:
+                    if r.url and r.text:
+                        content = r.text[:15000]
+                        self.raw_pages.append((r.url, content))
+                        self._url_to_layer.setdefault(r.url, "L17:exa-domain")
+            except Exception as e:
+                logger.debug(f"Exa domain search failed for {domain}: {e}")
+
+    # ─────────────────────────────────────────────
+    # LAYER 18: Firecrawl extract with schema
+    # ─────────────────────────────────────────────
+
+    async def _layer18_firecrawl_extract(self):
+        """Use Firecrawl's /extract to pull structured contacts directly from
+        the district site. This bypasses Claude entirely — Firecrawl's own AI
+        navigates the site and extracts data based on the schema."""
+        if not self.district_domain:
+            self._skipped_layers.append("L18:fc-extract (no domain)")
+            return
+
+        try:
+            from firecrawl import FirecrawlApp
+        except ImportError:
+            self._skipped_layers.append("L18:fc-extract (firecrawl not installed)")
+            return
+
+        fc_key = os.environ.get("FIRECRAWL_API_KEY", "")
+        if not fc_key:
+            self._skipped_layers.append("L18:fc-extract (FIRECRAWL_API_KEY not set)")
+            return
+
+        self.layers_used.append("L18:fc-extract")
+        domain = self.district_domain.replace("www.", "")
+
+        try:
+            fc = FirecrawlApp(api_key=fc_key)
+            loop = asyncio.get_event_loop()
+
+            # Run synchronous Firecrawl call in executor
+            def _do_extract():
+                return fc.extract(
+                    urls=[f"https://{domain}/*"],
+                    prompt=(
+                        f"Find all staff members at {self.district_name} whose role relates to: "
+                        "Computer Science, STEM, CTE, Career & Technical Education, "
+                        "Educational Technology, Curriculum, Technology, Innovation, "
+                        "Digital Learning, Robotics, or school leadership. "
+                        "Extract their full names, job titles, email addresses, and phone numbers."
+                    ),
+                    schema={
+                        "type": "object",
+                        "properties": {
+                            "contacts": {
+                                "type": "array",
+                                "items": {
+                                    "type": "object",
+                                    "properties": {
+                                        "first_name": {"type": "string"},
+                                        "last_name": {"type": "string"},
+                                        "title": {"type": "string"},
+                                        "email": {"type": "string"},
+                                        "phone": {"type": "string"},
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    enable_web_search=True,
+                    timeout=120,
+                )
+
+            result = await loop.run_in_executor(None, _do_extract)
+
+            # Parse and merge contacts
+            data = result.data if hasattr(result, 'data') else (result if isinstance(result, dict) else None)
+            if data and isinstance(data, dict):
+                today = date.today().isoformat()
+                for c in data.get("contacts", []):
+                    fn = str(c.get("first_name", "")).strip()
+                    ln = str(c.get("last_name", "")).strip()
+                    email = str(c.get("email", "")).strip()
+                    if not fn and not ln:
+                        continue
+                    # Skip masked emails
+                    if email and "***" in email:
+                        email = ""
+                    contact = {
+                        "first_name": fn,
+                        "last_name": ln,
+                        "title": str(c.get("title", "")).strip(),
+                        "email": email.lower() if email else "",
+                        "work_phone": str(c.get("phone", "")).strip(),
+                        "account": self.district_name,
+                        "district_name": self.district_name,
+                        "source_url": f"https://{domain}",
+                        "email_confidence": "VERIFIED" if email and "***" not in email else "UNKNOWN",
+                        "notes": "Firecrawl extract",
+                        "date_found": today,
+                    }
+                    self._merge_contacts([contact])
+                    self._url_to_layer.setdefault(f"https://{domain}", "L18:fc-extract")
+
+                fc_contacts = len(data.get("contacts", []))
+                fc_emails = sum(1 for c in data.get("contacts", []) if c.get("email") and "***" not in c.get("email", ""))
+                logger.info(f"L18 Firecrawl extract: {fc_contacts} contacts, {fc_emails} with email")
+
+        except Exception as e:
+            logger.warning(f"L18 Firecrawl extract failed: {e}")
+
+    # ─────────────────────────────────────────────
+    # LAYER 19: Firecrawl site map + targeted scrape
+    # ─────────────────────────────────────────────
+
+    async def _layer19_firecrawl_site_map(self):
+        """Map the district's site to find staff/contact pages, then scrape them.
+        Much more effective than guessing URLs (L6) because it discovers the actual
+        site structure."""
+        if not self.district_domain:
+            self._skipped_layers.append("L19:fc-sitemap (no domain)")
+            return
+
+        try:
+            from firecrawl import FirecrawlApp
+        except ImportError:
+            return
+
+        fc_key = os.environ.get("FIRECRAWL_API_KEY", "")
+        if not fc_key:
+            return
+
+        self.layers_used.append("L19:fc-sitemap")
+        domain = self.district_domain.replace("www.", "")
+
+        try:
+            fc = FirecrawlApp(api_key=fc_key)
+            loop = asyncio.get_event_loop()
+
+            # Map the site
+            map_result = await loop.run_in_executor(None, fc.map, f"https://{domain}")
+
+            # Normalize links
+            raw_links = []
+            if hasattr(map_result, 'links'):
+                raw_links = map_result.links or []
+            elif isinstance(map_result, list):
+                raw_links = map_result
+
+            all_urls = []
+            for link in raw_links:
+                if isinstance(link, str):
+                    all_urls.append(link)
+                elif hasattr(link, 'url'):
+                    all_urls.append(str(link.url))
+
+            # Filter for staff/contact pages
+            contact_keywords = [
+                "staff", "directory", "contact", "team", "leadership",
+                "administration", "department", "curriculum", "technology",
+                "cte", "stem", "computer-science",
+            ]
+            staff_urls = [u for u in all_urls if any(kw in u.lower() for kw in contact_keywords)]
+
+            # Only scrape URLs we haven't already scraped
+            existing = {url for url, _ in self.raw_pages}
+            new_staff_urls = [u for u in staff_urls if u not in existing][:8]
+
+            logger.info(f"L19 site map: {len(all_urls)} total URLs, {len(staff_urls)} staff pages, "
+                        f"{len(new_staff_urls)} new to scrape")
+
+            # Scrape with Firecrawl (handles JS)
+            for url in new_staff_urls:
+                try:
+                    doc = await loop.run_in_executor(
+                        None, lambda u=url: fc.scrape(u, formats=["markdown"])
+                    )
+                    markdown = getattr(doc, 'markdown', '') or ''
+                    if markdown and len(markdown) > 200:
+                        self.raw_pages.append((url, str(markdown)[:15000]))
+                        self._url_to_layer.setdefault(url, "L19:fc-sitemap")
+                except Exception as e:
+                    logger.debug(f"L19 scrape failed: {url} — {e}")
+
+        except Exception as e:
+            logger.warning(f"L19 Firecrawl site map failed: {e}")
 
     # ─────────────────────────────────────────────
     # LAYER 15: Email verification & discovery
