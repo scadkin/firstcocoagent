@@ -17,9 +17,9 @@ client = Anthropic()
 # EXTRACTION PROMPT
 # ─────────────────────────────────────────────
 
-EXTRACT_SYSTEM = """You are a precise data extraction assistant for a K-12 education sales team.
+EXTRACT_SYSTEM = """You are a precise data extraction assistant for a K-12 education sales team selling CodeCombat (a computer science education platform).
 
-Your job: extract CS/STEM/CTE contact information from raw text or HTML.
+Your job: extract contacts who could be decision-makers or influencers for purchasing CS/coding curriculum.
 
 Return ONLY a valid JSON array. No explanation, no markdown, no preamble.
 
@@ -37,26 +37,34 @@ Each contact object must have these exact keys:
   "notes": ""
 }
 
+WHO TO INCLUDE (in priority order):
+1. ALWAYS include: Superintendent, Assistant Superintendent, Chief Academic Officer, Principal, Assistant Principal
+2. ALWAYS include: Anyone with "Computer Science", "CS", "Coding", "Programming" in their title
+3. ALWAYS include: Anyone with "STEM", "STEAM", "S.T.E.M.", "S.T.E.A.M." in their title
+4. ALWAYS include: Anyone with "Technology", "EdTech", "Digital Learning", "Instructional Technology" in their title
+5. ALWAYS include: Curriculum Director, Director of Curriculum, Instructional Coordinator, Curriculum Specialist
+6. ALWAYS include: Esports Coach/Teacher, Robotics Coach/Teacher, Game Design/Development Teacher
+7. ALWAYS include: Engineering Teacher, Web Design/Development Teacher
+8. ALWAYS include: AP CSP, AP CSA, AP Computer Science teachers
+9. ALWAYS include: TOSA, Teacher on Special Assignment, Librarian, Media Specialist
+10. ALWAYS include: Director of Elementary/Secondary Education
+11. INCLUDE CTE roles ONLY if related to: computers, technology, CS, coding, cyber, networking, digital, software, web, game, esports, data science, AI, information technology
+12. INCLUDE anyone from: Educational Services, Curriculum & Instruction, College & Career Readiness, Advanced Academics departments
+
+WHO TO EXCLUDE:
+- CTE teachers in: culinary, cosmetology, automotive, welding, plumbing, HVAC, construction, health science, nursing, agriculture, animal science, fashion, criminal justice, hospitality, food service, child development
+- General admin: secretaries, HR, finance, facilities, transportation, food services
+- Teachers in: English, History, Social Studies, Foreign Language, Physical Education, Art, Music (unless also teaching CS/STEM)
+
 CRITICAL RULES FOR ACCURACY:
 1. Each contact's email MUST belong to that specific person. In staff directory tables,
-   carefully match each row's name to that SAME row's email. Do NOT shift or misalign rows.
-2. email_confidence must be one of: VERIFIED, LIKELY, INFERRED, or UNKNOWN
-   - VERIFIED: email explicitly shown on the SAME LINE or SAME ROW as the person's name
-   - LIKELY: email follows a confirmed pattern AND name matches
-   - INFERRED: email constructed from pattern but name alignment is uncertain
-   - UNKNOWN: no email found for this person
-3. If you see a phone number or extension but no email, set email to "" — do NOT put
-   a phone number in the email field.
-4. If a table row is truncated or ambiguous, set email_confidence to UNKNOWN rather than
-   guessing which email belongs to which person.
-5. account: school name if school-level contact, district name if district-level
-6. If a field is unknown, use empty string ""
-7. Only include contacts whose title relates to: Computer Science, CS, Coding, Programming,
-   STEM, STEAM, CTE, Career & Technical Education, Educational Technology, Curriculum,
-   Instructional Technology, Digital Learning, Innovation, AP CSP, AP CS, Robotics, Esports,
-   Game Design, Makerspace, After-School, TOSA, Librarian, Superintendent, Principal, Title I
-8. Do NOT include general admin staff, secretaries, HR, finance unless directly related to above
-9. If no valid contacts found, return empty array: []
+   match each row's name to that SAME row's email. Do NOT shift or misalign rows.
+2. email_confidence: VERIFIED (on same line/row), LIKELY (pattern match + name matches),
+   INFERRED (pattern guess), UNKNOWN (no email found)
+3. Phone numbers go in work_phone, NOT email field.
+4. If a table row is truncated or ambiguous, set email_confidence to UNKNOWN.
+5. account: school name if school-level, district name if district-level.
+6. If no valid contacts found, return empty array: []
 """
 
 # ─────────────────────────────────────────────
@@ -136,6 +144,15 @@ Extract all CS/STEM/CTE/EdTech contacts. Return JSON array only."""
             # Skip if email_confidence is invalid
             if contact["email_confidence"] not in ("VERIFIED", "LIKELY", "INFERRED", "UNKNOWN"):
                 contact["email_confidence"] = "UNKNOWN"
+
+            # Post-extraction CTE filter: drop irrelevant trades
+            try:
+                from agent.target_roles import is_relevant_cte_role
+                if not is_relevant_cte_role(contact["title"]):
+                    logger.debug(f"Filtered irrelevant CTE: {contact['first_name']} {contact['last_name']} — {contact['title']}")
+                    continue
+            except ImportError:
+                pass  # target_roles not available, skip filter
 
             cleaned.append(contact)
 

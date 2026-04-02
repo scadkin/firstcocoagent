@@ -386,15 +386,27 @@ Return ONLY a valid JSON array. Each object:
   "work_phone": "", "account": "", "source_url": "", "email_confidence": "", "notes": ""
 }}
 
+WHO TO INCLUDE:
+- Superintendent, Assistant Superintendent, Chief Academic Officer, Principal, Assistant Principal
+- Anyone with Computer Science, CS, Coding, Programming in title
+- Anyone with STEM, STEAM, Technology, EdTech, Digital Learning, Instructional Technology in title
+- Curriculum Director, Instructional Coordinator, Curriculum Specialist
+- Esports, Robotics, Game Design, Web Design, Engineering teachers/coaches
+- AP CSP, AP CSA, AP Computer Science teachers
+- TOSA, Librarian, Media Specialist, Director of Elementary/Secondary Education
+- CTE roles ONLY if related to: computers, technology, CS, coding, cyber, networking, digital, AI
+
+EXCLUDE:
+- CTE in: culinary, cosmetology, automotive, welding, HVAC, health science, nursing, agriculture, fashion, criminal justice, hospitality
+- General admin: secretaries, HR, finance, facilities, transportation
+
 CRITICAL:
 1. Each email MUST belong to that specific person. Match rows independently in tables.
 2. ONLY extract contacts from {district_name}. Skip people from other districts.
 3. email_confidence: VERIFIED (shown on same line/row), LIKELY (pattern match confirmed),
    INFERRED (pattern guess), UNKNOWN (no email found).
 4. Phone numbers go in work_phone, NOT email.
-5. Target titles: CS, STEM, CTE, EdTech, Curriculum, Technology, Innovation, Robotics,
-   Superintendent, Principal, AP CS, Makerspace, Digital Learning, Librarian, Title I.
-6. If no contacts found, return [].
+5. If no contacts found, return [].
 """
 
     client = Anthropic()
