@@ -48,11 +48,12 @@ WHO TO INCLUDE (in priority order):
 8. ALWAYS include: AP CSP, AP CSA, AP Computer Science teachers
 9. ALWAYS include: TOSA, Teacher on Special Assignment, Librarian, Media Specialist
 10. ALWAYS include: Director of Elementary/Secondary Education
-11. INCLUDE CTE roles ONLY if related to: computers, technology, CS, coding, cyber, networking, digital, software, web, game, esports, data science, AI, information technology
+11. INCLUDE CTE roles ONLY if related to: computers, technology, CS, coding, cybersecurity, networking, digital, software, web, game, esports, data science, AI, engineering, algebra
 12. INCLUDE anyone from: Educational Services, Curriculum & Instruction, College & Career Readiness, Advanced Academics departments
+13. INCLUDE: Algebra teachers, Math teachers, Cybersecurity teachers (CodeCombat products include AI Algebra and Cybersecurity)
 
 WHO TO EXCLUDE:
-- CTE teachers in: culinary, cosmetology, automotive, welding, plumbing, HVAC, construction, health science, nursing, agriculture, animal science, fashion, criminal justice, hospitality, food service, child development
+- CTE teachers in: culinary, cosmetology, automotive, welding, plumbing, HVAC, construction, health science, nursing, agriculture, animal science, fashion, criminal justice, hospitality, food service, child development, business management, finance, accounting, marketing, art
 - General admin: secretaries, HR, finance, facilities, transportation, food services
 - Teachers in: English, History, Social Studies, Foreign Language, Physical Education, Art, Music (unless also teaching CS/STEM)
 

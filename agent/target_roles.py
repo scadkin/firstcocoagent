@@ -122,6 +122,16 @@ TIER2_TITLES = [
     # Engineering
     "Engineering Teacher",
 
+    # Cybersecurity
+    "Cybersecurity Teacher",
+    "Cybersecurity Instructor",
+    "Cyber Security Teacher",
+
+    # Algebra (CodeCombat AI Algebra product)
+    "Algebra Teacher",
+    "Algebra Instructor",
+    "Math Teacher",
+
     # Technology
     "Technology Teacher",
     "Technology Instructor",
@@ -163,8 +173,9 @@ TECH_KEYWORDS = [
 # Keywords that indicate a CTE role IS relevant (CS/Tech related)
 CTE_RELEVANT_KEYWORDS = [
     "computer", "technology", "cs", "coding", "programming", "cyber",
-    "networking", "digital", "software", "web", "game", "esports",
+    "cybersecurity", "networking", "digital", "software", "web", "game", "esports",
     "information technology", "IT", "data science", "AI", "artificial intelligence",
+    "algebra", "math", "engineering",
 ]
 
 # Keywords that indicate a CTE role is NOT relevant (wrong trade)
@@ -176,6 +187,9 @@ CTE_EXCLUDE_KEYWORDS = [
     "fashion", "interior design", "child development", "early childhood",
     "criminal justice", "law enforcement", "firefight",
     "hospitality", "tourism", "food service", "baking",
+    "business management", "business finance", "basic business",
+    "finance", "accounting", "marketing",
+    "art", "graphic art", "visual art", "fine art",
 ]
 
 # ─────────────────────────────────────────────
