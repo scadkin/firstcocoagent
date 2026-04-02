@@ -192,6 +192,24 @@ CTE_EXCLUDE_KEYWORDS = [
     "art", "graphic art", "visual art", "fine art",
 ]
 
+# IT infrastructure roles — these are NOT CS education roles.
+# "Director of Network Operations", "Systems Administrator", etc. manage
+# servers/routers, not CS curriculum. Exclude unless title also contains
+# an education keyword.
+IT_INFRA_KEYWORDS = [
+    "network operations", "systems administrator", "network administrator",
+    "database administrator", "server", "infrastructure",
+    "help desk", "desktop support", "customer support technician",
+    "technology support specialist",
+]
+
+# Education keywords that make an IT-sounding role relevant
+# (e.g., "Instructional Technology Specialist" is relevant, "Technology Support Specialist" is not)
+EDUCATION_QUALIFIERS = [
+    "instructional", "educational", "curriculum", "teacher", "coach",
+    "coordinator", "learning", "academic", "student",
+]
+
 # ─────────────────────────────────────────────
 # DEPARTMENTS worth searching for
 # ─────────────────────────────────────────────
@@ -242,14 +260,26 @@ ESA_PATTERNS = [
 ]
 
 
-def is_relevant_cte_role(title: str) -> bool:
-    """Check if a CTE role is relevant to CS/Technology (not culinary, automotive, etc.)."""
+def is_relevant_role(title: str) -> bool:
+    """Check if a role is relevant to CS education sales.
+
+    Filters out:
+    - CTE trades unrelated to CS/Tech (culinary, automotive, etc.)
+    - IT infrastructure roles (network ops, help desk, sysadmin)
+    - Generic business/finance/art CTE
+    """
     title_lower = title.lower()
 
-    # If title contains CTE/Career & Technical but no CS/Tech keyword, check exclusions
+    # IT infrastructure filter — exclude unless title has education qualifier
+    if any(kw in title_lower for kw in IT_INFRA_KEYWORDS):
+        if any(eq in title_lower for eq in EDUCATION_QUALIFIERS):
+            return True  # "Instructional Technology Support" → keep
+        return False  # "Technology Support Specialist" → drop
+
+    # CTE filter — only applies to CTE-flagged roles
     is_cte = any(x in title_lower for x in ["cte", "career & technical", "career and technical", "cate"])
     if not is_cte:
-        return True  # Not a CTE role, so no CTE filtering needed
+        return True  # Not a CTE role, no CTE filtering needed
 
     # CTE role — check if it's CS/Tech related
     if any(kw in title_lower for kw in CTE_RELEVANT_KEYWORDS):
@@ -265,3 +295,7 @@ def is_relevant_cte_role(title: str) -> bool:
 
     # Unknown CTE role — include with lower confidence
     return True
+
+
+# Keep old name as alias for backward compatibility
+is_relevant_cte_role = is_relevant_role
