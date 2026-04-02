@@ -274,9 +274,18 @@ SPECIALTY_KEYWORDS = [
     "makerspace",
     "maker space",
     "cybersecurity",
+    "cyber security",
+    "networking",
     "digital media",
     "digital literacy",
     "Girls Who Code",
+    "artificial intelligence",
+    "AI",
+    "STEM lab",
+    "STEAM lab",
+    "S.T.E.M. lab",
+    "S.T.E.A.M. lab",
+    "algebra",
 ]
 
 CTE_KEYWORDS = [
