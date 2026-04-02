@@ -18,9 +18,17 @@ Layers:
   17. Exa: domain-scoped search (targets district site)
   18. Firecrawl: /extract with schema (structured contacts, no Claude needed)
   19. Firecrawl: site map + targeted scrape (finds actual staff pages)
+  20. Brave: independent search index
   9. Claude extraction pass (with two-pass filter to skip non-contact pages)
   10. Dedup + confidence scoring (with cross-district and name↔email validation)
   15. Email verification & discovery via search (runs after L10)
+
+Parallelization:
+  Phase A (parallel): L1, L2, L3, L5, L16, L20 — independent, multi-index
+  Phase B (sequential): L4 — domain discovery
+  Phase C (parallel): L6, L11-L14, L17-L19 — domain-dependent
+  Phase D (sequential): L7, L8 — need Phase C pages
+  Phase E: L9 → L10 → L15 → L10
 """
 
 import os
@@ -99,64 +107,47 @@ class ResearchJob:
 
     async def run(self) -> dict:
         """
-        Execute all 15 layers. Returns result summary dict.
+        Execute all layers with parallelization where possible.
+
+        Dependency graph:
+          Phase A (parallel): L1, L2, L3, L5, L16 — no dependencies
+          Phase B (sequential): L4 — discovers district_domain (needed by later layers)
+          Phase C (parallel, needs domain): L6, L11, L12, L13, L14, L17, L18, L19
+          Phase D (sequential): L7, L8 — need L6 pages
+          Phase E: L9 (Claude extraction on all pages)
         """
-        # Layer 1: Direct title search
-        await self._layer1_direct_title_search()
+        # ── Phase A: Independent searches (run in parallel across 3 indices) ──
+        await self._progress(f"🔎 Searching across Serper + Exa + Brave...")
+        await asyncio.gather(
+            self._layer1_direct_title_search(),
+            self._layer2_title_variation_sweep(),
+            self._layer3_linkedin_search(),
+            self._layer5_news_grants_search(),
+            self._layer16_exa_broad_search(),
+            self._layer20_brave_search(),
+        )
 
-        # Layer 2: Title variation sweep
-        await self._layer2_title_variation_sweep()
-
-        # Layer 3: LinkedIn-targeted
-        await self._layer3_linkedin_search()
-
-        # Layer 4: District site deep search
+        # ── Phase B: Domain discovery (must complete before domain-dependent layers) ──
         await self._layer4_district_site_search()
 
-        # Layer 5: News + grants
-        await self._layer5_news_grants_search()
+        # ── Phase C: Domain-dependent searches + scraping (run in parallel) ──
+        await self._progress(f"🔎 Deep search: district site + expanded layers...")
+        await asyncio.gather(
+            self._layer6_direct_scrape(),
+            self._layer11_school_staff_search(),
+            self._layer12_board_agenda_search(),
+            self._layer13_state_doe_search(),
+            self._layer14_conference_presenter_search(),
+            self._layer17_exa_domain_search(),
+            self._layer18_firecrawl_extract(),
+            self._layer19_firecrawl_site_map(),
+        )
 
-        await self._progress(f"🔎 Crawling district website...")
-
-        # Layer 6: Direct scrape
-        await self._layer6_direct_scrape()
-
-        # Layer 7: Keyword deep crawl
+        # ── Phase D: Sequential layers that depend on Phase C pages ──
         await self._layer7_keyword_crawl()
-
-        # Layer 8: Email pattern inference
         await self._layer8_email_inference()
 
-        await self._progress(f"🔎 Running expanded search layers (L11–L14)...")
-
-        # Layer 11: School-level staff directories
-        await self._layer11_school_staff_search()
-
-        # Layer 12: Board meeting / agenda mining
-        await self._layer12_board_agenda_search()
-
-        # Layer 13: State DOE directory lookup
-        await self._layer13_state_doe_search()
-
-        # Layer 14: Conference presenter search
-        await self._layer14_conference_presenter_search()
-
-        # C2 Layers: Multi-tool search + extraction
-        await self._progress(f"🔎 Running C2 layers (Exa + Firecrawl)...")
-
-        # Layer 16: Exa semantic search (broad)
-        await self._layer16_exa_broad_search()
-
-        # Layer 17: Exa domain-scoped search
-        await self._layer17_exa_domain_search()
-
-        # Layer 18: Firecrawl extract with schema (structured contacts, no Claude)
-        await self._layer18_firecrawl_extract()
-
-        # Layer 19: Firecrawl site map + targeted scrape
-        await self._layer19_firecrawl_site_map()
-
-        # Layer 9: Claude extraction pass (all raw pages, with two-pass filter)
+        # ── Phase E: Claude extraction (all raw pages, with two-pass filter) ──
         await self._layer9_claude_extraction()
 
         # Layer 10: Dedup + confidence scoring
@@ -848,6 +839,45 @@ class ResearchJob:
 
         except Exception as e:
             logger.warning(f"L19 Firecrawl site map failed: {e}")
+
+    # ─────────────────────────────────────────────
+    # LAYER 20: Brave Search (independent index)
+    # ─────────────────────────────────────────────
+
+    async def _layer20_brave_search(self):
+        """Search Brave's independent index for pages Google/Exa may miss."""
+        brave_key = os.environ.get("BRAVE_API_KEY", "")
+        if not brave_key:
+            self._skipped_layers.append("L20:brave (BRAVE_API_KEY not set)")
+            return
+
+        self.layers_used.append("L20:brave")
+
+        queries = [
+            f"{self.district_name} {self.state} computer science STEM CTE staff directory email",
+            f"{self.district_name} technology coordinator curriculum director contact",
+        ]
+
+        async with httpx.AsyncClient(timeout=15) as client:
+            for query in queries:
+                try:
+                    resp = await client.get(
+                        "https://api.search.brave.com/res/v1/web/search",
+                        headers={"X-Subscription-Token": brave_key, "Accept": "application/json"},
+                        params={"q": query, "count": 10},
+                    )
+                    resp.raise_for_status()
+                    data = resp.json()
+                    for item in data.get("web", {}).get("results", []):
+                        url = item.get("url", "")
+                        desc = item.get("description", "")
+                        title = item.get("title", "")
+                        if url and desc:
+                            self.raw_pages.append((url, f"Title: {title}\nURL: {url}\n{desc}"))
+                            self._url_to_layer.setdefault(url, "L20:brave")
+                    await asyncio.sleep(0.5)
+                except Exception as e:
+                    logger.debug(f"Brave search failed: {e}")
 
     # ─────────────────────────────────────────────
     # LAYER 15: Email verification & discovery
