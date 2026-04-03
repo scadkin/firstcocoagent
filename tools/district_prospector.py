@@ -508,6 +508,24 @@ def _calculate_priority(strategy: str, school_count: int, total_licenses: int,
             return 650 + min(int(amount // 200), 49)
         else:
             return 550 + min(int(amount), 99)
+    elif strategy == "proximity":
+        # Tier 6-7 (400-699): closer = higher priority
+        distance = kwargs.get("distance_miles", 50)
+        if distance <= 10:
+            base = 600
+        elif distance <= 25:
+            base = 500
+        else:
+            base = 400
+        enrollment_bonus = min(int(est_enrollment / 300), 99) if est_enrollment > 0 else 0
+        return base + enrollment_bonus
+    elif strategy == "esa_cluster":
+        # Between proximity and cold (450-599)
+        # More active accounts in the ESA region = higher priority
+        active_in_esa = kwargs.get("active_in_esa", 0)
+        base = 450 + min(active_in_esa * 30, 100)
+        enrollment_bonus = min(int(est_enrollment / 500), 49) if est_enrollment > 0 else 0
+        return base + enrollment_bonus
     else:
         # Cold strategy
         if est_enrollment <= 0:

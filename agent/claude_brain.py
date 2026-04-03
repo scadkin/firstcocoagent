@@ -361,6 +361,36 @@ TOOLS = [
             "required": ["state"],
         },
     },
+    # C5: Proximity + ESA
+    {
+        "name": "find_nearby_prospects",
+        "description": (
+            "Find school districts near Steven's active accounts in a state. "
+            "Uses geographic proximity to identify name-drop opportunities. "
+            "Can also show ESA/Regional Service Center clusters. "
+            "Use when Steven says 'find nearby districts', 'proximity search', "
+            "'who is near my accounts in Texas', 'ESA opportunities', or "
+            "'service centers in Ohio'."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "state": {
+                    "type": "string",
+                    "description": "US state name or abbreviation",
+                },
+                "radius_miles": {
+                    "type": "number",
+                    "description": "Search radius in miles. Default 30.",
+                },
+                "include_esa": {
+                    "type": "boolean",
+                    "description": "Also show ESA/Regional Service Center analysis. Default true.",
+                },
+            },
+            "required": ["state"],
+        },
+    },
     # Todo List Management
     {
         "name": "manage_todos",

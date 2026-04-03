@@ -33,6 +33,7 @@ import tools.pipeline_tracker as pipeline_tracker
 import tools.lead_importer as lead_importer
 import tools.territory_data as territory_data
 import tools.todo_manager as todo_manager
+import tools.proximity_engine as proximity_engine
 from tools.telegram_bot import send_message
 # Phase 4/5 modules imported lazily inside execute_tool() — safe to boot without them
 
@@ -105,6 +106,8 @@ _COMMAND_CHEAT_SHEET = """
 `/territory_sync [state]` — download NCES territory data
 `/territory_stats [state]` — territory coverage summary
 `/territory_gaps <state>` — gap analysis vs active accounts
+`proximity [state] [miles]` — districts near active accounts
+`esa [state]` — ESA/service center opportunities
 Send a `.csv` — import accounts, leads, or pipeline
 """.strip()
 
@@ -946,6 +949,29 @@ async def execute_tool(tool_name: str, tool_input: dict) -> str:
         except Exception as e:
             return f"Discovery error: {e}"
 
+    elif tool_name == "find_nearby_prospects":
+        state = tool_input.get("state", "")
+        if not state:
+            return "❌ Need a state. Example: 'find nearby districts in Texas'"
+        radius = tool_input.get("radius_miles", 30)
+        include_esa = tool_input.get("include_esa", True)
+        await send_message(f"📍 Finding districts near active accounts in *{state}*...")
+        try:
+            loop = asyncio.get_event_loop()
+            result = await loop.run_in_executor(
+                None, proximity_engine.add_proximity_prospects, state, radius
+            )
+            msg = proximity_engine.format_proximity_for_telegram(result)
+            if include_esa:
+                esa_result = await loop.run_in_executor(
+                    None, proximity_engine.find_esa_opportunities, state
+                )
+                msg += "\n\n" + proximity_engine.format_esa_for_telegram(esa_result)
+            await send_message(msg)
+            return "Proximity + ESA results sent."
+        except Exception as e:
+            return f"Proximity error: {e}"
+
     elif tool_name == "manage_todos":
         action = tool_input.get("action", "")
         try:
@@ -1732,6 +1758,67 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     logger.warning(f"Gap doc creation failed: {e}")
         except Exception as e:
             await send_message(f"❌ Territory gaps error: {e}")
+        return
+
+    # ── C5: Proximity + ESA commands ──────────────────────────────────────────
+
+    elif re.match(
+        r"^(?:/proximity|/nearby|proximity|nearby districts?)\s*(.*)",
+        user_text, re.IGNORECASE,
+    ):
+        m = re.match(
+            r"^(?:/proximity|/nearby|proximity|nearby districts?)\s*(.*)",
+            user_text, re.IGNORECASE,
+        )
+        raw = m.group(1).strip().rstrip(".")
+        if not raw:
+            await send_message("Usage: `proximity Texas` or `nearby districts in Ohio 40`")
+            return
+        # Strip "in" prefix: "nearby districts in Texas" -> "Texas"
+        raw = re.sub(r"^in\s+", "", raw, flags=re.IGNORECASE)
+        # Parse optional radius: "Texas 40" means 40 miles
+        parts = raw.split()
+        state_str = parts[0]
+        radius = 30.0
+        if len(parts) >= 2:
+            try:
+                radius = float(parts[-1])
+                state_str = " ".join(parts[:-1])
+            except ValueError:
+                state_str = raw
+        await send_message(f"📍 Finding districts near active accounts in {state_str} (within {radius} mi)...")
+        try:
+            loop = asyncio.get_event_loop()
+            result = await loop.run_in_executor(
+                None, proximity_engine.add_proximity_prospects, state_str, radius
+            )
+            await send_message(proximity_engine.format_proximity_for_telegram(result))
+        except Exception as e:
+            await send_message(f"❌ Proximity error: {e}")
+        return
+
+    elif re.match(
+        r"^(?:/esa|/service.?centers?|esa|service.?centers?)\s*(.*)",
+        user_text, re.IGNORECASE,
+    ):
+        m = re.match(
+            r"^(?:/esa|/service.?centers?|esa|service.?centers?)\s*(.*)",
+            user_text, re.IGNORECASE,
+        )
+        raw = m.group(1).strip().rstrip(".")
+        if not raw:
+            await send_message("Usage: `esa Texas` or `service centers in Ohio`")
+            return
+        raw = re.sub(r"^in\s+", "", raw, flags=re.IGNORECASE)
+        await send_message(f"🏛️ Mapping ESA regions for {raw}...")
+        try:
+            loop = asyncio.get_event_loop()
+            result = await loop.run_in_executor(
+                None, proximity_engine.find_esa_opportunities, raw
+            )
+            await send_message(proximity_engine.format_esa_for_telegram(result))
+        except Exception as e:
+            await send_message(f"❌ ESA error: {e}")
         return
 
     elif user_text.lower().startswith("/enrich_leads"):

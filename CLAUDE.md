@@ -1,5 +1,5 @@
 # SCOUT — Claude Code Reference
-*Last updated: 2026-04-01 — Session 40*
+*Last updated: 2026-04-02 — Session 42*
 
 ---
 
@@ -363,7 +363,7 @@ firstcocoagent/
 
 ## CLAUDE TOOLS (24 total, defined in claude_brain.py, handled in main.py)
 
-`research_district`, `get_sheet_status`, `get_research_queue_status`, `train_voice`, `draft_email`, `save_draft_to_gmail`, `get_calendar`, `log_call`, `create_district_deck`, `push_code`, `list_repo_files`, `get_file_content`, `build_sequence`, `ping_gas_bridge`, `grade_draft`, `add_template`, `process_call_transcript`, `get_pre_call_brief`, `get_activity_summary`, `get_accounts_status`, `set_goal`, `sync_gmail_activities`, `generate_call_list`, `discover_prospects`
+`research_district`, `get_sheet_status`, `get_research_queue_status`, `train_voice`, `draft_email`, `save_draft_to_gmail`, `get_calendar`, `log_call`, `create_district_deck`, `push_code`, `list_repo_files`, `get_file_content`, `build_sequence`, `ping_gas_bridge`, `grade_draft`, `add_template`, `process_call_transcript`, `get_pre_call_brief`, `get_activity_summary`, `get_accounts_status`, `set_goal`, `sync_gmail_activities`, `generate_call_list`, `discover_prospects`, `find_nearby_prospects`
 
 ---
 
@@ -371,6 +371,9 @@ firstcocoagent/
 
 | Command | Action |
 |---------|--------|
+| `research [district], [state]`, `look up [district] in [state]` | direct dispatch to research_district — bypasses Claude |
+| `proximity [state] [miles]`, `nearby districts in [state]` | find districts near active accounts (C5) |
+| `esa [state]`, `service centers in [state]` | ESA/ESC region opportunities (C5) |
 | `/ping_gas`, `ping gas`, `test gas` | ping GAS bridge |
 | `/train_voice`, `train voice` | train voice from Gmail (24 months) |
 | `/grade_draft`, `grade draft` | feedback on last draft → updates voice_profile.md |

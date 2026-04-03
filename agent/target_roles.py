@@ -246,17 +246,87 @@ REGIONAL_ENTITIES = {
 
 # Generic ESA name patterns (for search queries across all states)
 ESA_PATTERNS = [
-    "Education Service Center",
+    # Primary ESA types (from Steven's ROLES and KEYWORDS doc — 70+ variations)
     "Educational Service Center",
+    "Education Service Center",
     "Regional Education Service Center",
+    "Education Service Agency",
+    "Educational Service Agency",
+    "Regional Education Service Agency",
+    "Regional Educational Service Agency",
+    "Intermediate Education Service Agency",
+    "Regional Education Authority",
+    "Educational Service District",
+    "Regional Educational Service District",
+    "Public Education Service Agency",
+    "Regional Education Board",
+    "Multi-District Service Authority",
+    "Education Resource Center",
+    "Instructional Support Center",
+    "Curriculum Service Center",
+    "Professional Development Consortium",
+    "Regional Learning Collaborative",
+    "Educational Consortium",
+    "School Improvement Network",
+    "Regional Technical Assistance Center",
+    "Regional Education Laboratory",
+    # County-level
     "County Office of Education",
-    "Intermediate Unit",
-    "Intermediate School District",
+    "County School Office",
+    "County Department of Education",
+    "County Superintendent of Schools Office",
+    "Parish School Support Agency",
+    # Regional/Supervisory
+    "Regional Office of Education",
+    "Educational Service Region",
+    "Regional School District",
+    "Supervisory Union",
+    "Regional School Unit",
+    # Cooperative models
     "Board of Cooperative Educational Services",  # BOCES
     "Cooperative Educational Service Agency",  # CESA
+    "Educational Cooperative Service Unit",  # ESU
     "Educational Service Unit",  # ESU
-    "Area Education Agency",  # AEA
+    "Education Service Cooperative",
+    "Educational Service Cooperative",
+    "Regional Education Cooperative",
+    "Education Cooperative",
     "Educational Collaborative",
+    # School service/support
+    "School Service Center",
+    "School Services Agency",
+    "School Support Center",
+    "Educational Support Center",
+    "Regional School Support Agency",
+    # Intermediate units
+    "Intermediate Unit",
+    "Intermediate School District",
+    "Intermediate District",
+    "Educational Intermediate Unit",
+    "Regional Intermediate Unit",
+    "Federated Intermediate Unit",
+    # Other types
+    "Area Education Agency",  # AEA
+    "Intermediate Service Center",  # ISC
+    "Service Center",
+    "Service Cooperative",
+    "Southeast Regional Resource Center",
+    "Special Education Local Plan Area",  # SELPA
+    "County Special Services School District",
+    "Regional Accreditation Agency",
+    "Learning Service Provider",
+    "Joint Powers Authority",
+    "Shared Services Arrangement",
+    "Special Education Cooperative",
+    "Regional Education Association",
+    "Regional Consortium Service Organization",
+    "Educational Services Commission",
+    "Multi-District Education Organization",
+    "Regional Educational Media Center",
+    "Educational Technology Center",
+    "Regional Technology Center",
+    "Regional Multipurpose Education Service Agency",
+    "Cooperative Educational Service Unit",
 ]
 
 

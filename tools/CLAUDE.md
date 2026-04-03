@@ -165,6 +165,22 @@ territory_data.get_territory_stats(state_filter="") -> dict
 territory_data.get_territory_gaps(state) -> dict
 ```
 
+## proximity_engine — MODULE not class
+```python
+import tools.proximity_engine as proximity_engine
+proximity_engine.find_nearby_districts(state, radius_miles=30, min_enrollment=500) -> dict  # sync
+proximity_engine.add_proximity_prospects(state, radius_miles=30, max_add=25, min_enrollment=500) -> dict  # sync
+proximity_engine.get_esa_districts(state) -> list[dict]  # sync
+proximity_engine.map_districts_to_esa(state) -> dict  # sync
+proximity_engine.find_esa_opportunities(state) -> dict  # sync
+proximity_engine.format_proximity_for_telegram(result) -> str
+proximity_engine.format_esa_for_telegram(result) -> str
+proximity_engine.haversine_miles(lat1, lon1, lat2, lon2) -> float
+# Strategy tags: "proximity" (source: "proximity_auto"), "esa_cluster"
+# Uses: territory_data._load_territory_districts(), csv_importer.get_active_accounts()
+# Agency Type 4 = ESAs. Only prospects Type 1/2/7/9 (regular districts).
+```
+
 ## CallProcessor — lazy import
 ```python
 from agent.call_processor import CallProcessor
