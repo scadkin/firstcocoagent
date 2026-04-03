@@ -446,3 +446,34 @@ Estimated speedup: 40-60% wall-time reduction. Steven approved the approach.
 ### Key Decisions
 - CLAUDE.md is the authoritative source of truth for session numbering
 - C2 parallelization plan: 4 groups, serper lock, shared client — approved and ready to code
+
+---
+
+## Session 40 (2026-04-01/02)
+
+### What Changed
+- **C2 Research Engine upgrade complete.** Tested 7 web research tools (Serper, Exa, Tavily, Firecrawl, Jina, Crawl4AI, Parse.bot) across 8 test districts. Built evaluation framework (`scripts/eval_research_tools.py`, `scripts/eval_config.py`) and deep research prototype (`scripts/eval_deep_research.py`).
+- **Production engine upgraded from 15 to 20 layers.** Added L16 (Exa broad search), L17 (Exa domain-scoped search), L18 (Firecrawl extract — deferred/budget), L19 (Firecrawl site map — deferred/budget), L20 (Brave Search).
+- **Parallelized into 5 phases** using asyncio.gather. Phase A runs 6 searches across 3 indices simultaneously. Phase C runs 8 domain-dependent tasks simultaneously. ~40% speed improvement.
+- **Quality validation added.** Cross-district pre-filter (drops pages from wrong district domains). Name↔email validation (catches mismatched table rows from Claude). Two-pass extraction filter (skips non-contact pages, saves ~50% Claude cost).
+- **Lead targeting tightened.** Created `agent/target_roles.py` from Steven's "ROLES and KEYWORDS" doc. CTE filter excludes culinary/automotive/business/art/IT-infra. Includes algebra (AI Algebra product) and cybersecurity (fall 2026 product).
+- **Contact extractor upgraded.** Prompt now has explicit include/exclude rules, table alignment instructions, CTE post-extraction filter, JSON preamble strip, max_tokens 2000→4000.
+- **API keys deployed.** EXA_API_KEY + BRAVE_API_KEY added to Railway. Firecrawl deferred (budget).
+- **Live A/B tests.** Austin ISD: 77→124 contacts (+61%), 12→48 verified emails (+300%). Kern HSSD: 35→115 contacts (+229%), 1→34 verified (+3300%).
+- **24 prospecting strategies documented** in memory. Covers expansion, cold, trigger-based, event-driven, product-specific campaigns.
+- **Permissions allowlist cleaned up.** 94 accumulated one-off entries → 70 organized broad patterns.
+
+### Key Decisions
+- Firecrawl paid plan deferred due to budget ($19/mo). L18/L19 skip gracefully. Was the #1 tool — circle back when budget allows.
+- Exa is the primary new search tool (neural index, domain-scoped search, best content quality).
+- Brave Search added as independent index (not Google wrapper) — different results = more coverage.
+- CTE roles only relevant if related to CS/Tech/Cyber/Engineering/Algebra. Generic trades excluded.
+- IT infrastructure roles (network ops, sysadmin, help desk) excluded unless title has education qualifier.
+- Parse.bot backend DNS issues — MCP configured but unusable. Revisit later.
+- Contact extractor prompt updated to mention CodeCombat specifically and list explicit include/exclude criteria.
+
+### New Files
+- `scripts/eval_research_tools.py` — 8-tool evaluation framework with quality validation
+- `scripts/eval_config.py` — Test districts, tool registry, search queries
+- `scripts/eval_deep_research.py` — 8-stage deep research prototype (domain discovery → extract → search → Claude → pattern inference → Brave → agent → agentic followup)
+- `agent/target_roles.py` — Authoritative lead targeting: titles, keywords, CTE filter, IT infra filter

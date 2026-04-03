@@ -3,7 +3,7 @@
 
 ---
 
-## YOU ARE HERE → C2 Research Engine Improvements. Tool evaluation Phase 1 complete. Tavily+Exa leading. Claude extraction + Parse.bot MCP next.
+## YOU ARE HERE → C2 Research Engine complete. Deep research engine built + integrated. Exa+Brave+Serper live on Railway. Live tests show 2-3x more contacts, 4-34x more verified emails. Deploy verified. Next: test via Telegram, then C5 or new strategies.
 
 ---
 
@@ -96,7 +96,7 @@ Surviving prospects are added to the Prospecting Queue with email, first name, l
 | C1 | Territory Master List | NCES CCD data for 13 states + SoCal. 8,133 districts, 40,317 schools. Gap analysis. | ✅ Done (Sessions 31-32) |
 | C3 | Closed-Lost Winback | Scan closed-lost opps, add to Prospecting Queue. Date window filtering. Draft sequences. | ✅ Done (Sessions 33-34, verified) |
 | C4 | Cold License Requests | Scan Outreach sequences for cold inbound requests. Full pipeline: pattern extraction → SF lookup → NCES matching → Claude inference → Serper web search → district enrichment. 1,274 targets, 113 empty states, 100% district coverage. | ✅ Done (Sessions 34-37, verified) |
-| C2 | Research Engine Improvements | Parallelize layers, better prompts, Claude tool_use. Est. 2-3 sessions. | 🔧 In progress (Session 39+) |
+| C2 | Research Engine Improvements | Multi-tool pipeline (Exa+Brave+Serper), parallelized, quality validation, tighter targeting. 2-3x more contacts, 4-34x more verified emails. | ✅ Done (Sessions 39-40) |
 | C5 | Proximity + Regional Service Centers | Go after schools near active accounts. ESC/BOCES mapping. | ⬜ Deferred |
 
 **Note:** C4 was originally described as "Unresponsive leads strategy" in the roadmap but evolved during implementation into "Cold License Requests" — specifically targeting inbound license requests from Outreach sequences that went cold (no opp, no pricing). This is a more focused and actionable definition than generic "unresponsive leads." The original C4 concept of tracking outbound attempts + non-response may still be built later as a separate feature.
@@ -151,15 +151,27 @@ Surviving prospects are added to the Prospecting Queue with email, first name, l
   - ➕ Python 3.13 venv + all deps installed
   - ➕ API keys: Jina, Tavily, Exa, Firecrawl, Parse.bot (all free tiers)
   - ➕ Parse.bot MCP configured in `.mcp.json`
-- 🔧 **Test Parse.bot MCP + Firecrawl plugin after Claude Code restart** ← YOU ARE HERE
-- ⬜ Run Claude extraction on top tools to compare actual contact yield
-- ⬜ Scale evaluation to all 8 test districts
-- ⬜ Build v2 engine with best tool combination (A/B test alongside current)
-- ⬜ Implement parallel groups in `run()` method
-- ⬜ Better Claude extraction prompts with few-shot examples
+- ✅ Test Parse.bot MCP (backend DNS down, deferred)
+- ✅ Firecrawl tested — extract with schema is breakthrough tool (deferred: paid plan needed, budget)
+- ✅ Run Claude extraction on top tools — Exa wins for email yield
+- ✅ Scale evaluation to all 8 test districts — 188 contacts, 163 w/email across 8 districts
+- ✅ Build deep research engine v4 — 8-stage multi-tool pipeline (`scripts/eval_deep_research.py`)
+- ✅ Integrate into production — L16 (Exa broad), L17 (Exa domain-scoped), L18 (Firecrawl extract), L19 (Firecrawl site map), L20 (Brave Search) added to `tools/research_engine.py`
+- ✅ Implement parallel groups — Phase A (6 layers parallel), Phase B (domain), Phase C (8 layers parallel)
+- ✅ Better Claude extraction prompts — district-specific, table alignment rules, CTE filtering
+- ✅ Quality validation — cross-district filter, name↔email validation, two-pass extraction filter
+- ✅ Lead targeting tightened — `agent/target_roles.py` from Steven's roles/keywords doc
+- ✅ Live A/B test — Austin ISD: 77→124 contacts (+61%), 12→48 verified (+300%). Kern: 35→115 (+229%), 1→34 verified (+3300%)
+- ✅ API keys deployed — EXA_API_KEY + BRAVE_API_KEY on Railway
+- ✅ Permissions allowlist cleaned up for Claude Code
+  - ➕ Brave Search API signed up + integrated
+  - ➕ `agent/target_roles.py` — authoritative role/keyword/CTE filter from Steven's doc
+  - ➕ `contact_extractor.py` max_tokens 2000→4000 (truncation fix)
+  - ➕ 24 prospecting strategies documented in memory
+- 🔧 **Firecrawl paid plan deferred** — budget constraint. L18/L19 skip gracefully. Circle back later.
+- ⬜ Test live on Railway via Telegram `/research_district` command
 - ⬜ Claude tool_use for interactive, adaptive extraction
 - ⬜ Monthly improvement cadence (check-up on new tools/models)
-- **Estimated effort:** 3-4 sessions
 
 ### C5: Proximity + Regional Service Centers (deferred)
 **What:** Two related prospecting strategies:

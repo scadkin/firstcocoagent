@@ -5,25 +5,24 @@
 
 ## CURRENT STATE — update this after each session
 
-**Session 40: C2 deep research engine v4 built + integrated. 8-stage multi-tool pipeline (Exa + Firecrawl + Serper + agentic). Houston ISD: 1 email → 29-51 contacts all with emails. Production engine upgraded with L16-L19 + quality validation.**
+**Session 40: C2 Research Engine upgrade complete. Production engine now has 20 layers across 3 search indices (Serper/Google, Exa neural, Brave independent), parallelized into 5 phases. Live A/B test: Austin ISD 77→124 contacts (+61%), 12→48 verified (+300%). Kern HSSD 35→115 (+229%), 1→34 verified (+3300%). Tighter lead targeting from Steven's roles/keywords doc. All deployed to Railway.**
 
 ### What was done (Session 40)
-- **C2 tool evaluation:** Tested 7 tools (Serper, Exa, Tavily, Firecrawl, Jina, Crawl4AI, Parse.bot) across 8 districts with Claude extraction. Built `scripts/eval_research_tools.py` + `scripts/eval_config.py`.
-- **Deep research engine built:** `scripts/eval_deep_research.py` — 8-stage pipeline orchestrating multiple tools with agentic reasoning. Stages: domain discovery → Firecrawl extract → site mapping → Exa+Serper search → Claude extraction → pattern inference → Brave search → agentic followup.
-- **Production integration:** Added L16 (Exa broad), L17 (Exa domain-scoped), L18 (Firecrawl extract), L19 (Firecrawl site map) to `tools/research_engine.py`. Upgraded L9 with two-pass filter, L10 with cross-district + name↔email validation.
-- **Firecrawl `/extract` breakthrough:** Schema-based extraction pulls structured contacts directly from district sites without Claude. Found 10-21 verified contacts per district with real emails.
-- **Quality fixes:** Cross-district pre-filter, name↔email validation, two-pass extraction filter (saves ~50% Claude cost), adaptive email pattern inference with name normalization.
-- **API keys:** Exa, Firecrawl, Tavily, Jina, Parse.bot all in `.env`. Brave Search needs signup ($5/mo).
-- **All-districts validation running** — 8 districts through full deep research pipeline.
+- **C2 tool evaluation:** Tested 7 tools (Serper, Exa, Tavily, Firecrawl, Jina, Crawl4AI, Parse.bot). Built eval framework: `scripts/eval_research_tools.py`, `scripts/eval_config.py`, `scripts/eval_deep_research.py`.
+- **Production integration (20 layers):** L16 (Exa broad), L17 (Exa domain-scoped), L18 (Firecrawl extract — deferred, needs paid plan), L19 (Firecrawl site map — deferred), L20 (Brave Search). L9 upgraded with two-pass filter. L10 upgraded with cross-district + name↔email validation.
+- **Parallelization:** 5-phase execution with asyncio.gather. Phase A: 6 searches in parallel across 3 indices. Phase C: 8 domain-dependent tasks in parallel. ~40% speed improvement.
+- **Quality fixes:** Cross-district pre-filter, name↔email validation, two-pass extraction filter (saves ~50% Claude cost), adaptive email pattern inference with name normalization, JSON preamble strip, max_tokens 2000→4000.
+- **Lead targeting:** `agent/target_roles.py` from Steven's roles/keywords doc. CTE filter (excludes culinary/automotive/business/art/IT-infra). Includes algebra + cybersecurity teachers.
+- **API keys deployed:** EXA_API_KEY + BRAVE_API_KEY on Railway. Firecrawl deferred (budget).
+- **24 prospecting strategies documented** in memory (`prospecting_strategies.md`).
+- **Permissions allowlist cleaned up** — 94 individual entries → 70 organized broad patterns.
 
 ### What still needs to be done
-- **Deploy to Railway** — Add `EXA_API_KEY` and `FIRECRAWL_API_KEY` to Railway env vars
-- **Firecrawl paid plan** — Free credits exhausted from testing. Need paid plan for production.
-- **Sign up for Brave Search** — https://brave.com/search/api/ ($5/mo free credits)
-- **C2: Parallelization** — Run search stages concurrently (still planned)
-- **C2: Better prompts + tool_use** — After parallelization
-- **Explore:** ScrapeGraphAI, Perplexity Sonar API, Firecrawl `/interact` for pagination
+- **Test live on Railway** — Send `/research_district` via Telegram to verify new layers work in production
+- **Firecrawl paid plan** — Deferred (budget). L18/L19 skip gracefully. Circle back when budget allows.
+- **C2: Claude tool_use** — Interactive, adaptive extraction (future improvement)
 - **C5: Proximity + regional service centers** (deferred)
+- **Trigger-based prospecting** — New hire alerts, job posting signals, board meeting intelligence (from strategies list)
 - See `SCOUT_PLAN.md` for full roadmap
 
 ### Current status
@@ -45,7 +44,7 @@
 - Outreach sequence creation: ✅ 11 CUE sequences created + prospects loaded (Session 38)
 - SoCal CSV filtering: ✅ 5 passes complete (Session 26)
 - Session transcript capture: ✅ set up (Session 36), numbering fixed (Session 39)
-- C2 Research Engine: 🔧 deep research v4 built + integrated into production. Exa+Firecrawl+Serper multi-tool pipeline. Quality validation added. Needs Railway deploy + Firecrawl paid plan. (Session 40)
+- C2 Research Engine: ✅ upgraded — 20 layers, 3 indices, parallelized, quality validation, tighter targeting. Deployed to Railway. Firecrawl deferred (budget). (Session 40)
 
 ### Other completed features
 - **Weekend scheduler (B1):** Sat 11am, Sun 1pm greeting. No auto check-ins. `/eod` works manually.
@@ -201,6 +200,14 @@
 **District/school names: normalize aggressively, ask when ambiguous.** `normalize_name()` handles abbreviation expansion + suffix stripping. Always normalize both sides before comparing across sources.
 
 **call_processor.py must use claude-sonnet-4-6.** claude-opus-4-5 hangs indefinitely. Anthropic client timeout=90.0.
+
+**`agent/target_roles.py` is the authoritative lead targeting filter.** Contains TIER1/TIER2 titles, CTE relevant/exclude keywords, IT infra exclusions, and `is_relevant_role()` function. Used by `contact_extractor.py` post-extraction. Source: Steven's "ROLES and KEYWORDS" doc.
+
+**Research engine has 20 layers in 5 parallel phases.** Phase A (parallel): L1,L2,L3,L5,L16,L20. Phase B: L4 (domain discovery). Phase C (parallel): L6,L11-L14,L17-L19. Phase D: L7,L8. Phase E: L9→L10→L15→L10. New layers: L16 (Exa broad), L17 (Exa domain-scoped), L18 (Firecrawl extract — needs paid plan), L19 (Firecrawl site map — needs paid plan), L20 (Brave Search).
+
+**Firecrawl paid plan deferred (budget).** L18/L19 skip gracefully when FIRECRAWL_API_KEY has no credits. Was the #1 tool discovery — schema-based extraction pulled 10-20 verified contacts per district. Circle back when budget allows.
+
+**Contact extractor max_tokens is 4000 (not 2000).** School directory pages with 15+ contacts were causing JSON truncation. Fixed Session 40.
 
 **Validate email before calling gas.create_draft().** GAS throws on malformed emails.
 
