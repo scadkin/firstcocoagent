@@ -1396,6 +1396,29 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"Then permanently add it to my voice profile under a Templates section so you can reference it when drafting."
         )
 
+    elif re.match(
+        r"^(?:/research_district|research|look\s*up|find contacts for|find contacts at)\s+(.+)",
+        user_text, re.IGNORECASE,
+    ):
+        m = re.match(
+            r"^(?:/research_district|research|look\s*up|find contacts for|find contacts at)\s+(.+)",
+            user_text, re.IGNORECASE,
+        )
+        raw = m.group(1).strip().rstrip(".")
+        # Parse "District Name, State" or "District Name in State"
+        state = ""
+        for sep in [",", " in "]:
+            if sep in raw:
+                parts = raw.rsplit(sep, 1)
+                raw = parts[0].strip()
+                state = parts[1].strip()
+                break
+        await send_message(f"⏳ Working on it...")
+        result = await execute_tool("research_district", {"district_name": raw, "state": state})
+        if result:
+            await send_message(result)
+        return
+
     elif re.match(r"^(keep digging|dig deeper|keep searching|go deeper)\s+(on\s+)?(.+)", user_text, re.IGNORECASE):
         m = re.match(r"^(keep digging|dig deeper|keep searching|go deeper)\s+(on\s+)?(.+)", user_text, re.IGNORECASE)
         district = m.group(3).strip().rstrip(".")
