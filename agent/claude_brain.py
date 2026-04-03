@@ -365,30 +365,32 @@ TOOLS = [
     {
         "name": "find_nearby_prospects",
         "description": (
-            "Find school districts near Steven's active accounts in a state. "
-            "Uses geographic proximity to identify name-drop opportunities. "
-            "Can also show ESA/Regional Service Center clusters. "
-            "Use when Steven says 'find nearby districts', 'proximity search', "
-            "'who is near my accounts in Texas', 'ESA opportunities', or "
-            "'service centers in Ohio'."
+            "Find school districts and schools near a specific active account, "
+            "or sweep all active accounts in a state. "
+            "Use when Steven says 'what's near Leander ISD', 'proximity Leander ISD', "
+            "'find nearby districts', 'who is near my accounts in Texas'. "
+            "Prefer account_name (targeted) over state (sweep)."
         ),
         "input_schema": {
             "type": "object",
             "properties": {
+                "account_name": {
+                    "type": "string",
+                    "description": "Specific active account to search around (preferred). E.g. 'Leander ISD'",
+                },
                 "state": {
                     "type": "string",
-                    "description": "US state name or abbreviation",
+                    "description": "US state for sweep mode (all accounts). Only if no specific account.",
                 },
                 "radius_miles": {
                     "type": "number",
-                    "description": "Search radius in miles. Default 30.",
+                    "description": "Search radius in miles. Default 15 for targeted, 30 for state sweep.",
                 },
                 "include_esa": {
                     "type": "boolean",
-                    "description": "Also show ESA/Regional Service Center analysis. Default true.",
+                    "description": "Also show ESA/Regional Service Center analysis. Default false.",
                 },
             },
-            "required": ["state"],
         },
     },
     # Todo List Management

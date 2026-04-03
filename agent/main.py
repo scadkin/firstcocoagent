@@ -950,25 +950,38 @@ async def execute_tool(tool_name: str, tool_input: dict) -> str:
             return f"Discovery error: {e}"
 
     elif tool_name == "find_nearby_prospects":
+        account = tool_input.get("account_name", "")
         state = tool_input.get("state", "")
-        if not state:
-            return "❌ Need a state. Example: 'find nearby districts in Texas'"
-        radius = tool_input.get("radius_miles", 30)
-        include_esa = tool_input.get("include_esa", True)
-        await send_message(f"📍 Finding districts near active accounts in *{state}*...")
+        radius = tool_input.get("radius_miles", 15)
+        include_esa = tool_input.get("include_esa", False)
+
         try:
             loop = asyncio.get_event_loop()
-            result = await loop.run_in_executor(
-                None, proximity_engine.add_proximity_prospects, state, radius
-            )
-            msg = proximity_engine.format_proximity_for_telegram(result)
-            if include_esa:
+            if account:
+                # Targeted mode
+                await send_message(f"📍 Finding what's near *{account}*...")
+                result = await loop.run_in_executor(
+                    None, proximity_engine.find_nearby_one, account, radius
+                )
+                msg = proximity_engine.format_targeted_for_telegram(result)
+            elif state:
+                # State sweep
+                await send_message(f"📍 Sweeping all active accounts in *{state}*...")
+                result = await loop.run_in_executor(
+                    None, proximity_engine.find_nearby_state, state, radius
+                )
+                msg = proximity_engine.format_state_sweep_for_telegram(result)
+            else:
+                return "❌ Need an account name or state. Example: 'what's near Leander ISD' or 'nearby districts in Texas'"
+
+            if include_esa and state:
                 esa_result = await loop.run_in_executor(
                     None, proximity_engine.find_esa_opportunities, state
                 )
                 msg += "\n\n" + proximity_engine.format_esa_for_telegram(esa_result)
+
             await send_message(msg)
-            return "Proximity + ESA results sent."
+            return "Proximity results sent."
         except Exception as e:
             return f"Proximity error: {e}"
 
@@ -1772,27 +1785,49 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         raw = m.group(1).strip().rstrip(".")
         if not raw:
-            await send_message("Usage: `proximity Texas` or `nearby districts in Ohio 40`")
+            await send_message(
+                "Usage:\n"
+                "  `proximity Leander ISD` — find what's near one account\n"
+                "  `proximity Leander ISD 25` — custom radius (miles)\n"
+                "  `proximity Texas all` — sweep all accounts in a state"
+            )
             return
-        # Strip "in" prefix: "nearby districts in Texas" -> "Texas"
+        # Strip "in" prefix
         raw = re.sub(r"^in\s+", "", raw, flags=re.IGNORECASE)
-        # Parse optional radius: "Texas 40" means 40 miles
-        parts = raw.split()
-        state_str = parts[0]
-        radius = 30.0
-        if len(parts) >= 2:
+
+        # Check for state sweep mode: "Texas all" or "TX all"
+        if raw.lower().endswith(" all"):
+            state_str = raw[:-4].strip()
+            await send_message(f"📍 Sweeping all active accounts in {state_str} (30 mi radius)...")
             try:
-                radius = float(parts[-1])
-                state_str = " ".join(parts[:-1])
+                loop = asyncio.get_event_loop()
+                result = await loop.run_in_executor(
+                    None, proximity_engine.find_nearby_state, state_str, 30.0
+                )
+                await send_message(proximity_engine.format_state_sweep_for_telegram(result))
+            except Exception as e:
+                await send_message(f"❌ Proximity error: {e}")
+            return
+
+        # Targeted mode (default): parse optional radius at end
+        # "Leander ISD 25" → account="Leander ISD", radius=25
+        parts = raw.rsplit(" ", 1)
+        radius = 15.0
+        account_name = raw
+        if len(parts) == 2:
+            try:
+                radius = float(parts[1])
+                account_name = parts[0]
             except ValueError:
-                state_str = raw
-        await send_message(f"📍 Finding districts near active accounts in {state_str} (within {radius} mi)...")
+                pass  # last word isn't a number, use full string as account name
+
+        await send_message(f"📍 Finding districts and schools near *{account_name}* ({radius} mi)...")
         try:
             loop = asyncio.get_event_loop()
             result = await loop.run_in_executor(
-                None, proximity_engine.add_proximity_prospects, state_str, radius
+                None, proximity_engine.find_nearby_one, account_name, radius
             )
-            await send_message(proximity_engine.format_proximity_for_telegram(result))
+            await send_message(proximity_engine.format_targeted_for_telegram(result))
         except Exception as e:
             await send_message(f"❌ Proximity error: {e}")
         return
