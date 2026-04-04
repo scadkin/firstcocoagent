@@ -1,9 +1,9 @@
 # SCOUT MASTER PLAN
-*Last updated: 2026-04-01 — Session 40*
+*Last updated: 2026-04-04 — Session 42*
 
 ---
 
-## YOU ARE HERE → C2 Research Engine complete. Deep research engine built + integrated. Exa+Brave+Serper live on Railway. Live tests show 2-3x more contacts, 4-34x more verified emails. Deploy verified. Next: test via Telegram, then C5 or new strategies.
+## YOU ARE HERE → Full A1-C5 roadmap COMPLETE. C2 verified live (4 districts, massive improvements). C5 proximity + ESA built and verified. All deployed to Railway. Next: trigger-based prospecting, C4 sequence automation, territory map, or new strategies.
 
 ---
 
@@ -97,7 +97,7 @@ Surviving prospects are added to the Prospecting Queue with email, first name, l
 | C3 | Closed-Lost Winback | Scan closed-lost opps, add to Prospecting Queue. Date window filtering. Draft sequences. | ✅ Done (Sessions 33-34, verified) |
 | C4 | Cold License Requests | Scan Outreach sequences for cold inbound requests. Full pipeline: pattern extraction → SF lookup → NCES matching → Claude inference → Serper web search → district enrichment. 1,274 targets, 113 empty states, 100% district coverage. | ✅ Done (Sessions 34-37, verified) |
 | C2 | Research Engine Improvements | Multi-tool pipeline (Exa+Brave+Serper), parallelized, quality validation, tighter targeting. 2-3x more contacts, 4-34x more verified emails. | ✅ Done (Sessions 39-40) |
-| C5 | Proximity + Regional Service Centers | Go after schools near active accounts. ESC/BOCES mapping. | ⬜ Deferred |
+| C5 | Proximity + Regional Service Centers | Targeted proximity search near active accounts. ESA/ESC mapping using NCES Agency Type 4 data. `proximity [account]`, `esa [state]`, `add nearby`. | ✅ Done (Session 42) |
 
 **Note:** C4 was originally described as "Unresponsive leads strategy" in the roadmap but evolved during implementation into "Cold License Requests" — specifically targeting inbound license requests from Outreach sequences that went cold (no opp, no pricing). This is a more focused and actionable definition than generic "unresponsive leads." The original C4 concept of tracking outbound attempts + non-response may still be built later as a separate feature.
 
@@ -169,16 +169,48 @@ Surviving prospects are added to the Prospecting Queue with email, first name, l
   - ➕ `contact_extractor.py` max_tokens 2000→4000 (truncation fix)
   - ➕ 24 prospecting strategies documented in memory
 - 🔧 **Firecrawl paid plan deferred** — budget constraint. L18/L19 skip gracefully. Circle back later.
-- ⬜ Test live on Railway via Telegram `/research_district` command
+- ✅ Live verification on Railway (Session 42) — Houston 8→82/2→44, Columbus 29→90/0→18, Guthrie 1→52/0→26, Leander 11→31/3→14
+  - ➕ Natural language research dispatch (bypasses Claude routing)
+- 🔧 **Firecrawl paid plan deferred** — budget constraint. L18/L19 skip gracefully. Circle back later.
+- 🔧 **Parse.bot deferred** — server-side DNS failure after migration. Emailed founder.
 - ⬜ Claude tool_use for interactive, adaptive extraction
 - ⬜ Monthly improvement cadence (check-up on new tools/models)
 
-### C5: Proximity + Regional Service Centers (deferred)
+### C5: Proximity + Regional Service Centers — DONE (Session 42)
 **What:** Two related prospecting strategies:
-1. **Proximity:** Go after schools/districts physically near active accounts. Name drop existing customers, lean into FOMO.
-2. **Regional service centers:** Map ESC/BOCES/IU names (different name in every state) to find districts through their service center relationships.
-- **Depends on:** C1 (done — territory data with lat/lon), geocoding
-- **Estimated effort:** TBD
+1. **Proximity:** Find districts/schools near a specific active account. Adjustable radius. Name-drop for FOMO.
+2. **ESA mapping:** Map districts to their ESC/BOCES/IU using NCES Agency Type 4 data. Shows which ESAs serve regions where Steven has active accounts.
+
+**Sub-tasks:**
+- ✅ `tools/proximity_engine.py` — haversine distance, targeted proximity, ESA mapping
+- ✅ Targeted mode: `proximity Liberty Hill ISD` — districts + schools near one account, 15mi default
+- ✅ Adjustable radius: `proximity Liberty Hill ISD 30` — wider/narrower search
+- ✅ Add to queue: `add nearby 4,8,13` — pick which districts to queue from results
+- ✅ State sweep: `proximity Texas all` — bulk mode for all accounts in a state
+- ✅ ESA mapping: `esa Texas` — 20 ESCs found, active accounts mapped, uncovered districts shown
+- ✅ ESA patterns expanded: 11 → 78 entity names from Steven's ROLES and KEYWORDS doc
+- ✅ Priority scoring: proximity strategy (400-699), esa_cluster strategy (450-599)
+- ✅ Graceful handling: OK returns "no ESA system", OH found 100 Agency Type 4 entities
+- ✅ All commands bypass Claude — direct dispatch via natural language matching
+
+---
+
+## UP NEXT (no order decided — Steven picks)
+
+### Trigger-Based Prospecting
+- New hire alerts (CS Director / CTE Director hired = buying signal)
+- Job posting signals (district hiring CS teachers = expanding program)
+- Board meeting / news triggers (STEM initiative = intent signal)
+- From strategies 16-18 in the 24-strategy list
+
+### Automate C4 Sequence Creation
+- Connect 1,274 cold license request targets to auto-built outreach sequences
+- C4 scan → sequence builder → Google Doc draft
+
+### Territory Map Visualization
+- Digital map of Steven's territory with pins for active accounts, pipeline, prospects, ESAs
+- All data already exists (lat/lon, addresses, enrollment, status)
+- Saved in memory for future implementation
 
 ---
 

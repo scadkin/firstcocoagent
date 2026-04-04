@@ -5,24 +5,22 @@
 
 ## CURRENT STATE — update this after each session
 
-**Session 40: C2 Research Engine upgrade complete. Production engine now has 20 layers across 3 search indices (Serper/Google, Exa neural, Brave independent), parallelized into 5 phases. Live A/B test: Austin ISD 77→124 contacts (+61%), 12→48 verified (+300%). Kern HSSD 35→115 (+229%), 1→34 verified (+3300%). Tighter lead targeting from Steven's roles/keywords doc. All deployed to Railway.**
+**Session 42: C2 verified live (4 districts, all massive improvements). C5 Proximity + ESA built and verified. Natural language research dispatch added. Parse.bot still down (server-side DNS).**
 
-### What was done (Session 40)
-- **C2 tool evaluation:** Tested 7 tools (Serper, Exa, Tavily, Firecrawl, Jina, Crawl4AI, Parse.bot). Built eval framework: `scripts/eval_research_tools.py`, `scripts/eval_config.py`, `scripts/eval_deep_research.py`.
-- **Production integration (20 layers):** L16 (Exa broad), L17 (Exa domain-scoped), L18 (Firecrawl extract — deferred, needs paid plan), L19 (Firecrawl site map — deferred), L20 (Brave Search). L9 upgraded with two-pass filter. L10 upgraded with cross-district + name↔email validation.
-- **Parallelization:** 5-phase execution with asyncio.gather. Phase A: 6 searches in parallel across 3 indices. Phase C: 8 domain-dependent tasks in parallel. ~40% speed improvement.
-- **Quality fixes:** Cross-district pre-filter, name↔email validation, two-pass extraction filter (saves ~50% Claude cost), adaptive email pattern inference with name normalization, JSON preamble strip, max_tokens 2000→4000.
-- **Lead targeting:** `agent/target_roles.py` from Steven's roles/keywords doc. CTE filter (excludes culinary/automotive/business/art/IT-infra). Includes algebra + cybersecurity teachers.
-- **API keys deployed:** EXA_API_KEY + BRAVE_API_KEY on Railway. Firecrawl deferred (budget).
-- **24 prospecting strategies documented** in memory (`prospecting_strategies.md`).
-- **Permissions allowlist cleaned up** — 94 individual entries → 70 organized broad patterns.
+### What was done (Session 42)
+- **C2 live verification:** Tested 4 districts on Railway. Houston ISD: 8→82 contacts, 2→44 verified (+2,100%). Columbus: 29→90. Guthrie: 1→52. Leander: 11→31. Exa L16 is the MVP layer.
+- **C5: Proximity + ESA:** New module `tools/proximity_engine.py`. Targeted proximity search around one active account. ESA regional service center mapping using NCES Agency Type 4 data. Tested TX (20 ESCs), OH (100 ESAs), OK (graceful "no ESA" message).
+- **Natural language dispatch:** `research [district] in [state]`, `proximity [account]`, `esa [state]`, `add nearby 1,4,8` — all bypass Claude, route directly to execute_tool.
+- **ESA patterns expanded:** 11 → 78 entity name patterns from Steven's ROLES and KEYWORDS doc.
+- **Parse.bot investigated:** Server-side DNS failure on their scraper workers. Emailed + DM'd founder Alex. Parked until fixed.
+- **GitGuardian alert:** False positive — flagged "X-API-Key" header name (Parse.bot), not an actual secret.
 
 ### What still needs to be done
-- **Test live on Railway** — Send `/research_district` via Telegram to verify new layers work in production
 - **Firecrawl paid plan** — Deferred (budget). L18/L19 skip gracefully. Circle back when budget allows.
-- **C2: Claude tool_use** — Interactive, adaptive extraction (future improvement)
-- **C5: Proximity + regional service centers** (deferred)
+- **Parse.bot integration** — Waiting on their DNS fix. Was #1 discovery tool in eval.
 - **Trigger-based prospecting** — New hire alerts, job posting signals, board meeting intelligence (from strategies list)
+- **Automate C4 sequence creation** — Connect 1,274 cold license targets to auto-built sequences
+- **Territory map visualization** — Digital map of territory with account pins (future)
 - See `SCOUT_PLAN.md` for full roadmap
 
 ### Current status
@@ -44,7 +42,8 @@
 - Outreach sequence creation: ✅ 11 CUE sequences created + prospects loaded (Session 38)
 - SoCal CSV filtering: ✅ 5 passes complete (Session 26)
 - Session transcript capture: ✅ set up (Session 36), numbering fixed (Session 39)
-- C2 Research Engine: ✅ upgraded — 20 layers, 3 indices, parallelized, quality validation, tighter targeting. Deployed to Railway. Firecrawl deferred (budget). (Session 40)
+- C2 Research Engine: ✅ upgraded + live verified (Session 42) — 20 layers, 3 indices, parallelized. Houston 8→82 contacts, 2→44 verified.
+- C5 Proximity + ESA: ✅ built + verified (Session 42) — targeted proximity, ESA mapping, add nearby command. Tested TX/OH/OK.
 
 ### Other completed features
 - **Weekend scheduler (B1):** Sat 11am, Sun 1pm greeting. No auto check-ins. `/eod` works manually.
