@@ -1,4 +1,4 @@
-# C4 Cold License Request — Sequence Drafts v4
+# C4 Cold License Request — Sequence Drafts v5
 ## Campaign: License Request Re-Engagement (April 2026)
 ## Zoom link: https://hello.codecombat.com/c/steven/t/127
 ## Merge fields: {{first_name}}, {{company}}, {{state}}
@@ -10,57 +10,57 @@
 
 ---
 
-## Step 1 — Day 0 — Re-engagement (73 words)
+## Step 1 — Day 0 (74 words)
 
-**Subject:** quick question about coding at {{company}}
+**Subject:** {{first_name}}, coding at {{company}}
 
 {{first_name}},
 
 You requested a CodeCombat license a while back. Wanted to check in and see if you're still exploring CS curriculum for your students.
 
-I work directly with teachers in {{state}} to build super engaging coding classes K-12. With fall planning underway, the timing might be good to reconnect.
+I work with teachers across {{state}} to build engaging coding classes K-12. With schools planning for fall right now, the timing might work well to revisit this.
 
-Would it make sense to jump on a quick call?
+Would it be worth sending over some info on what's new?
 
 -Steven
 
 ---
 
-## Step 2 — Day 5 — Engagement + turn-key angle (108 words)
+## Step 2 — Day 5 (105 words)
 
-**Subject:** what makes this different from other CS tools
+**Subject:** students who won't stop coding
 
 {{first_name}},
 
-The #1 thing teachers tell me about CodeCombat is that students actually want to keep coding. It looks and feels like a video game to them, but underneath it's rigorous, standards-aligned curriculum mapped to CSTA, ISTE, and state standards from K through 12.
+Most CS tools get used for a unit and then collect dust. CodeCombat is the one teachers tell me students keep coming back to on their own. It looks and feels like a video game, but everything underneath is mapped to CSTA, ISTE, and state standards K-12.
 
-Everything is built with new teachers in mind. Zero-prep lesson slides with teacher guidance, robust unplugged activities, multiple grading and assessment options, and a dashboard that's easy to manage. No coding experience required to teach it.
+The whole platform was built with new teachers in mind. Zero-prep lesson slides with teacher guidance fully built out, robust unplugged activities, multiple ways to grade and assess, and a dashboard that's easy to manage. No coding experience needed to teach it.
 
-Schools in {{state}} that are finalizing curriculum for fall are locking this in now.
-
-[codecombat.com/schools](https://codecombat.com/schools)
+Worth a look: [codecombat.com/schools](https://codecombat.com/schools)
 
 -Steven
 
 ---
 
-## Step 3 — Day 12 — Esports + trial offer (102 words)
+## Step 3 — Day 12 (95 words)
 
-**Subject:** the only educational coding esports league in the world
+**Subject:** Chromebook esports?
 
 {{first_name}},
 
-One thing most people don't know about CodeCombat: we run the only educational coding-based esports leagues in the world. Students compete using real code.
+CodeCombat runs the only educational coding-based esports leagues in the world. Students compete using real code they write themselves.
 
-They're safe (zero chatting or communication between players), asynchronous, web browser-based, and they run on Chromebooks. No $1,000 gaming PCs needed. Schools use it to drive engagement, build CS culture, and get students who never thought coding was for them into the program.
+They're safe (zero chatting or communication between players), asynchronous, fully browser-based, and they run on Chromebooks. No special hardware needed. Schools use them to build CS culture and pull in students who never thought coding was for them.
 
-I'm happy to set you up with a free 30-day trial so you can explore it with students and get some data to make a decision with. Worth trying?
+This comes bundled with our K-12 curriculum, along with CTE certification prep through the Python Institute (PCEP).
+
+I can set you up with a free 30-day trial. Worth trying?
 
 -Steven
 
 ---
 
-## Step 4 — Day 19 — Info dump
+## Step 4 — Day 19
 
 **Subject:** CodeCombat's Comprehensive K-12 Suite
 
@@ -68,31 +68,31 @@ I'm happy to set you up with a free 30-day trial so you can explore it with stud
 
 ---
 
-## Step 5 — Day 26 — Quote + budget timing + Zoom link (99 words)
+## Step 5 — Day 26 (103 words)
 
-**Subject:** getting a quote in hand before budget closes
+**Subject:** leftover budget idea for {{company}}
 
 {{first_name}},
 
-With budget submissions and curriculum evaluations happening now, a lot of teachers I work with in {{state}} are getting quotes in hand so they can start having those conversations with their admin.
+This is the time of year when schools are submitting budgets for fall, evaluating curriculum adoptions, writing grants, and figuring out what to do with leftover funds before they expire.
 
-If that would be useful, I can put together pricing for {{company}} on a quick call. Even if you're not ready to commit, having the numbers makes the budget request easier. Many schools also use leftover end-of-year funds to get a pilot started.
+If coding is something you're planning for next year, it might make sense to get a quote in hand now so you can start having those conversations. Even if you're not ready to commit, having the numbers makes the ask easier.
 
-Would it make sense to set something up? [Pick a time here](https://hello.codecombat.com/c/steven/t/127)
+I can put one together for you. Here's my calendar if you want to walk through it: [Pick a time](https://hello.codecombat.com/c/steven/t/127)
 
 -Steven
 
 ---
 
-## Step 6 — Day 33 — Breakup (56 words)
+## Step 6 — Day 33 (52 words)
 
 **Subject:** closing the loop
 
 {{first_name}},
 
-Last note from me. If coding is still on the table at {{company}}, I'd love to help. Happy to put together a quote or set up trial licenses whenever the timing works.
+Last note from me. If coding comes back up at {{company}}, I'm here. Happy to put together a quote or set up trial licenses whenever the timing works.
 
-If there's someone else I should reach out to, I'd appreciate the intro.
+If there's someone else I should connect with, I'd appreciate the intro.
 
 [codecombat.com/schools](https://codecombat.com/schools)
 
@@ -106,33 +106,33 @@ If there's someone else I should reach out to, I'd appreciate the intro.
 
 ---
 
-## Step 1 — Day 0 — Re-engagement (72 words)
+## Step 1 — Day 0 (68 words)
 
-**Subject:** following up on {{company}}'s CodeCombat request
+**Subject:** {{company}} + CodeCombat
 
 {{first_name}},
 
-Someone at {{company}} requested a CodeCombat license earlier and I never connected with the right person. Wanted to make sure that didn't fall through the cracks.
+Someone at {{company}} requested a CodeCombat license and I wanted to make sure the right person got connected.
 
-CodeCombat is a K-12 coding and CS curriculum platform. One system covering elementary through AP-level, standards-aligned, and completely turnkey for teachers.
+CodeCombat is a K-12 coding and CS curriculum platform. One system covering elementary through AP-level, fully standards-aligned, and completely turnkey for teachers with no CS background.
 
-Would it make sense to connect for a few minutes?
+Would it be worth sending over an overview?
 
 -Steven
 
 ---
 
-## Step 2 — Day 5 — Engagement + standards + budget timing (115 words)
+## Step 2 — Day 5 (112 words)
 
-**Subject:** {{state}} CS requirements and what districts are doing
+**Subject:** how {{state}} districts are solving the CS teacher problem
 
 {{first_name}},
 
-32 states now mandate high schools offer CS. Districts in {{state}} are figuring out how to deliver that without overloading teachers who may not have a coding background.
+32 states now require high schools to offer CS. The challenge most districts in {{state}} are hitting isn't whether to teach it, it's finding teachers who can.
 
-CodeCombat is built for exactly that. The curriculum looks and feels like a video game to students, but it's rigorous and mapped to CSTA, ISTE, and state standards K-12. Everything is turnkey: zero-prep lesson slides, built-in assessments, unplugged activities, and a teacher dashboard designed for educators without CS experience.
+CodeCombat was built for that. Every course has zero-prep lesson slides with full teacher guidance, built-in unplugged activities, multiple grading options, and a dashboard designed for educators who have never written a line of code. The curriculum covers K-12 in one platform and it's mapped to CSTA, ISTE, and state standards.
 
-One platform, one PO, one implementation instead of stitching together point solutions. With districts finalizing budgets for fall, now is when most of these decisions get locked in.
+One platform, one PO, one implementation instead of stitching together point solutions.
 
 [codecombat.com/schools](https://codecombat.com/schools)
 
@@ -140,7 +140,7 @@ One platform, one PO, one implementation instead of stitching together point sol
 
 ---
 
-## Step 3 — Day 12 — Info dump
+## Step 3 — Day 12
 
 **Subject:** CodeCombat's Comprehensive K-12 Suite
 
@@ -148,33 +148,31 @@ One platform, one PO, one implementation instead of stitching together point sol
 
 ---
 
-## Step 4 — Day 19 — ROI + quote angle + Zoom CTA (107 words)
+## Step 4 — Day 19 (101 words)
 
-**Subject:** one platform vs. five
+**Subject:** before your fall budget closes
 
 {{first_name}},
 
-Districts I work with in {{state}} keep running into the same thing: Scratch for elementary, a free tool for middle school, Replit for high school, and nothing connecting them. No continuity, no shared data.
+With districts finalizing budgets, locking in curriculum adoptions, and allocating leftover funds, this is typically the window where CS program decisions get made for next year.
 
-CodeCombat replaces that patchwork. One curriculum K-12, one dashboard, one vendor. Plus we offer the only educational coding esports leagues in the world and CTE certification prep through the Python Institute (PCEP).
+If {{company}} is evaluating options, it might make sense to get a quote together now so you have the numbers in hand. CodeCombat also offers the only educational coding esports leagues in the world and CTE certification prep through the Python Institute (PCEP), which can help with CTE funding conversations.
 
-If it would be helpful, I can walk through pricing and how districts your size are structuring this. Good way to get a quote in hand before budget season closes.
-
-[Pick a time here](https://hello.codecombat.com/c/steven/t/127)
+I can walk through pricing and how other {{state}} districts are structuring this: [Pick a time](https://hello.codecombat.com/c/steven/t/127)
 
 -Steven
 
 ---
 
-## Step 5 — Day 28 — Breakup / delegate (68 words)
+## Step 5 — Day 28 (62 words)
 
 **Subject:** should I be talking to someone else?
 
 {{first_name}},
 
-I've reached out a few times about {{company}}'s CodeCombat request. If there's someone else who handles CS or CTE curriculum, I'd appreciate the intro.
+I've reached out a few times about {{company}}'s CodeCombat request. If there's someone who handles CS or CTE curriculum, I'd appreciate the intro.
 
-If it's just a timing issue, many districts use end-of-year leftover funds to start a pilot before committing to a full adoption. Happy to put together a quote whenever you're ready.
+Happy to put together a quote or set up 30-day trial licenses for your teachers whenever the timing works.
 
 [codecombat.com/schools](https://codecombat.com/schools)
 
@@ -188,59 +186,57 @@ If it's just a timing issue, many districts use end-of-year leftover funds to st
 
 ---
 
-## Step 1 — Day 0 — Re-engagement (65 words)
+## Step 1 — Day 0 (62 words)
 
-**Subject:** your CodeCombat license request
+**Subject:** your CodeCombat request
 
 {{first_name}},
 
 You requested a CodeCombat license a while back. Wanted to follow up and see if CS curriculum is still something you're exploring at {{company}}.
 
-I work with schools across {{state}} to build engaging, standards-aligned coding programs K-12. With fall planning underway, the timing might be good to reconnect.
+I work with schools across {{state}} to build engaging, standards-aligned coding programs K-12. With schools planning for fall, the timing might work.
 
-Would a quick call make sense?
+Would it be worth sending over some info?
 
 -Steven
 
 ---
 
-## Step 2 — Day 5 — Engagement + turn-key (100 words)
+## Step 2 — Day 5 (98 words)
 
-**Subject:** what makes CodeCombat different
+**Subject:** the coding tool kids actually like
 
 {{first_name}},
 
 Quick overview if you're evaluating options for next year.
 
-CodeCombat is the most engaging K-12 coding curriculum available. It looks and feels like a video game to students, but it's rigorous, standards-aligned (CSTA, ISTE), and built with new teachers in mind. Zero-prep lesson slides, built-in unplugged activities, multiple ways to grade and assess, and a dashboard that's easy to manage. No coding background needed.
+CodeCombat is the most engaging K-12 coding curriculum out there. Students see a video game. Teachers see rigorous, standards-aligned CS curriculum (CSTA, ISTE) with zero-prep lesson slides, built-in unplugged activities, multiple assessment options, and a dashboard that's simple to manage. No coding background needed to teach it.
 
-A lot of schools I'm working with right now are finalizing curriculum and submitting budgets for fall.
+We also run the only educational coding esports leagues in the world, and offer CTE certification prep (PCEP) through the Python Institute.
 
-Worth a look: [codecombat.com/schools](https://codecombat.com/schools)
+[codecombat.com/schools](https://codecombat.com/schools)
 
 -Steven
 
 ---
 
-## Step 3 — Day 12 — Esports + trial offer (97 words)
+## Step 3 — Day 12 (84 words)
 
-**Subject:** coding esports on Chromebooks
+**Subject:** 30-day trial, no strings
 
 {{first_name}},
 
-One thing most schools don't know: CodeCombat runs the only educational coding-based esports leagues in the world.
+Rather than taking my word for it, I can set you up with a free 30-day trial so you or your students can actually explore CodeCombat. It takes about 5 minutes to get started.
 
-Students compete using real code. It's safe (zero chatting between players), asynchronous, fully browser-based, and runs on Chromebooks. No special hardware. Schools use it to drive engagement and build CS culture.
+Teachers use the trial to get student engagement data and feedback, which makes it a lot easier to build the case internally when budget conversations come up.
 
-It comes bundled with our curriculum, along with CTE certification prep through the Python Institute (PCEP).
-
-I'm happy to set you up with a free 30-day trial to explore with students. Would that be useful?
+If that's useful, just reply with your grade levels and I'll get it set up.
 
 -Steven
 
 ---
 
-## Step 4 — Day 19 — Info dump
+## Step 4 — Day 19
 
 **Subject:** CodeCombat's Comprehensive K-12 Suite
 
@@ -248,31 +244,31 @@ I'm happy to set you up with a free 30-day trial to explore with students. Would
 
 ---
 
-## Step 5 — Day 26 — Quote + budget timing + Zoom link (95 words)
+## Step 5 — Day 26 (95 words)
 
-**Subject:** getting a quote before budget closes
+**Subject:** leftover funds + fall planning
 
 {{first_name}},
 
-With budget submissions and grant writing happening right now, a lot of schools in {{state}} are getting quotes in hand so they can start having those conversations internally.
+This is the time of year when schools are submitting budgets, evaluating curriculum for fall, writing grants, and putting in teacher requests for next year. It's also when a lot of leftover funds need to be spent before they expire.
 
-If that would be useful for {{company}}, I can walk through pricing and put together a quote on a quick call. Even if you're not ready to commit, having the numbers makes the ask easier. Many schools also use leftover end-of-year funds to get started.
+If CS is on the table at {{company}}, it might make sense to get a quote in hand now so you're ready when those conversations happen.
 
-Would it make sense to set something up? [Pick a time here](https://hello.codecombat.com/c/steven/t/127)
+I can put one together for you: [Pick a time](https://hello.codecombat.com/c/steven/t/127)
 
 -Steven
 
 ---
 
-## Step 6 — Day 33 — Breakup (60 words)
+## Step 6 — Day 33 (52 words)
 
 **Subject:** last one from me
 
 {{first_name}},
 
-This is my last email. If CS curriculum comes back up at {{company}}, I'm here. Happy to put together a quote or set up trial licenses whenever the timing works.
+This is my last email. If CS comes back up at {{company}}, I'm here. Happy to put together a quote or set up trial licenses whenever the timing works.
 
-If there's someone else at {{company}} I should reach out to, I'd appreciate the intro.
+If there's someone else I should connect with, I'd appreciate the intro.
 
 [codecombat.com/schools](https://codecombat.com/schools)
 
@@ -286,7 +282,7 @@ If there's someone else at {{company}} I should reach out to, I'd appreciate the
 
 ---
 
-## Step 1 — Day 0 — Re-engagement (66 words)
+## Step 1 — Day 0 (65 words)
 
 **Subject:** {{company}}'s CodeCombat request
 
@@ -294,25 +290,25 @@ If there's someone else at {{company}} I should reach out to, I'd appreciate the
 
 Someone at {{company}} requested a CodeCombat license and I wanted to make sure the right person got connected.
 
-CodeCombat is a K-12 coding and CS curriculum platform used by districts across {{state}}. With budget season and fall planning underway, the timing might be good to revisit.
+CodeCombat is a K-12 coding and CS curriculum platform used by districts across {{state}}. With budget season and fall planning underway, the timing might be good to revisit this.
 
-Would it make sense to connect for a few minutes?
+Would it be worth sending over an overview?
 
 -Steven
 
 ---
 
-## Step 2 — Day 5 — Engagement + standards + district value (110 words)
+## Step 2 — Day 5 (108 words)
 
-**Subject:** CS requirements in {{state}} and what districts are doing
+**Subject:** how {{state}} districts are handling the CS mandate
 
 {{first_name}},
 
-32 states now mandate high schools offer CS. Districts in {{state}} are figuring out how to deliver that sustainably for teachers.
+32 states now require high schools to offer CS. The biggest challenge districts in {{state}} are running into isn't the mandate itself, it's the teacher capacity piece.
 
-CodeCombat handles it with one platform K-12. The curriculum looks like a video game to students but it's rigorous and mapped to CSTA, ISTE, and state standards. Everything is turnkey: zero-prep lesson slides, unplugged activities, assessments, and a teacher dashboard built for educators with no CS background.
+CodeCombat was designed for that. Every course comes with zero-prep lesson slides, full teacher guidance, built-in unplugged activities, multiple assessment options, and a teacher dashboard built for educators with no CS background. The curriculum covers K-12 in one platform, mapped to CSTA, ISTE, and state standards.
 
-One curriculum, one vendor, one implementation. Plus CTE certification prep (PCEP) and the only educational coding esports leagues in the world.
+We also offer CTE certification prep (PCEP) and the only educational coding esports leagues in the world.
 
 [codecombat.com/schools](https://codecombat.com/schools)
 
@@ -320,7 +316,7 @@ One curriculum, one vendor, one implementation. Plus CTE certification prep (PCE
 
 ---
 
-## Step 3 — Day 12 — Info dump + trial
+## Step 3 — Day 12
 
 **Subject:** CodeCombat's Comprehensive K-12 Suite
 
@@ -330,23 +326,23 @@ Add at the bottom: "Happy to set up 30-day trial licenses for your teachers so t
 
 ---
 
-## Step 4 — Day 19 — Quote + Zoom CTA (88 words)
+## Step 4 — Day 19 (90 words)
 
-**Subject:** getting a quote before budget closes
+**Subject:** before your fall budget closes
 
 {{first_name}},
 
-With curriculum adoptions and budget planning in full swing, a lot of districts in {{state}} are getting quotes in hand so they can start having those conversations with their teams and boards.
+With districts finalizing budgets, locking in curriculum adoptions, writing grants, and allocating leftover funds, this is typically the window where CS decisions get made for next year.
 
-If that would be useful, I can walk through pricing for {{company}} and put together a quote on a quick call. Even if the timing isn't perfect, having the numbers makes the budget request easier when the time comes.
+If {{company}} is evaluating options, it might make sense to get a quote together now so you have the numbers when those conversations happen. Even if you're not ready to commit, having pricing in hand makes the process faster when the time comes.
 
-[Pick a time here](https://hello.codecombat.com/c/steven/t/127)
+I can walk through it here: [Pick a time](https://hello.codecombat.com/c/steven/t/127)
 
 -Steven
 
 ---
 
-## Step 5 — Day 28 — Breakup / delegate (66 words)
+## Step 5 — Day 28 (58 words)
 
 **Subject:** should I be talking to someone else?
 
@@ -354,7 +350,7 @@ If that would be useful, I can walk through pricing for {{company}} and put toge
 
 I've reached out a few times about {{company}}'s CodeCombat request. If there's someone who handles CS or CTE curriculum, I'd appreciate the intro.
 
-Many districts use leftover end-of-year funds to start a pilot before committing to a full adoption. Happy to put together a quote whenever you're ready.
+Happy to put together a quote or set up trial licenses whenever the timing works.
 
 [codecombat.com/schools](https://codecombat.com/schools)
 
