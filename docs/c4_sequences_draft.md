@@ -1,8 +1,7 @@
-# C4 Cold License Request — Sequence Drafts v3
+# C4 Cold License Request — Sequence Drafts v4
 ## Campaign: License Request Re-Engagement (April 2026)
 ## Zoom link: https://hello.codecombat.com/c/steven/t/127
 ## Merge fields: {{first_name}}, {{company}}, {{state}}
-## Rules: Step 1 under 80 words. All other steps under 120 words (except info dump). Single CTA per email. Interest-based CTAs. Plain text. No fabricated claims.
 
 ---
 
@@ -11,131 +10,89 @@
 
 ---
 
-## Step 1 — Day 0 — Re-engagement (76 words)
+## Step 1 — Day 0 — Re-engagement (73 words)
 
-**Subject:** quick question about CS at {{company}}
+**Subject:** quick question about coding at {{company}}
 
 {{first_name}},
 
-You requested a CodeCombat license a while back — wanted to check in and see if you're still exploring CS curriculum for your students.
+You requested a CodeCombat license a while back. Wanted to check in and see if you're still exploring CS curriculum for your students.
 
-I'm Steven — I work directly with teachers in {{state}} to get CS and AI programs running. With fall planning underway, the timing might be good to reconnect.
+I work directly with teachers in {{state}} to build super engaging coding classes K-12. With fall planning underway, the timing might be good to reconnect.
 
-Still on your radar?
+Would it make sense to jump on a quick call?
 
 -Steven
 
 ---
 
-## Step 2 — Day 5 — Topical hook + seasonal (103 words)
+## Step 2 — Day 5 — Engagement + turn-key angle (108 words)
 
-**Subject:** what's changing in CS education right now
+**Subject:** what makes this different from other CS tools
 
 {{first_name}},
 
-32 states now require high schools to offer CS, and AI literacy mandates are moving fast. {{state}} is part of that shift.
+The #1 thing teachers tell me about CodeCombat is that students actually want to keep coding. It looks and feels like a video game to them, but underneath it's rigorous, standards-aligned curriculum mapped to CSTA, ISTE, and state standards from K through 12.
 
-CodeCombat covers the full K-12 stack — game-based coding, AP CSP, AI literacy, and coding esports — all standards-aligned with turnkey teacher resources. No CS background required.
+Everything is built with new teachers in mind. Zero-prep lesson slides with teacher guidance, robust unplugged activities, multiple grading and assessment options, and a dashboard that's easy to manage. No coding experience required to teach it.
 
-With schools finalizing curriculum for fall, this is the window where most teachers I talk to are putting in their requests and writing grants for next year.
+Schools in {{state}} that are finalizing curriculum for fall are locking this in now.
 
-Worth a look: [codecombat.com/schools](https://codecombat.com/schools)
+[codecombat.com/schools](https://codecombat.com/schools)
 
 -Steven
 
 ---
 
-## Step 3 — Day 12 — AI angle + trial offer (95 words)
+## Step 3 — Day 12 — Esports + trial offer (102 words)
 
-**Subject:** the AI piece your students are asking about
+**Subject:** the only educational coding esports league in the world
 
 {{first_name}},
 
-Your students are already using AI daily. The question is whether school is teaching them how it actually works.
+One thing most people don't know about CodeCombat: we run the only educational coding-based esports leagues in the world. Students compete using real code.
 
-[AI HackStack](https://codecombat.com/hackstack) is our hands-on AI literacy curriculum — students build real AI projects, not just talk about concepts. It includes [AI Algebra](https://direct.codecombat.com/hackstack-algebra), which connects CS to math in a way students engage with.
+They're safe (zero chatting or communication between players), asynchronous, web browser-based, and they run on Chromebooks. No $1,000 gaming PCs needed. Schools use it to drive engagement, build CS culture, and get students who never thought coding was for them into the program.
 
-I'm happy to set you up with a free 30-day trial to explore it with students. Just reply and I'll get that going.
+I'm happy to set you up with a free 30-day trial so you can explore it with students and get some data to make a decision with. Worth trying?
 
 -Steven
 
 ---
 
-## Step 4 — Day 19 — Info dump / Full product overview
+## Step 4 — Day 19 — Info dump
 
 **Subject:** CodeCombat's Comprehensive K-12 Suite
 
+[INSERT OUTREACH TEMPLATE: "New referral/info dump email 2026 DRAFT" - Template ID 43784]
+
+---
+
+## Step 5 — Day 26 — Quote + budget timing + Zoom link (99 words)
+
+**Subject:** getting a quote in hand before budget closes
+
 {{first_name}},
 
-I wanted to make sure you have a full picture of what comes with a CodeCombat license, especially if you're evaluating options for next year.
+With budget submissions and curriculum evaluations happening now, a lot of teachers I work with in {{state}} are getting quotes in hand so they can start having those conversations with their admin.
 
-CodeCombat offers a 10+ product CS & AI curriculum suite with an educational esports league, spanning K-12.
+If that would be useful, I can put together pricing for {{company}} on a quick call. Even if you're not ready to commit, having the numbers makes the budget request easier. Many schools also use leftover end-of-year funds to get a pilot started.
 
-**Elementary (K-5)**
-- [CodeCombat Junior](https://codecombat.com/junior): Block-based to text-based coding. Turn-key lesson slides, structured + adaptive practice levels. No-typing and no-reading modes. iPad compatible.
-- [CodeCombat Worlds on Roblox](https://codecombat.com/roblox): Lua coding through game development (partnership with Roblox Education). ([See CookieCutter's review on YouTube](https://youtu.be/7lgzK0y5x8o))
-- **AI Junior** (coming soon): K-5 AI literacy program
-
-**Middle School (6-8)**
-- [Ozaria](https://ozaria.com): Narrative-driven coding adventure. Primary middle school curriculum.
-- [AI Algebra](https://direct.codecombat.com/hackstack-algebra) (NEW): Algebra + AI curriculum focused on deep reasoning before introducing AI tools
-- [AI HackStack](https://codecombat.com/hackstack): Secure generative AI tool with guided learning scenarios and cross-subject curriculum
-- [AI League Esports](https://codecombat.com/league): Competitive coding esports with global and private tournaments
-- [CodeCombat Worlds on Roblox](https://codecombat.com/roblox)
-
-**High School (9-12)**
-- [CodeCombat Classroom](https://codecombat.com/schools): CS1-CS6 covering web dev, game dev, and data science. Python, JavaScript, C++, HTML/CSS.
-- [AP CSP Course](https://codecombat.com/apcsp): College Board-endorsed curriculum and PD
-- [PCEP Certification Prep](https://pythoninstitute.org/pcep): Certified Entry-Level Python Programmer exam prep
-- **Cybersecurity Course** (coming fall 2026): Dedicated cybersecurity course for CTE pathways
-- *Ozaria also available as a foundations course for students new to CS*
-
-**Key Features:**
-- Web browser-based, works on Chromebooks and tablets
-- Real coding languages: Python, JavaScript, C++, Luau
-- Turn-key teacher resources: lesson plans, slides, assessments, unplugged activities
-- Standards-aligned (CSTA, ISTE, Common Core)
-- Real-time progress monitoring, teacher dashboard, auto-grading
-- [Professional development](https://www.ozaria.com/pd) and implementation support
-- Safe AI integration with student privacy protections
-
-CommonSense Education did a great video review of Ozaria: [YouTube Link](https://www.youtube.com/watch?v=hCbn7viOf7A)
-
-👉 [Start exploring it all here](https://codecombat.com/schools)
-
-Over 20 million students have learned CS through our platforms. Check out [Partner Stories](https://codecombat.com/impact) and [Efficacy](https://www.ozaria.com/efficacy).
+Would it make sense to set something up? [Pick a time here](https://hello.codecombat.com/c/steven/t/127)
 
 -Steven
 
 ---
 
-## Step 5 — Day 26 — Budget timing + Zoom link (94 words)
-
-**Subject:** how other {{state}} teachers are doing this
-
-{{first_name}},
-
-A lot of {{state}} teachers are building their CS programs around one platform instead of cobbling together free tools that don't connect.
-
-With budget submissions happening now, a few teachers have told me they used a 30-day trial to get student engagement data and brought that to their admin as part of the budget request.
-
-Happy to set that up, or if you'd rather just see a quick walkthrough — no prep needed:
-
-[Pick a time here](https://hello.codecombat.com/c/steven/t/127)
-
--Steven
-
----
-
-## Step 6 — Day 33 — Breakup (60 words)
+## Step 6 — Day 33 — Breakup (56 words)
 
 **Subject:** closing the loop
 
 {{first_name}},
 
-I'll leave you alone after this — just wanted to make sure your license request didn't slip through the cracks.
+Last note from me. If coding is still on the table at {{company}}, I'd love to help. Happy to put together a quote or set up trial licenses whenever the timing works.
 
-If CS comes back up at {{company}}, I'm here. Many schools also use leftover end-of-year funds to get a pilot started.
+If there's someone else I should reach out to, I'd appreciate the intro.
 
 [codecombat.com/schools](https://codecombat.com/schools)
 
@@ -149,7 +106,7 @@ If CS comes back up at {{company}}, I'm here. Many schools also use leftover end
 
 ---
 
-## Step 1 — Day 0 — Re-engagement (68 words)
+## Step 1 — Day 0 — Re-engagement (72 words)
 
 **Subject:** following up on {{company}}'s CodeCombat request
 
@@ -157,25 +114,25 @@ If CS comes back up at {{company}}, I'm here. Many schools also use leftover end
 
 Someone at {{company}} requested a CodeCombat license earlier and I never connected with the right person. Wanted to make sure that didn't fall through the cracks.
 
-CodeCombat is a K-12 CS and AI curriculum platform — one system covering elementary through AP-level, standards-aligned, turnkey for teachers.
+CodeCombat is a K-12 coding and CS curriculum platform. One system covering elementary through AP-level, standards-aligned, and completely turnkey for teachers.
 
-Is CS curriculum something that falls under your team?
+Would it make sense to connect for a few minutes?
 
 -Steven
 
 ---
 
-## Step 2 — Day 5 — State mandate + budget timing (107 words)
+## Step 2 — Day 5 — Engagement + standards + budget timing (115 words)
 
 **Subject:** {{state}} CS requirements and what districts are doing
 
 {{first_name}},
 
-32 states now mandate high schools offer CS, and AI literacy legislation is accelerating. Districts in {{state}} are figuring out how to deliver without overloading teachers who may not have a CS background.
+32 states now mandate high schools offer CS. Districts in {{state}} are figuring out how to deliver that without overloading teachers who may not have a coding background.
 
-CodeCombat is turnkey — pacing guides, assessments, differentiated pathways — covering K-12 in one system. Block-based coding for elementary, game-based Python/JavaScript for middle and high, AP CSP, and AI literacy through AI HackStack.
+CodeCombat is built for exactly that. The curriculum looks and feels like a video game to students, but it's rigorous and mapped to CSTA, ISTE, and state standards K-12. Everything is turnkey: zero-prep lesson slides, built-in assessments, unplugged activities, and a teacher dashboard designed for educators without CS experience.
 
-One platform, one PO, one implementation. With districts finalizing budgets and curriculum adoptions for fall, this is when most of those decisions get locked in.
+One platform, one PO, one implementation instead of stitching together point solutions. With districts finalizing budgets for fall, now is when most of these decisions get locked in.
 
 [codecombat.com/schools](https://codecombat.com/schools)
 
@@ -183,63 +140,25 @@ One platform, one PO, one implementation. With districts finalizing budgets and 
 
 ---
 
-## Step 3 — Day 12 — Info dump / Full product overview
+## Step 3 — Day 12 — Info dump
 
 **Subject:** CodeCombat's Comprehensive K-12 Suite
 
-{{first_name}},
-
-I wanted to make sure you have a full picture of what comes with a CodeCombat license — especially if your team is evaluating curriculum for next year.
-
-CodeCombat offers a 10+ product CS & AI curriculum suite with an educational esports league, spanning K-12.
-
-**Elementary (K-5)**
-- [CodeCombat Junior](https://codecombat.com/junior): Block-based to text-based coding. Turn-key lesson slides, adaptive practice. iPad compatible.
-- [CodeCombat Worlds on Roblox](https://codecombat.com/roblox): Lua coding through game development ([CookieCutter's YouTube review](https://youtu.be/7lgzK0y5x8o))
-- **AI Junior** (coming soon): K-5 AI literacy
-
-**Middle School (6-8)**
-- [Ozaria](https://ozaria.com): Narrative-driven coding adventure — primary MS curriculum
-- [AI Algebra](https://direct.codecombat.com/hackstack-algebra) (NEW): Algebra + AI curriculum
-- [AI HackStack](https://codecombat.com/hackstack): Secure generative AI with guided learning scenarios
-- [AI League Esports](https://codecombat.com/league): Competitive coding esports
-
-**High School (9-12)**
-- [CodeCombat Classroom](https://codecombat.com/schools): CS1-CS6, web dev, game dev, data science. Python, JavaScript, C++.
-- [AP CSP Course](https://codecombat.com/apcsp): College Board-endorsed
-- [PCEP Certification Prep](https://pythoninstitute.org/pcep)
-- **Cybersecurity Course** (coming fall 2026): CTE pathway
-
-**Key Features:**
-- Web browser-based, Chromebooks and tablets
-- Turn-key teacher resources, no CS background needed
-- Standards-aligned (CSTA, ISTE, Common Core)
-- Real-time progress monitoring, dashboard, auto-grading
-- [Professional development](https://www.ozaria.com/pd) and implementation support
-
-CommonSense Education review of Ozaria: [YouTube Link](https://www.youtube.com/watch?v=hCbn7viOf7A)
-
-👉 [Start exploring it all here](https://codecombat.com/schools)
-
-Check out [Partner Stories](https://codecombat.com/impact) and [Efficacy](https://www.ozaria.com/efficacy).
-
-Happy to set up 30-day trial licenses for your teachers — no commitment — so they can explore before any budget conversations.
-
--Steven
+[INSERT OUTREACH TEMPLATE: "New referral/info dump email 2026 DRAFT" - Template ID 43784]
 
 ---
 
-## Step 4 — Day 19 — ROI angle + Zoom CTA (98 words)
+## Step 4 — Day 19 — ROI + quote angle + Zoom CTA (107 words)
 
 **Subject:** one platform vs. five
 
 {{first_name}},
 
-Districts I work with in {{state}} keep running into the same thing — Scratch for elementary, a free tool for middle school, Replit for high school, nothing for AI. No continuity, no shared data.
+Districts I work with in {{state}} keep running into the same thing: Scratch for elementary, a free tool for middle school, Replit for high school, and nothing connecting them. No continuity, no shared data.
 
-CodeCombat replaces that patchwork. One curriculum K-12, one dashboard, one vendor. With curriculum adoptions in full swing, this is typically when districts lock in what they're running next year.
+CodeCombat replaces that patchwork. One curriculum K-12, one dashboard, one vendor. Plus we offer the only educational coding esports leagues in the world and CTE certification prep through the Python Institute (PCEP).
 
-Happy to walk through how districts your size are structuring this — 15 minutes, no prep needed.
+If it would be helpful, I can walk through pricing and how districts your size are structuring this. Good way to get a quote in hand before budget season closes.
 
 [Pick a time here](https://hello.codecombat.com/c/steven/t/127)
 
@@ -247,15 +166,15 @@ Happy to walk through how districts your size are structuring this — 15 minute
 
 ---
 
-## Step 5 — Day 28 — Breakup / delegate (65 words)
+## Step 5 — Day 28 — Breakup / delegate (68 words)
 
 **Subject:** should I be talking to someone else?
 
 {{first_name}},
 
-I've reached out a few times about {{company}}'s CodeCombat request — I may be reaching the wrong person.
+I've reached out a few times about {{company}}'s CodeCombat request. If there's someone else who handles CS or CTE curriculum, I'd appreciate the intro.
 
-If CS curriculum falls under someone else, I'd appreciate a point in the right direction. Many districts also use end-of-year funds to start a pilot. I'll be here whenever timing works.
+If it's just a timing issue, many districts use end-of-year leftover funds to start a pilot before committing to a full adoption. Happy to put together a quote whenever you're ready.
 
 [codecombat.com/schools](https://codecombat.com/schools)
 
@@ -269,33 +188,33 @@ If CS curriculum falls under someone else, I'd appreciate a point in the right d
 
 ---
 
-## Step 1 — Day 0 — Re-engagement + qualifier (72 words)
+## Step 1 — Day 0 — Re-engagement (65 words)
 
 **Subject:** your CodeCombat license request
 
 {{first_name}},
 
-You requested a CodeCombat license a while back — wanted to follow up and see if CS curriculum is still something you're exploring at {{company}}.
+You requested a CodeCombat license a while back. Wanted to follow up and see if CS curriculum is still something you're exploring at {{company}}.
 
-I'm Steven — I work with schools in {{state}} to get CS and AI programs running. With fall planning underway, the timing might be good to reconnect.
+I work with schools across {{state}} to build engaging, standards-aligned coding programs K-12. With fall planning underway, the timing might be good to reconnect.
 
-Are you the right person, or can you point me in the right direction?
+Would a quick call make sense?
 
 -Steven
 
 ---
 
-## Step 2 — Day 5 — What CodeCombat is + seasonal hook (96 words)
+## Step 2 — Day 5 — Engagement + turn-key (100 words)
 
-**Subject:** what CodeCombat actually covers
+**Subject:** what makes CodeCombat different
 
 {{first_name}},
 
-Quick overview if you're evaluating options for next year:
+Quick overview if you're evaluating options for next year.
 
-CodeCombat is a K-12 CS and AI curriculum platform — game-based coding (Python, JavaScript), AP CSP, AI literacy, and coding esports. All standards-aligned (CSTA, ISTE) with turnkey teacher resources. No CS background needed.
+CodeCombat is the most engaging K-12 coding curriculum available. It looks and feels like a video game to students, but it's rigorous, standards-aligned (CSTA, ISTE), and built with new teachers in mind. Zero-prep lesson slides, built-in unplugged activities, multiple ways to grade and assess, and a dashboard that's easy to manage. No coding background needed.
 
-A lot of schools I'm working with right now are finalizing curriculum and submitting budgets for fall — this tends to be the window where things come together.
+A lot of schools I'm working with right now are finalizing curriculum and submitting budgets for fall.
 
 Worth a look: [codecombat.com/schools](https://codecombat.com/schools)
 
@@ -303,93 +222,57 @@ Worth a look: [codecombat.com/schools](https://codecombat.com/schools)
 
 ---
 
-## Step 3 — Day 12 — AI urgency + trial offer (88 words)
+## Step 3 — Day 12 — Esports + trial offer (97 words)
 
-**Subject:** the AI question every school is getting
+**Subject:** coding esports on Chromebooks
 
 {{first_name}},
 
-Parents and board members are asking "what is our school doing about AI?" California just mandated AI literacy K-12. Other states are following.
+One thing most schools don't know: CodeCombat runs the only educational coding-based esports leagues in the world.
 
-[AI HackStack](https://codecombat.com/hackstack) gives students hands-on experience building with AI — not just learning about it. It pairs with our coding curriculum or stands alone.
+Students compete using real code. It's safe (zero chatting between players), asynchronous, fully browser-based, and runs on Chromebooks. No special hardware. Schools use it to drive engagement and build CS culture.
 
-I'm happy to set you up with a free 30-day trial — explore it with students and get real data to bring to the table. Just reply.
+It comes bundled with our curriculum, along with CTE certification prep through the Python Institute (PCEP).
+
+I'm happy to set you up with a free 30-day trial to explore with students. Would that be useful?
 
 -Steven
 
 ---
 
-## Step 4 — Day 19 — Info dump / Full product overview
+## Step 4 — Day 19 — Info dump
 
 **Subject:** CodeCombat's Comprehensive K-12 Suite
 
+[INSERT OUTREACH TEMPLATE: "New referral/info dump email 2026 DRAFT" - Template ID 43784]
+
+---
+
+## Step 5 — Day 26 — Quote + budget timing + Zoom link (95 words)
+
+**Subject:** getting a quote before budget closes
+
 {{first_name}},
 
-Full picture of what comes with a CodeCombat license, in case you're weighing options.
+With budget submissions and grant writing happening right now, a lot of schools in {{state}} are getting quotes in hand so they can start having those conversations internally.
 
-CodeCombat offers a 10+ product CS & AI curriculum suite with an educational esports league, spanning K-12.
+If that would be useful for {{company}}, I can walk through pricing and put together a quote on a quick call. Even if you're not ready to commit, having the numbers makes the ask easier. Many schools also use leftover end-of-year funds to get started.
 
-**Elementary (K-5)**
-- [CodeCombat Junior](https://codecombat.com/junior): Block-based to text-based coding. Turn-key lesson slides, adaptive practice. iPad compatible.
-- [CodeCombat Worlds on Roblox](https://codecombat.com/roblox): Lua coding through game development ([CookieCutter's YouTube review](https://youtu.be/7lgzK0y5x8o))
-- **AI Junior** (coming soon): K-5 AI literacy
-
-**Middle School (6-8)**
-- [Ozaria](https://ozaria.com): Narrative-driven coding adventure — primary MS curriculum
-- [AI Algebra](https://direct.codecombat.com/hackstack-algebra) (NEW): Algebra + AI curriculum
-- [AI HackStack](https://codecombat.com/hackstack): Secure generative AI with guided learning scenarios
-- [AI League Esports](https://codecombat.com/league): Competitive coding esports
-
-**High School (9-12)**
-- [CodeCombat Classroom](https://codecombat.com/schools): CS1-CS6, web dev, game dev, data science. Python, JavaScript, C++.
-- [AP CSP Course](https://codecombat.com/apcsp): College Board-endorsed
-- [PCEP Certification Prep](https://pythoninstitute.org/pcep)
-- **Cybersecurity Course** (coming fall 2026): CTE pathway
-
-**Key Features:**
-- Web browser-based, Chromebooks and tablets
-- Turn-key teacher resources, no CS background needed
-- Standards-aligned (CSTA, ISTE, Common Core)
-- Real-time progress monitoring, dashboard, auto-grading
-- [Professional development](https://www.ozaria.com/pd) and implementation support
-
-CommonSense Education review of Ozaria: [YouTube Link](https://www.youtube.com/watch?v=hCbn7viOf7A)
-
-👉 [Start exploring it all here](https://codecombat.com/schools)
-
-Check out [Partner Stories](https://codecombat.com/impact) and [Efficacy](https://www.ozaria.com/efficacy).
-
-Happy to set up trial licenses so your team can try it firsthand.
+Would it make sense to set something up? [Pick a time here](https://hello.codecombat.com/c/steven/t/127)
 
 -Steven
 
 ---
 
-## Step 5 — Day 26 — Peer proof + Zoom link (82 words)
-
-**Subject:** what schools in {{state}} are doing with this
-
-{{first_name}},
-
-Schools in {{state}} are starting with one teacher piloting CodeCombat and expanding to multiple grade levels because students won't stop asking for it.
-
-With schools writing grants and submitting budget requests right now, a trial run can give you the data you need to support the ask.
-
-Want to see what this would look like for {{company}}?
-
-[Pick a time here](https://hello.codecombat.com/c/steven/t/127)
-
--Steven
-
----
-
-## Step 6 — Day 33 — Breakup (53 words)
+## Step 6 — Day 33 — Breakup (60 words)
 
 **Subject:** last one from me
 
 {{first_name}},
 
-This is my last email. If CS or AI curriculum comes back up at {{company}}, I'm here. Leftover end-of-year budget is a low-commitment way to get a pilot started.
+This is my last email. If CS curriculum comes back up at {{company}}, I'm here. Happy to put together a quote or set up trial licenses whenever the timing works.
+
+If there's someone else at {{company}} I should reach out to, I'd appreciate the intro.
 
 [codecombat.com/schools](https://codecombat.com/schools)
 
@@ -403,7 +286,7 @@ This is my last email. If CS or AI curriculum comes back up at {{company}}, I'm 
 
 ---
 
-## Step 1 — Day 0 — Re-engagement + qualifier (67 words)
+## Step 1 — Day 0 — Re-engagement (66 words)
 
 **Subject:** {{company}}'s CodeCombat request
 
@@ -411,25 +294,25 @@ This is my last email. If CS or AI curriculum comes back up at {{company}}, I'm 
 
 Someone at {{company}} requested a CodeCombat license and I wanted to make sure the right person got connected.
 
-CodeCombat is a K-12 CS and AI curriculum platform used by districts across {{state}}. With budget season and fall planning underway, the timing might be good to revisit.
+CodeCombat is a K-12 coding and CS curriculum platform used by districts across {{state}}. With budget season and fall planning underway, the timing might be good to revisit.
 
-Are you the right person, or can you point me to who is?
+Would it make sense to connect for a few minutes?
 
 -Steven
 
 ---
 
-## Step 2 — Day 5 — State mandate + district value (99 words)
+## Step 2 — Day 5 — Engagement + standards + district value (110 words)
 
-**Subject:** CS requirements in {{state}} — what districts are doing
+**Subject:** CS requirements in {{state}} and what districts are doing
 
 {{first_name}},
 
-32 states now mandate high schools offer CS, and AI literacy is the next wave. Districts in {{state}} are figuring out how to deliver sustainably for teachers.
+32 states now mandate high schools offer CS. Districts in {{state}} are figuring out how to deliver that sustainably for teachers.
 
-CodeCombat handles it with one platform: block-based coding (K-5), game-based Python/JavaScript (6-12), AP CSP, and AI literacy. All turnkey — no CS background needed. One curriculum, one vendor, one implementation.
+CodeCombat handles it with one platform K-12. The curriculum looks like a video game to students but it's rigorous and mapped to CSTA, ISTE, and state standards. Everything is turnkey: zero-prep lesson slides, unplugged activities, assessments, and a teacher dashboard built for educators with no CS background.
 
-With curriculum adoptions and budgets being finalized now, this is when most districts lock in what they're running next year.
+One curriculum, one vendor, one implementation. Plus CTE certification prep (PCEP) and the only educational coding esports leagues in the world.
 
 [codecombat.com/schools](https://codecombat.com/schools)
 
@@ -437,61 +320,25 @@ With curriculum adoptions and budgets being finalized now, this is when most dis
 
 ---
 
-## Step 3 — Day 12 — Info dump / Full product overview + trial
+## Step 3 — Day 12 — Info dump + trial
 
 **Subject:** CodeCombat's Comprehensive K-12 Suite
 
-{{first_name}},
+[INSERT OUTREACH TEMPLATE: "New referral/info dump email 2026 DRAFT" - Template ID 43784]
 
-Full picture of what a CodeCombat license covers, especially if your team is evaluating curriculum for next year.
-
-CodeCombat offers a 10+ product CS & AI curriculum suite with an educational esports league, spanning K-12.
-
-**Elementary (K-5)**
-- [CodeCombat Junior](https://codecombat.com/junior): Block-based to text-based coding. Turn-key lesson slides, adaptive practice. iPad compatible.
-- [CodeCombat Worlds on Roblox](https://codecombat.com/roblox): Lua coding through game development ([CookieCutter's YouTube review](https://youtu.be/7lgzK0y5x8o))
-- **AI Junior** (coming soon): K-5 AI literacy
-
-**Middle School (6-8)**
-- [Ozaria](https://ozaria.com): Narrative-driven coding adventure — primary MS curriculum
-- [AI Algebra](https://direct.codecombat.com/hackstack-algebra) (NEW): Algebra + AI curriculum
-- [AI HackStack](https://codecombat.com/hackstack): Secure generative AI with guided learning scenarios
-- [AI League Esports](https://codecombat.com/league): Competitive coding esports
-
-**High School (9-12)**
-- [CodeCombat Classroom](https://codecombat.com/schools): CS1-CS6, web dev, game dev, data science. Python, JavaScript, C++.
-- [AP CSP Course](https://codecombat.com/apcsp): College Board-endorsed
-- [PCEP Certification Prep](https://pythoninstitute.org/pcep)
-- **Cybersecurity Course** (coming fall 2026): CTE pathway
-
-**Key Features:**
-- Web browser-based, Chromebooks and tablets
-- Turn-key teacher resources, no CS background needed
-- Standards-aligned (CSTA, ISTE, Common Core)
-- Real-time progress monitoring, dashboard, auto-grading
-- [Professional development](https://www.ozaria.com/pd) and implementation support
-
-CommonSense Education review of Ozaria: [YouTube Link](https://www.youtube.com/watch?v=hCbn7viOf7A)
-
-👉 [Start exploring it all here](https://codecombat.com/schools)
-
-Check out [Partner Stories](https://codecombat.com/impact) and [Efficacy](https://www.ozaria.com/efficacy).
-
-Happy to set up 30-day trial licenses for your teachers — no commitment — so they can explore before budget decisions.
-
--Steven
+Add at the bottom: "Happy to set up 30-day trial licenses for your teachers so they can explore before any budget decisions. Just reply and I'll get that going."
 
 ---
 
-## Step 4 — Day 19 — Practical next step + Zoom link (80 words)
+## Step 4 — Day 19 — Quote + Zoom CTA (88 words)
 
-**Subject:** 15 minutes to see if this fits
+**Subject:** getting a quote before budget closes
 
 {{first_name}},
 
-I know district leaders don't have time for long sales pitches — 15-minute walkthrough of how CodeCombat maps to what {{company}} already has in place for CS. If it doesn't fit, I'll tell you.
+With curriculum adoptions and budget planning in full swing, a lot of districts in {{state}} are getting quotes in hand so they can start having those conversations with their teams and boards.
 
-With grant writing and budget submissions happening now, a lot of districts are using this window to lock in curriculum for fall.
+If that would be useful, I can walk through pricing for {{company}} and put together a quote on a quick call. Even if the timing isn't perfect, having the numbers makes the budget request easier when the time comes.
 
 [Pick a time here](https://hello.codecombat.com/c/steven/t/127)
 
@@ -499,15 +346,15 @@ With grant writing and budget submissions happening now, a lot of districts are 
 
 ---
 
-## Step 5 — Day 28 — Breakup / delegate (56 words)
+## Step 5 — Day 28 — Breakup / delegate (66 words)
 
-**Subject:** wrong person?
+**Subject:** should I be talking to someone else?
 
 {{first_name}},
 
-I might be reaching the wrong person about {{company}}'s CodeCombat request. If there's someone who handles CS or CTE curriculum, I'd appreciate the intro.
+I've reached out a few times about {{company}}'s CodeCombat request. If there's someone who handles CS or CTE curriculum, I'd appreciate the intro.
 
-Many districts use end-of-year funds to start a pilot. I'll be here whenever timing works.
+Many districts use leftover end-of-year funds to start a pilot before committing to a full adoption. Happy to put together a quote whenever you're ready.
 
 [codecombat.com/schools](https://codecombat.com/schools)
 
