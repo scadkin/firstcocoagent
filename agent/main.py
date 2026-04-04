@@ -64,6 +64,8 @@ _fireflies_gmail_seeded: bool = False    # True after first scan seeds existing 
 
 # Phase 6E: Prospecting queue — last shown batch for approve/skip indexing
 _last_prospect_batch: list[dict] = []
+# C5: Last proximity results for "add nearby" command
+_last_proximity_result: dict = {}
 # Districts flagged as existing customers during approve — awaiting confirmation to proceed
 _pending_approve_force: list[dict] = []
 
@@ -1376,7 +1378,7 @@ def _parse_draft(draft_text: str) -> tuple:
 # ── Telegram message handler ───────────────────────────────────────────────────
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    global conversation_history, _pending_draft, _last_prospect_batch, _pending_approve_force, _csv_import_mode, _csv_import_state, _pipeline_import_mode, _closed_lost_import_mode, _pending_csv_intent, _leads_import_mode
+    global conversation_history, _pending_draft, _last_prospect_batch, _pending_approve_force, _csv_import_mode, _csv_import_state, _pipeline_import_mode, _closed_lost_import_mode, _pending_csv_intent, _leads_import_mode, _last_proximity_result
 
     if str(update.effective_chat.id) != str(TELEGRAM_CHAT_ID):
         return
@@ -1827,9 +1829,70 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             result = await loop.run_in_executor(
                 None, proximity_engine.find_nearby_one, account_name, radius
             )
-            await send_message(proximity_engine.format_targeted_for_telegram(result))
+            _last_proximity_result = result
+            msg = proximity_engine.format_targeted_for_telegram(result)
+            # If there are new districts, show add hint
+            new_districts = [d for d in result.get("nearby_districts", []) if not d.get("in_queue")]
+            if new_districts:
+                msg += f"\n\n_To add districts to queue: `add nearby 1,4,8` (by number above)_"
+            await send_message(msg)
         except Exception as e:
             await send_message(f"❌ Proximity error: {e}")
+        return
+
+    elif re.match(r"^add nearby\s+(.+)", user_text, re.IGNORECASE):
+        m = re.match(r"^add nearby\s+(.+)", user_text, re.IGNORECASE)
+        args = m.group(1).strip()
+        if not _last_proximity_result or not _last_proximity_result.get("success"):
+            await send_message("No proximity results to add from. Run `proximity [account]` first.")
+            return
+
+        new_districts = [d for d in _last_proximity_result.get("nearby_districts", [])
+                         if not d.get("in_queue")]
+        if not new_districts:
+            await send_message("No new districts in last proximity results.")
+            return
+
+        # Parse indices: "1,4,8" or "all"
+        if args.lower() == "all":
+            selected = new_districts
+        else:
+            try:
+                indices = [int(x.strip()) for x in args.split(",")]
+                selected = [new_districts[i - 1] for i in indices if 0 < i <= len(new_districts)]
+            except (ValueError, IndexError):
+                await send_message("Usage: `add nearby 1,4,8` or `add nearby all`")
+                return
+
+        if not selected:
+            await send_message("No valid selections. Use numbers from the proximity list.")
+            return
+
+        state = _last_proximity_result.get("state", "")
+        ref_account = _last_proximity_result.get("account_name", "")
+        try:
+            loop = asyncio.get_event_loop()
+            # Build the dicts add_proximity_prospects expects
+            to_add = []
+            for d in selected:
+                to_add.append({
+                    "name": d["name"],
+                    "name_key": d["name_key"],
+                    "enrollment": d.get("enrollment", 0),
+                    "distance_miles": d.get("distance_miles", 0),
+                    "city": d.get("city", ""),
+                    "nearest_account": ref_account,
+                })
+            result = await loop.run_in_executor(
+                None, proximity_engine.add_proximity_prospects, to_add, state, ref_account
+            )
+            names = [d["name"] for d in selected]
+            await send_message(
+                f"✅ Added {result['new_added']} districts to Prospecting Queue:\n"
+                + "\n".join(f"  • {n}" for n in names)
+            )
+        except Exception as e:
+            await send_message(f"❌ Add nearby error: {e}")
         return
 
     elif re.match(
