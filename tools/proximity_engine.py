@@ -445,8 +445,36 @@ def add_proximity_prospects(districts: list, state: str, reference_account: str 
 # ESA: REGIONAL SERVICE CENTER MAPPING
 # ─────────────────────────────────────────────
 
+def _classify_esa_entity(district: dict) -> str:
+    """
+    Classify an Agency Type 4 entity as 'esc' (true service center) or 'career_tech'.
+
+    True ESCs have 0 schools and 0 enrollment — they're administrative entities.
+    Career-tech centers (JVSDs, career campuses) operate schools with enrolled students.
+    """
+    enrollment = 0
+    school_count = 0
+    try:
+        enrollment = int(district.get("Enrollment", 0) or 0)
+    except (ValueError, TypeError):
+        pass
+    try:
+        school_count = int(district.get("School Count", 0) or 0)
+    except (ValueError, TypeError):
+        pass
+
+    if enrollment == 0 and school_count == 0:
+        return "esc"
+    return "career_tech"
+
+
 def get_esa_districts(state: str) -> list:
-    """Return all Agency Type 4 (ESA) entries for a state."""
+    """
+    Return all Agency Type 4 entries for a state, classified as 'esc' or 'career_tech'.
+
+    True ESCs: 0 schools, 0 enrollment (administrative service entities).
+    Career-tech: operate schools with enrolled students (JVSDs, career campuses).
+    """
     state = _normalize_state(state)
     if not state:
         return []
@@ -457,6 +485,17 @@ def get_esa_districts(state: str) -> list:
         if d.get("Agency Type", "") == _ESA_AGENCY_TYPE:
             lat = _parse_float(d.get("Lat"))
             lon = _parse_float(d.get("Lon"))
+            enrollment = 0
+            school_count = 0
+            try:
+                enrollment = int(d.get("Enrollment", 0) or 0)
+            except (ValueError, TypeError):
+                pass
+            try:
+                school_count = int(d.get("School Count", 0) or 0)
+            except (ValueError, TypeError):
+                pass
+
             esas.append({
                 "name": d.get("District Name", ""),
                 "name_key": d.get("Name Key", ""),
@@ -465,6 +504,9 @@ def get_esa_districts(state: str) -> list:
                 "county": d.get("County", ""),
                 "city": d.get("City", ""),
                 "lat": lat, "lon": lon, "state": state,
+                "entity_type": _classify_esa_entity(d),
+                "enrollment": enrollment,
+                "school_count": school_count,
             })
     return esas
 
@@ -487,7 +529,9 @@ def map_districts_to_esa(state: str) -> dict:
             "error": f"No ESA system established by law in {state}.",
         }
 
-    esas = get_esa_districts(state)
+    all_esas = get_esa_districts(state)
+    esas = [e for e in all_esas if e["entity_type"] == "esc"]
+    career_tech = [e for e in all_esas if e["entity_type"] == "career_tech"]
     all_districts = territory_data._load_territory_districts(state)
     regular = [d for d in all_districts if d.get("Agency Type", "") in _PROSPECTABLE_AGENCY_TYPES]
 
@@ -554,6 +598,7 @@ def map_districts_to_esa(state: str) -> dict:
 
     return {
         "success": True, "state": state, "esa_count": len(esas),
+        "career_tech_count": len(career_tech), "career_tech": career_tech,
         "district_count": len(regular), "esa_map": esa_map, "unmapped_count": unmapped,
     }
 
@@ -616,9 +661,25 @@ def find_esa_opportunities(state: str) -> dict:
         reverse=True,
     )
 
+    # Career-tech centers as separate prospecting targets
+    career_tech = mapping.get("career_tech", [])
+    career_tech_targets = []
+    for ct in career_tech:
+        nk = ct.get("name_key", "")
+        if nk not in active_keys and nk not in prospect_keys:
+            career_tech_targets.append({
+                "name": ct["name"],
+                "city": ct.get("city", ""),
+                "enrollment": ct.get("enrollment", 0),
+                "school_count": ct.get("school_count", 0),
+            })
+    career_tech_targets.sort(key=lambda x: x.get("enrollment", 0), reverse=True)
+
     return {
         "success": True, "state": state_norm,
         "esa_opportunities": opportunities, "total_esa": len(opportunities),
+        "career_tech_targets": career_tech_targets,
+        "career_tech_count": len(career_tech),
     }
 
 
@@ -744,22 +805,25 @@ def format_esa_for_telegram(result: dict, max_show: int = 10) -> str:
     state = result["state"]
     opps = result.get("esa_opportunities", [])
     total_esa = result.get("total_esa", 0)
+    career_tech = result.get("career_tech_targets", [])
+    career_tech_count = result.get("career_tech_count", 0)
 
     lines = [
         f"🏛️ *ESA Opportunities: {state}*",
-        f"Total ESAs: {total_esa}",
+        f"ESCs: {total_esa} | Career-Tech Centers: {career_tech_count}",
         "",
     ]
 
-    if not opps:
+    if not opps and not career_tech:
         lines.append("No ESA data found.")
         return "\n".join(lines)
 
+    # ESC section
     has_active = [o for o in opps if o["active_account_count"] > 0]
     no_active = [o for o in opps if o["active_account_count"] == 0]
 
     if has_active:
-        lines.append("*🟢 ESAs with your active accounts:*")
+        lines.append("*🟢 ESCs with your active accounts:*")
         for o in has_active[:max_show]:
             city_str = f" ({o['city']})" if o.get("city") else ""
             lines.append(
@@ -778,7 +842,7 @@ def format_esa_for_telegram(result: dict, max_show: int = 10) -> str:
         lines.append("")
 
     if no_active:
-        lines.append(f"*⚪ {len(no_active)} ESAs with no active accounts*")
+        lines.append(f"*⚪ {len(no_active)} ESCs with no active accounts*")
         top_cold = sorted(no_active, key=lambda x: x["uncovered_enrollment"], reverse=True)[:3]
         for o in top_cold:
             city_str = f" ({o['city']})" if o.get("city") else ""
@@ -787,5 +851,19 @@ def format_esa_for_telegram(result: dict, max_show: int = 10) -> str:
                 f"{o['uncovered_count']} districts, "
                 f"{o['uncovered_enrollment']:,} students"
             )
+        lines.append("")
+
+    # Career-tech section
+    if career_tech:
+        lines.append(f"*🔧 Career-Tech Centers ({len(career_tech)} untargeted):*")
+        for ct in career_tech[:5]:
+            city_str = f", {ct['city']}" if ct.get("city") else ""
+            lines.append(
+                f"  {ct['name']}{city_str} — "
+                f"{ct.get('enrollment', 0):,} students, "
+                f"{ct.get('school_count', 0)} schools"
+            )
+        if len(career_tech) > 5:
+            lines.append(f"  _... +{len(career_tech) - 5} more_")
 
     return "\n".join(lines)
