@@ -208,6 +208,14 @@
 
 **Contact extractor max_tokens is 4000 (not 2000).** School directory pages with 15+ contacts were causing JSON truncation. Fixed Session 40.
 
+**`proximity_engine.py` is a flat module imported at top of main.py.** Two modes: targeted (`proximity Leander ISD` — near one account) and state sweep (`proximity Texas all` — all accounts). `add nearby 1,4,8` queues from last results. ESA mapping via `esa Texas`. All direct dispatch, no Claude routing.
+
+**ESA mapping uses NCES Agency Type 4 data.** True ESCs have 0 schools + 0 enrollment (administrative entities). Career-tech centers have enrolled students (JVSDs, career campuses). Both are Agency Type 4 but classified separately. ESCs used for regional mapping; career-tech shown as separate prospecting targets.
+
+**`_last_proximity_result` is in-memory only — lost on bot restart.** Run `proximity [account]` before `add nearby` in a new session.
+
+**ESA_PATTERNS in target_roles.py has 78 entity name variations.** From Steven's ROLES and KEYWORDS doc. Covers ESC, BOCES, IU, COE, ROE, ISC, ESU, AEA, CESA, SELPA, JPA, SSA, and dozens more.
+
 **Validate email before calling gas.create_draft().** GAS throws on malformed emails.
 
 **`/call_list` must be guarded in the `/call` handler.** `startswith("/call")` matches both. Use `startswith("/call") and not startswith("/call_list")`.
@@ -222,7 +230,7 @@
 
 **`scheduler` is a module-level global in main.py.** It must be instantiated at module scope (alongside `memory` and `conversation_history`), not inside `_run_telegram_and_scheduler()`. If it's local to that function, `handle_message()` can't access it and all message handling silently dies. Fixed Session 23.
 
-**`global` declarations go at the TOP of `handle_message()`, not in elif blocks.** Python SyntaxError if `global` appears after first use of the variable. All globals in one line: `global conversation_history, _pending_draft, _last_prospect_batch, _pending_approve_force, _csv_import_mode, _csv_import_state, _pipeline_import_mode, _pending_csv_intent`.
+**`global` declarations go at the TOP of `handle_message()`, not in elif blocks.** Python SyntaxError if `global` appears after first use of the variable. All globals in one line: `global conversation_history, _pending_draft, _last_prospect_batch, _pending_approve_force, _csv_import_mode, _csv_import_state, _pipeline_import_mode, _pending_csv_intent, _last_proximity_result`.
 
 **`_on_prospect_research_complete` is the auto-pipeline callback.** Runs `_on_research_complete` first (standard flow), then auto-builds a strategy-aware sequence, writes Google Doc, marks prospect complete. Uses `sequence_builder` (lazy import inside the callback). If sequence fails, prospect is still marked complete.
 
@@ -307,6 +315,7 @@ firstcocoagent/
 │   ├── daily_call_list.py      ← MODULE not class. build_daily_call_list()
 │   ├── district_prospector.py  ← MODULE not class. discover_districts(), suggest_upward_targets()
 │   ├── lead_importer.py        ← MODULE not class. import_leads(), import_contacts(), enrich
+│   ├── proximity_engine.py     ← MODULE not class. C5: proximity search, ESA mapping
 │   └── fireflies.py            ← FirefliesClient, FirefliesError
 ├── gas/
 │   ├── CLAUDE.md               ← GAS deployment checklist and gotchas
@@ -360,7 +369,7 @@ firstcocoagent/
 
 ---
 
-## CLAUDE TOOLS (24 total, defined in claude_brain.py, handled in main.py)
+## CLAUDE TOOLS (25 total, defined in claude_brain.py, handled in main.py)
 
 `research_district`, `get_sheet_status`, `get_research_queue_status`, `train_voice`, `draft_email`, `save_draft_to_gmail`, `get_calendar`, `log_call`, `create_district_deck`, `push_code`, `list_repo_files`, `get_file_content`, `build_sequence`, `ping_gas_bridge`, `grade_draft`, `add_template`, `process_call_transcript`, `get_pre_call_brief`, `get_activity_summary`, `get_accounts_status`, `set_goal`, `sync_gmail_activities`, `generate_call_list`, `discover_prospects`, `find_nearby_prospects`
 

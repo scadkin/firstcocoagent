@@ -477,3 +477,56 @@ Estimated speedup: 40-60% wall-time reduction. Steven approved the approach.
 - `scripts/eval_config.py` — Test districts, tool registry, search queries
 - `scripts/eval_deep_research.py` — 8-stage deep research prototype (domain discovery → extract → search → Claude → pattern inference → Brave → agent → agentic followup)
 - `agent/target_roles.py` — Authoritative lead targeting: titles, keywords, CTE filter, IT infra filter
+
+---
+
+## Session 42 (2026-04-04)
+
+### C2 Research Engine — Live Verification
+- Tested 4 districts on Railway via Telegram (using new natural language dispatch)
+- Houston ISD: 8→82 contacts, 2→44 verified (+2,100%). Exa L16 = 39 contacts (MVP layer)
+- Columbus City Schools: 29→90 contacts, 0→18 verified. Exa L16 = 58 contacts
+- Guthrie Public Schools: 1→52 contacts, 0→26 verified. Exa L16 = 25 contacts
+- Leander ISD: 11→31 contacts, 3→14 verified. Exa L16 = 3 (JS-heavy site, Serper+L15 compensated)
+- L4-L14 (scraping layers) mostly zeros — JS-heavy school sites block crawling
+- Brave L20 marginal — contributed on Houston only
+- No errors or crashes — parallelization stable
+
+### C5: Proximity + Regional Service Centers — Built + Verified
+- **New module:** `tools/proximity_engine.py`
+- **Targeted proximity:** `proximity Liberty Hill ISD` finds districts + schools near one active account
+  - Default 15mi radius, adjustable: `proximity Liberty Hill ISD 30`
+  - Shows nearby districts (with enrollment, distance) and schools (grouped by district)
+  - Adaptive suggestions: too few → widen, too many → narrow
+- **Add to queue:** `add nearby 4,8,13` picks from last proximity results → Prospecting Queue
+  - Uses `_last_proximity_result` global (in-memory only, like `_last_prospect_batch`)
+- **State sweep:** `proximity Texas all` — bulk mode for all accounts in a state
+- **ESA mapping:** `esa Texas` — maps districts to nearest ESC using NCES Agency Type 4 data
+  - County-code match first, haversine fallback
+  - Shows which ESAs have Steven's active accounts + uncovered districts
+  - TX: 20 ESCs, OH: 51 ESCs + 49 career-tech, OK: graceful "no ESA system"
+- **ESC vs career-tech split:** Agency Type 4 includes both true ESCs (0 schools, 0 enrollment) and career-tech centers (JVSDs with enrolled students). Classified separately. Career-tech shown as own prospecting targets.
+- **ESA_PATTERNS expanded:** 11 → 78 entity name patterns from Steven's ROLES and KEYWORDS doc
+- **Priority scoring:** proximity strategy (400-699, closer=higher), esa_cluster (450-599)
+- **All direct dispatch:** Natural language matching in handle_message(), bypasses Claude routing
+
+### Natural Language Research Dispatch
+- Added pattern matching for `research [district] in [state]` — routes directly to execute_tool("research_district")
+- `/research_district` was NOT a shorthand command — went through Claude, which sometimes picked wrong tool
+- Fixed after Claude called `get_research_queue_status` instead of `research_district`
+
+### Other Session 42 Items
+- **Parse.bot:** Server-side DNS failure on scraper workers after migration. list_apis works, create_api fails on all URLs (even example.com). Emailed + DM'd founder Alex Forman (alex@parse.bot, @alexscraping). Parked.
+- **GitGuardian alert:** False positive — flagged "X-API-Key" HTTP header name in eval_research_tools.py (Parse.bot integration). Not an actual secret. No action needed.
+- **YouTube transcript MCP:** Added `@fabriqa.ai/youtube-transcript-mcp` as user-scope MCP. Also installed `yt-dlp` as fallback. Tools: get-transcript, get-transcript-languages.
+- **Session numbering:** CLAUDE.md said Session 40, scout wrapper said 42. Gap from Session 41 that didn't update CLAUDE.md. Fixed.
+
+### New Files
+- `tools/proximity_engine.py` — C5 proximity + ESA module (haversine, find_nearby_one, map_districts_to_esa, etc.)
+
+### Key Decisions
+- Targeted proximity is the default (one account), state sweep is opt-in ("all" suffix)
+- Proximity results are display-only — Steven picks which to add via "add nearby"
+- ESCs and career-tech centers are both Agency Type 4 but shown separately
+- Career-tech centers are prospecting targets (have CS/CTE decision-makers)
+- Steven prefers natural language over slash commands — all new features should have NL dispatch

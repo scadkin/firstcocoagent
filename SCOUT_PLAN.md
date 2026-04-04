@@ -7,7 +7,13 @@
 
 ---
 
-## CURRENT FOCUS: C2 Research Engine Improvements
+## CURRENT FOCUS: Sequence Automation + Trigger-Based Prospecting
+
+Next session starts with automating C4 sequence creation — but first re-validate the 1,274 C4 targets (data is from Session 37, may be stale). Then build trigger-based prospecting aggregator systems (new hire alerts, job postings, board meetings). Steven has many ideas for the aggregator architecture.
+
+---
+
+## COMPLETED: C2 Research Engine Improvements
 
 ### What C4 is
 Cold license requests are inbound prospects who requested a CodeCombat license through Outreach sequences but Steven never connected with them — no opportunity was created, no pricing was sent. These are warm leads that went cold. Strategy label: `cold_license_request`.
