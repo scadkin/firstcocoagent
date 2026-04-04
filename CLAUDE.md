@@ -1,5 +1,5 @@
 # SCOUT — Claude Code Reference
-*Last updated: 2026-04-02 — Session 42*
+*Last updated: 2026-04-04 — Session 42*
 
 ---
 
