@@ -1,16 +1,36 @@
-# C4 Cold License Request — Sequence Drafts v5
+# C4 Cold License Request — Sequence Drafts v6
 ## Campaign: License Request Re-Engagement (April 2026)
 ## Zoom link: https://hello.codecombat.com/c/steven/t/127
 ## Merge fields: {{first_name}}, {{company}}, {{state}}
 
 ---
 
-# SEQUENCE A: Teachers (465 prospects)
-**Pacing:** 6 steps — Day 0, 5, 12, 19, 26, 33
+## OUTREACH SETTINGS (apply to all 4 sequences)
+
+**Send window:** Tuesday, Wednesday, Thursday only. 8:00 AM to 10:00 AM prospect's local time.
+**Sequence type:** Interval
+**Owner:** Steven (ID 11)
+**Sharing:** Private
+**Throttle:** maxAddsPerDay=150, throttleCapacity=200, maxActivations=200
 
 ---
 
-## Step 1 — Day 0 (74 words)
+# SEQUENCE A: Teachers (465 prospects)
+
+| Step | Content | Interval (seconds) | Interval (readable) | Target day |
+|------|---------|-------------------|---------------------|------------|
+| 1 | Opener | 240 | 4 minutes | — |
+| 2 | Info dump template | 440,100 | 5 days, 2 hours, 15 min | Tue/Wed/Thu |
+| 3 | Engagement + turn-key | 523,800 | 6 days, 1 hour, 30 min | Tue/Wed/Thu |
+| 4 | Esports + trial offer | 445,500 | 5 days, 3 hours, 45 min | Tue/Wed/Thu |
+| 5 | Budget + quote | 609,600 | 7 days, 1 hour, 20 min | Tue/Wed/Thu |
+| 6 | Breakup | 614,400 | 7 days, 2 hours, 40 min | Tue/Wed/Thu |
+
+**Total span:** ~30 days
+
+---
+
+### Step 1 — 4 minutes (74 words)
 
 **Subject:** {{first_name}}, coding at {{company}}
 
@@ -18,7 +38,7 @@
 
 You requested a CodeCombat license a while back. Wanted to check in and see if you're still exploring CS curriculum for your students.
 
-I work with teachers across {{state}} to build engaging coding classes K-12. With schools planning for fall right now, the timing might work well to revisit this.
+I work with teachers across {{state}} to build super engaging coding classes K-12. With schools planning for fall right now, the timing might work well to revisit this.
 
 Would it be worth sending over some info on what's new?
 
@@ -26,7 +46,15 @@ Would it be worth sending over some info on what's new?
 
 ---
 
-## Step 2 — Day 5 (105 words)
+### Step 2 — 5 days 2hr 15min
+
+**Subject:** CodeCombat's Comprehensive K-12 Suite
+
+[INSERT OUTREACH TEMPLATE: "New referral/info dump email 2026 DRAFT" - Template ID 43784]
+
+---
+
+### Step 3 — 6 days 1hr 30min (105 words)
 
 **Subject:** students who won't stop coding
 
@@ -36,13 +64,13 @@ Most CS tools get used for a unit and then collect dust. CodeCombat is the one t
 
 The whole platform was built with new teachers in mind. Zero-prep lesson slides with teacher guidance fully built out, robust unplugged activities, multiple ways to grade and assess, and a dashboard that's easy to manage. No coding experience needed to teach it.
 
-Worth a look: [codecombat.com/schools](https://codecombat.com/schools)
+[codecombat.com/schools](https://codecombat.com/schools)
 
 -Steven
 
 ---
 
-## Step 3 — Day 12 (95 words)
+### Step 4 — 5 days 3hr 45min (95 words)
 
 **Subject:** Chromebook esports?
 
@@ -60,15 +88,7 @@ I can set you up with a free 30-day trial. Worth trying?
 
 ---
 
-## Step 4 — Day 19
-
-**Subject:** CodeCombat's Comprehensive K-12 Suite
-
-[INSERT OUTREACH TEMPLATE: "New referral/info dump email 2026 DRAFT" - Template ID 43784]
-
----
-
-## Step 5 — Day 26 (103 words)
+### Step 5 — 7 days 1hr 20min (103 words)
 
 **Subject:** leftover budget idea for {{company}}
 
@@ -84,7 +104,7 @@ I can put one together for you. Here's my calendar if you want to walk through i
 
 ---
 
-## Step 6 — Day 33 (52 words)
+### Step 6 — 7 days 2hr 40min (52 words)
 
 **Subject:** closing the loop
 
@@ -102,11 +122,20 @@ If there's someone else I should connect with, I'd appreciate the intro.
 ---
 
 # SEQUENCE B: District/Admin Contacts (200 prospects)
-**Pacing:** 5 steps — Day 0, 5, 12, 19, 28
+
+| Step | Content | Interval (seconds) | Interval (readable) | Target day |
+|------|---------|-------------------|---------------------|------------|
+| 1 | Opener | 240 | 4 minutes | — |
+| 2 | Info dump template | 438,300 | 5 days, 1 hour, 45 min | Tue/Wed/Thu |
+| 3 | CS teacher problem | 527,400 | 6 days, 2 hours, 30 min | Tue/Wed/Thu |
+| 4 | Budget + quote | 609,300 | 7 days, 1 hour, 15 min | Tue/Wed/Thu |
+| 5 | Breakup / delegate | 616,800 | 7 days, 3 hours, 20 min | Tue/Wed/Thu |
+
+**Total span:** ~25 days
 
 ---
 
-## Step 1 — Day 0 (68 words)
+### Step 1 — 4 minutes (68 words)
 
 **Subject:** {{company}} + CodeCombat
 
@@ -122,7 +151,15 @@ Would it be worth sending over an overview?
 
 ---
 
-## Step 2 — Day 5 (112 words)
+### Step 2 — 5 days 1hr 45min
+
+**Subject:** CodeCombat's Comprehensive K-12 Suite
+
+[INSERT OUTREACH TEMPLATE: "New referral/info dump email 2026 DRAFT" - Template ID 43784]
+
+---
+
+### Step 3 — 6 days 2hr 30min (112 words)
 
 **Subject:** how {{state}} districts are solving the CS teacher problem
 
@@ -132,7 +169,7 @@ Would it be worth sending over an overview?
 
 CodeCombat was built for that. Every course has zero-prep lesson slides with full teacher guidance, built-in unplugged activities, multiple grading options, and a dashboard designed for educators who have never written a line of code. The curriculum covers K-12 in one platform and it's mapped to CSTA, ISTE, and state standards.
 
-One platform, one PO, one implementation instead of stitching together point solutions.
+One platform, one PO, one implementation. Plus CTE certification prep (PCEP) and the only educational coding esports leagues in the world.
 
 [codecombat.com/schools](https://codecombat.com/schools)
 
@@ -140,15 +177,7 @@ One platform, one PO, one implementation instead of stitching together point sol
 
 ---
 
-## Step 3 — Day 12
-
-**Subject:** CodeCombat's Comprehensive K-12 Suite
-
-[INSERT OUTREACH TEMPLATE: "New referral/info dump email 2026 DRAFT" - Template ID 43784]
-
----
-
-## Step 4 — Day 19 (101 words)
+### Step 4 — 7 days 1hr 15min (101 words)
 
 **Subject:** before your fall budget closes
 
@@ -156,7 +185,7 @@ One platform, one PO, one implementation instead of stitching together point sol
 
 With districts finalizing budgets, locking in curriculum adoptions, and allocating leftover funds, this is typically the window where CS program decisions get made for next year.
 
-If {{company}} is evaluating options, it might make sense to get a quote together now so you have the numbers in hand. CodeCombat also offers the only educational coding esports leagues in the world and CTE certification prep through the Python Institute (PCEP), which can help with CTE funding conversations.
+If {{company}} is evaluating options, it might make sense to get a quote together now so you have the numbers in hand. CodeCombat also offers CTE certification prep through the Python Institute (PCEP), which can help with CTE funding conversations.
 
 I can walk through pricing and how other {{state}} districts are structuring this: [Pick a time](https://hello.codecombat.com/c/steven/t/127)
 
@@ -164,7 +193,7 @@ I can walk through pricing and how other {{state}} districts are structuring thi
 
 ---
 
-## Step 5 — Day 28 (62 words)
+### Step 5 — 7 days 3hr 20min (62 words)
 
 **Subject:** should I be talking to someone else?
 
@@ -182,11 +211,21 @@ Happy to put together a quote or set up 30-day trial licenses for your teachers 
 ---
 
 # SEQUENCE C: Unknown Role — School Level (482 prospects)
-**Pacing:** 6 steps — Day 0, 5, 12, 19, 26, 33
+
+| Step | Content | Interval (seconds) | Interval (readable) | Target day |
+|------|---------|-------------------|---------------------|------------|
+| 1 | Opener | 240 | 4 minutes | — |
+| 2 | Info dump template | 441,900 | 5 days, 2 hours, 45 min | Tue/Wed/Thu |
+| 3 | Engagement + turn-key | 520,200 | 6 days, 0 hours, 30 min | Tue/Wed/Thu |
+| 4 | Trial offer | 448,200 | 5 days, 4 hours, 30 min | Tue/Wed/Thu |
+| 5 | Budget + quote | 611,400 | 7 days, 1 hour, 50 min | Tue/Wed/Thu |
+| 6 | Breakup | 612,600 | 7 days, 2 hours, 10 min | Tue/Wed/Thu |
+
+**Total span:** ~30 days
 
 ---
 
-## Step 1 — Day 0 (62 words)
+### Step 1 — 4 minutes (62 words)
 
 **Subject:** your CodeCombat request
 
@@ -202,7 +241,15 @@ Would it be worth sending over some info?
 
 ---
 
-## Step 2 — Day 5 (98 words)
+### Step 2 — 5 days 2hr 45min
+
+**Subject:** CodeCombat's Comprehensive K-12 Suite
+
+[INSERT OUTREACH TEMPLATE: "New referral/info dump email 2026 DRAFT" - Template ID 43784]
+
+---
+
+### Step 3 — 6 days 0hr 30min (98 words)
 
 **Subject:** the coding tool kids actually like
 
@@ -220,7 +267,7 @@ We also run the only educational coding esports leagues in the world, and offer 
 
 ---
 
-## Step 3 — Day 12 (84 words)
+### Step 4 — 5 days 4hr 30min (84 words)
 
 **Subject:** 30-day trial, no strings
 
@@ -236,15 +283,7 @@ If that's useful, just reply with your grade levels and I'll get it set up.
 
 ---
 
-## Step 4 — Day 19
-
-**Subject:** CodeCombat's Comprehensive K-12 Suite
-
-[INSERT OUTREACH TEMPLATE: "New referral/info dump email 2026 DRAFT" - Template ID 43784]
-
----
-
-## Step 5 — Day 26 (95 words)
+### Step 5 — 7 days 1hr 50min (95 words)
 
 **Subject:** leftover funds + fall planning
 
@@ -260,7 +299,7 @@ I can put one together for you: [Pick a time](https://hello.codecombat.com/c/ste
 
 ---
 
-## Step 6 — Day 33 (52 words)
+### Step 6 — 7 days 2hr 10min (52 words)
 
 **Subject:** last one from me
 
@@ -278,11 +317,20 @@ If there's someone else I should connect with, I'd appreciate the intro.
 ---
 
 # SEQUENCE D: Unknown Role — District Level (125 prospects)
-**Pacing:** 5 steps — Day 0, 5, 12, 19, 28
+
+| Step | Content | Interval (seconds) | Interval (readable) | Target day |
+|------|---------|-------------------|---------------------|------------|
+| 1 | Opener | 240 | 4 minutes | — |
+| 2 | Info dump template | 439,500 | 5 days, 2 hours, 5 min | Tue/Wed/Thu |
+| 3 | CS mandate angle | 525,600 | 6 days, 2 hours, 0 min | Tue/Wed/Thu |
+| 4 | Budget + quote | 607,800 | 7 days, 0 hours, 50 min | Tue/Wed/Thu |
+| 5 | Breakup / delegate | 615,000 | 7 days, 2 hours, 50 min | Tue/Wed/Thu |
+
+**Total span:** ~25 days
 
 ---
 
-## Step 1 — Day 0 (65 words)
+### Step 1 — 4 minutes (65 words)
 
 **Subject:** {{company}}'s CodeCombat request
 
@@ -298,7 +346,17 @@ Would it be worth sending over an overview?
 
 ---
 
-## Step 2 — Day 5 (108 words)
+### Step 2 — 5 days 2hr 5min
+
+**Subject:** CodeCombat's Comprehensive K-12 Suite
+
+[INSERT OUTREACH TEMPLATE: "New referral/info dump email 2026 DRAFT" - Template ID 43784]
+
+Add at the bottom: "Happy to set up 30-day trial licenses for your teachers so they can explore before any budget decisions. Just reply and I'll get that going."
+
+---
+
+### Step 3 — 6 days 2hr 0min (108 words)
 
 **Subject:** how {{state}} districts are handling the CS mandate
 
@@ -316,17 +374,7 @@ We also offer CTE certification prep (PCEP) and the only educational coding espo
 
 ---
 
-## Step 3 — Day 12
-
-**Subject:** CodeCombat's Comprehensive K-12 Suite
-
-[INSERT OUTREACH TEMPLATE: "New referral/info dump email 2026 DRAFT" - Template ID 43784]
-
-Add at the bottom: "Happy to set up 30-day trial licenses for your teachers so they can explore before any budget decisions. Just reply and I'll get that going."
-
----
-
-## Step 4 — Day 19 (90 words)
+### Step 4 — 7 days 0hr 50min (90 words)
 
 **Subject:** before your fall budget closes
 
@@ -342,7 +390,7 @@ I can walk through it here: [Pick a time](https://hello.codecombat.com/c/steven/
 
 ---
 
-## Step 5 — Day 28 (58 words)
+### Step 5 — 7 days 2hr 50min (58 words)
 
 **Subject:** should I be talking to someone else?
 
