@@ -1,15 +1,22 @@
 # SCOUT MASTER PLAN
-*Last updated: 2026-04-04 — Session 42*
+*Last updated: 2026-04-05 — Session 43*
 
 ---
 
-## YOU ARE HERE → Full A1-C5 roadmap COMPLETE. C2 verified live (4 districts, massive improvements). C5 proximity + ESA built and verified. All deployed to Railway. Next: trigger-based prospecting, C4 sequence automation, territory map, or new strategies.
+## YOU ARE HERE → C4 sequence automation DONE (1,119 prospects loaded into 4 Outreach sequences, first emails Tuesday). Trigger-based prospecting aggregator IN PROGRESS — research complete, GAS bridge enhanced, Gmail scanning infrastructure ready. Next: process 500+ Gmail signals into Signals Database, then build automated aggregator.
 
 ---
 
-## CURRENT FOCUS: Sequence Automation + Trigger-Based Prospecting
+## CURRENT FOCUS: Trigger-Based Prospecting Aggregator
 
-Next session starts with automating C4 sequence creation — but first re-validate the 1,274 C4 targets (data is from Session 37, may be stale). Then build trigger-based prospecting aggregator systems (new hire alerts, job postings, board meetings). Steven has many ideas for the aggregator architecture.
+**Where we stopped:** Research complete. GAS bridge enhanced with `search_inbox_full` (full email bodies + pagination). Verified working. 500+ emails ready to process (29 Google Alerts with 359 emails, 41 Burbio newsletters, 118 DOE/newsletter emails). Burbio content already extracted for most recent 8 newsletters (Mailchimp URLs fetched by agent).
+
+**Next session starts with:**
+1. Process all 500+ Gmail signals into a Signals Database (Google Sheet tab)
+2. Act on 6 territory-specific signals from Burbio (Dallas ISD $6.2B bond, Tulsa $200M bond, Marquette MI $60M, Somers CT K-12 AI committee, Acton-Boxborough MA STEAM coordinator, Seward NE $25M bond)
+3. Subscribe Steven to DOE newsletters for the 11 missing states (only has OK + TN currently)
+4. Enhance Google Alerts with additional keywords (buying signals, AI policy, bond measures, superintendent changes)
+5. Build automated aggregator on Railway (board meeting scraping, job posting monitoring, news monitoring)
 
 ---
 
@@ -201,17 +208,67 @@ Surviving prospects are added to the Prospecting Queue with email, first name, l
 
 ---
 
-## UP NEXT (no order decided — Steven picks)
+## COMPLETED: C4 Sequence Automation (Session 43)
 
-### Trigger-Based Prospecting
-- New hire alerts (CS Director / CTE Director hired = buying signal)
-- Job posting signals (district hiring CS teachers = expanding program)
-- Board meeting / news triggers (STEM initiative = intent signal)
-- From strategies 16-18 in the 24-strategy list
+### What was done
+- Enriched 1,274 C4 prospects: 2-pass enrichment (title, state, parent district, international detection)
+- Wrote 4 email sequences through 7 iterations with Steven's feedback
+- Created "C4 Tue-Thu Morning" Outreach schedule (ID 50): Tue/Wed/Thu 8-10 AM prospect local time
+- Created 4 sequences in Outreach via API (IDs 1995-1998)
+- Loaded 1,119 prospects (150 correctly rejected: opted out or already in another sequence)
+- Updated 135 prospect timezones in Outreach from state data
+- Fixed 11 CUE sequences that had "No schedule" delivery setting
 
-### Automate C4 Sequence Creation
-- Connect 1,274 cold license request targets to auto-built outreach sequences
-- C4 scan → sequence builder → Google Doc draft
+### Sequences
+| ID | Name | Prospects | Steps |
+|----|------|-----------|-------|
+| 1995 | C4 License Re-Engage — Teachers | 422 | 6 |
+| 1996 | C4 License Re-Engage — District/Admin | 184 | 5 |
+| 1997 | C4 License Re-Engage — School (General) | 403 | 6 |
+| 1998 | C4 License Re-Engage — District (General) | 110 | 5 |
+
+### Key learnings saved to memory
+- `feedback_sequence_copy_rules.md`: Steven's detailed rules for writing sequences
+- `feedback_sequence_iteration_learnings.md`: What was rejected/approved through 7 iterations (no sales cliches, lead with engagement not AI, specific subject lines, budget angles, etc.)
+
+---
+
+## IN PROGRESS: Trigger-Based Prospecting Aggregator
+
+### Research complete (Session 43)
+- K-12 buying signals ranked by conversion (bonds > leadership changes > board meetings > RFPs > job postings > grants)
+- Burbio deep dive: ~$4,500/yr, can replicate 60-70% for free
+- AI aggregator architecture patterns (auto-news GitHub, RSS+LLM pipeline)
+- MCP inventory: Apify, Tavily, JobSpy, RSS MCP, Twitter MCP, Puppeteer MCP
+- Full research saved to `docs/trigger_aggregator_research.md`
+
+### Infrastructure ready
+- GAS bridge enhanced with `search_inbox_full` (full email bodies + pagination)
+- Railway API token configured for local env var access
+- Gmail scanning verified: can read full content of all 500+ emails
+
+### Gmail signal sources discovered
+- 29 Google Alerts (359 weekly digests since mid-2025)
+- 41 Burbio newsletters from Dennis Roche (weekly since Mar 2025)
+- 118 DOE/newsletter emails (OK State Dept of Ed, TN STEM Innovation, OKEdTech, OKLibraries)
+- Only subscribed to OK + TN newsletters (11 states missing)
+
+### Territory-specific signals found in Burbio (need action)
+- Dallas ISD, TX: $6.2B bond with $144M tech upgrades
+- Tulsa Public Schools, OK: $200M+ bond (STEM labs, CTE, software)
+- Marquette Area Public Schools, MI: $60M bond (science labs, CTE)
+- Somers Public Schools, CT: Establishing K-12 AI Committees
+- Acton-Boxborough Regional, MA: Creating K-8 STEAM Coordinator + Robotics/Engineering position
+- Seward Public Schools, NE: $25M bond
+
+### Phase plan
+- **Phase 1 (next session):** Process all 500+ Gmail emails into Signals Database. Subscribe to 11 missing state DOE newsletters. Enhance Google Alerts. Act on 6 territory signals.
+- **Phase 2:** Build automated aggregator on Railway (board meeting scraping via BoardDocs/Parse.bot, job posting monitoring via JobSpy, news monitoring via Serper/Exa)
+- **Phase 3:** Bond measure tracking (Ballotpedia), leadership change monitoring, signal clustering + auto-scoring, RFP monitoring
+
+---
+
+## UP NEXT (after aggregator)
 
 ### Territory Map Visualization
 - Digital map of Steven's territory with pins for active accounts, pipeline, prospects, ESAs
@@ -242,10 +299,8 @@ Surviving prospects are added to the Prospecting Queue with email, first name, l
 - Until then, all code reading Active Accounts must check BOTH column names
 - **When:** Automatic on next CSV import — no action needed
 
-### Automate Sequence Creation for C4 Prospects
-- Once C4 is verified and producing clean results, automate building outreach sequences for the cold license request prospects
-- Would connect C4 scan → sequence builder → Google Doc draft
-- **When:** After C4 is fully verified and producing clean, trusted results
+### ~~Automate Sequence Creation for C4 Prospects~~ — DONE (Session 43)
+- Completed: 4 sequences created in Outreach, 1,119 prospects loaded
 
 ### Original C4 Concept: Track Outbound Non-Response
 - The original roadmap described C4 as "unresponsive leads" — tracking outbound contact attempts + detecting non-response
@@ -267,6 +322,9 @@ Surviving prospects are added to the Prospecting Queue with email, first name, l
 | 2026-03-29 | Outreach API: write access for sequences only | Steven wants to create sequences programmatically instead of manual copy/paste | Write scopes: sequences, sequenceSteps, sequenceStates, sequenceTemplates, templates, prospects. Do NOT write to other resources without approval. |
 | 2026-03-29 | Steven's territory: TX, CA-SoCal, IL, PA, OH, MI, CT, OK, MA, IN, NV, TN, NE | These are the 13 states from C1 Territory Master List | Must know this by heart — never ask again |
 | 2026-03-23 | Email domain > company name for location | Salesforce company names are self-reported, often wrong | `email_priority=True` in territory matching for C4 |
+| 2026-04-04 | C4 sequences: 4 buckets by role + entity type | Teachers, District/Admin, School(general), District(general). Enrichment got 53% title coverage. | 1,119 prospects loaded across 4 Outreach sequences |
+| 2026-04-04 | Outreach send schedule: Tue/Wed/Thu 8-10 AM | Research showed Tue-Thu morning optimal for educators. Prospect timezones set from state data. | C4 Tue-Thu Morning schedule (ID 50) |
+| 2026-04-05 | Build DIY Burbio alternative | Burbio costs ~$4,500/yr. Can replicate 60-70% free via BoardDocs scraping, Ballotpedia, job monitoring | 3-phase aggregator plan in docs/trigger_aggregator_research.md |
 | 2026-03-23 | Build domain→state from real SF data | Hardcoded lists can't capture all creative abbreviations | SF Leads/Contacts emails used as training data |
 | 2026-03-24 | Don't exclude unknown-state prospects yet | Need to verify state extraction works well first | Keep in queue for review, exclude later once confident |
 | 2026-03-24 | SCOUT_PLAN.md as living detailed plan | Steven needs visibility into where we are, what changed, and why | Updated every session, brief view in terminal/Telegram |

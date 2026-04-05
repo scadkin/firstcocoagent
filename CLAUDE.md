@@ -1,26 +1,28 @@
 # SCOUT — Claude Code Reference
-*Last updated: 2026-04-04 — Session 42*
+*Last updated: 2026-04-05 — Session 43*
 
 ---
 
 ## CURRENT STATE — update this after each session
 
-**Session 42: C2 verified live (4 districts, all massive improvements). C5 Proximity + ESA built and verified. Natural language research dispatch added. Parse.bot still down (server-side DNS).**
+**Session 43: C4 sequence automation COMPLETE (1,119 prospects loaded into 4 Outreach sequences, first emails Tuesday). Trigger-based prospecting aggregator IN PROGRESS — research done, GAS bridge enhanced, Gmail scanning ready. Next: process 500+ Gmail signals into Signals Database.**
 
-### What was done (Session 42)
-- **C2 live verification:** Tested 4 districts on Railway. Houston ISD: 8→82 contacts, 2→44 verified (+2,100%). Columbus: 29→90. Guthrie: 1→52. Leander: 11→31. Exa L16 is the MVP layer.
-- **C5: Proximity + ESA:** New module `tools/proximity_engine.py`. Targeted proximity search around one active account. ESA regional service center mapping using NCES Agency Type 4 data. Tested TX (20 ESCs), OH (100 ESAs), OK (graceful "no ESA" message).
-- **Natural language dispatch:** `research [district] in [state]`, `proximity [account]`, `esa [state]`, `add nearby 1,4,8` — all bypass Claude, route directly to execute_tool.
-- **ESA patterns expanded:** 11 → 78 entity name patterns from Steven's ROLES and KEYWORDS doc.
-- **Parse.bot investigated:** Server-side DNS failure on their scraper workers. Emailed + DM'd founder Alex. Parked until fixed.
-- **GitGuardian alert:** False positive — flagged "X-API-Key" header name (Parse.bot), not an actual secret.
+### What was done (Session 43)
+- **C4 Sequence Automation:** Enriched 1,274 prospects (title, state, parent district, international). Wrote 4 sequences through 7 iterations. Created 4 Outreach sequences (IDs 1995-1998). Loaded 1,119 prospects. Created "C4 Tue-Thu Morning" schedule (ID 50). Updated 135 prospect timezones. Fixed 11 CUE sequences with missing delivery schedules.
+- **Trigger Aggregator Research:** K-12 buying signals ranked (bonds > leadership > board meetings > RFPs > jobs > grants). Burbio deep dive (~$4,500/yr, can replicate 60-70% free). AI aggregator architecture patterns. MCP inventory (Apify, Tavily, JobSpy, RSS, Twitter, Puppeteer).
+- **GAS Bridge Enhancement:** Added `search_inbox_full` to Code.gs and gas_bridge.py — returns full email bodies with pagination, labels, message/thread IDs. Deployed and verified.
+- **Gmail Signal Discovery:** Found 29 Google Alerts (359 emails), 41 Burbio newsletters, 118 DOE/newsletter emails. Only subscribed to OK + TN newsletters (11 states missing).
+- **Railway API Access:** Configured Railway API token locally for pulling env vars without asking Steven.
 
 ### What still needs to be done
-- **Firecrawl paid plan** — Deferred (budget). L18/L19 skip gracefully. Circle back when budget allows.
-- **Parse.bot integration** — Waiting on their DNS fix. Was #1 discovery tool in eval.
-- **Trigger-based prospecting** — New hire alerts, job posting signals, board meeting intelligence (from strategies list)
-- **Automate C4 sequence creation** — Connect 1,274 cold license targets to auto-built sequences
-- **Territory map visualization** — Digital map of territory with account pins (future)
+- **Process 500+ Gmail signals** — Extract leads, districts, buying signals from Google Alerts, Burbio, DOE newsletters into a Signals Database
+- **Act on 6 Burbio territory signals** — Dallas $6.2B bond, Tulsa $200M bond, Marquette MI $60M, Somers CT AI committee, Acton-Boxborough MA STEAM coordinator, Seward NE $25M bond
+- **Subscribe to 11 missing state DOE newsletters** — Only have OK + TN
+- **Enhance Google Alerts** — Add buying signal keywords (bond measures, superintendent changes, AI policy)
+- **Build automated aggregator on Railway** — Board meeting scraping (BoardDocs), job posting monitoring (JobSpy), news monitoring (Serper/Exa)
+- **Firecrawl paid plan** — Deferred (budget). L18/L19 skip gracefully.
+- **Parse.bot integration** — Waiting on their DNS fix.
+- **Territory map visualization** — Future.
 - See `SCOUT_PLAN.md` for full roadmap
 
 ### Current status
@@ -44,6 +46,8 @@
 - Session transcript capture: ✅ set up (Session 36), numbering fixed (Session 39)
 - C2 Research Engine: ✅ upgraded + live verified (Session 42) — 20 layers, 3 indices, parallelized. Houston 8→82 contacts, 2→44 verified.
 - C5 Proximity + ESA: ✅ built + verified (Session 42) — targeted proximity, ESA mapping, add nearby command. Tested TX/OH/OK.
+- C4 Sequence Automation: ✅ (Session 43) — 4 sequences in Outreach (IDs 1995-1998), 1,119 prospects loaded. Tue/Wed/Thu 8-10 AM schedule. First emails fire Tuesday.
+- Trigger Aggregator Research: ✅ (Session 43) — Full research in `docs/trigger_aggregator_research.md`. GAS bridge enhanced with `search_inbox_full`.
 
 ### Other completed features
 - **Weekend scheduler (B1):** Sat 11am, Sun 1pm greeting. No auto check-ins. `/eod` works manually.
@@ -77,7 +81,7 @@
 - Merged output: `~/Downloads/My merged leads list - Including SoCal - as of 3-7-26.csv` (86,993 leads), contacts (19,775)
 - SoCal counties: Los Angeles, San Diego, Orange, Riverside, San Bernardino, Kern, Ventura, Santa Barbara, San Luis Obispo, Imperial
 
-### Outreach.io API (Sessions 34, 38)
+### Outreach.io API (Sessions 34, 38, 43)
 - Steven's user ID: **11**. OAuth app: "AI Coco Automation" (Development mode).
 - **Write access enabled (Session 38)** for: sequences, sequenceSteps, sequenceStates, sequenceTemplates, templates, prospects. Scoped to sequence creation — do not write to other resources without Steven's approval.
 - Tokens persist via GitHub (`memory/outreach_tokens.json`). Railway env vars: `OUTREACH_CLIENT_ID`, `OUTREACH_CLIENT_SECRET`, `OUTREACH_REDIRECT_URI`.
@@ -88,6 +92,12 @@
 - `sequenceStates` cannot be PATCHed (no resume via API). `sequenceSteps` need delete scope to remove.
 - Use `<br><br>` between paragraphs in bodyHtml, NOT `<p>` tags (Outreach renders `<p>` with no spacing).
 - Default settings for all sequences: owner=Steven (ID 11), sharing=private, throttleMaxAddsPerDay=150, throttleCapacity=200, maxActivations=200.
+- **Can PATCH sequences to change schedule** (Session 43). Set `relationships.schedule.data` to `{type: "schedule", id: <int>}`.
+- **Prospect timezone field is `timeZone`** (camelCase), not `timezone`. Can be PATCHed.
+- **Cannot read/write schedules via API** (needs `schedules.read`/`schedules.write` scopes we don't have). Steven creates/edits schedules in the Outreach UI.
+- **C4 sequences:** IDs 1995 (Teachers, 6 steps), 1996 (District/Admin, 5 steps), 1997 (School General, 6 steps), 1998 (District General, 5 steps). Schedule: "C4 Tue-Thu Morning" (ID 50).
+- **Steven's info dump template:** ID 43784 ("New referral/info dump email 2026 DRAFT"). Reuse via existing template ID when creating sequence steps.
+- **Steven's mailbox for sending:** steven@codecombat.com (ID 11).
 
 ### C4 Cold License Requests (Sessions 34-37) — VERIFIED
 - Strategy: "cold_license_request" — inbound license requests that went cold (no opp, no pricing sent).

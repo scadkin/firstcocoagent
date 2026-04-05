@@ -368,3 +368,13 @@
 | 2026-03-23 | Session 34: C4 spot-check found 5 issues: email domain ranking, SoCal detection, Claude prompt, student exclusion, lead-level columns. Documented in memory. | Issues |
 | 2026-03-23 | Session 34: Winback loss-reason context updated with actual data — 61% Unresponsive, 19% Budget, 5% Not using, 4% Turnover, 2% Competitor. | Context |
 | 2026-03-23 | Session 34: Product status saved — AI Junior = beta (NOT released), AI Algebra = launched, CyberSecurity = fall 2026. | Context |
+| 2026-04-04 | Session 43: C4 prospect enrichment — 2 passes (audit_c4_prospects.py, enrich_c4_titles.py, enrich_c4_pass2.py). 418 titles via Outreach/SF/Serper/Claude, 304 more via NCES/school websites. State, parent district, international detection. | Feature |
+| 2026-04-04 | Session 43: C4 sequence copy — 7 iterations with Steven. 4 entity-based sequences (Teachers, District Admin, School General, District General). All under 80/120 word limits. | Feature |
+| 2026-04-04 | Session 43: C4 Outreach sequences created — IDs 1995-1998 via create_c4_sequences.py. Schedule ID 50 "C4 Tue-Thu Morning" (Tue/Wed/Thu 8-10 AM). Template ID 43784 reused as Step 2. | Feature |
+| 2026-04-04 | Session 43: 1,119 C4 prospects loaded into Outreach sequences. 135 timezones updated via state mapping. 11 CUE sequences patched with missing delivery schedules. | Feature |
+| 2026-04-04 | Session 43: Outreach timeZone field is camelCase (not timezone) — bulk update initially returned 400 for all 1,166 prospects. | Bug Fix |
+| 2026-04-04 | Session 43: Trigger aggregator research — K-12 buying signals ranked, Burbio deep dive, AI aggregator architecture, MCP inventory. Full doc: docs/trigger_aggregator_research.md. | Research |
+| 2026-04-04 | Session 43: GAS bridge search_inbox_full added — full email bodies with pagination, labels, message/thread IDs. Code.gs + gas_bridge.py updated and deployed. | Feature |
+| 2026-04-04 | Session 43: Gmail signal inventory — 29 Google Alerts (359 emails), 41 Burbio newsletters, 118 DOE/newsletter emails. Only OK + TN subscribed (11 states missing). | Discovery |
+| 2026-04-04 | Session 43: Railway API access configured — team token for pulling env vars programmatically. Project/env/service IDs saved to memory. | Feature |
+| 2026-04-04 | Session 43: Sequence copy rules saved to memory — Steven's detailed feedback on tone, length, CTAs, subject lines, pacing, anti-fabrication. | Context |
