@@ -1,0 +1,1341 @@
+{
+  "states_added": 15,
+  "parents_added": 13,
+  "titles_added": 304,
+  "international": 2,
+  "total_updated": 380,
+  "international_list": [
+    "fgm.dremos@gmail.com | Fairview Glen Montessori School | INTL:Canada",
+    "jessica.fountain@howlettacademy.com | Howlett Academy | INTL:Canada"
+  ],
+  "updates": {
+    "255": {},
+    "304": {
+      "title": "Homeschool Parent/Teacher",
+      "role": "teacher"
+    },
+    "308": {},
+    "285": {
+      "title": "Teacher",
+      "role": "teacher",
+      "Parent District": "Fusion Academy"
+    },
+    "303": {},
+    "263": {},
+    "252": {
+      "title": "Homeschool Parent/Teacher",
+      "role": "teacher"
+    },
+    "314": {
+      "title": "Teacher",
+      "role": "teacher",
+      "Parent District": "Cossa Academy"
+    },
+    "309": {},
+    "271": {
+      "State": "WA",
+      "title": "Teacher",
+      "role": "teacher",
+      "Parent District": "Valley Christian School"
+    },
+    "337": {},
+    "443": {
+      "State": "VA",
+      "title": "Homeschool Community Staff",
+      "role": "admin",
+      "Parent District": "ASK Homeschool Community"
+    },
+    "422": {
+      "State": "CT",
+      "title": "Instructor/Staff",
+      "role": "teacher",
+      "Parent District": "MacInspires"
+    },
+    "372": {},
+    "390": {
+      "Parent District": "Quantum Studios Institute for Technology",
+      "title": "Coding Instructor (former)",
+      "role": "teacher"
+    },
+    "346": {},
+    "328": {
+      "title": "Homeschool Parent/Teacher",
+      "role": "teacher"
+    },
+    "452": {},
+    "449": {},
+    "364": {
+      "title": "Homeschool Parent/Teacher",
+      "role": "teacher",
+      "Parent District": "Bi-County Special Educ Coop"
+    },
+    "491": {
+      "State": "MO",
+      "title": "CEO",
+      "role": "admin"
+    },
+    "459": {
+      "State": "CA",
+      "title": "Teacher",
+      "role": "teacher"
+    },
+    "526": {},
+    "537": {},
+    "567": {
+      "State": "AZ",
+      "title": "Teacher",
+      "role": "teacher",
+      "Parent District": "Mesa Public Schools"
+    },
+    "580": {},
+    "482": {},
+    "576": {},
+    "603": {
+      "title": "Teacher",
+      "role": "teacher"
+    },
+    "595": {},
+    "612": {
+      "State": "OR",
+      "title": "First Grade Teacher",
+      "role": "teacher",
+      "Parent District": "Hermiston School District #8R"
+    },
+    "619": {
+      "title": "PLTW Teacher",
+      "role": "teacher"
+    },
+    "629": {},
+    "667": {},
+    "639": {
+      "State": "TX",
+      "title": "AVID Teacher",
+      "role": "teacher",
+      "Parent District": "Plano ISD"
+    },
+    "624": {},
+    "671": {},
+    "698": {},
+    "763": {
+      "title": "Teacher",
+      "role": "teacher"
+    },
+    "783": {},
+    "822": {},
+    "715": {},
+    "829": {
+      "international": "INTL:Canada",
+      "title": "Junior High Teacher",
+      "role": "teacher"
+    },
+    "830": {},
+    "820": {},
+    "747": {},
+    "824": {
+      "State": "MA",
+      "title": "Virtual Teacher",
+      "role": "teacher"
+    },
+    "831": {
+      "State": "MN"
+    },
+    "845": {
+      "international": "INTL:Canada"
+    },
+    "884": {},
+    "885": {},
+    "895": {},
+    "936": {
+      "title": "Teacher",
+      "role": "teacher"
+    },
+    "926": {},
+    "953": {},
+    "939": {},
+    "964": {},
+    "970": {},
+    "971": {
+      "State": "CO",
+      "title": "Teacher",
+      "role": "teacher",
+      "Parent District": "St. Vrain Valley Schools"
+    },
+    "998": {},
+    "1053": {},
+    "1020": {},
+    "997": {
+      "Parent District": "Lawrence County Independent Schools"
+    },
+    "1011": {},
+    "1033": {},
+    "1005": {},
+    "1052": {},
+    "1057": {},
+    "1058": {},
+    "1062": {},
+    "1090": {},
+    "1135": {},
+    "1141": {
+      "State": "TN"
+    },
+    "1139": {},
+    "1063": {
+      "State": "GA"
+    },
+    "1130": {
+      "title": "Coding Instructor",
+      "role": "teacher"
+    },
+    "1134": {},
+    "1087": {},
+    "1149": {},
+    "1152": {},
+    "1177": {},
+    "1158": {},
+    "1155": {
+      "title": "Homeschool Parent/Teacher",
+      "role": "teacher"
+    },
+    "1211": {},
+    "1160": {},
+    "1190": {
+      "title": "Homeschool Parent/Teacher",
+      "role": "teacher"
+    },
+    "1226": {},
+    "1264": {
+      "title": "Homeschool Parent/Teacher",
+      "role": "teacher"
+    },
+    "1244": {
+      "State": "OK",
+      "title": "Founder/Administrator",
+      "role": "admin"
+    },
+    "1304": {},
+    "1354": {},
+    "1176": {},
+    "1358": {},
+    "1265": {},
+    "1283": {},
+    "1328": {
+      "State": "NY",
+      "title": "Market Manager",
+      "role": "admin"
+    },
+    "1380": {
+      "title": "Homeschool Parent/Teacher",
+      "role": "teacher"
+    },
+    "1371": {},
+    "1414": {},
+    "1393": {
+      "title": "Homeschool Parent/Teacher",
+      "role": "teacher"
+    },
+    "1464": {
+      "title": "Homeschool Parent/Educator",
+      "role": "teacher"
+    },
+    "1437": {
+      "title": "Forest School Educator",
+      "role": "teacher"
+    },
+    "1477": {
+      "title": "Library Staff",
+      "role": "library_contact"
+    },
+    "1491": {},
+    "1485": {},
+    "1430": {
+      "title": "Homeschool Parent/Educator",
+      "role": "teacher"
+    },
+    "1504": {},
+    "1466": {
+      "title": "Homeschool Parent/Educator",
+      "role": "teacher"
+    },
+    "1496": {
+      "Parent District": "Trinity HS"
+    },
+    "1517": {},
+    "1509": {},
+    "260": {
+      "title": "Drone & Robotics Teacher",
+      "role": "teacher"
+    },
+    "280": {
+      "title": "Business Education Teacher",
+      "role": "teacher"
+    },
+    "277": {
+      "title": "Computer Science Teacher",
+      "role": "teacher"
+    },
+    "274": {
+      "title": "First Grade Teacher",
+      "role": "teacher"
+    },
+    "286": {
+      "title": "Computer Science Teacher",
+      "role": "teacher"
+    },
+    "290": {
+      "title": "Interventionist Teacher",
+      "role": "teacher"
+    },
+    "291": {
+      "title": "5th Grade Teacher",
+      "role": "teacher"
+    },
+    "319": {
+      "title": "Elementary Science/Social Studies Teacher",
+      "role": "teacher"
+    },
+    "358": {
+      "title": "Mathematics Teacher",
+      "role": "teacher"
+    },
+    "344": {
+      "title": "Career and Technology Teacher",
+      "role": "teacher"
+    },
+    "362": {
+      "title": "Classroom Teacher",
+      "role": "teacher"
+    },
+    "368": {
+      "title": "Code Ninjas Owner",
+      "role": "admin"
+    },
+    "391": {
+      "title": "Math Teacher",
+      "role": "teacher"
+    },
+    "417": {
+      "title": "Teacher",
+      "role": "teacher"
+    },
+    "419": {
+      "title": "CTE/SkillsUSA Advisor",
+      "role": "teacher"
+    },
+    "424": {
+      "title": "Instructional Technology eCoach",
+      "role": "district_contact"
+    },
+    "425": {
+      "title": "Wellness/PE Teacher",
+      "role": "teacher"
+    },
+    "429": {
+      "title": "Science Teacher",
+      "role": "teacher"
+    },
+    "433": {
+      "title": "Science Teacher",
+      "role": "teacher"
+    },
+    "435": {
+      "title": "Teacher",
+      "role": "teacher"
+    },
+    "437": {
+      "title": "5th-8th Grade Math & Science Teacher",
+      "role": "teacher"
+    },
+    "441": {
+      "title": "Middle & Upper School Faculty",
+      "role": "teacher"
+    },
+    "469": {
+      "title": "High School Teacher",
+      "role": "teacher"
+    },
+    "481": {
+      "title": "Teacher",
+      "role": "teacher"
+    },
+    "492": {
+      "title": "Lead Teacher",
+      "role": "teacher"
+    },
+    "485": {
+      "title": "Google Console Coordinator",
+      "role": "district_contact"
+    },
+    "498": {
+      "title": "Computer & Robotics Teacher",
+      "role": "teacher"
+    },
+    "505": {
+      "title": "STEAM & Religion Teacher",
+      "role": "teacher"
+    },
+    "519": {
+      "title": "Technology Teacher",
+      "role": "teacher"
+    },
+    "529": {
+      "title": "Teacher on Special Assignment",
+      "role": "teacher"
+    },
+    "532": {
+      "title": "Academic Technologist",
+      "role": "teacher"
+    },
+    "541": {
+      "title": "Elementary Teacher",
+      "role": "teacher"
+    },
+    "544": {
+      "title": "ELA Teacher",
+      "role": "teacher"
+    },
+    "543": {
+      "title": "Social Studies Teacher",
+      "role": "teacher"
+    },
+    "551": {
+      "title": "Digital Media Arts Teacher",
+      "role": "teacher"
+    },
+    "548": {
+      "title": "Teacher",
+      "role": "teacher"
+    },
+    "552": {
+      "title": "Business/Yearbook Teacher",
+      "role": "teacher"
+    },
+    "578": {
+      "title": "Middle School Soccer Coach",
+      "role": "teacher"
+    },
+    "606": {
+      "title": "Principal",
+      "role": "admin"
+    },
+    "614": {
+      "title": "Gifted Education Teacher",
+      "role": "teacher"
+    },
+    "608": {
+      "title": "Chemistry Teacher",
+      "role": "teacher"
+    },
+    "626": {
+      "title": "Teacher",
+      "role": "teacher"
+    },
+    "621": {
+      "title": "8th Grade ELA Teacher",
+      "role": "teacher"
+    },
+    "633": {
+      "title": "Tech Support/Instructional Aide/Computers",
+      "role": "teacher"
+    },
+    "651": {
+      "title": "Math/Writing Lab/Technology Teacher",
+      "role": "teacher"
+    },
+    "657": {
+      "title": "PK-4th Grade Engineering Teacher",
+      "role": "teacher"
+    },
+    "659": {
+      "title": "ELL Language Arts Teacher",
+      "role": "teacher"
+    },
+    "664": {
+      "title": "Clerk",
+      "role": "admin"
+    },
+    "670": {
+      "title": "Technology Facilitator/Coach",
+      "role": "teacher"
+    },
+    "669": {
+      "title": "Computer Science Teacher",
+      "role": "teacher"
+    },
+    "688": {
+      "title": "Library Media Teacher",
+      "role": "library_contact"
+    },
+    "699": {
+      "title": "Marketing & Business Education Teacher",
+      "role": "teacher"
+    },
+    "697": {
+      "title": "Classroom Teacher",
+      "role": "teacher"
+    },
+    "701": {
+      "title": "8th Grade Math Teacher",
+      "role": "teacher"
+    },
+    "711": {
+      "title": "3rd Grade ESL Teacher",
+      "role": "teacher"
+    },
+    "707": {
+      "title": "Director of Curriculum and Literacy Development",
+      "role": "district_contact"
+    },
+    "705": {
+      "title": "Digital Animation Teacher",
+      "role": "teacher"
+    },
+    "713": {
+      "title": "Learning Commons Director",
+      "role": "library_contact"
+    },
+    "718": {
+      "title": "High School Business, Computers and Information Technology Teacher",
+      "role": "teacher"
+    },
+    "727": {
+      "title": "Science Teacher and STEM Coordinator",
+      "role": "teacher"
+    },
+    "730": {
+      "title": "Robotics Sponsor/Teacher",
+      "role": "teacher"
+    },
+    "734": {
+      "title": "Information Systems Technology Instructor",
+      "role": "teacher"
+    },
+    "735": {
+      "title": "Business/Computer Teacher",
+      "role": "teacher"
+    },
+    "739": {
+      "title": "Director of Auxiliary Programs",
+      "role": "admin"
+    },
+    "738": {
+      "title": "CTE Business Teacher",
+      "role": "teacher"
+    },
+    "746": {
+      "title": "Technology Teacher",
+      "role": "teacher"
+    },
+    "744": {
+      "title": "District Supervisor",
+      "role": "district_contact"
+    },
+    "743": {
+      "title": "Network Administrator",
+      "role": "district_contact"
+    },
+    "750": {
+      "title": "Science Teacher",
+      "role": "teacher"
+    },
+    "751": {
+      "title": "Special Education Teacher",
+      "role": "teacher"
+    },
+    "762": {
+      "title": "Club Sponsor/Teacher",
+      "role": "teacher"
+    },
+    "754": {
+      "title": "5th Grade Teacher / Coach",
+      "role": "teacher"
+    },
+    "760": {
+      "title": "Co-Founder and Director",
+      "role": "district_contact"
+    },
+    "770": {
+      "title": "Technology Applications Teacher",
+      "role": "teacher"
+    },
+    "772": {
+      "title": "English/Computer Science Teacher",
+      "role": "teacher"
+    },
+    "779": {
+      "title": "CTE Graphic Design Teacher",
+      "role": "teacher"
+    },
+    "778": {
+      "title": "Librarian",
+      "role": "library_contact"
+    },
+    "786": {
+      "title": "Faculty/Researcher",
+      "role": "teacher"
+    },
+    "777": {
+      "title": "Computers/Media Graphics Teacher",
+      "role": "teacher"
+    },
+    "789": {
+      "title": "STEM Teacher",
+      "role": "teacher"
+    },
+    "782": {
+      "title": "Teacher",
+      "role": "teacher"
+    },
+    "796": {
+      "title": "English Teacher",
+      "role": "teacher"
+    },
+    "790": {
+      "title": "MTSS Team Member",
+      "role": "district_contact"
+    },
+    "798": {
+      "title": "Teacher",
+      "role": "teacher"
+    },
+    "805": {
+      "title": "Science Teacher",
+      "role": "teacher"
+    },
+    "813": {
+      "title": "IT Coordinator",
+      "role": "district_contact"
+    },
+    "811": {
+      "title": "Technology Teacher",
+      "role": "teacher"
+    },
+    "823": {
+      "title": "Tennis Coach/Teacher",
+      "role": "teacher"
+    },
+    "818": {
+      "title": "High School Computer Teacher",
+      "role": "teacher"
+    },
+    "825": {
+      "title": "STEM Lab & IT Support",
+      "role": "teacher"
+    },
+    "826": {
+      "title": "Language Arts Teacher",
+      "role": "teacher"
+    },
+    "827": {
+      "title": "Education Technology Lead",
+      "role": "district_contact"
+    },
+    "833": {
+      "title": "Assistant Principal",
+      "role": "admin"
+    },
+    "838": {
+      "title": "HS Science & Instructional Coach",
+      "role": "teacher"
+    },
+    "836": {
+      "title": "Computer Science Teacher",
+      "role": "teacher"
+    },
+    "835": {
+      "title": "Computer Science Teacher",
+      "role": "teacher"
+    },
+    "848": {
+      "title": "Science & PLTW Teacher",
+      "role": "teacher"
+    },
+    "846": {
+      "title": "Fifth Grade Teacher",
+      "role": "teacher"
+    },
+    "851": {
+      "title": "Teacher",
+      "role": "teacher"
+    },
+    "863": {
+      "title": "Business Teacher",
+      "role": "teacher"
+    },
+    "862": {
+      "title": "CTE Engineering Design Teacher",
+      "role": "teacher"
+    },
+    "865": {
+      "title": "Math Teacher",
+      "role": "teacher"
+    },
+    "868": {
+      "title": "Computer Skills & Keyboarding Teacher",
+      "role": "teacher"
+    },
+    "872": {
+      "title": "CTE Career Development Teacher",
+      "role": "teacher"
+    },
+    "874": {
+      "title": "Robotics Teacher",
+      "role": "teacher"
+    },
+    "881": {
+      "title": "Co-Founder & Director of High School",
+      "role": "admin"
+    },
+    "875": {
+      "title": "Gifted Facilitator",
+      "role": "teacher"
+    },
+    "891": {
+      "title": "Information Technology Instructor",
+      "role": "teacher"
+    },
+    "906": {
+      "title": "Technology Teacher",
+      "role": "teacher"
+    },
+    "914": {
+      "title": "Resource Teacher",
+      "role": "teacher"
+    },
+    "918": {
+      "title": "Middle School Teacher",
+      "role": "teacher"
+    },
+    "916": {
+      "title": "PLTW Teacher",
+      "role": "teacher"
+    },
+    "919": {
+      "title": "Middle School Teacher",
+      "role": "teacher"
+    },
+    "920": {
+      "title": "Instructional Technology Teacher",
+      "role": "teacher"
+    },
+    "922": {
+      "title": "Computer Lab Teacher",
+      "role": "teacher"
+    },
+    "928": {
+      "title": "CTE Computer Science Teacher",
+      "role": "teacher"
+    },
+    "930": {
+      "title": "Technology Teacher",
+      "role": "teacher"
+    },
+    "931": {
+      "title": "Science & GT Teacher / UIL Coordinator",
+      "role": "teacher"
+    },
+    "932": {
+      "title": "CTE Teacher",
+      "role": "teacher"
+    },
+    "949": {
+      "title": "Computer Teacher",
+      "role": "teacher"
+    },
+    "946": {
+      "title": "AVID/Pathways in Technology Teacher",
+      "role": "teacher"
+    },
+    "961": {
+      "title": "Teacher",
+      "role": "teacher"
+    },
+    "959": {
+      "title": "Class Sponsor/Teacher",
+      "role": "teacher"
+    },
+    "960": {
+      "title": "High School Principal and Superintendent",
+      "role": "admin"
+    },
+    "974": {
+      "title": "Middle School Teacher",
+      "role": "teacher"
+    },
+    "972": {
+      "title": "Teacher",
+      "role": "teacher"
+    },
+    "969": {
+      "title": "STEAM Teacher",
+      "role": "teacher"
+    },
+    "968": {
+      "title": "Teacher",
+      "role": "teacher"
+    },
+    "983": {
+      "title": "Technical Support Specialist",
+      "role": "district_contact"
+    },
+    "982": {
+      "title": "Business Teacher and Basketball Coach",
+      "role": "teacher"
+    },
+    "985": {
+      "title": "Technology Teacher",
+      "role": "teacher"
+    },
+    "989": {
+      "title": "Computer Science Teacher",
+      "role": "teacher"
+    },
+    "990": {
+      "title": "Middle School Teacher (Esports/Robotics Sponsor)",
+      "role": "teacher"
+    },
+    "1000": {
+      "title": "Media/Technology Specialist",
+      "role": "library_contact"
+    },
+    "1001": {
+      "title": "Career Tech Teacher",
+      "role": "teacher"
+    },
+    "999": {
+      "title": "Computer Science/Cybersecurity CTE Teacher",
+      "role": "teacher"
+    },
+    "1009": {
+      "title": "Elementary Computers/STEM Teacher",
+      "role": "teacher"
+    },
+    "1008": {
+      "title": "Elementary Teacher",
+      "role": "teacher"
+    },
+    "1016": {
+      "title": "Golf Coach",
+      "role": "teacher"
+    },
+    "1018": {
+      "title": "CTE Engineering and Math Teacher",
+      "role": "teacher"
+    },
+    "1027": {
+      "title": "3rd Grade Teacher",
+      "role": "teacher"
+    },
+    "1022": {
+      "title": "Lead Upper Elementary Teacher",
+      "role": "teacher"
+    },
+    "1031": {
+      "title": "Teacher",
+      "role": "teacher"
+    },
+    "1042": {
+      "title": "Math Teacher",
+      "role": "teacher"
+    },
+    "1034": {
+      "title": "Library Associate",
+      "role": "library_contact"
+    },
+    "1038": {
+      "title": "Teacher",
+      "role": "teacher"
+    },
+    "1043": {
+      "title": "Teacher",
+      "role": "teacher"
+    },
+    "1046": {
+      "title": "4th Grade Teacher",
+      "role": "teacher"
+    },
+    "1036": {
+      "title": "AP Computer Science Teacher",
+      "role": "teacher"
+    },
+    "1048": {
+      "title": "High School Science Teacher",
+      "role": "teacher"
+    },
+    "1047": {
+      "title": "Director of Technology",
+      "role": "district_contact"
+    },
+    "1061": {
+      "title": "English/CTE Teacher & E-Sports Coach",
+      "role": "teacher"
+    },
+    "1064": {
+      "title": "Superintendent",
+      "role": "district_contact"
+    },
+    "1070": {
+      "title": "Fifth Grade Teacher",
+      "role": "teacher"
+    },
+    "1074": {
+      "title": "Technology Coach",
+      "role": "district_contact"
+    },
+    "1076": {
+      "title": "Business, Marketing & Information Technology Teacher",
+      "role": "teacher"
+    },
+    "1082": {
+      "title": "Education Technician",
+      "role": "teacher"
+    },
+    "1084": {
+      "title": "Art, Yearbook & Technology Teacher",
+      "role": "teacher"
+    },
+    "1085": {
+      "title": "Teacher",
+      "role": "teacher"
+    },
+    "1094": {
+      "title": "Middle School Teacher",
+      "role": "teacher"
+    },
+    "1095": {
+      "title": "Teacher",
+      "role": "teacher"
+    },
+    "1099": {
+      "title": "Technology Education/STEM Teacher",
+      "role": "teacher"
+    },
+    "1088": {
+      "title": "Middle School Teacher",
+      "role": "teacher"
+    },
+    "1106": {
+      "title": "Media Services Specialist",
+      "role": "library_contact"
+    },
+    "1112": {
+      "title": "Teacher",
+      "role": "teacher"
+    },
+    "1111": {
+      "title": "ELA/Math Teacher",
+      "role": "teacher"
+    },
+    "1104": {
+      "title": "Computer Teacher",
+      "role": "teacher"
+    },
+    "1115": {
+      "title": "Teaching as a Profession / FCCLA Teacher",
+      "role": "teacher"
+    },
+    "1101": {
+      "title": "Middle School Teacher",
+      "role": "teacher"
+    },
+    "1120": {
+      "title": "Specialist or Paraprofessional",
+      "role": "teacher"
+    },
+    "1116": {
+      "title": "Gateways Teacher (8th Grade Integrated)",
+      "role": "teacher"
+    },
+    "1132": {
+      "title": "Business, Marketing & Information Technology Teacher",
+      "role": "teacher"
+    },
+    "1133": {
+      "title": "Summer Program Instructor",
+      "role": "teacher"
+    },
+    "1138": {
+      "title": "Computer Teacher",
+      "role": "teacher"
+    },
+    "1144": {
+      "title": "Business & Computer Science Department Chair / International Student Coordinator",
+      "role": "teacher"
+    },
+    "1137": {
+      "title": "Career & Life Skills Coach",
+      "role": "teacher"
+    },
+    "1140": {
+      "title": "Information Technology Instructor",
+      "role": "teacher"
+    },
+    "1150": {
+      "title": "Mathematics Teacher",
+      "role": "teacher"
+    },
+    "1154": {
+      "title": "Technology Teacher",
+      "role": "teacher"
+    },
+    "1167": {
+      "title": "CTE / Technology / Drones Teacher",
+      "role": "teacher"
+    },
+    "1173": {
+      "title": "Computer Science Teacher",
+      "role": "teacher"
+    },
+    "1172": {
+      "title": "Technology Coordinator",
+      "role": "district_contact"
+    },
+    "1188": {
+      "title": "Middle School Teacher",
+      "role": "teacher"
+    },
+    "1184": {
+      "title": "Technology Coordinator",
+      "role": "district_contact"
+    },
+    "1180": {
+      "title": "ESL Teacher",
+      "role": "teacher"
+    },
+    "1192": {
+      "title": "CTE Career Connections/Computer Science Teacher",
+      "role": "teacher"
+    },
+    "1194": {
+      "title": "High School Science Teacher",
+      "role": "teacher"
+    },
+    "1204": {
+      "title": "Computer Science Teacher",
+      "role": "teacher"
+    },
+    "1210": {
+      "title": "Computers/Music Teacher",
+      "role": "teacher"
+    },
+    "1216": {
+      "title": "GT Teacher",
+      "role": "teacher"
+    },
+    "1198": {
+      "title": "STEM Teacher/Robotics Coach",
+      "role": "teacher"
+    },
+    "1213": {
+      "title": "Science Teacher",
+      "role": "teacher"
+    },
+    "1224": {
+      "title": "Technology Coordinator",
+      "role": "district_contact"
+    },
+    "1228": {
+      "title": "Technology Education Teacher",
+      "role": "teacher"
+    },
+    "1240": {
+      "title": "Butler Tech Teacher",
+      "role": "teacher"
+    },
+    "1247": {
+      "title": "Lead Computer Information Systems Instructor",
+      "role": "teacher"
+    },
+    "1245": {
+      "title": "Science Teacher",
+      "role": "teacher"
+    },
+    "1255": {
+      "title": "Teacher",
+      "role": "teacher"
+    },
+    "1250": {
+      "title": "Teacher",
+      "role": "teacher"
+    },
+    "1248": {
+      "title": "Associate Professor & MBA Program Director",
+      "role": "teacher"
+    },
+    "1241": {
+      "title": "Instructional Technology Specialist",
+      "role": "teacher"
+    },
+    "1259": {
+      "title": "Science Teacher (5th-8th Grade)",
+      "role": "teacher"
+    },
+    "1269": {
+      "title": "Encore STEAM Teacher (K-12)",
+      "role": "teacher"
+    },
+    "1271": {
+      "title": "K-12 Instructor",
+      "role": "teacher"
+    },
+    "1274": {
+      "title": "Business Teacher",
+      "role": "teacher"
+    },
+    "1276": {
+      "title": "Computer Science Teacher",
+      "role": "teacher"
+    },
+    "1275": {
+      "title": "Social Studies Teacher",
+      "role": "teacher"
+    },
+    "1273": {
+      "title": "Teacher",
+      "role": "teacher"
+    },
+    "1300": {
+      "title": "Teacher",
+      "role": "teacher"
+    },
+    "1291": {
+      "title": "Innovation Lab Coordinator",
+      "role": "teacher"
+    },
+    "1311": {
+      "title": "Computer Teacher",
+      "role": "teacher"
+    },
+    "1314": {
+      "title": "CTE Teacher (Technology Applications, Computer Graphics, Robotics & Web Communications)",
+      "role": "teacher"
+    },
+    "1316": {
+      "title": "Science Teacher",
+      "role": "teacher"
+    },
+    "1324": {
+      "title": "Teacher",
+      "role": "teacher"
+    },
+    "1327": {
+      "title": "Senior Librarian - Virtual Services",
+      "role": "library_contact"
+    },
+    "1335": {
+      "title": "Instructional Technology Teacher",
+      "role": "teacher"
+    },
+    "1339": {
+      "title": "Speech-Language Pathologist",
+      "role": "teacher"
+    },
+    "1329": {
+      "title": "Computer Science/Robotics Teacher",
+      "role": "teacher"
+    },
+    "1336": {
+      "title": "Computer Lab Teacher",
+      "role": "teacher"
+    },
+    "1332": {
+      "title": "Teacher",
+      "role": "teacher"
+    },
+    "1337": {
+      "title": "CTE Computer Science Teacher",
+      "role": "teacher"
+    },
+    "1344": {
+      "title": "Librarian",
+      "role": "library_contact"
+    },
+    "1342": {
+      "title": "CTE Computer Science Teacher",
+      "role": "teacher"
+    },
+    "1353": {
+      "title": "Training and Support Coordinator - Computer Science",
+      "role": "district_contact"
+    },
+    "1349": {
+      "title": "Teacher",
+      "role": "teacher"
+    },
+    "1347": {
+      "title": "Technology Applications Teacher/Coach",
+      "role": "teacher"
+    },
+    "1346": {
+      "title": "Cybersecurity Faculty",
+      "role": "teacher"
+    },
+    "1361": {
+      "title": "Computer Science Teacher",
+      "role": "teacher"
+    },
+    "1366": {
+      "title": "Teacher",
+      "role": "teacher"
+    },
+    "1368": {
+      "title": "Teacher",
+      "role": "teacher"
+    },
+    "1374": {
+      "title": "Technology Applications Teacher",
+      "role": "teacher"
+    },
+    "1378": {
+      "title": "Computer Science Teacher",
+      "role": "teacher"
+    },
+    "1375": {
+      "title": "Teacher/Athletic Director",
+      "role": "teacher"
+    },
+    "1385": {
+      "title": "STEM Teacher",
+      "role": "teacher"
+    },
+    "1389": {
+      "title": "Teacher",
+      "role": "teacher"
+    },
+    "1391": {
+      "title": "Computer Science Teacher",
+      "role": "teacher"
+    },
+    "1397": {
+      "title": "Science Teacher",
+      "role": "teacher"
+    },
+    "1400": {
+      "title": "Teacher",
+      "role": "teacher"
+    },
+    "1401": {
+      "title": "Coach/Teacher",
+      "role": "teacher"
+    },
+    "1408": {
+      "title": "Business & Technology Teacher",
+      "role": "teacher"
+    },
+    "1411": {
+      "title": "Media Specialist",
+      "role": "library_contact"
+    },
+    "1409": {
+      "title": "STEM Coordinator/Athletics Director",
+      "role": "district_contact"
+    },
+    "1405": {
+      "title": "Career Technology Teacher",
+      "role": "teacher"
+    },
+    "1416": {
+      "title": "Integrated Technology Teacher",
+      "role": "teacher"
+    },
+    "1424": {
+      "title": "Mathematics Teacher",
+      "role": "teacher"
+    },
+    "1420": {
+      "title": "5th and 6th Grade Teacher",
+      "role": "teacher"
+    },
+    "1436": {
+      "title": "Teacher",
+      "role": "teacher"
+    },
+    "1431": {
+      "title": "Multimedia Teacher",
+      "role": "teacher"
+    },
+    "1443": {
+      "title": "JH & HS Special Education Teacher",
+      "role": "teacher"
+    },
+    "1446": {
+      "title": "MYP French Teacher",
+      "role": "teacher"
+    },
+    "1462": {
+      "title": "Business Teacher",
+      "role": "teacher"
+    },
+    "1463": {
+      "title": "Teacher",
+      "role": "teacher"
+    },
+    "1468": {
+      "title": "Mathematics & STEM Teacher",
+      "role": "teacher"
+    },
+    "1467": {
+      "title": "Instructional Aide",
+      "role": "teacher"
+    },
+    "1480": {
+      "title": "Theater/Drama Teacher",
+      "role": "teacher"
+    },
+    "1479": {
+      "title": "Community Connector",
+      "role": "district_contact"
+    },
+    "1481": {
+      "title": "Academic Decathlon Coach/Teacher",
+      "role": "teacher"
+    },
+    "1482": {
+      "title": "Technology Teacher",
+      "role": "teacher"
+    },
+    "1492": {
+      "title": "3D Printing Teacher",
+      "role": "teacher"
+    },
+    "1486": {
+      "title": "Career and Technology Education Teacher",
+      "role": "teacher"
+    },
+    "1493": {
+      "title": "Athletic Coach",
+      "role": "teacher"
+    },
+    "1488": {
+      "title": "High School Teacher",
+      "role": "teacher"
+    },
+    "1490": {
+      "title": "Teacher",
+      "role": "teacher"
+    },
+    "1497": {
+      "title": "Animation Teacher",
+      "role": "teacher"
+    },
+    "1501": {
+      "title": "Library/Media Teacher",
+      "role": "library_contact"
+    },
+    "1506": {
+      "title": "Teacher",
+      "role": "teacher"
+    },
+    "1498": {
+      "title": "Middle School Technology Teacher",
+      "role": "teacher"
+    },
+    "1511": {
+      "title": "Technology Teacher",
+      "role": "teacher"
+    },
+    "1523": {
+      "title": "IT Director",
+      "role": "district_contact"
+    }
+  }
+}

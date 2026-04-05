@@ -1,0 +1,3365 @@
+{
+  "total_c4": 1274,
+  "enriched_count": 418,
+  "still_unknown": 595,
+  "already_had_title": 261,
+  "by_source": {
+    "serper_direct": 339,
+    "claude": 79
+  },
+  "role_breakdown": {
+    "teacher": 266,
+    "district_contact": 117,
+    "admin": 9,
+    "other": 281,
+    "library_contact": 6,
+    "unknown": 595
+  },
+  "serper_queries": 1011,
+  "enrichments": {
+    "raisethebarctr@gmail.com": {
+      "title": "Brigham Young University",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Kate Grow",
+      "company": "GoGrowHomeschool.com",
+      "state": ""
+    },
+    "justin.williams.dhs@gmail.com": {
+      "title": "It Project Manager",
+      "role": "district_contact",
+      "source": "serper_direct",
+      "name": "Justin Williams",
+      "company": "justin.williams.dhs@gmail.com",
+      "state": ""
+    },
+    "aebecker@lbschools.net": {
+      "title": "Cte Teacher",
+      "role": "teacher",
+      "source": "serper_direct",
+      "name": "Amy Becker",
+      "company": "Millikan High",
+      "state": "CA"
+    },
+    "enightingale@lcps.net": {
+      "title": "Creighton University Edward Creighton. John Creighton. Mary Lucretia Creighton. Sarah Emily Creighton. Edward And Mary Lucretia Creighton, Along With Edward'S ... [Pdf] Commencement",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Emily Creighton",
+      "company": "Sierra Middle",
+      "state": "CA"
+    },
+    "dealvara.episd@gmail.com": {
+      "title": "Qsi Global Ventures",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "David Alvarado",
+      "company": "Center for Career and Technology Education",
+      "state": "TX"
+    },
+    "gwegesin@ol-g.org": {
+      "title": "Purdue University Indianapolis. Greater Indianapolis. 101 Followers 98 Connections. Greg Wegesin",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Greg Wegesin",
+      "company": "Our Lady of the Greenwood",
+      "state": "IN"
+    },
+    "casner@csdnb.org": {
+      "title": "Linkedin Teacher \u00b7 Experience: Csdnb \u00b7 Education: University Of Bridgeport \u00b7 Location: Cheshire \u00b7 5 Connections On Linkedin. View Pamela Casner'S Profile On Linkedin ... Pamela Casner",
+      "role": "teacher",
+      "source": "serper_direct",
+      "name": "Pamela Casner",
+      "company": "csdnb",
+      "state": "CT"
+    },
+    "kcagle@boysranchisd.org": {
+      "title": "Technology Teacher",
+      "role": "district_contact",
+      "source": "serper_direct",
+      "name": "Kerri Cagle",
+      "company": "Boys Ranch ISD",
+      "state": "TX"
+    },
+    "amber.kraver@gmail.com": {
+      "title": "Linkedin D'S Post. View Profile For Kim Taylor, Ed.D \u00b7 Kim Taylor, Ed.D. High School Science Teacher @ Valley Christian Schools",
+      "role": "teacher",
+      "source": "serper_direct",
+      "name": "Amber Kraver",
+      "company": "Valley Christian School",
+      "state": ""
+    },
+    "weissjoshua@hudsonraiders.org": {
+      "title": "Asset Arb",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Josh Weiss",
+      "company": "Hudson High",
+      "state": "MA"
+    },
+    "rathanak.loeung@wacoisd.org": {
+      "title": "12). Texas State Board For Educator Certification. Issued Apr 2025 Expires Feb 2028. See Credential ... Rathanak Loeung",
+      "role": "teacher",
+      "source": "serper_direct",
+      "name": "Rath Loeung",
+      "company": "Waco ISD",
+      "state": "TX"
+    },
+    "aczarnecki@wallingfordschools.org": {
+      "title": "Lyman Hall High School",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Aaron Czarnecki",
+      "company": "Lyman Hall High School",
+      "state": "CT"
+    },
+    "cod.5.cwestbrook@spamgourmet.com": {
+      "title": "Homeschool Parent/Teacher",
+      "role": "teacher",
+      "source": "serper_direct",
+      "name": "Christopher Westbrook",
+      "company": "Homeschool",
+      "state": ""
+    },
+    "gsaraceno@bcmschool.org": {
+      "title": "Bethany Community School",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Glennan Saraceno",
+      "company": "Bethany Community School",
+      "state": "CT"
+    },
+    "mpimentel@dimanregional.com": {
+      "title": "Edtech And Curriculum Development",
+      "role": "district_contact",
+      "source": "serper_direct",
+      "name": "Matthew Pimentel",
+      "company": "Diman Regional Vocational Technical High",
+      "state": "MA"
+    },
+    "clearchickenstock@gmail.com": {
+      "title": "Cossa Academy",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Jackson Lai",
+      "company": "Private School",
+      "state": ""
+    },
+    "smithsr@mukilteo.wednet.edu": {
+      "title": "Colson Fellow, 2023",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Steve Smith",
+      "company": "Olympic View Middle School",
+      "state": "OK"
+    },
+    "mia.cloudy@centerisd.org": {
+      "title": "Center Independent School Dst",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Mia Cloudy",
+      "company": "Center ISD",
+      "state": "TX"
+    },
+    "sarah.christian@kipptexas.org": {
+      "title": "Competitive And Rigorous National Teaching Corps, Committed To Teaching In A High",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Sarah Christian",
+      "company": "Kipp Texas Public Schools",
+      "state": "TX"
+    },
+    "christine.burns@kipptexas.org": {
+      "title": "Prescott. Greater Houston. 529 Followers 500+ ... Christine Burns",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Christine Burns",
+      "company": "Kipp Texas Public Schools",
+      "state": "TX"
+    },
+    "lisawaters@gillispie.org": {
+      "title": "Linkedin Lisa Waters ... Lisa Hasler Waters, Ph.D. Director Of Technology",
+      "role": "district_contact",
+      "source": "serper_direct",
+      "name": "Lisa Waters",
+      "company": "The Gillispie School",
+      "state": "CA"
+    },
+    "dominique.curry@masterycharter.org": {
+      "title": "Linkedin Nfl Alumni Is Pleased To Welcome Our Newest Team Member, Dominique Curry (Rams; 2010",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Dominique Curry",
+      "company": "Mastery Cs - Cleveland Elementary",
+      "state": "PA"
+    },
+    "marinebrstv@gmail.com": {
+      "title": "Engineering Program Chemical & Life Sciences Education. The University Of Texas",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Michael Trevino",
+      "company": "School Of Science And Technology",
+      "state": "TX"
+    },
+    "stemnarts@gmail.com": {
+      "title": "Stemnarts",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Jean Liu",
+      "company": "STEMnARTS",
+      "state": "CA"
+    },
+    "jdobrick@akronk12.org": {
+      "title": "Meadville Area. 27 Followers 28 Connections. Jacob Dobrick",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Jacob Dobrick",
+      "company": "Akron Preparatory School",
+      "state": "OH"
+    },
+    "jdyoder@wanee.org": {
+      "title": "Oriented Team Player With Experience In Arts Education, Outreach, Project Management, Public Speaking, And Administration. Josh Yoder",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Josh Yoder",
+      "company": "Wa-Nee Community Schools",
+      "state": "IN"
+    },
+    "patelkushusa@gmail.com": {
+      "title": "School Program In Accordance With Massachusetts General. Laws Or The Laws ... [Pdf] Bristol Community College Academic Catalog 2023",
+      "role": "district_contact",
+      "source": "serper_direct",
+      "name": "Kush Patel",
+      "company": "Home school",
+      "state": ""
+    },
+    "nelson@centneracademy.com": {
+      "title": "Construction, Customer Service, Renovation, Project Planning, And Project Management. Strong Operations Professional Graduated From Basset High ... Nelson Milian",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Nelson Milian",
+      "company": "Centner Academy",
+      "state": "TN"
+    },
+    "alysa.king@ideapublicschools.org": {
+      "title": "Oct 2022 4 Months. Tampa, Florida ... Alyssa Jones",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Alysa King",
+      "company": "Idea Public Schools",
+      "state": "TX"
+    },
+    "sbarberjerkins@philasd.org": {
+      "title": "Jerkins, Ms,Vrt,Tsvi'S Post. View Profile For Sharita ... Overbrook Educational Center",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Sharita Barber-Jerkins",
+      "company": "Overbrook Educational Center",
+      "state": "PA"
+    },
+    "david.kossey@pspcisd.net": {
+      "title": "Profit Organization Management Professional. New York, Ny ... West Texas A&M University. Cheryl Kossey. Arts And Crafts ... 50+ \"Kossey\" Profiles",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "David Kossey",
+      "company": "West Texas Secondary School",
+      "state": "TX"
+    },
+    "smiller@cvsd.net": {
+      "title": "Montour Area Vocational Technical School ... Jennifer Cerreta",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Stephanie Miller",
+      "company": "Columbia-Montour Area Vocational-Technical School",
+      "state": "PA"
+    },
+    "dwest@anconaschool.org": {
+      "title": "The Ancona School",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Delia West",
+      "company": "ancona",
+      "state": "IL"
+    },
+    "josephferencie@solonschools.net": {
+      "title": "Solon High School",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Joseph Ferencie",
+      "company": "Solon High School",
+      "state": "OH"
+    },
+    "tracy.stop@pccsk12.com": {
+      "title": "Canton Under The Guidance Of Tracy Stop. Throughout Wh",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Tracy Stop",
+      "company": "Liberty Middle School",
+      "state": "MI"
+    },
+    "jonesg@whitehouseisd.org": {
+      "title": "Whitehouse Independent School District",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Garrett Jones",
+      "company": "Whitehouse ISD",
+      "state": "TX"
+    },
+    "kristyl@fsusd.org": {
+      "title": "Suisun Unified School District \u00b7 Education: The ... Amanda Johnson",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Kristy Love",
+      "company": "Fairfield Suisun Unified School District",
+      "state": "CA"
+    },
+    "nida.firdaws03@gmail.com": {
+      "title": "Uc San Diego",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Nida Firdaws",
+      "company": "ind",
+      "state": ""
+    },
+    "wtobler@fshisd.org": {
+      "title": "Generation\u2026 \u00b7 Experience: Fort Sam Houston Isd \u00b7 Education: University Of North Texas ... Wacey Tobler, M.S.",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Wacey Tobler",
+      "company": "Ft Sam Houston ISD",
+      "state": "TX"
+    },
+    "sbray@dallasisd.org": {
+      "title": "Dallas Isd",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Stacy Bray",
+      "company": "Dallas ISD",
+      "state": "TX"
+    },
+    "zacharypaulnelson@gmail.com": {
+      "title": "Ctmc",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Zachary Nelson",
+      "company": "Univ of Houston",
+      "state": "TX"
+    },
+    "eellis@stannaleom.org": {
+      "title": "K3 To Grade 8\u2026 \u00b7 Experience: St. Anna School \u00b7 Location: Leominster \u00b7 3 Connections ... St. Anna School",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "- -",
+      "company": "Saint Anna Catholic School",
+      "state": "MA"
+    },
+    "rhahn@claytonps.org": {
+      "title": "Dick'S Sporting Goods",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Ryan Hahn",
+      "company": "Clayton",
+      "state": "OK"
+    },
+    "nancycope@cchsnet.org": {
+      "title": "Burlington Wi Graphic. Science Teacher. Nancy Cope",
+      "role": "teacher",
+      "source": "serper_direct",
+      "name": "Nancy Cope",
+      "company": "Catholic Central High School",
+      "state": "MI"
+    },
+    "wparo@rccasi.org": {
+      "title": "Teacher",
+      "role": "teacher",
+      "source": "serper_direct",
+      "name": "William Paro",
+      "company": "Rock Creek Community Academy",
+      "state": "IN"
+    },
+    "terrence.wadley@dilleyisd.net": {
+      "title": "Athletic Diretor/Head Football Coach",
+      "role": "teacher",
+      "source": "serper_direct",
+      "name": "Terrence Wadley",
+      "company": "Dilley ISD",
+      "state": "TX"
+    },
+    "lsmith@fcaangels.com": {
+      "title": "12 Education, Microsoft\u2026 Experience. Faith Christian Academy Of Fernandina Beach, Fl ... Larry Smith",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Larry Smith",
+      "company": "Faith Christian Academy",
+      "state": "TX"
+    },
+    "jacqueline_ramirez@lnsd.net": {
+      "title": "Los Nietos Middle School",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Jacqueline Ramirez",
+      "company": "Los Nietos",
+      "state": "CA"
+    },
+    "lrrose@cps.edu": {
+      "title": "4 Literacy Math Specialist Lecarlson@Cps.Edu. Has Access. Linsey Rose. Middle School Social Studies Teacher Lrrose@Cps.Edu. [Pdf] Stem Magnet Academy",
+      "role": "district_contact",
+      "source": "serper_direct",
+      "name": "Linsey Rose",
+      "company": "STEM Magnet Academy Elem",
+      "state": "IL"
+    },
+    "jarrede@nv.ccsd.net": {
+      "title": "Clark County School District",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Dennis Jarrel",
+      "company": "Clark County",
+      "state": "NV"
+    },
+    "jrupertus@philasd.org": {
+      "title": "Term Wealth Building Opportunities. Jeffrey Rupertus",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Jeffrey Rupertus",
+      "company": "Middle Years Alternative",
+      "state": "PA"
+    },
+    "rquick@fostoriabaptist.org": {
+      "title": "School Principal",
+      "role": "admin",
+      "source": "serper_direct",
+      "name": "Ronald Quick",
+      "company": "Fostoria Baptist Academy",
+      "state": "MI"
+    },
+    "zfranklin@mail.thegrahamschool.org": {
+      "title": "Math Teacher",
+      "role": "teacher",
+      "source": "serper_direct",
+      "name": "Zach Franklin",
+      "company": "Graham School The",
+      "state": "OH"
+    },
+    "manuel.vallejo@nisd.net": {
+      "title": "Educator",
+      "role": "teacher",
+      "source": "serper_direct",
+      "name": "Manuel Vallejo",
+      "company": "Nacogdoches ISD",
+      "state": "TX"
+    },
+    "tracy.michne@gilbertschools.net": {
+      "title": "Accountant",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Tracy Michne",
+      "company": "Desert Ridge Jr. High",
+      "state": "PA"
+    },
+    "jenn-dancu@tatesschool.com": {
+      "title": "Tate'S School",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Jennifer Dancu",
+      "company": "Tate's School",
+      "state": "TN"
+    },
+    "lisacrow22@gmail.com": {
+      "title": "H Awards She Is The Daughter Of John And Lisa Crow From Baltimore In Fairfield County. ... Gabriella Is A Home School Junior And Plans To Become A Veterinary Technician. Leadership",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Lisa Crow",
+      "company": "Home School",
+      "state": ""
+    },
+    "cmalm@bmcss.org": {
+      "title": "Bishop Mcnamara Catholic High School",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Caitlin Malm",
+      "company": "Bishop McNamara Catholic School",
+      "state": "IL"
+    },
+    "trose@ctachargers.org": {
+      "title": "Creative Technologies Academy",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Trisha Rose",
+      "company": "Creative Technologies Academy",
+      "state": "MI"
+    },
+    "dimberiov@stlukesct.org": {
+      "title": "Academic Technologist",
+      "role": "district_contact",
+      "source": "serper_direct",
+      "name": "Veronica Dimberio",
+      "company": "St. Luke's School",
+      "state": "CT"
+    },
+    "gmyers@greenvilleschools.us": {
+      "title": "Greenville Early College",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Garrett Myers",
+      "company": "Early College High",
+      "state": "CA"
+    },
+    "tbonfigli@aacps.org": {
+      "title": "Aug 2022 1 Year 1 Month. Crofton High School. Adjunct Faculty. Univeristy Of Maryland ... Travis Bonfigli",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Travis Bonfigli",
+      "company": "Crofton High School",
+      "state": "CA"
+    },
+    "ogriggs@ci.greenville.tx.us": {
+      "title": "Linkedin Olivia Moreno. English Ba / Testing Updating Coordinator. Greenville, Sc. Bju Press, +3 More. Bob Jones University, +1 More \u00b7 Olivia Moreno. 100+ \"Olivia Moreno\" Profiles",
+      "role": "district_contact",
+      "source": "serper_direct",
+      "name": "Olivia Moreno",
+      "company": "Greenville ISD",
+      "state": "TX"
+    },
+    "adam.evans@middletownusd.org": {
+      "title": "Case Method Project",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Adam Evans",
+      "company": "Middletown High School",
+      "state": "CT"
+    },
+    "akourtakis@wcskids.net": {
+      "title": "Warren Mott High School",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Angie Kourtakis",
+      "company": "Warren Mott High School",
+      "state": "MI"
+    },
+    "hcarroll@spshingham.org": {
+      "title": "229 ... Michael \u201cMike\u201d Carroll. Science Teacher. 603",
+      "role": "teacher",
+      "source": "serper_direct",
+      "name": "Heather Carroll",
+      "company": "Saint Paul School",
+      "state": "MA"
+    },
+    "fbostani@harmonytx.org": {
+      "title": "Gt & Stem Teacher",
+      "role": "teacher",
+      "source": "serper_direct",
+      "name": "Farhad Bostani",
+      "company": "HARMONY SCHOOL OF SCIENCE - HOUSTON",
+      "state": "TX"
+    },
+    "pespiritu@mvcds.org": {
+      "title": "Sep 2023 4 Years 2 Months. Provided Technology ... Paige Espiritu",
+      "role": "district_contact",
+      "source": "serper_direct",
+      "name": "Paige Espiritu",
+      "company": "Maumee Valley Country Day School",
+      "state": "OH"
+    },
+    "dannetl@nv.ccsd.net": {
+      "title": "Clark County School District",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Tiffany Orton [Bailey MS]",
+      "company": "Clark County",
+      "state": "NV"
+    },
+    "david.crowell@grandriver.org": {
+      "title": "Jun 2022 4 Years 11 Months. Austinburg ... David Crowell",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "David Crowell",
+      "company": "Grand River Academy",
+      "state": "OH"
+    },
+    "susan.funk@rps205.com": {
+      "title": "Rps 205",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Susan Funk",
+      "company": "susan.funk@rps205.com",
+      "state": "IL"
+    },
+    "kenbock@gmail.com": {
+      "title": "Entrepreneur",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Ken Bock",
+      "company": "ClearConnect",
+      "state": ""
+    },
+    "mglover@theabowmanacademy.org": {
+      "title": "Thea Bowman Leadership Academy",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Mary Glover",
+      "company": "Thea Bowman Leadership Academy",
+      "state": "IN"
+    },
+    "elizabeth.siemens@aspenview.org": {
+      "title": "Rochester, New York, United States",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Elizabeth Siemens",
+      "company": "Rochester",
+      "state": "MA"
+    },
+    "mkahala7@gmail.com": {
+      "title": "8), Which ... To Convey Why Sophie Is Eager To See Her Grandfather (Answer Key). D. To ... [Pdf] Preparation Manual",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Answer Key",
+      "company": "Riverside Middle School",
+      "state": "MI"
+    },
+    "bmlewis@capousd.org": {
+      "title": "Longueira",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Brent Lewis",
+      "company": "Esencia",
+      "state": "CA"
+    },
+    "rickbanana375@gmail.com": {
+      "title": "Season 3",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Brandon Smith",
+      "company": "homeschool",
+      "state": ""
+    },
+    "dgolasinski@dallasisd.org": {
+      "title": "Educator / Instructional Designer",
+      "role": "district_contact",
+      "source": "serper_direct",
+      "name": "Daniel Golasinski",
+      "company": "Dallas ISD",
+      "state": "TX"
+    },
+    "ljohnson@corryallianceacademy.org": {
+      "title": "Plus Huskers Named To Deans' List For Fall 2025",
+      "role": "admin",
+      "source": "serper_direct",
+      "name": "Lucas Johnson",
+      "company": "Corry Alliance Academy",
+      "state": "PA"
+    },
+    "mr.taylor@crockettacademy.com": {
+      "title": "George Crockett Academy",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "George Taylor",
+      "company": "George Crockett Academy",
+      "state": "MI"
+    },
+    "dr.rodriguez19@gmail.com": {
+      "title": "Psat/Ap Tests ... March 2025. April Plano Isd Proud Winners. David Rodriguez Williams High School Avid Teacher And Planner Plano Isd Proud Award Winners 2024",
+      "role": "teacher",
+      "source": "serper_direct",
+      "name": "David Rodriguez",
+      "company": "homeschool",
+      "state": ""
+    },
+    "venisha.bahr@edinaschools.org": {
+      "title": "Esteem, Environment Education Techniques, And English. Venisha Bahr",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Venisha Bahr",
+      "company": "Countryside Academy",
+      "state": "MI"
+    },
+    "tenise.peay@richlandone.org": {
+      "title": "Sport Man",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Tenise Peay",
+      "company": "Dreher High",
+      "state": "NE"
+    },
+    "powleylinkm@manateeschools.net": {
+      "title": "Linkedin Melissa Link. Html/Css & Unity Instructor. Cte/Graphic Design Teacher. Manatee High School. Linkedin. Jonny Ortiz. Aws Instructor. Full Stack Web Developer ... About",
+      "role": "district_contact",
+      "source": "serper_direct",
+      "name": "Melissa Link",
+      "company": "Manatee High School",
+      "state": "TN"
+    },
+    "colbertw@salem.k12.oh.us": {
+      "title": "Salem City Schools",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Willi Colbert",
+      "company": "Salem City",
+      "state": "OH"
+    },
+    "jcopeland@ecusd.info": {
+      "title": "12, Yes, 520 5Th Ave, 61250 9439, Mr. Charles Milem, 309",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Jenna Copeland",
+      "company": "Erie CUSD 1",
+      "state": "IL"
+    },
+    "ceboldt@cps.edu": {
+      "title": "2020 Plan Summary ... Colleen Schultz. Stem/Resource Ceboldt@Cps.Edu. Has Access. Date. Participants. [Pdf] Norman A Bridge Elementary School",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Colleen Schultz",
+      "company": "Norman A Bridge Elementary School",
+      "state": "IL"
+    },
+    "reberle@dakota201.com": {
+      "title": "Technology Director",
+      "role": "district_contact",
+      "source": "serper_direct",
+      "name": "Ross Eberle",
+      "company": "Dakota Elementary School",
+      "state": "IL"
+    },
+    "ogffsa@gmail.com": {
+      "title": "Northeastern Oklahoma A&M College Building On A Foundation Developed In His Early Education, Biddle Used The Period Of His European Resi",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "E E",
+      "company": "Henry W Cowherd Middle School",
+      "state": "IL"
+    },
+    "kvang@banning.k12.ca.us": {
+      "title": "San Bernardino. Moreno Valley, California, United States. Kristopher Vang",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Kristopher Vang",
+      "company": "Banning Unified",
+      "state": "CA"
+    },
+    "burkhartb@henryk12.net": {
+      "title": "Student",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Ben Burkhart",
+      "company": "E. W. Grove School",
+      "state": "TN"
+    },
+    "brigit.harris@alliancebulldogs.org": {
+      "title": "Alliance Public Schools Dst 6",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Brigit Harris",
+      "company": "Alliance High School",
+      "state": "NE"
+    },
+    "elizabeth.lindtrom@fcps.org": {
+      "title": "Linkedin Experience: Unknown \u00b7 Location: 45212. View Beth Blaylock'S Profile On Linkedin, A Professional Community Of 1 Billion Members. Beth Blaylock",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Beth -",
+      "company": "Unknown",
+      "state": "PA"
+    },
+    "bjones@shelton.org": {
+      "title": "Driven ... Brittany Jones",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Brittany Jones",
+      "company": "June Shelton School",
+      "state": "TX"
+    },
+    "colleen.fleisher@menta.com": {
+      "title": "Special Education Services",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Colleen Fleisher",
+      "company": "Menta Academy",
+      "state": "IL"
+    },
+    "npelletier@crec.org": {
+      "title": "Maine Campus \u00b7 Location: Gardiner. View Nicole Pelletier'S Profile On Linkedin, A Professional Community Of 1 Billion Members. Nicole Pelletier",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Nicole Pelletier",
+      "company": "Capitol Region Education Council",
+      "state": "CT"
+    },
+    "pwilliams@polandschools.org": {
+      "title": "Y.S.U. Percussion Instructor",
+      "role": "district_contact",
+      "source": "serper_direct",
+      "name": "Patrick Williams",
+      "company": "Poland Seminary High School",
+      "state": "OH"
+    },
+    "mjohansen@irvingisd.net": {
+      "title": "Kristin Johansen. 60+ \"Mary Johansen\" Profiles",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Mary Johansen",
+      "company": "Irving ISD",
+      "state": "TX"
+    },
+    "nkonrad@naperville203.org": {
+      "title": "Naperville School District 203",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Natasha Konrad",
+      "company": "Madison School",
+      "state": "IL"
+    },
+    "blackjt@protonmail.com": {
+      "title": "Up Desk! ... Looks Beautiful Josh! The \"New\" Home Office!",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Josh T",
+      "company": "Home",
+      "state": ""
+    },
+    "kkeesee@newlima.k12.ok.us": {
+      "title": "Coley Keesee, New Lima; 2Nd",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Kathy Keesee",
+      "company": "New Lima",
+      "state": "OK"
+    },
+    "kmchenry@mvsd.net": {
+      "title": "Mountain View Jr/Sr High School",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Kathy McHenry",
+      "company": "Mountain View Junior Senior High School",
+      "state": "PA"
+    },
+    "ljones6@saisd.net": {
+      "title": "Coordinator",
+      "role": "district_contact",
+      "source": "serper_direct",
+      "name": "LISA JONES",
+      "company": "San Angelo ISD",
+      "state": "TX"
+    },
+    "dsaunders@brookwood.edu": {
+      "title": "Education Innovation & Systems Leader",
+      "role": "district_contact",
+      "source": "serper_direct",
+      "name": "David Saunders",
+      "company": "Brookwood School",
+      "state": "MA"
+    },
+    "bsnider@monroek12.org": {
+      "title": "Madisonville Middle School",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Brandy Snider",
+      "company": "Madisonville Middle School",
+      "state": "TN"
+    },
+    "dwillingham@florenceisd.net": {
+      "title": "Florence Isd",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "David Willingham",
+      "company": "Florence ISD",
+      "state": "TX"
+    },
+    "lcenter@popeace.org": {
+      "title": "Technology Director",
+      "role": "district_contact",
+      "source": "serper_direct",
+      "name": "Lou Ann Center",
+      "company": "Shawe Memorial Jr/Sr High School",
+      "state": "IN"
+    },
+    "tberg@gracecrusaders.org": {
+      "title": "Teacher",
+      "role": "teacher",
+      "source": "serper_direct",
+      "name": "Tim Berg",
+      "company": "Grace Christian Academy",
+      "state": "IL"
+    },
+    "melliott@stillwaterschools.com": {
+      "title": "College Of Arts And Sciences Writers Joseph Dunn Matt Elliott Abby Fox '08 Lorene Roberson Hickey '84 Sylvia E. King",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Matt Elliott",
+      "company": "Stillwater MS",
+      "state": "OK"
+    },
+    "ca.northdallas@icodeschool.com": {
+      "title": "On, ... Icode School",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Ca Dallas",
+      "company": "iCode",
+      "state": "TX"
+    },
+    "mengel@staff.colonialsd.org": {
+      "title": "Temple University",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Michael Engel",
+      "company": "Colonial SD",
+      "state": "PA"
+    },
+    "michaelcassidy069@gmail.com": {
+      "title": "Arizona Athletics Alvernia University",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Michael Cassidy",
+      "company": "British international school of houston",
+      "state": "TX"
+    },
+    "jstill@parkviewchristian.net": {
+      "title": "Flores ... View June'S Full Profile. June Can Introduce You To 10+ People",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "June Still",
+      "company": "Parkview Christian Academy",
+      "state": "IL"
+    },
+    "jjafamily7@gmail.com": {
+      "title": "Isteam Studio, Llc",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Jyoti Patel",
+      "company": "iSTEAM Studio",
+      "state": "IL"
+    },
+    "jwiebe@sapulpaps.org": {
+      "title": "Honor Roll",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Jennifer Wiebe",
+      "company": "Sapulpa HS",
+      "state": "OK"
+    },
+    "michael.valle@amsteachers.org": {
+      "title": "Walt Disney World Company",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Michael Valle",
+      "company": "Unknown",
+      "state": ""
+    },
+    "maree.pascall@metrolibrary.org": {
+      "title": "Smithsonian Science Education Center",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Maree Pascall",
+      "company": "Metropolitan Library System",
+      "state": "OK"
+    },
+    "maria.chavez4@ideapublicschools.org": {
+      "title": "Idea Public Schools",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Maria Chavez",
+      "company": "Idea Public Schools",
+      "state": "TX"
+    },
+    "mthida@simons-rock.edu": {
+      "title": "University Of Illinois Chicago Myo Thida Survey Is Collected By A Team, Led By Dr. Myo Thida (Istar Institute/Parami University) And Dr. Amanda Landi (Bard College",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Myo Thida",
+      "company": "Bard College",
+      "state": "MA"
+    },
+    "michael.dunn@stroud.k12.ok.us": {
+      "title": "President",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Michael Dunn",
+      "company": "Stroud",
+      "state": "OK"
+    },
+    "wilson_c@my.westcler.org": {
+      "title": "12, West Clermont Local (Clermont), Clermont. 3913, West Clermont Middle School, 6",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Corey Wilson",
+      "company": "West Clermont Middle School",
+      "state": "OH"
+    },
+    "elliott.jempty@ideapublicschools.org": {
+      "title": "Idea Public Schools",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Elliott Jempty",
+      "company": "Idea Public Schools",
+      "state": "TX"
+    },
+    "karen.dorsey@clevelandmetroschools.org": {
+      "title": "Sep ... Karen Dorsey",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Karen Dorsey",
+      "company": "Almira",
+      "state": "OH"
+    },
+    "moore_austin@hcde.org": {
+      "title": "Hamilton County Department Of Education",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Austin Moore",
+      "company": "Soddy Daisy High School",
+      "state": "TN"
+    },
+    "ladipo.akinfenwa@detroitk12.org": {
+      "title": "Jcpenney",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Ladipo -",
+      "company": "Detroit Central High School",
+      "state": "MI"
+    },
+    "bross@ptaa.org": {
+      "title": "Teacher",
+      "role": "teacher",
+      "source": "serper_direct",
+      "name": "Beverly Ross",
+      "company": "Pioneer Technology & Arts Academy",
+      "state": "TX"
+    },
+    "abosma@plymouth.k12.ma.us": {
+      "title": "Serc (Carleton) Alison Bosma. Digital Editor",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Alison Bosma",
+      "company": "Plymouth",
+      "state": "MA"
+    },
+    "jeannette.ramirez@lubbockisd.org": {
+      "title": ". United States ... Jannette Diaz Ramirez.",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Jannette Diaz ramirez",
+      "company": "Lubbock ISD",
+      "state": "TX"
+    },
+    "isaiahaby@gmail.com": {
+      "title": "1. 257. Jr/2L. Katy/Katy Hs. [Pdf] Untitled",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Ryan Smith",
+      "company": "The Woodlands H S",
+      "state": "TX"
+    },
+    "sbrown@hawthornacademy.org": {
+      "title": "University Advancement Sandy Brown, Diagnostic Vascular Unit, Michigan Medicine; Lori J. Bruce ... Hawthorne, Obstetrics And Gynecology Department, Michigan Medicine; Donna D ... Service Awards",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Sandy Brown",
+      "company": "Hawthorne",
+      "state": "CA"
+    },
+    "amorgan@paduafranciscan.net": {
+      "title": "Padua Franciscan High School",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Amy Morgan",
+      "company": "Padua Franciscan High School",
+      "state": "OH"
+    },
+    "asimogan@coralacademylv.org": {
+      "title": "Computer Science And Robotics Teacher",
+      "role": "teacher",
+      "source": "serper_direct",
+      "name": "Alvin Simogan",
+      "company": "Coral Academy of Science Las Vegas",
+      "state": "NV"
+    },
+    "neverett@ggusd.us": {
+      "title": "Garden Grove Unified School District",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Nicole Everett",
+      "company": "Garden Grove Unified",
+      "state": "CA"
+    },
+    "landon.mckinney02@gmail.com": {
+      "title": "The University Of Arizona ... Landon Mckinney (",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Landon Mckinney",
+      "company": "Unknown",
+      "state": ""
+    },
+    "ricvicfro@gmail.com": {
+      "title": "Virtual Teacher",
+      "role": "teacher",
+      "source": "serper_direct",
+      "name": "Vicky Froelicher",
+      "company": "Ideal4Gifted",
+      "state": ""
+    },
+    "silentlakeyoga@gmail.com": {
+      "title": "Getty Museum Lady Jocelyn, Lady Shaftesbury; About 1850",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Jocelyn -",
+      "company": "Unknown",
+      "state": ""
+    },
+    "miestvan@goarrows.org": {
+      "title": "Edge Research To Middle",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Michael Estvanic",
+      "company": "Ashland High School",
+      "state": "OH"
+    },
+    "james.okeeffe@humbleisd.net": {
+      "title": "Humble Isd",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "James Okeeffe",
+      "company": "Humble ISD",
+      "state": "TX"
+    },
+    "jbreslin33@gmail.com": {
+      "title": "Profit Operations As Well As Financial And Compliance Management. James Breslin",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "James Breslin",
+      "company": "School of the Future",
+      "state": "PA"
+    },
+    "jbreslin@philasd.org": {
+      "title": "Profit Operations As Well As Financial And Compliance Management. James Breslin",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "James Breslin",
+      "company": "School of the Future",
+      "state": "PA"
+    },
+    "henrydvorak@iclould.com": {
+      "title": "Duced. ... Henry Dvorak, Casco, And Elroy Honadel, Milwaukee. Wisconsin Horticulture Vol. Xlii September 1951/August 1952 ... Unknown Sub",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Henry Dvorak",
+      "company": "Unknown",
+      "state": "IL"
+    },
+    "fwecker@tonkawa.k12.ok.us": {
+      "title": "Honor Roll",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Frances Wecker",
+      "company": "Tonkawa",
+      "state": "OK"
+    },
+    "alejandra.vasquez@tufts.edu": {
+      "title": "Stem Education Phd Student",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Alejandra Vasquez",
+      "company": "Tufts University",
+      "state": "MA"
+    },
+    "jamoran@wvwsd.org": {
+      "title": "Class A Cdl Truck Driver/ Transit Bus Operator ... Wyoming Valley West High School. Molly Moran. Graduate Assistant ... Jason Moran. Sales Representative Consistently Deliver Revenue With ... 200+ \"Moran\" Profiles",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Jason Moran",
+      "company": "Wyoming Valley West SHS",
+      "state": "PA"
+    },
+    "sean.mccarthy@ssdedu.org": {
+      "title": "Writing Studies",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Sean McCarthy",
+      "company": "Northeast Intrmd Sch",
+      "state": "PA"
+    },
+    "shtobin@rsd6.org": {
+      "title": ". Torrington, Connecticut.",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Shawn Draczynski Tobin",
+      "company": "Wamogo Regional High School",
+      "state": "CT"
+    },
+    "jalt@fchs77.org": {
+      "title": "Director Of Instruction And Technology",
+      "role": "district_contact",
+      "source": "serper_direct",
+      "name": "Jeffery Alt",
+      "company": "Freeburg Community High Sch",
+      "state": "IL"
+    },
+    "umerghazali@katyisd.org": {
+      "title": "Linkedin Ssuet \u00b7 Experience: Sir Syed University Of Engineering & Technology (Ssuet) \u00b7 Education: Sir Syed University Of Engineering & Technology (Ssuet) \u00b7 Location: ... Umer Ghazali",
+      "role": "district_contact",
+      "source": "serper_direct",
+      "name": "Umer Ghazali",
+      "company": "Katy ISD",
+      "state": "TX"
+    },
+    "jacky@jackydean.com": {
+      "title": "Alumni",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Jack Dake",
+      "company": "Homeschool",
+      "state": "TN"
+    },
+    "jwright@stbensravens.org": {
+      "title": "Ahangama. Negombo. Sama",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Jason Wright",
+      "company": "St Benedict",
+      "state": "IN"
+    },
+    "dcjoslin@enidk12.org": {
+      "title": "Employed. Enid, Oklahoma, United States. See Your Mutual Connections. View Mutual Connections With Darling. Continue ... Darling Joslin",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Darling Joslin",
+      "company": "Enid",
+      "state": "OK"
+    },
+    "ahoward@roaneschools.com": {
+      "title": "Carriger, Jessica N, (865) 354 ... Howard, Adam B, 865",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Adam Howard",
+      "company": "Roane County High School",
+      "state": "TN"
+    },
+    "tihughes@gcboe.us": {
+      "title": "Cp) Offering Over 10",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Tiffany Hughes",
+      "company": "Minor Hill School",
+      "state": "TN"
+    },
+    "jdtalton@enidk12.org": {
+      "title": "Piper Fieldhouse, 9:30 A.M.. Enid/Stillwater: Briggs Auditorium In Enid, 2:30 P.M. ... Jashawn Talton. May 1. Kelly Jordan. May ... [Pdf] What'S Happening",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Jashawn Talton",
+      "company": "Enid",
+      "state": "OK"
+    },
+    "jdouglas@grizzliesprep.org": {
+      "title": "Memphis Grizzlies Preparatory ...",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Jordon Douglas",
+      "company": "Memphis Grizzlies Preparatory Charter School",
+      "state": "TN"
+    },
+    "melanie@thehubhouston.org": {
+      "title": "The Hub Houston",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Melanie Krause",
+      "company": "The HUB Houston",
+      "state": "TX"
+    },
+    "kara.juillerat@elsd.us": {
+      "title": "Eastern Middle School",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Kara Juillerat",
+      "company": "Eastern Middle School",
+      "state": "PA"
+    },
+    "npinta@arlington.k12.ma.us": {
+      "title": "United States",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Natalie Pinta",
+      "company": "Arlington",
+      "state": "MA"
+    },
+    "mattw5323@gmail.com": {
+      "title": "12 Teaching Careers Through An Innova ... Matt Woodward. Austin Weiler. Julia Johnson. Rachel Wyatt. Monica Hines. Chhs ... [Pdf] 2024 Annual Report",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Matt Woodward",
+      "company": "Grant Township School",
+      "state": "MI"
+    },
+    "salamat@hsabelmont.org": {
+      "title": "Hsa Belmont High School",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Salamat Zhylkybaev",
+      "company": "HSA Belmont High School",
+      "state": "IL"
+    },
+    "tpalmer@harrisonschools.com": {
+      "title": "Team. 53. I. Electronics. Th O",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Todd Palmer",
+      "company": "Harrison Middle School",
+      "state": "MI"
+    },
+    "jsmith@ridgerunners.net": {
+      "title": "20 Baseball Roster",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Jeanne Smith",
+      "company": "Grove HS",
+      "state": "OK"
+    },
+    "jenna.west@desertsands.us": {
+      "title": "Helmy",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Jenna West",
+      "company": "Desert Sands Unified",
+      "state": "CA"
+    },
+    "smcdaniel@cement.k12.ok.us": {
+      "title": "Archer Daniels Midland Company",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Shawna McDaniel",
+      "company": "Cement",
+      "state": "OK"
+    },
+    "morrisb@canuteschools.org": {
+      "title": "Founder Of Oklahoma Scholastic Esports ...",
+      "role": "teacher",
+      "source": "serper_direct",
+      "name": "Brian Morris",
+      "company": "Canute",
+      "state": "OK"
+    },
+    "mikayla@techwiseacademy.com": {
+      "title": "Teachers College. United States. 6 Followers 5 Connections. See Your Mutual Connections ... Mikayla Rainho",
+      "role": "teacher",
+      "source": "serper_direct",
+      "name": "Mikayla Rainho",
+      "company": "TechWise Academy",
+      "state": "IN"
+    },
+    "ricky.brown@knoxschools.org": {
+      "title": "Education/It/Football Coach",
+      "role": "teacher",
+      "source": "serper_direct",
+      "name": "Ricky Brown",
+      "company": "Hardin Valley Academy",
+      "state": "TN"
+    },
+    "julianne.webb@mvisd.org": {
+      "title": "Middle School Teacher",
+      "role": "teacher",
+      "source": "serper_direct",
+      "name": "Joules Webb",
+      "company": "Medina Valley ISD",
+      "state": "TX"
+    },
+    "eallen@llanoisd.org": {
+      "title": "Llano Isd",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Emily Allen",
+      "company": "Llano ISD",
+      "state": "TX"
+    },
+    "michele.archibeque@burwellpublicschools.com": {
+      "title": "Burwell Jr. Sr. High School",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Michele Archibeque",
+      "company": "Burwell Public Schools",
+      "state": "NE"
+    },
+    "kaconey@dallasisd.org": {
+      "title": "May 2012 10 Months \u00b7 Dallas Independent School District Graphic. Educator. Dallas Independent School District. Katherine Hughes",
+      "role": "teacher",
+      "source": "serper_direct",
+      "name": "Katherine Coney",
+      "company": "Dallas ISD",
+      "state": "TX"
+    },
+    "hayatkhan8484@gmail.com": {
+      "title": "Volunteer",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Hayat Khan",
+      "company": "Unknown",
+      "state": ""
+    },
+    "poteetak@colbertisd.org": {
+      "title": "Schwartz. 10 \"Kimberly Poteet\" Profiles",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Kim Poteet",
+      "company": "Colbert",
+      "state": "OK"
+    },
+    "c.burns@lookeba.k12.ok.us": {
+      "title": "Sickles High School \u00b7 Education: Cameron University \u00b7 Location: Weatherford \u00b7 25 Connections On Linkedin. View Christa Burns' Profile On ... Christa Burns",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Christa Burns",
+      "company": "Lookeba Sickles",
+      "state": "OK"
+    },
+    "jholland@bradleyschools.org": {
+      "title": "Linkedin Besch\u00e4ftigte Von Ocoee Middle School ; Janie Webb Holland Mael. Teacher Of Mathematics And Computer\u2026 ; Charissa Baker. Teacher",
+      "role": "teacher",
+      "source": "serper_direct",
+      "name": "Janie Holland",
+      "company": "Ocoee Middle School",
+      "state": "TN"
+    },
+    "bradyjosephhagen@gmail.com": {
+      "title": "Backfor Adidas In Trademark Expansion, 108 Ky. L ... [Pdf] Haute Couture'S Paper Shield: The Madrid Protocol And The ... ... Brady Hagen. Pdf \u00b7 A Smartphone",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Brady Hagen",
+      "company": "Unknown",
+      "state": ""
+    },
+    "misterrrb6@gmail.com": {
+      "title": "Her Campus Sbu",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "I. Butler",
+      "company": "Silver Creek High",
+      "state": ""
+    },
+    "ydagli@harmonytx.org": {
+      "title": "Brownsville Graphic ... Yunus Emre Dagli",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Yunus Emre Dagli",
+      "company": "Harmony School Of Innovation - Brownsville",
+      "state": "TX"
+    },
+    "emarti71@missioncisd.org": {
+      "title": "Mission Cisd",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Elizabeth Martinez",
+      "company": "Mission CISD",
+      "state": "TX"
+    },
+    "andrea.swanner@lifeschools.net": {
+      "title": "Law Program",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Andrea Swanner",
+      "company": "Life School",
+      "state": "TX"
+    },
+    "devin.truax@lfcds.org": {
+      "title": "Lake Forest Country Day School",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Devin Truax",
+      "company": "Lake Forest Country Day School",
+      "state": "IL"
+    },
+    "ace.b.franklin@gmx.yukonps.com": {
+      "title": "Linkedin Bob F. Cele, Argyle, Lua. For Saiii Laadroee",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Bob F",
+      "company": "Idk",
+      "state": "OK"
+    },
+    "diemerp@pennfield.net": {
+      "title": "Teacher",
+      "role": "teacher",
+      "source": "serper_direct",
+      "name": "Patrick Diemer",
+      "company": "Pennfield Schools",
+      "state": "MI"
+    },
+    "jperez05@kingsvilleisd.com": {
+      "title": "Kingsville Independent School District",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Joseph Perez",
+      "company": "Kingsville ISD",
+      "state": "TX"
+    },
+    "tprevette@sjdaschool.org": {
+      "title": "San Juan Diego Academy",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "T Prevette",
+      "company": "San Juan Diego Academy",
+      "state": "MI"
+    },
+    "georgel@friscoisd.org": {
+      "title": "Downtown \u00b7 Location: Plano \u00b7 98 Connections On ... Liji George",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Liji George",
+      "company": "Frisco ISD",
+      "state": "TX"
+    },
+    "vanflek@gmail.com": {
+      "title": "Stem & Robotics Educator",
+      "role": "teacher",
+      "source": "serper_direct",
+      "name": "Oleg Gornov",
+      "company": "The Help Group",
+      "state": "CA"
+    },
+    "michael@schaefer-edu.com": {
+      "title": "Digital Commons @ Usf Additionally, We Consistently Detected. Page 7. 6 Three Proteins Of Unknown Function. ... Michael Poe",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Michael Poe",
+      "company": "Unknown",
+      "state": "OH"
+    },
+    "wardehali179@gmail.com": {
+      "title": "Linkedin Ali Wardeh. Cloud Devops Engineer. Beegy Gmbh Hochschule Mannheim. Mannheim, Baden",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Ali Wardeh",
+      "company": "Ali",
+      "state": ""
+    },
+    "cbandy@stmarkhouston.org": {
+      "title": "Stem Educator In Makerspace Lab",
+      "role": "teacher",
+      "source": "serper_direct",
+      "name": "Crystal Bandy",
+      "company": "St. Mark Lutheran School",
+      "state": "TX"
+    },
+    "cmark@lausanneschool.com": {
+      "title": "Lausanne Collegiate School",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Courtney Mark",
+      "company": "Lausanne Collegiate School",
+      "state": "TN"
+    },
+    "imaginarypreview0@gmail.com": {
+      "title": "\u200fStil Unknown",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Yaseen -",
+      "company": "Unknown",
+      "state": ""
+    },
+    "rodolfo.zuniga@bisdmail.net": {
+      "title": "Oracle Ebs Technical Leader",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Rodolfo Zuniga",
+      "company": "Game Development Design School",
+      "state": "IL"
+    },
+    "foster.smith@gmail.com": {
+      "title": "Linkedin Corporate Human Resources Generalist",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Foster Smith",
+      "company": "Foster H S",
+      "state": "TX"
+    },
+    "kkeith@northampton-k12.us": {
+      "title": "Linkedin Kathryn Keith. Instructional Technology Specialist. Belchertown, Ma. Jfk Middle School, +4 More. Simmons University, +1 More ... 20+ \"Katherine Runyan\" Profiles",
+      "role": "district_contact",
+      "source": "serper_direct",
+      "name": "Kathryn Keith",
+      "company": "Jfk Middle School",
+      "state": "MA"
+    },
+    "iwebster@mesquiteisd.org": {
+      "title": "Linkedin Ian Webster. Head ... Computer Science Teacher",
+      "role": "teacher",
+      "source": "serper_direct",
+      "name": "Ian Webster",
+      "company": "Mesquite ISD",
+      "state": "TX"
+    },
+    "jliu@leagueschool.com": {
+      "title": "Technology Director",
+      "role": "district_contact",
+      "source": "serper_direct",
+      "name": "Jack Liu",
+      "company": "League School for Autism",
+      "state": "MA"
+    },
+    "akim@palihigh.org": {
+      "title": "Los Angeles, California, United States",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Alice Kim",
+      "company": "Palisades Charter High",
+      "state": "CA"
+    },
+    "brooks-davis_elijah@hcde.org": {
+      "title": "Davis. Educator Sewanee Alumni Lee University Alumni. 70+ \"Brooks",
+      "role": "teacher",
+      "source": "serper_direct",
+      "name": "Elijah Brooks-Davis",
+      "company": "The Howard School",
+      "state": "TN"
+    },
+    "hirschmi@hendricks.k12.in.us": {
+      "title": "West High School, +6 More. Indiana State University \u00b7 Michael Hirsch. Director",
+      "role": "district_contact",
+      "source": "serper_direct",
+      "name": "Michael Hirsch",
+      "company": "Tri-West Senior High School",
+      "state": "IN"
+    },
+    "jcartwright@millingtonschools.org": {
+      "title": "Computer Science Teacher",
+      "role": "teacher",
+      "source": "serper_direct",
+      "name": "Jessica Cartwright",
+      "company": "Millington Central Middle High School",
+      "state": "TN"
+    },
+    "aramos@wyliebulldogs.org": {
+      "title": "6 Decision Over H",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Arthur Ramos",
+      "company": "Wylie west jr high",
+      "state": "TX"
+    },
+    "nathanrodriguezlynn@gmail.com": {
+      "title": "Lynn",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Nathan Rodriguez-Lynn",
+      "company": "Weingart East LA YMCA",
+      "state": "CA"
+    },
+    "nschunke@frenship.us": {
+      "title": "Frenship Isd",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Nancy Schunke",
+      "company": "Frenship ISD",
+      "state": "TX"
+    },
+    "nurdanab757@gmail.com": {
+      "title": "United States",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Nurdana Bakytbekova",
+      "company": "Other",
+      "state": ""
+    },
+    "jbridges2@g.dentonisd.org": {
+      "title": "Denton Isd",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Justin Bridges",
+      "company": "Denton ISD",
+      "state": "TX"
+    },
+    "intertwinechaosgaming@gmail.com": {
+      "title": "Table Needs",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Jon W",
+      "company": "None",
+      "state": ""
+    },
+    "jacob.baze@hillsboroisd.org": {
+      "title": "Hillsboro Isd",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Jacob Baze",
+      "company": "Hillsboro ISD",
+      "state": "TX"
+    },
+    "hiranjanr@gmail.com": {
+      "title": "Linkedin Established In 1974, Casa Montessori Is An Ami Accredited School For Students 1\u00bd Years To 12 Years Of Age. Conveniently Located In Marietta, Ga Near The 120 ... Casa Montessori School",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "H R",
+      "company": "Casa Montessori",
+      "state": ""
+    },
+    "erandall@franklintowne.org": {
+      "title": "Franklin Towne Charter High School",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Elias Randall",
+      "company": "Franklin Towne Charter High School",
+      "state": "NE"
+    },
+    "lgigstad@myelement.org": {
+      "title": "Iu Indianapolis Earchives The Study Evolved Through The Collaboration Of Chip'S Suicide ... Leif Gigstad. Carrie Gilardone. Amy Gilcrest. Lance Gillis. Kevin Girod. [Pdf] Spring Grad Details",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Leif Gigstad",
+      "company": "Dimensions Collaborative",
+      "state": "CA"
+    },
+    "jimmy.mccrae@kerrvilleisd.net": {
+      "title": "4673 Phone: 830",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Jimmy McCrae",
+      "company": "Kerrville ISD",
+      "state": "TX"
+    },
+    "klove@cordell.k12.ok.us": {
+      "title": "Linkedin ... Cordell Hernandez, For A Year'S Support From The Estate Of Adam ... Katie Love Trustee Of The Katie Love Revocable Living Trust U/T/A ... The Times. (Gainesville, Ga.) 1972",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Katie Love",
+      "company": "Cordell",
+      "state": "OK"
+    },
+    "cowane@lisd.net": {
+      "title": "Driven Project And Events Professional With 15 Years Of Experience Developing Successful Programs In Multiple High",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Erika Cowan",
+      "company": "Lewisville ISD",
+      "state": "TX"
+    },
+    "amezcuaalfredo81@gmail.com": {
+      "title": "Csis Fcm",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Alfredo Amezcua Jr",
+      "company": "Los Angeles Pierce College",
+      "state": "CA"
+    },
+    "brash@area30.k12.in.us": {
+      "title": "Crawfordsville Community School ... I'M A Banker Focused On Helping Individuals And Families Build Financial Confidence. By Guiding Clients Through Credit Strengthening, Debt Strategy, ... Brandon Rash",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Brandon Rash",
+      "company": "Area 30 Career Center",
+      "state": "IN"
+    },
+    "elesiaking@sevier.org": {
+      "title": "Educ Cu University Of Tennessee",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Elesia King",
+      "company": "Sevier County",
+      "state": "TN"
+    },
+    "jlewis@stdots.com": {
+      "title": "University Of Southern California",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Jennifer Lewis",
+      "company": "St. Dorothy School",
+      "state": "PA"
+    },
+    "jen_birch@mcs.k12.in.us": {
+      "title": "Teacher",
+      "role": "teacher",
+      "source": "serper_direct",
+      "name": "Jen Birch",
+      "company": "Manchester Community Schools",
+      "state": "IN"
+    },
+    "ttadros@riversideunified.org": {
+      "title": "Riverside Unified",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Tony Tadros",
+      "company": "Riverside Unified",
+      "state": "CA"
+    },
+    "mfettinger@lpcsc.k12.in.us": {
+      "title": "La Porte Community Schoo Corporation",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Miles Fettinger",
+      "company": "LaPorte High School",
+      "state": "IN"
+    },
+    "molly.lane@ideapublicschools.org": {
+      "title": "Idea Public Schools",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Molly Lane",
+      "company": "Idea Public Schools",
+      "state": "TX"
+    },
+    "ahmed@eduporium.com": {
+      "title": "Eduporium",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Ahmed Shareb",
+      "company": "Eduporium",
+      "state": "MA"
+    },
+    "roger.burr@gmail.com": {
+      "title": "Muddy Brook Regional Elementary School (06180035) Middle School, 52, 60, 56. Berkshire Hills",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Roger Burr",
+      "company": "Muddy Brook Regional Elementary School",
+      "state": "MA"
+    },
+    "jjeter@garlandisd.net": {
+      "title": "Jacorious Jeter;. Provencal",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Jacorious Jeter",
+      "company": "Garland ISD",
+      "state": "TX"
+    },
+    "ddelaon@collin.edu": {
+      "title": "Collin College Del Sol Energy Solutions, Inc. 1, Sonic Corp. 1, Buffalo Wild Wings, Inc. 1 ... Dave Perry",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Dave Del",
+      "company": "Collin College",
+      "state": "TX"
+    },
+    "ridwanaa101@gmail.com": {
+      "title": "Thecoderschool",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Ridwan Alrefai",
+      "company": "theCoderSchool",
+      "state": ""
+    },
+    "board@chitownchampions.com": {
+      "title": "Present 35 Years 8 Months. Children. Manage Staff Of Five ... Roger Franklin",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "board@chitownchampions.com board@chitownchampions.com",
+      "company": "Chitown Champions",
+      "state": "IL"
+    },
+    "jeffrey.matthews@overtoneagles.org": {
+      "title": "19 Pandemic. \u00b7 Medically Necessary, Time",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Jeffrey Matthews",
+      "company": "Unknown",
+      "state": "NE"
+    },
+    "clark_maureen@hcde.org": {
+      "title": "12 Art And Technology Educator For Hamilton County Virtual School. Chattanooga, Tn. Hamilton County Department Of Education. 200+ \"Maureen Clark\" Profiles",
+      "role": "district_contact",
+      "source": "serper_direct",
+      "name": "Maureen Clark",
+      "company": "Hamilton County Virtual School",
+      "state": "TN"
+    },
+    "aryanj1809@gmail.com": {
+      "title": "Designmy Education",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Aryan Jain",
+      "company": "DesignMy Education",
+      "state": "MA"
+    },
+    "duncanr@montytech.net": {
+      "title": "Montachusett Regional Vocational Technical ... Duncan Murphy. Strategic Advisory: Specialising In ... Richard ... High School",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Rich Duncan",
+      "company": "Montachusett Regional Vocational Technical",
+      "state": "MA"
+    },
+    "broussards@woisd.net": {
+      "title": "White Oak Isd",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Shelby Broussard",
+      "company": "White Oak ISD",
+      "state": "TX"
+    },
+    "tbarton@uplifteducation.org": {
+      "title": "Uplift Education",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Timothy Barton",
+      "company": "Uplift Education",
+      "state": "TX"
+    },
+    "ray_josh@hcde.org": {
+      "title": "Pointer. An Energetic Crowd Helped Kcc Gain Momentum And Eventually Develop A 46",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Joshua Ray",
+      "company": "Hunter Elementary",
+      "state": "TN"
+    },
+    "hcastillo@grafordisd.net": {
+      "title": "Hayli Castillo. Granbury Isd",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Hayli Castillo",
+      "company": "Graford ISD",
+      "state": "TX"
+    },
+    "20213-3@apps.nsd": {
+      "title": "Txsmartschools ... Cowan, El Directors, Were In Charge \u25a1Neral Arrangerfients. Ilegals I Notice ... Bottle Hunts Catsup 16/ '/Ab Box Tetley Tea 59/ 1 Lb. Box Ritz ... The Covington News. (Covington, Ga.) 1908",
+      "role": "district_contact",
+      "source": "serper_direct",
+      "name": "A B",
+      "company": "Cowan El",
+      "state": "MA"
+    },
+    "rtinsley@sv196.org": {
+      "title": "72. Burns, Norman. O",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Regina Tinsley",
+      "company": "Sesser-Valier High School",
+      "state": "IL"
+    },
+    "carey@signatureprep.org": {
+      "title": "Benson \u00b7 Principal",
+      "role": "admin",
+      "source": "serper_direct",
+      "name": "Carey Roybal-Benson",
+      "company": "Signature Preparatory",
+      "state": "NV"
+    },
+    "lalkurdi@hsamckinley.org": {
+      "title": "Horizon Science Academy Mckinley Park ... Lara Al",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Lara Al-Kurdi",
+      "company": "Horizon Science Acad-Mckinley Park",
+      "state": "IL"
+    },
+    "mmatthews@calcoastacademy.com": {
+      "title": "Best Music Theory Student: Randy Quinn Of Hayden; Most Improved Musician: Malia ... Matthews Of Albertville, Riley Sims Of Guntersville, Hayden ... Shelley Smith, Author",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Malia Matthews",
+      "company": "Cal Coast Academy",
+      "state": "CA"
+    },
+    "jmoeller@gmail.com": {
+      "title": "Cornell Sc Johnson College Of Business John Moeller Is The Director Of The Mis Department'S Academic And Research Technologies Group. This Group Provides Instructional And Research Computing Support. John Moeller",
+      "role": "district_contact",
+      "source": "serper_direct",
+      "name": "Jon Moeller",
+      "company": "Home School",
+      "state": ""
+    },
+    "tgardiner@douglassisd.com": {
+      "title": ". United States. Douglass Isd ; Registered Nurse",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Tricia Gardiner",
+      "company": "Douglass ISD",
+      "state": "TX"
+    },
+    "faith.bordonaro@hawken.edu": {
+      "title": "Solving",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Faith Bordonaro",
+      "company": "Hawken School",
+      "state": "OH"
+    },
+    "kfarris@shawnee.k12.ok.us": {
+      "title": "Shawnee Public Schools",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Krista Farris",
+      "company": "Shawnee",
+      "state": "OK"
+    },
+    "jastek.sweeney@gmail.com": {
+      "title": "Linkedin I Am An Edger Educator Inspire To Impact The Minds Of Students. Although I'M Fresh To The\u2026 \u00b7 Experience: City Of Austin \u00b7 Education: Huston",
+      "role": "teacher",
+      "source": "serper_direct",
+      "name": "John Sweeney",
+      "company": "Woodcraft Rangers",
+      "state": "CA"
+    },
+    "manuel.esparza@ideapublicschools.org": {
+      "title": "Business Clerk",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Manuel Esparza",
+      "company": "Idea Public Schools",
+      "state": "TX"
+    },
+    "lreardon@sandi.net": {
+      "title": "Lowry, Biology, Academic Advisor. Adam Reilly, Applied Engineering, Instructor. Suzanne Riehl, Mathematics, Professor. Kyle Rudick, Communication ... Faculty & Staff Directory",
+      "role": "district_contact",
+      "source": "serper_direct",
+      "name": "Linda Reardon",
+      "company": "Dana Elementary",
+      "state": "CA"
+    },
+    "nabrams@stncs.org": {
+      "title": "St. Nicholas Catholic School",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Nessia Abrams",
+      "company": "St. Nicholas Catholic School",
+      "state": "PA"
+    },
+    "cedric.cook@detroitk12.org": {
+      "title": "Fatima Mohammed",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Cedric Cook",
+      "company": "Unknown",
+      "state": "MI"
+    },
+    "morrisc@blufftonschools.org": {
+      "title": "Ai/Education Consultant & Trainer",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Courtnee Morris",
+      "company": "Bluffton Middle School",
+      "state": "OH"
+    },
+    "cmoren1@episd.org": {
+      "title": "Linkedin Charlie Moreno. Owner, Texas Judgment Recovery Co., Inc. Dallas, Tx. Texas Judgment Recovery Co., Inc. Eagle Pass High School ... 90+ \"Charlie Moreno\" Profiles",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Charlie Moreno",
+      "company": "Eagle Pass ISD",
+      "state": "TX"
+    },
+    "tphipps@minfordfalcons.net": {
+      "title": "12, Minford Local (Scioto), Scioto. 2685, Minford Middle School, 4",
+      "role": "district_contact",
+      "source": "serper_direct",
+      "name": "Tami Phipps",
+      "company": "Minford High School",
+      "state": "OH"
+    },
+    "jboone@saintgeorgeschool.org": {
+      "title": "St. George Episcopal School",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Jennifer Boone",
+      "company": "Saint George Episcopal School",
+      "state": "TX"
+    },
+    "cscovill@coppellisd.com": {
+      "title": "Bilingual/Dual Language Teacher",
+      "role": "teacher",
+      "source": "serper_direct",
+      "name": "Christine A Scovill",
+      "company": "Coppell ISD",
+      "state": "TX"
+    },
+    "ksullivan@bluehills.org": {
+      "title": "Op) \u00b7 Boston \u00b7 Boston ... Kathleen Sullivan, 617",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Kathleen Sullivan",
+      "company": "Blue Hills Regional Vocational Technical",
+      "state": "MA"
+    },
+    "jreneau@shawnee.edu": {
+      "title": "3556. Shawnee. 940 Second Street Portsmouth Ohio 45662. Main: (740) 351",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "James Reneau",
+      "company": "Shawnee",
+      "state": "OK"
+    },
+    "brycehernandez29@gmail.com": {
+      "title": "Year Student",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Bryce Hernandez",
+      "company": "New Home School",
+      "state": "TX"
+    },
+    "kmalachi@cps.edu": {
+      "title": "Mrs. Kassidy Malachi",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Kassidy Malachi",
+      "company": "Evers Elem School",
+      "state": "IL"
+    },
+    "p00297521@houston.org": {
+      "title": "The Cam Collective",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Derek Mcintosh",
+      "company": "Houston Heights High School",
+      "state": "TX"
+    },
+    "devwilson@codmanacademy.org": {
+      "title": "Physics",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Devin Wilson",
+      "company": "Codman Academy Charter Public School",
+      "state": "MA"
+    },
+    "elexis@code-crew.org": {
+      "title": "Codecrew",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Elexis Allen",
+      "company": "CodeCrew",
+      "state": "TN"
+    },
+    "murilloste@westnoble.k12.in.us": {
+      "title": "West Noble School Corp",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Steven Murillo",
+      "company": "West Noble High School",
+      "state": "IN"
+    },
+    "education@walthambgc.org": {
+      "title": "School And Out",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Education Center",
+      "company": "Waltham Boys & Girls Club",
+      "state": "MA"
+    },
+    "tkuhn@wallerisd.net": {
+      "title": "Bryan Area \u00b7 5 Connections On Linkedin. View Troy Kuhn'S Profile On Linkedin, A Professional Community Of ... Troy Kuhn",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Troy Kuhn",
+      "company": "Waller ISD",
+      "state": "TX"
+    },
+    "chasehenderson0302@gmail.com": {
+      "title": "State Of Tennessee",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Chase Henderson",
+      "company": "Blue Hill High School",
+      "state": "NE"
+    },
+    "bgarrison@globalprepindy.org": {
+      "title": "Linkedin Please Join Us In Congratulating Brianna Garrison, Our Incredible Media Center Teacher, Who Was Recognized By The Board Of Directors As The Recipient Of The ... Global Preparatory Academy",
+      "role": "library_contact",
+      "source": "serper_direct",
+      "name": "Brianna Garrison",
+      "company": "Global Preparatory Academy at Riverside 44",
+      "state": "IN"
+    },
+    "stephen.kline@mvisd.org": {
+      "title": "Middle School Teacher",
+      "role": "teacher",
+      "source": "serper_direct",
+      "name": "Stephen Kline",
+      "company": "Medina Valley ISD",
+      "state": "TX"
+    },
+    "rbeaber@clairbourn.org": {
+      "title": "Madison. Los Angeles, California, United ... Rex Beaber",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Rex Beaber",
+      "company": "Clairbourn School",
+      "state": "CA"
+    },
+    "jessica.gardner@dixonpubliclibrary.org": {
+      "title": "Dixon Public Library",
+      "role": "library_contact",
+      "source": "serper_direct",
+      "name": "Jessica Gardner",
+      "company": "Dixon public library",
+      "state": "IL"
+    },
+    "james.kurth@visd.net": {
+      "title": "Victoria Independent School District James William Kurth Jr. Msitm, Graphic. James William Kurth Jr. Msitm. Doctoral Student In Educational Leadership",
+      "role": "district_contact",
+      "source": "serper_direct",
+      "name": "James Kurth",
+      "company": "Victoria ISD",
+      "state": "TX"
+    },
+    "hayward.lauren@holyfam.org": {
+      "title": "Linkedin Experience: Blackstone \u00b7 Education: College Of The Holy Cross \u00b7 Location: New York \u00b7 475 Connections On Linkedin. View Lauren Hayward'S Profile On Linkedin, ... Lauren Hayward",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Lauren Hayward",
+      "company": "Holy Family Regional School (South Campus)",
+      "state": "MI"
+    },
+    "yash.patel26@k12.leanerisd.org": {
+      "title": "Owner/Operator @ Multiple Businesses Located ... Education: Silveroak College Of Engineering And Technology \u00b7 Location: Greater Ahmedabad Area. View Yash Patel'S Profile On Linkedin, A Professional Community ... Yash Patel",
+      "role": "district_contact",
+      "source": "serper_direct",
+      "name": "Yash Patel",
+      "company": "River Place El",
+      "state": "TX"
+    },
+    "couie.sparks@edmondschools.net": {
+      "title": "World Business Impact. From Unlocking The ... Applied Ai Lab",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Couie Sparks",
+      "company": "Summit",
+      "state": "OK"
+    },
+    "gilljv@nv.ccsd.net": {
+      "title": "Sjsu Scholarworks Whiteflies (Hemiptera: Sternorrhyncha: Aleyrodidae: Aleyrodinae) Were Collected From 2003 Through 2009 Within The Las Vegas Area Of Clark County ... [Pdf] Eight New State Records Of Aleyrodine Whiteflies Found In Clark ... I Conducted Detection/Non",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Juniper Gill",
+      "company": "Clark County",
+      "state": "NV"
+    },
+    "lcescocancian@mamail.net": {
+      "title": "Cancian. Moravian Academy Lehigh University College Of Education. Bethlehem, Pennsylvania, United States. 98 Followers ... Lara Cesco",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Lara Cesco-Cancian",
+      "company": "Moravian Academy",
+      "state": "IL"
+    },
+    "twarcup@newcastle.k12.ok.us": {
+      "title": ". Newcastle, Ok ... 4 \"Tyler Warcup\" Profiles",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Tyler Warcup",
+      "company": "Newcastle",
+      "state": "OK"
+    },
+    "andrew.walsh@mvisd.org": {
+      "title": "Middle School Science Teacher",
+      "role": "teacher",
+      "source": "serper_direct",
+      "name": "Andrew Walsh",
+      "company": "Medina Valley ISD",
+      "state": "TX"
+    },
+    "newmanamber@harletonisd.net": {
+      "title": "Harleton Isd",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Amber Newman",
+      "company": "Harleton ISD",
+      "state": "TX"
+    },
+    "harl.roehm@gmail.com": {
+      "title": "Linkedin Hamilton Boys' High School \u00b7 Harl Roehm. Creator Of Redneck Edtech ... Collierville Schools, +2 More. Southeastern Oklahoma State University, +4 More ... 200+ \"Harl\" Profiles",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Harl Roehm",
+      "company": "Collierville High School",
+      "state": "TN"
+    },
+    "fred.johnson@panthercountry.org": {
+      "title": "6. Please ... [Pdf] The Manchester",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Fred Johnson",
+      "company": "Manchester Middle School",
+      "state": "OH"
+    },
+    "mphillips@eanesisd.net": {
+      "title": "Westlake Innovative School District Hofstra University. Austin, Texas, United States. 41 Followers 40 ... Mariel Phillips",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Mariel Phillips",
+      "company": "Eanes ISD",
+      "state": "TX"
+    },
+    "alawson@msdwt.k12.in.us": {
+      "title": "Northview Middle School. Copy Link To Contribution; Report Contribution; Close Menu. One ... How To Help A Struggling Student As A New Teacher",
+      "role": "teacher",
+      "source": "serper_direct",
+      "name": "Aaron Lawson",
+      "company": "Northview Middle School",
+      "state": "IN"
+    },
+    "gantleyj@wcde.org": {
+      "title": "East Tennessee State University",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Julie GANTLEY",
+      "company": "Grandview Elementary School",
+      "state": "TN"
+    },
+    "kwithers@tamusa.edu": {
+      "title": "Time Faculty Member In The Field Of Information ... Kim Withers",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Kim Withers",
+      "company": "kwithers@tamusa.edu",
+      "state": "TX"
+    },
+    "toby.klameth@lubbockisd.org": {
+      "title": "Lubbock Isd",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Toby Klameth",
+      "company": "Lubbock ISD",
+      "state": "TX"
+    },
+    "tx3671@gmail.com": {
+      "title": "Term Video Understanding",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Dmitry P",
+      "company": "Fvd",
+      "state": ""
+    },
+    "sanford.farrell@owassops.org": {
+      "title": "Siler 2005 Claremore Hs. Stair, Bradley Dale 2004 Claremore Hs. * Sullivan, Michael Andrew ... [Doc] Full List (Ms Word)",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Sanford Farrell",
+      "company": "Owasso HS",
+      "state": "OK"
+    },
+    "lblackwell@friendshipchristian.org": {
+      "title": "2004 Georgia Public Education Directory [Dec. 2003] Friendship Elementary School. Hall County Schools Graphic. Teacher. Hall County Schools. Aug 2006",
+      "role": "district_contact",
+      "source": "serper_direct",
+      "name": "Lara Blackwell",
+      "company": "Friendship Elementary",
+      "state": "TN"
+    },
+    "jdewitt@rccasi.org": {
+      "title": "Coach: Joanna Dewitt. 3Rd South Central Jr Sr High School",
+      "role": "teacher",
+      "source": "serper_direct",
+      "name": "Joanna Dewitt",
+      "company": "Rock Creek Community Academy",
+      "state": "IN"
+    },
+    "cunnice@k12.tulsaschools.org": {
+      "title": "Technology Instructor",
+      "role": "district_contact",
+      "source": "serper_direct",
+      "name": "Cecil Cunningham",
+      "company": "Street School",
+      "state": "OK"
+    },
+    "mark.wojciechowski@puhsd.org": {
+      "title": "Teacher",
+      "role": "teacher",
+      "source": "serper_direct",
+      "name": "Mark Wojciechowski",
+      "company": "Perris Union High",
+      "state": "CA"
+    },
+    "omrutenkroger@outlook.com": {
+      "title": "Downingtown, Pennsylvania, United States Owen Rutenkroger. Student",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Owen Rutenkroger",
+      "company": "Downingtown STEM Academy",
+      "state": "PA"
+    },
+    "zfuqua@flcs.k12.in.us": {
+      "title": "Lapel Elementary School",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Zach Fuqua",
+      "company": "Lapel Middle School",
+      "state": "IN"
+    },
+    "hlister@camphillsd.k12.pa.us": {
+      "title": "Stem & Cs Educator",
+      "role": "teacher",
+      "source": "serper_direct",
+      "name": "Heather Lister",
+      "company": "Camp Hill SD",
+      "state": "PA"
+    },
+    "bbelch@decaturproud.org": {
+      "title": "2023 District ... Exciting News! I Will Be Joining The Faculty",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Brian Belch",
+      "company": "Decatur Central High School",
+      "state": "IN"
+    },
+    "michaellebeau@walthampublicschools.org": {
+      "title": "Linkedin Digital Learning Teacher",
+      "role": "teacher",
+      "source": "serper_direct",
+      "name": "Michael Lebeau",
+      "company": "Waltham Sr High",
+      "state": "MA"
+    },
+    "tagarcia@lufkinisd.org": {
+      "title": "Lufkin Isd",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Travis Garcia",
+      "company": "Lufkin ISD",
+      "state": "TX"
+    },
+    "atrumbo@lueav.esc14.net": {
+      "title": "Avoca Isd \u00b7 Education: Abilene Christian ... Aubrey Trumbo",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Aubrey Trumbo",
+      "company": "Lueders-avoca H S",
+      "state": "TX"
+    },
+    "jacrodriguez@dallasisd.org": {
+      "title": "Cybersecurity And Safety Consultant",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Jacob Rodriguez",
+      "company": "Dallas ISD",
+      "state": "TX"
+    },
+    "mswafford@idabelps.org": {
+      "title": "Honor Roll",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Michael Swafford",
+      "company": "Idabel HS",
+      "state": "OK"
+    },
+    "kcory@edisonchargers.org": {
+      "title": "Milan Middle School), 4",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "KYLE CORY",
+      "company": "Edison Middle School (Formerly Berlin-Milan Middle",
+      "state": "OH"
+    },
+    "smichalik@allnationscs.org": {
+      "title": "Edtech, Stem, & Robotics",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Stephen Michalik",
+      "company": "All Natiions Community School",
+      "state": "TX"
+    },
+    "dwalsh@wbridgewater.com": {
+      "title": "Enrollment",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Dennis Walsh",
+      "company": "West Bridgewater Junior/Senior",
+      "state": "MA"
+    },
+    "kgribbin@mustangmail.org": {
+      "title": "Business Education Teacher",
+      "role": "teacher",
+      "source": "serper_direct",
+      "name": "Kristen Gribbin",
+      "company": "Portage Area Jshs",
+      "state": "IL"
+    },
+    "nbdcounterbreach@gmail.com": {
+      "title": "Assyrian \"Blow; Defeat\". Meh\u00fb [Storm] N (2X) Neo",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Neo Invoker",
+      "company": "Unknown",
+      "state": ""
+    },
+    "nkingman@cornerstoneacademy.org": {
+      "title": "Cornerstone Academy",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Nora Kingman",
+      "company": "Cornerstone Academy",
+      "state": "MA"
+    },
+    "mchrisma@mitchelltigers.org": {
+      "title": "Mitchell Public Schools",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Matt Chrisman",
+      "company": "Mitchell Elementary School",
+      "state": "NE"
+    },
+    "emily.walker@detroitk12.org": {
+      "title": "Michigan Experts Emily Walker. Bloomington United Gymnastics And Soccer Indiana University Bloomington. Evansville, Indiana, United States. 114 Followers 115 ... Emily Walker",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Emily Walker",
+      "company": "Unknown",
+      "state": "MI"
+    },
+    "mmunoz@bsscatholic.org": {
+      "title": "Erance\u201d Until ... [Pdf] Of Miami",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Marco Munoz",
+      "company": "Blessed sacrament",
+      "state": "CA"
+    },
+    "matthjus100@wcschools.com": {
+      "title": "Linkedin Justin Matthews, Graphic \u00b7 Justin Matthews. Physical Education Teacher",
+      "role": "teacher",
+      "source": "serper_direct",
+      "name": "Justin Matthews",
+      "company": "Green Hill High School",
+      "state": "TN"
+    },
+    "kenneth.fletcher@umb.edu": {
+      "title": "Umass Boston Cs Kenneth Fletcher, University Of Massachusetts Boston, Missouri University Of Science And Technology, About, Specialties: Software Design And Programming, C#, C ... Kenneth Fletcher",
+      "role": "district_contact",
+      "source": "serper_direct",
+      "name": "Kenneth Fletcher",
+      "company": "University of Massachusetts   Boston",
+      "state": "MA"
+    },
+    "donnellys@csdnbstaff.org": {
+      "title": "New Britain High School",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Scott Donnelly",
+      "company": "New Britain High School",
+      "state": "CT"
+    },
+    "ayarbrough@lewisk12.net": {
+      "title": "Senior Director Of Franchise Development",
+      "role": "district_contact",
+      "source": "serper_direct",
+      "name": "Austin Yarbrough",
+      "company": "Lewis Co High School",
+      "state": "TN"
+    },
+    "nathan.vincent@warrenlocal.org": {
+      "title": "Visual Art Teacher",
+      "role": "teacher",
+      "source": "serper_direct",
+      "name": "Nathan Vincent",
+      "company": "Warren Local",
+      "state": "OH"
+    },
+    "mponder@leedey.k12.ok.us": {
+      "title": "Honor Roll",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Macee Ponder",
+      "company": "Leedey",
+      "state": "OK"
+    },
+    "lwinters@duxbury.k12.ma.us": {
+      "title": "Educator",
+      "role": "teacher",
+      "source": "serper_direct",
+      "name": "Liam Winters",
+      "company": "Duxbury",
+      "state": "MA"
+    },
+    "emaestas1@yisd.net": {
+      "title": "Ysleta Independent School District Elaine Maestas. Technology Education Teacher",
+      "role": "district_contact",
+      "source": "serper_direct",
+      "name": "Elaine Maestas",
+      "company": "Ysleta ISD",
+      "state": "TX"
+    },
+    "vhbroadhead@capousd.org": {
+      "title": "Present 8 Years 8 Months. Aliso Viejo, California. Saddleback Valley Christian High School Graphic. Hs Teacher ... Valarie Broadhead",
+      "role": "teacher",
+      "source": "serper_direct",
+      "name": "Valarie Broadhead",
+      "company": "Aliso Viejo Middle",
+      "state": "CA"
+    },
+    "svarude@uplifteducation.org": {
+      "title": "Uplift Education",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Shreyas Varude",
+      "company": "Uplift Education",
+      "state": "TX"
+    },
+    "hewittd@peabody.k12.ma.us": {
+      "title": "Payroll Administrator",
+      "role": "district_contact",
+      "source": "serper_direct",
+      "name": "Debra Hewitt",
+      "company": "Peabody",
+      "state": "MA"
+    },
+    "olinghousejl@bps-ok.org": {
+      "title": "State Honor Roll Fall 2005 Baillargeon, David Sebastien 2006 Bartlesville Hs. Barnes, Robert Warren 2008 Bartlesville Hs. Bennett, Christy M 2008 Bartlesville Hs. * Blackman, Gregory ... [Doc] Full List (Ms Word)",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Justin Olinghouse",
+      "company": "Bartlesville HS",
+      "state": "OK"
+    },
+    "skylerbpurvis@gmail.com": {
+      "title": "Westmont College The Jc Celo Is A Student Organization Designed For Concurrently Enrolled High School And Homeschool Students. ... Director; Skyler Nguyen, ... [Pdf] 2025 Trident",
+      "role": "district_contact",
+      "source": "serper_direct",
+      "name": "Skyler Purvis",
+      "company": "Homeschool",
+      "state": ""
+    },
+    "h.royal@lookeba.k12.ok.us": {
+      "title": "Nursing. Msn In Nursing Administration. Lookeba",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Hanah Royal",
+      "company": "Lookeba Sickles",
+      "state": "OK"
+    },
+    "kellie.weimer@gracetyler.org": {
+      "title": "Grace Community School",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Kellie Weimer",
+      "company": "Grace Community School",
+      "state": "TX"
+    },
+    "kto@hlpusd.org": {
+      "title": "Hacienda/La Puente Unified",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Kien To",
+      "company": "Hacienda la Puente Unified",
+      "state": "CA"
+    },
+    "gthomson@irvingisd.net": {
+      "title": "Irving Isd",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Greg Thomson",
+      "company": "Irving ISD",
+      "state": "TX"
+    },
+    "pickettj@hcboe.net": {
+      "title": "Teacher",
+      "role": "teacher",
+      "source": "serper_direct",
+      "name": "Justin Pickett",
+      "company": "Morristown West High",
+      "state": "TN"
+    },
+    "sarah.choate@lubbockisd.org": {
+      "title": "Linkedin Throughout Her 26",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Sarah Choate",
+      "company": "Lubbock ISD",
+      "state": "TX"
+    },
+    "jonfox@lorenaisd.net": {
+      "title": "Elementary Music, Lorena Isd. Oboe/English Horn ... Jon Fox. Shane Hall. Brian Konzelman. Jonathan Kutz. Maddison ... [Pdf] A Christmas Celebration",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Jon Fox",
+      "company": "Lorena ISD",
+      "state": "TX"
+    },
+    "n.tran@stgeorgeontario.com": {
+      "title": "Viet Tran. Junior High Science Teacher. Chino, Ca. Saint George Ontario, +4 More. Grand Canyon University ... 50+ \"Nathaniel Tran\" Profiles",
+      "role": "teacher",
+      "source": "serper_direct",
+      "name": "Nathaniel Tran",
+      "company": "St George School",
+      "state": "CA"
+    },
+    "edwarav@nv.ccsd.net": {
+      "title": "15 As Domains In Need Of Further Study Within The Clark County ... 15 Metrics For Measuring The Heartbe",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Alice Edwards",
+      "company": "Clark County",
+      "state": "NV"
+    },
+    "williams_alex@hcde.org": {
+      "title": "Headline Is A Required Field",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Alex Williams",
+      "company": "East Ridge High School",
+      "state": "TN"
+    },
+    "jmcphee@abs.misd.net": {
+      "title": "Anchor Bay High School",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "John Mcphee",
+      "company": "Anchor Bay High School",
+      "state": "MI"
+    },
+    "becca.houston@tdhslearning.org": {
+      "title": "Amazon",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Becca Houston",
+      "company": "Trc",
+      "state": "TN"
+    },
+    "qsingletary4@protonmail.com": {
+      "title": "Flint, Mi, Keene High School",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Asa McCollam",
+      "company": "Kearsley High School",
+      "state": "MI"
+    },
+    "ian@mattas.net": {
+      "title": "Specific Knowledge And Bound Morpheme Familiarity Allow For The Reader To Access Previously Unknown Words (Kieffer & Leasaux, 2008). [Pdf] A Text Analysis Of Bound Morphemes In K",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Ian Mattas",
+      "company": "Unknown",
+      "state": ""
+    },
+    "mtunno@phm.k12.in.us": {
+      "title": "T, Grp: Candid Conversations With The World'S Top Leaders Scaling Ai ... Giorgio Di Tunno: 'I Feel Like I Know How To Speak Up More Now ... Posts Starting With 'G'",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "Matthew Tunno",
+      "company": "Gms",
+      "state": "IN"
+    },
+    "wshort@williston.com": {
+      "title": "Williston Northampton School",
+      "role": "other",
+      "source": "serper_direct",
+      "name": "William Short",
+      "company": "Northampton High",
+      "state": "MA"
+    },
+    "ryanweng100@gmail.com": {
+      "title": "Unknown",
+      "role": "other",
+      "source": "claude",
+      "name": "Ryan Weng",
+      "company": "Unknown",
+      "state": ""
+    },
+    "josh.roberson@byngschools.org": {
+      "title": "Teacher",
+      "role": "teacher",
+      "source": "claude",
+      "name": "JOSH ROBERSON",
+      "company": "Byng HS",
+      "state": "OK"
+    },
+    "lbelter@jsmorton.org": {
+      "title": "Business Teacher",
+      "role": "teacher",
+      "source": "claude",
+      "name": "Laura Belter",
+      "company": "J Sterling Morton East High Sch",
+      "state": "IL"
+    },
+    "abbie.hendley@lamarcountyschools.org": {
+      "title": "Teacher",
+      "role": "teacher",
+      "source": "claude",
+      "name": "Abbie Hendley",
+      "company": "Oak Grove",
+      "state": "OK"
+    },
+    "4053188@ccpsnet.net": {
+      "title": "Teacher",
+      "role": "teacher",
+      "source": "claude",
+      "name": "John Tate",
+      "company": "Gordon School",
+      "state": "IL"
+    },
+    "lphillip@ecsdnv.net": {
+      "title": "Teacher",
+      "role": "teacher",
+      "source": "claude",
+      "name": "Linda Phillips",
+      "company": "West Wendover High School",
+      "state": "NV"
+    },
+    "30highdavid@blackfordschools.org": {
+      "title": "Teacher",
+      "role": "teacher",
+      "source": "claude",
+      "name": "David High",
+      "company": "Southside Elementary School",
+      "state": "IN"
+    },
+    "paul.blum@boystown.org": {
+      "title": "Teacher",
+      "role": "teacher",
+      "source": "claude",
+      "name": "Paul Blum",
+      "company": "Father Flanigan's Boys Home School (Wegner)",
+      "state": "NE"
+    },
+    "skelly@lmtsd.org": {
+      "title": "Teacher",
+      "role": "teacher",
+      "source": "claude",
+      "name": "Stephen Kelly",
+      "company": "Murray Avenue Sch",
+      "state": "PA"
+    },
+    "blazer095@msn.com": {
+      "title": "Teacher",
+      "role": "teacher",
+      "source": "claude",
+      "name": "Lorette Weldon",
+      "company": "Outschool",
+      "state": ""
+    },
+    "bjernigan@cherrycreekschools.org": {
+      "title": "Teacher",
+      "role": "teacher",
+      "source": "claude",
+      "name": "Brian Jernigan",
+      "company": "Cherry Creek School",
+      "state": "IL"
+    },
+    "tthompson1@kcmsd.net": {
+      "title": "Teacher",
+      "role": "teacher",
+      "source": "claude",
+      "name": "Trent Thompson",
+      "company": "East High School",
+      "state": "IL"
+    },
+    "dan.druvenga@van-burencsd.org": {
+      "title": "Teacher",
+      "role": "teacher",
+      "source": "claude",
+      "name": "Dan Druvenga",
+      "company": "Harmony",
+      "state": "OK"
+    },
+    "annabel.hasty@questacademy.org": {
+      "title": "CS Teacher",
+      "role": "teacher",
+      "source": "claude",
+      "name": "Annabel Hasty",
+      "company": "Quest Academy",
+      "state": "IL"
+    },
+    "mramblas@riversideunified.org": {
+      "title": "District Staff",
+      "role": "district_contact",
+      "source": "claude",
+      "name": "Monica Ramblas",
+      "company": "Riverside Unified",
+      "state": "CA"
+    },
+    "thetinkererschool@gmail.com": {
+      "title": "Homeschool Parent",
+      "role": "other",
+      "source": "claude",
+      "name": "Ann Marie Tate",
+      "company": "HomeSchool",
+      "state": ""
+    },
+    "dahern@glts.net": {
+      "title": "Teacher",
+      "role": "teacher",
+      "source": "claude",
+      "name": "Danielle Ahern",
+      "company": "Greater Lawrence Regional Vocational Technical",
+      "state": "MA"
+    },
+    "mfogle@ptisd.org": {
+      "title": "CTE Teacher",
+      "role": "teacher",
+      "source": "claude",
+      "name": "Megan Fogle",
+      "company": "Pine Tree ISD",
+      "state": "TX"
+    },
+    "dretzlaff@gmail.com": {
+      "title": "Teacher",
+      "role": "teacher",
+      "source": "claude",
+      "name": "Dan Retzlaff",
+      "company": "Austin H S",
+      "state": "TX"
+    },
+    "swtjo621@outlook.com": {
+      "title": "Homeschool Parent",
+      "role": "other",
+      "source": "claude",
+      "name": "Christina Williamson",
+      "company": "homeschool",
+      "state": ""
+    },
+    "eric.sweet@sanjuan.edu": {
+      "title": "Elementary Teacher",
+      "role": "teacher",
+      "source": "claude",
+      "name": "Eric Sweet",
+      "company": "American Elementary",
+      "state": "CA"
+    },
+    "crystal.buchanan@epiccharterschools.org": {
+      "title": "Teacher",
+      "role": "teacher",
+      "source": "claude",
+      "name": "Crystal Buchanan",
+      "company": "Epic One on One Charter School",
+      "state": "OK"
+    },
+    "kasemodel_craig@asdk12.org": {
+      "title": "District Contact",
+      "role": "district_contact",
+      "source": "claude",
+      "name": "Craig Kasemodel",
+      "company": "asdk12",
+      "state": "IL"
+    },
+    "amfinklea1@cps.edu": {
+      "title": "Youth Interventionist",
+      "role": "teacher",
+      "source": "claude",
+      "name": "Aaryn Finklea",
+      "company": "Brunson Math & Science Specialty Elementary School",
+      "state": "IL"
+    },
+    "maryellenriley@wsdr4.org": {
+      "title": "Elementary Teacher",
+      "role": "teacher",
+      "source": "claude",
+      "name": "Mary Ellen Riley",
+      "company": "Stone Creek Elementary",
+      "state": "CA"
+    },
+    "abennett@stpaddys.org": {
+      "title": "Teacher",
+      "role": "teacher",
+      "source": "claude",
+      "name": "Ashley Bennett",
+      "company": "St. Patrick Catholic School",
+      "state": "CA"
+    },
+    "cguerra5@saisd.net": {
+      "title": "District Staff",
+      "role": "district_contact",
+      "source": "claude",
+      "name": "Chris Guerra",
+      "company": "San Angelo ISD",
+      "state": "TX"
+    },
+    "samcintyre@dallasisd.org": {
+      "title": "District Staff",
+      "role": "district_contact",
+      "source": "claude",
+      "name": "Sarah Mcintyre",
+      "company": "Dallas ISD",
+      "state": "TX"
+    },
+    "sarazaki@berkeley.edu": {
+      "title": "University Staff/Student",
+      "role": "other",
+      "source": "claude",
+      "name": "Sara Alexx Zaki",
+      "company": "University of California Berkeley",
+      "state": "CA"
+    },
+    "gerald.hunt@brazosportisd.net": {
+      "title": "CTE Teacher",
+      "role": "teacher",
+      "source": "claude",
+      "name": "Gerald Hunt",
+      "company": "Brazosport ISD",
+      "state": "TX"
+    },
+    "agalltucker@pasoschools.org": {
+      "title": "Computer Skills Teacher",
+      "role": "teacher",
+      "source": "claude",
+      "name": "Allison Alltucker",
+      "company": "George H. Flamson Middle",
+      "state": "CA"
+    },
+    "scotca@myips.org": {
+      "title": "Teacher",
+      "role": "teacher",
+      "source": "claude",
+      "name": "Chris Scott",
+      "company": "Arlington Elementary School",
+      "state": "IN"
+    },
+    "agallagher@richmond.k12.mi.us": {
+      "title": "Teacher",
+      "role": "teacher",
+      "source": "claude",
+      "name": "Ann Gallagher",
+      "company": "Richmond Community Schools",
+      "state": "MI"
+    },
+    "jeffrey.williams@ccctc.k12.oh.us": {
+      "title": "Teacher",
+      "role": "teacher",
+      "source": "claude",
+      "name": "Jeffrey Williams",
+      "company": "Columbiana County Career and Technical Center",
+      "state": "OH"
+    },
+    "ryan.hale@yukonps.com": {
+      "title": "School Staff",
+      "role": "other",
+      "source": "claude",
+      "name": "Ryan Hale",
+      "company": "Yukon",
+      "state": "OK"
+    },
+    "csmith@daytonpublic.com": {
+      "title": "Teacher",
+      "role": "teacher",
+      "source": "claude",
+      "name": "Curtis Smith",
+      "company": "Belmont High School",
+      "state": "OH"
+    },
+    "mrsyosten@stanthonysaints.com": {
+      "title": "Teacher",
+      "role": "teacher",
+      "source": "claude",
+      "name": "Amy Yosten",
+      "company": "St Anthony Academy",
+      "state": "TX"
+    },
+    "chad.jurecka@southlakecarroll.edu": {
+      "title": "Teacher/Coach",
+      "role": "teacher",
+      "source": "claude",
+      "name": "Chad Jurecka",
+      "company": "Carroll Middle",
+      "state": "TX"
+    },
+    "mwashington@senseindy.org": {
+      "title": "Teacher",
+      "role": "other",
+      "source": "claude",
+      "name": "Minnie Washington",
+      "company": "SE Neighborhood School of Excellence",
+      "state": "IN"
+    },
+    "anthony.brown@wwisd.com": {
+      "title": "Coach",
+      "role": "teacher",
+      "source": "claude",
+      "name": "Anthony Brown",
+      "company": "Whitewright Middle",
+      "state": "TX"
+    },
+    "kessner68@aol.com": {
+      "title": "Other",
+      "role": "other",
+      "source": "claude",
+      "name": "Lee Kessner",
+      "company": "Haskell",
+      "state": "OK"
+    },
+    "vivian_felix@cjusd.net": {
+      "title": "District Staff",
+      "role": "district_contact",
+      "source": "claude",
+      "name": "VIVIAN FELIX",
+      "company": "Cuyama Joint Unified",
+      "state": "CA"
+    },
+    "dharris@wyandotte.k12.ok.us": {
+      "title": "School Staff",
+      "role": "other",
+      "source": "claude",
+      "name": "Donna Harris",
+      "company": "Wyandotte",
+      "state": "OK"
+    },
+    "tcurry@lbschools.net": {
+      "title": "Instructional Technology Coach",
+      "role": "teacher",
+      "source": "claude",
+      "name": "Tarquinn Curry",
+      "company": "Jefferson Leadership Academies",
+      "state": "CA"
+    },
+    "atartagl@trumbullps.net": {
+      "title": "Teacher",
+      "role": "teacher",
+      "source": "claude",
+      "name": "Alana Tartaglia",
+      "company": "Trumbull High School",
+      "state": "CT"
+    },
+    "scott_nevil@roundrockisd.org": {
+      "title": "Teacher",
+      "role": "teacher",
+      "source": "claude",
+      "name": "Scott Nevil",
+      "company": "Round Rock ISD",
+      "state": "TX"
+    },
+    "janderson@chasecountyschools.org": {
+      "title": "School Staff",
+      "role": "other",
+      "source": "claude",
+      "name": "Justin Anderson",
+      "company": "Chase County Schools",
+      "state": "NE"
+    },
+    "willis.james@olsohio.org": {
+      "title": "Teacher",
+      "role": "teacher",
+      "source": "claude",
+      "name": "James Willis",
+      "company": "Stingel Elementary School",
+      "state": "OH"
+    },
+    "etraub@pittsburgusd.net": {
+      "title": "Teacher",
+      "role": "teacher",
+      "source": "claude",
+      "name": "Elizabeth Traub",
+      "company": "Pittsburg",
+      "state": "OK"
+    },
+    "pasala61168@alvordschools.net": {
+      "title": "Teacher",
+      "role": "teacher",
+      "source": "claude",
+      "name": "Pamela Salazar",
+      "company": "Wells Middle",
+      "state": "CA"
+    },
+    "sholland@nps.org": {
+      "title": "Elementary School Staff",
+      "role": "other",
+      "source": "claude",
+      "name": "Stacey Holland",
+      "company": "Northbridge Elementary School",
+      "state": "MA"
+    },
+    "elobue@carmelhs.org": {
+      "title": "Latin Teacher",
+      "role": "teacher",
+      "source": "claude",
+      "name": "Erin Major",
+      "company": "Carmel Catholic High School",
+      "state": "IL"
+    },
+    "valencia.gooch@gmail.com": {
+      "title": "Workforce Development Professional",
+      "role": "other",
+      "source": "claude",
+      "name": "Valencia Gooch",
+      "company": "LocalTek",
+      "state": ""
+    },
+    "jsira@carok12.org": {
+      "title": "Middle School Teacher",
+      "role": "teacher",
+      "source": "claude",
+      "name": "James Sira",
+      "company": "Caro Middle School",
+      "state": "MI"
+    },
+    "samuel.choi@morongo.k12.ca.us": {
+      "title": "Teacher",
+      "role": "teacher",
+      "source": "claude",
+      "name": "Samuel Choi",
+      "company": "Morongo Unified",
+      "state": "CA"
+    },
+    "cwilliams4@bostonpublicschools.org": {
+      "title": "Teacher",
+      "role": "teacher",
+      "source": "claude",
+      "name": "Calvin Williams",
+      "company": "John W Mccormack",
+      "state": "MA"
+    },
+    "oravece@lancastercountryday.org": {
+      "title": "High School Mathematics Teacher",
+      "role": "teacher",
+      "source": "claude",
+      "name": "Elizabeth Oravec",
+      "company": "Lancaster Country Day School",
+      "state": "PA"
+    },
+    "gwcc@wileyc.edu": {
+      "title": "Other",
+      "role": "other",
+      "source": "claude",
+      "name": "Angelita Jackson",
+      "company": "George Washington Middle",
+      "state": "TX"
+    },
+    "bowdent@warrenschools.com": {
+      "title": "School Staff",
+      "role": "other",
+      "source": "claude",
+      "name": "Tanya Bowden",
+      "company": "Unknown",
+      "state": "TN"
+    },
+    "tbarker@dpisd.org": {
+      "title": "District Contact",
+      "role": "district_contact",
+      "source": "claude",
+      "name": "Travis Barker",
+      "company": "Deer Park ISD",
+      "state": "TX"
+    },
+    "awright@blanchard.k12.ok.us": {
+      "title": "School Staff",
+      "role": "other",
+      "source": "claude",
+      "name": "Amber Wright",
+      "company": "Blanchard",
+      "state": "OK"
+    },
+    "francisco.gonzalez@cvesd.org": {
+      "title": "District Staff",
+      "role": "district_contact",
+      "source": "claude",
+      "name": "Francisco Gonzalez",
+      "company": "Chula Vista Elementary",
+      "state": "CA"
+    },
+    "selica.granderson@gmail.com": {
+      "title": "Founder/Administrator",
+      "role": "admin",
+      "source": "claude",
+      "name": "Selica Granderson",
+      "company": "The Roosevelt Academy",
+      "state": ""
+    },
+    "bkahler@mursd.org": {
+      "title": "Teacher",
+      "role": "teacher",
+      "source": "claude",
+      "name": "Britt Kahler",
+      "company": "Miscoe Hill School",
+      "state": "MA"
+    },
+    "tkreuzberger@vths.org": {
+      "title": "Teacher",
+      "role": "teacher",
+      "source": "claude",
+      "name": "Thomas Kreuzberger",
+      "company": "Valley Middle",
+      "state": "CA"
+    },
+    "joseph.ochoa@myabcusd.org": {
+      "title": "Middle School Teacher",
+      "role": "teacher",
+      "source": "claude",
+      "name": "Joseph Ochoa",
+      "company": "Fedde (Pharis F.) Middle",
+      "state": "CA"
+    },
+    "pgolter@fhlancers.com": {
+      "title": "High School Teacher",
+      "role": "teacher",
+      "source": "claude",
+      "name": "Paul Golter",
+      "company": "Federal Hocking High School",
+      "state": "OH"
+    },
+    "ava.nicholson320.com@gmail.com": {
+      "title": "Other",
+      "role": "other",
+      "source": "claude",
+      "name": "Ava Nicholson",
+      "company": "Unknown",
+      "state": ""
+    },
+    "williamsd@mineolaisd.net": {
+      "title": "District Contact",
+      "role": "district_contact",
+      "source": "claude",
+      "name": "Dalton Williams",
+      "company": "Mineola ISD",
+      "state": "TX"
+    },
+    "mvukovic@lakewoodlocal.k12.oh.us": {
+      "title": "IT/CS Teacher",
+      "role": "teacher",
+      "source": "claude",
+      "name": "Mark Vukovic",
+      "company": "Lakewood Local",
+      "state": "OH"
+    },
+    "jesushernandez@mylusd.org": {
+      "title": "District Staff",
+      "role": "district_contact",
+      "source": "claude",
+      "name": "Jesus Hernandez",
+      "company": "Unknown",
+      "state": "CA"
+    },
+    "dconroy@tisburyschool.org": {
+      "title": "Elementary School Staff",
+      "role": "other",
+      "source": "claude",
+      "name": "Deb Conroy",
+      "company": "Tisbury Elementary",
+      "state": "MA"
+    },
+    "ladd_william@hcde.org": {
+      "title": "Elementary School Teacher",
+      "role": "teacher",
+      "source": "claude",
+      "name": "William Ladd",
+      "company": "Woodmore Elementary School",
+      "state": "TN"
+    },
+    "kingman.fu@sweetwaterschools.org": {
+      "title": "High School Staff",
+      "role": "other",
+      "source": "claude",
+      "name": "Patricia Chen",
+      "company": "Eastlake High",
+      "state": "CA"
+    },
+    "valhallanlakeforest@gmail.com": {
+      "title": "Esports Program Director",
+      "role": "other",
+      "source": "claude",
+      "name": "David Yard",
+      "company": "Valhallan Lake Forest",
+      "state": "IL"
+    },
+    "cs4saleh@gmail.com": {
+      "title": "Unknown",
+      "role": "other",
+      "source": "claude",
+      "name": "Hsaleh -",
+      "company": "The Hill school",
+      "state": "PA"
+    },
+    "skabat@academystbenedict.org": {
+      "title": "Teacher",
+      "role": "teacher",
+      "source": "claude",
+      "name": "Staccy Kabat",
+      "company": "Academy of St. Benedict the African",
+      "state": "CT"
+    },
+    "haelieheard@gmail.com": {
+      "title": "Homeschool Parent/Educator",
+      "role": "other",
+      "source": "claude",
+      "name": "Haelie Heard",
+      "company": "Heard Classical Academy Homeschool",
+      "state": ""
+    },
+    "mkissel@solvangschool.org": {
+      "title": "Social Studies Teacher",
+      "role": "teacher",
+      "source": "claude",
+      "name": "Matt Kissel",
+      "company": "Solvang Elementary",
+      "state": "CA"
+    }
+  }
+}
