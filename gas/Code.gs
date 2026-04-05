@@ -52,6 +52,9 @@ function doPost(e) {
       case "search_inbox":
         return jsonResponse(searchInbox(params));
 
+      case "search_inbox_full":
+        return jsonResponse(searchInboxFull(params));
+
       // ── Calendar ───────────────────────────────────────────────
       case "get_calendar_events":
         return jsonResponse(getCalendarEvents(params));
@@ -183,6 +186,46 @@ function searchInbox(params) {
   }
 
   return { success: true, results: results, count: results.length };
+}
+
+
+/**
+ * Searches inbox and returns FULL email bodies with pagination.
+ * params: { query (str), max_results (int), page_start (int), body_limit (int) }
+ * body_limit defaults to 5000 chars per email. Set higher for full content.
+ */
+function searchInboxFull(params) {
+  var query = params.query || "";
+  var maxResults = params.max_results || 20;
+  var pageStart = params.page_start || 0;
+  var bodyLimit = params.body_limit || 5000;
+
+  var threads = GmailApp.search(query, pageStart, maxResults);
+  var results = [];
+
+  for (var i = 0; i < threads.length; i++) {
+    var msg = threads[i].getMessages()[0];
+    var body = msg.getPlainBody() || "";
+    results.push({
+      subject: msg.getSubject(),
+      from: msg.getFrom(),
+      date: msg.getDate().toString(),
+      body: body.substring(0, bodyLimit),
+      message_id: msg.getId(),
+      thread_id: threads[i].getId(),
+      labels: threads[i].getLabels().map(function(l) { return l.getName(); })
+    });
+  }
+
+  var hasMore = threads.length >= maxResults;
+
+  return {
+    success: true,
+    results: results,
+    count: results.length,
+    page_start: pageStart,
+    has_more: hasMore
+  };
 }
 
 

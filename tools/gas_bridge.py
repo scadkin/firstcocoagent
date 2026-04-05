@@ -155,6 +155,25 @@ class GASBridge:
         })
         return data.get("results", [])
 
+    def search_inbox_full(
+        self,
+        query: str,
+        max_results: int = 20,
+        page_start: int = 0,
+        body_limit: int = 5000,
+    ) -> dict:
+        """
+        Searches Gmail inbox and returns full email bodies with pagination.
+        Returns {success, results: [{subject, from, date, body, message_id, thread_id, labels}], has_more}
+        """
+        data = self._call("search_inbox_full", {
+            "query": query,
+            "max_results": max_results,
+            "page_start": page_start,
+            "body_limit": body_limit,
+        })
+        return data
+
     def get_draft_link(self) -> str:
         """Returns Gmail drafts folder URL."""
         return "https://mail.google.com/mail/u/0/#drafts"
