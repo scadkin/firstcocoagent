@@ -181,6 +181,33 @@ proximity_engine.haversine_miles(lat1, lon1, lat2, lon2) -> float
 # Agency Type 4 = ESAs. Only prospects Type 1/2/7/9 (regular districts).
 ```
 
+## signal_processor — MODULE not class
+```python
+import tools.signal_processor as signal_processor
+signal_processor.process_all_signals(gas) -> dict  # sync, full batch — all sources
+signal_processor.process_new_signals(gas, since_date=None) -> dict  # sync, incremental
+signal_processor.get_active_signals(state_filter="", scope_filter="", status_filter="new,surfaced") -> list[dict]
+signal_processor.update_signal_status(signal_id, new_status) -> bool
+signal_processor.write_signals(signals) -> dict  # {written, skipped}
+signal_processor.format_hot_signals(limit=5, state_filter="") -> str  # Telegram display
+signal_processor.format_signal_detail(signal, related=None) -> str
+signal_processor.format_scan_summary(summary) -> str
+signal_processor.build_signal_brief_block() -> str  # morning brief injection
+signal_processor.parse_google_alert(email_body, email_date="", message_id="") -> list[dict]
+signal_processor.classify_signal(text) -> tuple  # (signal_type, tier)
+signal_processor.extract_district_and_state(text) -> tuple  # (district, state)
+signal_processor.extract_dollar_amount(text) -> str
+signal_processor.detect_clusters(signals) -> dict
+# Signals tab: 17 columns (ID, Date, Source, Source Detail, Signal Type, Scope,
+#   District, State, Headline, Dollar Amount, Tier, Heat Score, Urgency,
+#   Status, Customer Status, Source URL, Message ID)
+# Signal types: bond, leadership, board_meeting, rfp, hiring, grant, ai_policy,
+#   technology, curriculum, enrollment, market_intel
+# Status: new → surfaced → acted → expired
+# Uses: territory_data._load_territory_districts(), csv_importer (get_active_accounts, normalize_name),
+#   district_prospector (get_all_prospects), Claude Haiku for Burbio/DOE extraction
+```
+
 ## CallProcessor — lazy import
 ```python
 from agent.call_processor import CallProcessor

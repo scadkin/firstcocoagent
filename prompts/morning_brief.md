@@ -33,7 +33,10 @@ Format:
 **PROSPECT PIPELINE:**
 [If there are pending or approved districts in the prospecting queue, mention the count. If approved districts are waiting for research, suggest running them. If nothing: omit this section.]
 
+**MARKET SIGNALS:**
+[If SIGNAL INTELLIGENCE DATA block is present: highlight top 2-3 new or high-heat signals. Format each as: "District (State) — signal summary (heat X)". If there's a SIGNAL OF THE DAY, feature it. If no signal data: omit this section entirely.]
+
 **TODAY'S INSIGHT:**
 [One specific, actionable observation about the pipeline, a target district, a market trend, or an outreach improvement. Make it genuinely useful.]
 
-Keep the entire brief under 200 words.
+Keep the entire brief under 250 words.

@@ -34,6 +34,7 @@ import tools.lead_importer as lead_importer
 import tools.territory_data as territory_data
 import tools.todo_manager as todo_manager
 import tools.proximity_engine as proximity_engine
+import tools.signal_processor as signal_processor
 from tools.telegram_bot import send_message
 # Phase 4/5 modules imported lazily inside execute_tool() — safe to boot without them
 
@@ -66,6 +67,8 @@ _fireflies_gmail_seeded: bool = False    # True after first scan seeds existing 
 _last_prospect_batch: list[dict] = []
 # C5: Last proximity results for "add nearby" command
 _last_proximity_result: dict = {}
+# Signal intelligence: last shown batch for /signal_act indexing
+_last_signal_batch: list[dict] = []
 # Districts flagged as existing customers during approve — awaiting confirmation to proceed
 _pending_approve_force: list[dict] = []
 
@@ -1378,7 +1381,7 @@ def _parse_draft(draft_text: str) -> tuple:
 # ── Telegram message handler ───────────────────────────────────────────────────
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    global conversation_history, _pending_draft, _last_prospect_batch, _pending_approve_force, _csv_import_mode, _csv_import_state, _pipeline_import_mode, _closed_lost_import_mode, _pending_csv_intent, _leads_import_mode, _last_proximity_result
+    global conversation_history, _pending_draft, _last_prospect_batch, _pending_approve_force, _csv_import_mode, _csv_import_state, _pipeline_import_mode, _closed_lost_import_mode, _pending_csv_intent, _leads_import_mode, _last_proximity_result, _last_signal_batch
 
     if str(update.effective_chat.id) != str(TELEGRAM_CHAT_ID):
         return
@@ -2574,6 +2577,164 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await send_message(f"Remove error: {e}")
         return
 
+    # ── Signal intelligence commands ─────────────────────────────────────────
+
+    elif user_text.lower() in ["/signals", "signals", "show signals", "hot signals"]:
+        try:
+            loop = asyncio.get_event_loop()
+            output = await loop.run_in_executor(None, signal_processor.format_hot_signals, 5, "")
+            _last_signal_batch = await loop.run_in_executor(
+                None, signal_processor.get_active_signals, "", "district", "new,surfaced")
+            await send_message(output)
+        except Exception as e:
+            await send_message(f"Signal error: {e}")
+        return
+
+    elif user_text.lower().startswith("/signals "):
+        args = user_text[len("/signals "):].strip()
+        try:
+            loop = asyncio.get_event_loop()
+            if args.lower() == "all":
+                output = await loop.run_in_executor(None, signal_processor.format_hot_signals, 20, "")
+            elif args.lower() == "new":
+                sigs = await loop.run_in_executor(
+                    None, signal_processor.get_active_signals, "", "district", "new")
+                output = signal_processor.format_hot_signals(20, "") if sigs else "No new signals."
+            elif len(args) == 2 and args.upper().isalpha():
+                output = await loop.run_in_executor(
+                    None, signal_processor.format_hot_signals, 20, args.upper())
+            else:
+                output = await loop.run_in_executor(None, signal_processor.format_hot_signals, 10, "")
+            _last_signal_batch = await loop.run_in_executor(
+                None, signal_processor.get_active_signals, "", "district", "new,surfaced")
+            await send_message(output)
+        except Exception as e:
+            await send_message(f"Signal error: {e}")
+        return
+
+    elif user_text.lower().startswith("/signal_info"):
+        idx_text = user_text[len("/signal_info"):].strip()
+        try:
+            idx = int(idx_text) - 1
+            if not _last_signal_batch or idx < 0 or idx >= len(_last_signal_batch):
+                await send_message("Run `/signals` first to load the signal list.")
+                return
+            sig = _last_signal_batch[idx]
+            # Find related signals for same district
+            district = sig.get("District", "")
+            related = [s for s in _last_signal_batch if s.get("District") == district and s.get("ID") != sig.get("ID")] if district else []
+            output = signal_processor.format_signal_detail(sig, related)
+            await send_message(output)
+        except (ValueError, IndexError):
+            await send_message("Usage: `/signal_info 1` (number from `/signals` list)")
+        except Exception as e:
+            await send_message(f"Signal info error: {e}")
+        return
+
+    elif user_text.lower().startswith("/signal_act"):
+        idx_text = user_text[len("/signal_act"):].strip()
+        try:
+            idx = int(idx_text) - 1
+            if not _last_signal_batch or idx < 0 or idx >= len(_last_signal_batch):
+                await send_message("Run `/signals` first to load the signal list.")
+                return
+            sig = _last_signal_batch[idx]
+            district = sig.get("District", "")
+            state = sig.get("State", "")
+            cust_status = sig.get("Customer Status", "new")
+
+            if cust_status == "active":
+                await send_message(
+                    f"⚠️ {district} ({state}) is already an active account. "
+                    f"This signal could support an upsell conversation.\n"
+                    f"Want me to draft talking points? (reply 'yes' or skip)")
+                return
+
+            if cust_status == "prospect":
+                await send_message(
+                    f"ℹ️ {district} ({state}) is already in the Prospecting Queue. "
+                    f"Adding signal context to notes.")
+
+            # Mark signal as acted
+            loop = asyncio.get_event_loop()
+            await loop.run_in_executor(None, signal_processor.update_signal_status, sig.get("ID", ""), "acted")
+
+            # Add to Prospecting Queue
+            headline = sig.get("Headline", "")
+            dollar = sig.get("Dollar Amount", "")
+            sig_type = sig.get("Signal Type", "")
+            notes = f"Signal: {sig_type} — {headline}"
+            if dollar:
+                notes += f" ({dollar})"
+
+            result = await loop.run_in_executor(
+                None, district_prospector.add_district,
+                district, state, notes, "trigger")
+
+            await send_message(
+                f"✅ {district} ({state}) queued for research.\n"
+                f"Strategy: trigger | Signal: {sig_type}\n"
+                f"I'll notify you when the sequence draft is ready.")
+        except (ValueError, IndexError):
+            await send_message("Usage: `/signal_act 1` (number from `/signals` list)")
+        except Exception as e:
+            await send_message(f"Signal act error: {e}")
+        return
+
+    elif user_text.lower().startswith("/signal_dismiss"):
+        idx_text = user_text[len("/signal_dismiss"):].strip()
+        try:
+            idx = int(idx_text) - 1
+            if not _last_signal_batch or idx < 0 or idx >= len(_last_signal_batch):
+                await send_message("Run `/signals` first to load the signal list.")
+                return
+            sig = _last_signal_batch[idx]
+            loop = asyncio.get_event_loop()
+            await loop.run_in_executor(None, signal_processor.update_signal_status, sig.get("ID", ""), "expired")
+            await send_message(f"Dismissed: {sig.get('District', 'Unknown')} ({sig.get('Signal Type', '')})")
+        except (ValueError, IndexError):
+            await send_message("Usage: `/signal_dismiss 1`")
+        except Exception as e:
+            await send_message(f"Signal dismiss error: {e}")
+        return
+
+    elif user_text.lower() in ["/signal_scan", "signal scan", "scan signals"]:
+        await send_message("📬 Starting signal scan... This may take a few minutes.")
+        try:
+            loop = asyncio.get_event_loop()
+            summary = await loop.run_in_executor(None, signal_processor.process_all_signals, gas)
+            output = signal_processor.format_scan_summary(summary)
+            await send_message(output)
+        except Exception as e:
+            await send_message(f"Signal scan failed: {e}")
+        return
+
+    elif user_text.lower() in ["/signal_stats", "signal stats"]:
+        try:
+            loop = asyncio.get_event_loop()
+            signals = await loop.run_in_executor(
+                None, signal_processor.get_active_signals, "", "", "new,surfaced,acted")
+            total = len(signals)
+            by_type = {}
+            by_state = {}
+            for s in signals:
+                st = s.get("Signal Type", "unknown")
+                by_type[st] = by_type.get(st, 0) + 1
+                state = s.get("State", "")
+                if state:
+                    by_state[state] = by_state.get(state, 0) + 1
+            lines = [f"📊 *Signal Stats* ({total} total)\n"]
+            lines.append("*By type:*")
+            for t, c in sorted(by_type.items(), key=lambda x: -x[1]):
+                lines.append(f"  {t}: {c}")
+            lines.append("\n*By state:*")
+            for st, c in sorted(by_state.items(), key=lambda x: -x[1])[:10]:
+                lines.append(f"  {st}: {c}")
+            await send_message("\n".join(lines))
+        except Exception as e:
+            await send_message(f"Stats error: {e}")
+        return
+
     # ── CSV upload description (pre-message before file upload) ─────────────
     # Steven can describe what a CSV is before uploading it, e.g.:
     # "this is a list of all the open opps in my pipeline"
@@ -2679,6 +2840,13 @@ async def send_morning_brief():
             from datetime import date, timedelta
             yesterday = (date.today() - timedelta(days=1)).strftime("%Y-%m-%d")
             data_block = activity_tracker.build_brief_data_block(date_str=yesterday)
+            # Inject signal intelligence data
+            try:
+                signal_block = signal_processor.build_signal_brief_block()
+                if signal_block:
+                    data_block = f"{data_block}\n\n{signal_block}"
+            except Exception as sig_err:
+                logger.warning(f"Could not load signal data for morning brief: {sig_err}")
             prompt = f"{data_block}\n\n---\n\n{prompt_template}"
         except Exception as data_err:
             logger.warning(f"Could not load activity data for morning brief: {data_err}")
@@ -2702,6 +2870,37 @@ async def send_morning_brief():
             logger.warning(f"Could not load prospect queue for morning brief: {pq_err}")
     except Exception as e:
         logger.error(f"Morning brief failed: {e}")
+
+
+async def _run_daily_signal_scan():
+    """Scheduled daily signal scan at 7:45 AM CST."""
+    try:
+        from datetime import date, timedelta
+        since = (date.today() - timedelta(days=2)).strftime("%Y-%m-%d")
+        loop = asyncio.get_event_loop()
+        summary = await loop.run_in_executor(
+            None, signal_processor.process_new_signals, gas, since)
+        if summary.get("written", 0) > 0:
+            output = signal_processor.format_scan_summary(summary)
+            await send_message(output)
+        else:
+            logger.info("Daily signal scan: no new signals found")
+    except Exception as e:
+        logger.error(f"Daily signal scan failed: {e}")
+        try:
+            # Retry once after 5 minutes
+            await asyncio.sleep(300)
+            from datetime import date, timedelta
+            since = (date.today() - timedelta(days=2)).strftime("%Y-%m-%d")
+            loop = asyncio.get_event_loop()
+            summary = await loop.run_in_executor(
+                None, signal_processor.process_new_signals, gas, since)
+            if summary.get("written", 0) > 0:
+                output = signal_processor.format_scan_summary(summary)
+                await send_message(output)
+        except Exception as retry_err:
+            logger.error(f"Daily signal scan retry failed: {retry_err}")
+            await send_message("⚠️ Signal scan failed. Will retry tomorrow.")
 
 
 async def send_eod_report():
@@ -3029,6 +3228,8 @@ async def _run_telegram_and_scheduler():
                 asyncio.create_task(send_checkin())
             elif sched_event == "weekend_greeting":
                 asyncio.create_task(send_weekend_greeting())
+            elif sched_event == "signal_scan":
+                asyncio.create_task(_run_daily_signal_scan())
             if gas and FIREFLIES_API_KEY:
                 asyncio.create_task(_check_precall_briefs(gas))
                 now_ts = time.time()
