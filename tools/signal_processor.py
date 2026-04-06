@@ -1560,6 +1560,15 @@ _BOARD_LEADERSHIP_KEYWORDS = re.compile(
     re.IGNORECASE,
 )
 
+# False positive patterns — reject BoardDocs tech matches near these words
+_BOARD_FALSE_POSITIVE = re.compile(
+    r"\b(?:wheelchair|accessible|ada.compliance|food.service|janitorial|custodial|"
+    r"transportation|bus.route|mowing|lawn|snow.removal|roofing|hvac|plumbing|"
+    r"expo|fair|night|family.night|showcase|sponsorship|donation|"
+    r"athletic|stadium|scoreboard|playground|gymnasium)\b",
+    re.IGNORECASE,
+)
+
 _BOARDDOCS_HEADERS = {
     "X-Requested-With": "XMLHttpRequest",
     "Content-Type": "application/x-www-form-urlencoded",
@@ -1653,6 +1662,10 @@ def _extract_agenda_signals(agenda_text: str, district_name: str,
             trailing = agenda_text[match.end():match.end() + 150].strip()
             # Clean up: start at first word boundary
             trailing = re.sub(r"^\W+", "", trailing)
+            # Reject false positives (wheelchair RFPs, STEM Expo, etc.)
+            context = agenda_text[max(0, match.start() - 50):match.end() + 150]
+            if _BOARD_FALSE_POSITIVE.search(context):
+                continue
             tech_matches[group] = (keyword, trailing)
 
     bond_found = False
