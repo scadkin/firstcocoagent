@@ -1605,43 +1605,46 @@ def _extract_agenda_signals(agenda_text: str, district_name: str,
 
     # Collect best match per signal category (tech vs bond)
     # For tech: group by the matched keyword to avoid duplicates
-    tech_matches = {}  # keyword_group → best context
+    tech_matches = {}  # keyword_group → (keyword_text, trailing_context)
     for match in _BOARD_TECH_KEYWORDS.finditer(agenda_text):
-        keyword = match.group(0).lower().strip()
+        keyword = match.group(0).strip()
         # Group similar keywords (e.g., all "software.*" matches → "software")
-        group = keyword.split()[0] if " " in keyword else keyword
+        group = keyword.lower().split()[0] if " " in keyword.lower() else keyword.lower()
         if group not in tech_matches:
-            start = max(0, match.start() - 60)
-            end = min(len(agenda_text), match.end() + 100)
-            context = agenda_text[start:end].strip()
-            tech_matches[group] = context
+            # Grab text AFTER the match for readable context
+            trailing = agenda_text[match.end():match.end() + 150].strip()
+            # Clean up: start at first word boundary
+            trailing = re.sub(r"^\W+", "", trailing)
+            tech_matches[group] = (keyword, trailing)
 
     bond_found = False
-    bond_context = ""
+    bond_keyword = ""
+    bond_trailing = ""
     for match in _BOARD_BOND_KEYWORDS.finditer(agenda_text):
         if not bond_found:
-            start = max(0, match.start() - 60)
-            end = min(len(agenda_text), match.end() + 100)
-            bond_context = agenda_text[start:end].strip()
+            bond_keyword = match.group(0).strip()
+            trailing = agenda_text[match.end():match.end() + 150].strip()
+            bond_trailing = re.sub(r"^\W+", "", trailing)
             bond_found = True
 
     signals = []
 
     # Emit up to 3 tech signals per meeting (most distinct keyword groups)
-    for i, (group, context) in enumerate(tech_matches.items()):
+    for i, (group, (keyword, trailing)) in enumerate(tech_matches.items()):
         if i >= 3:
             break
 
-        signal_type, tier = classify_signal(context)
+        full_text = f"{keyword} {trailing}"
+        signal_type, tier = classify_signal(full_text)
         if signal_type == "market_intel":
             signal_type = "board_meeting"
             tier = 1
 
-        dollar = extract_dollar_amount(context)
+        dollar = extract_dollar_amount(full_text)
         heat = compute_heat_score(signal_type, tier, in_territory, cust_status)
 
-        # Clean headline
-        headline = f"Board agenda ({group}): {context[:120]}"
+        # Clean, readable headline
+        headline = f"Board: {keyword} — {trailing[:120]}"
 
         signals.append({
             "date": meeting_date,
@@ -1663,9 +1666,10 @@ def _extract_agenda_signals(agenda_text: str, district_name: str,
 
     # Emit at most 1 bond signal per meeting
     if bond_found:
-        dollar = extract_dollar_amount(bond_context)
+        full_text = f"{bond_keyword} {bond_trailing}"
+        dollar = extract_dollar_amount(full_text)
         heat = compute_heat_score("bond", 1, in_territory, cust_status)
-        headline = f"Board agenda (bond): {bond_context[:120]}"
+        headline = f"Board: {bond_keyword} — {bond_trailing[:120]}"
 
         signals.append({
             "date": meeting_date,

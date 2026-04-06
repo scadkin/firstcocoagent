@@ -2761,7 +2761,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     dist = sig.get("district", "")
                     state = sig.get("state", "")
                     stype = sig.get("signal_type", "")
-                    headline = sig.get("headline", "")[15:65]  # skip "Board agenda: " prefix
+                    headline = sig.get("headline", "")[:80]
                     dollar = sig.get("dollar_amount", "")
                     dollar_str = f" {dollar}" if dollar else ""
                     lines.append(f"  {i}. [{stype}] {dist} ({state}){dollar_str} — {headline}")
