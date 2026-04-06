@@ -1,41 +1,47 @@
 # SCOUT — Claude Code Reference
-*Last updated: 2026-04-05 — Session 45*
+*Last updated: 2026-04-06 — Session 45*
 
 ---
 
 ## CURRENT STATE — update this after each session
 
-**Session 44: Signal Intelligence System fully operational. 18,401 signals processed, enrichment layer live (Serper + Claude relevance scoring), job posting scanner (Indeed/JobSpy), 10 Telegram commands verified on Railway, quality pass done (150→40 actionable), Google Alerts overhauled (28→18), DOE newsletters all 13 states. Next: act on 4 STRONG enriched signals (Tulsa bond vote result Tue, Richardson CTE, Acton-Boxborough, Norwalk), first new alert digest ~April 9.**
+**Session 45: Signal system expanded with 3 new sources (RSS, BoardDocs, Ballotpedia). Signal-to-deal attribution wired. 3 Outreach sequences created. Sequence copy rules + send schedules fully documented. Hourly check-ins + weekend greetings disabled. Next: leadership change monitoring, RFP monitoring, then verify Google Alert parser ~April 9.**
+
+### What was done (Session 45)
+- **RSS feed ingestion:** 3 feeds (K-12 Dive, eSchool News, CSTA). feedparser library. `/signal_rss` command. Verified: 220 articles, dedup working.
+- **BoardDocs scraper:** 25 territory districts. Auto-discovers committee IDs. Keyword extraction from agendas. `/signal_board` command. 17 signals on verified run. Noise reduction: capped at 3 tech + 1 bond signal per meeting. HTML entity cleanup.
+- **Ballotpedia bond tracking:** Scrapes bond election index for 12 territory states (no CA). Upcoming + passed/failed results. `/signal_bonds` command. 37 territory measures found (Tulsa PS 4 propositions, Mesquite ISD tech bond passed, etc.).
+- **Signal-to-deal attribution:** Pipeline Link column on Signals tab (18th col). Signal ID column on Prospecting Queue (19→20 cols). `/signal_act` passes signal ID through. `link_signal_to_prospect()` writes back.
+- **Signal dedup fix:** `get_processed_message_ids()` reads Message ID + Source URL for composite keys.
+- **Daily scan protection:** BoardDocs/Ballotpedia/RSS wrapped in try/except (non-fatal).
+- **Outreach sequences:** License Request 2026 (ID 1999, 7 steps), Algebra Webinar Attendees (ID 2000, 4 steps), Non-Attendees (ID 2001, 4 steps). 14 webinar prospects loaded.
+- **Outreach API:** `_api_patch()`, `export_sequence()`, `/export_sequence` command. CRITICAL: `toRecipients` must be `[]`. Re-authed with `sequenceStates.delete` scope.
+- **Send schedules:** 3 schedules created in Outreach UI (Teacher Tue-Thu, Admin Mon-Thu, Hot Lead Mon-Fri) with multi-window time slots based on cross-AI research.
+- **Sequence copy rules:** Fully updated with zero-AI-trace rule, seasonal calendar, value props, send schedules.
+- **Disabled:** Hourly check-ins, weekend greetings.
+- **CLAUDE.md trimmed:** 43k→36k chars.
 
 ### What was done (Session 44)
-- Signal Intelligence System: `tools/signal_processor.py` — 3-tier pipeline, 18,401 signals ($0.30), enrichment layer ($0.002/signal), job scanner, 10 Telegram commands, daily 7:45 AM scan, quality pass (150→40 actionable).
-- Google Alerts overhauled (28→18, buying-signal focused). DOE newsletters for all 13 states. Free newsletter subscriptions (K-12 Dive, EdWeek, eSchool News, District Admin, CSTA).
-- 4 STRONG enriched signals: Tulsa PS, Richardson ISD, Acton-Boxborough, Norwalk PS. 6 MODERATE, 2 WEAK.
-
-### What was done (Session 43)
-- C4 Sequence Automation: 4 Outreach sequences (IDs 1995-1998), 1,119 prospects, schedule ID 50. GAS bridge `search_inbox_full`. Trigger aggregator research in `docs/trigger_aggregator_research.md`.
+- Signal Intelligence System: 18,401 signals ($0.30), enrichment ($0.002/signal), job scanner, 10 commands, daily scan, quality pass (150→40). Google Alerts 28→18. DOE newsletters 13 states.
 
 ### What still needs to be done
-- **Act on 4 STRONG enriched signals** — Tulsa PS (bond vote Apr 7, contact Robert F. Burton), Richardson ISD ($86M CTE center), Acton-Boxborough (STEAM coordinator hire), Norwalk PS (3 clustered signals). Research contacts + draft outreach.
-- **First new Google Alert digest ~April 9** — Verify parser handles new bond/leadership/AI policy keyword sections. Run `/signal_scan` after.
-- **RSS feed ingestion** — Add K-12 Dive, EdWeek Market Brief, eSchool News as signal sources (RSS URLs identified)
-- **BoardDocs scraping** — Phase 3, complex per-district setup. Public board meeting agendas = leading indicator of tech purchases.
-- **Signal-to-deal attribution** — Track which signals lead to deals (Pipeline Link column in schema, not wired yet)
-- **Firecrawl paid plan** — Deferred (budget). L18/L19 skip gracefully.
-- **Parse.bot integration** — Waiting on their DNS fix.
+- **Leadership change monitoring** — Track superintendent turnovers. Tier 1 buying signal. Next to build.
+- **RFP monitoring** — State procurement portals for K-12 tech/curriculum RFPs. After leadership.
+- **Verify Google Alert parser ~April 9** — First new digest with bond/leadership/AI policy keywords. Run `/signal_scan`.
+- **Act on STRONG signals** — Tulsa PS (bond vote Apr 7 — check result), Richardson ISD, Acton-Boxborough, Norwalk PS.
+- **Improve BoardDocs noise filtering** — Some false positives (wheelchair RFPs, STEM Expo sponsorships). Parked.
+- **Firecrawl paid plan** — Deferred (budget).
+- **Parse.bot integration** — Deferred (DNS).
 - **Territory map visualization** — Future.
 - See `SCOUT_PLAN.md` for full roadmap
 
 ### Current status
-- Phases 1–6F, Enhancements A1-A3, B1-B2, C1, C3-C5: ✅ all verified
-- Todo List, CUE enrichment, Outreach sequences, SoCal CSV, Session transcripts: ✅
-- C2 Research Engine: ✅ (Session 42) — 20 layers, 3 indices, parallelized.
-- C4 Sequence Automation: ✅ (Session 43) — 4 sequences in Outreach (IDs 1995-1998), 1,119 prospects.
-- Signal Intelligence System: ✅ (Session 44) — 18,401 signals, enrichment, job scanner, 10 commands, daily scan. 4 STRONG signals ready for action.
-- DOE Newsletters + Google Alert Overhaul + Free Newsletters: ✅ (Session 44)
+- All prior phases + enhancements: ✅
+- Signal Intelligence System: ✅ (Session 44-45) — 7 sources (Google Alerts, Burbio, DOE, RSS, BoardDocs, Ballotpedia, Job postings). 13 Telegram commands. Daily 7:45 AM scan. Signal-to-deal attribution wired.
+- Outreach sequences: ✅ — IDs 1995-2001 (C4 x4, License Request, Webinar x2). 3 send schedules.
+- Sequence copy rules: ✅ — Comprehensive rules in memory. Seasonal calendar. Send schedules.
 
 ### Other completed features
-- **Weekend scheduler (B1):** Sat 11am, Sun 1pm greeting. No auto check-ins. `/eod` works manually.
 - **Lead row coloring (A3):** Auto-colors by confidence after research. `/color_leads` for manual recolor.
 
 ### SF Leads & Contacts import (B2, Sessions 24-28) — VERIFIED
@@ -199,7 +205,7 @@
 
 **ESA_PATTERNS in target_roles.py has 78 entity name variations.** From Steven's ROLES and KEYWORDS doc. Covers ESC, BOCES, IU, COE, ROE, ISC, ESU, AEA, CESA, SELPA, JPA, SSA, and dozens more.
 
-**`signal_processor.py` is a flat module imported at top of main.py.** 3-tier pipeline: regex parsing (free, Google Alerts) → Claude Haiku extraction (Burbio/DOE) → enrichment (Serper + Claude relevance scoring). Signals Database tab in main Google Sheet. 10 Telegram commands, all direct-dispatch. Daily scan at 7:45 AM CST via scheduler. `_last_signal_batch` is in-memory — run `/signals` before `/signal_act` or `/signal_info` in a new session.
+**`signal_processor.py` is a flat module imported at top of main.py.** 7 signal sources: Google Alerts (regex), Burbio (Claude), DOE (Claude), RSS (feedparser), BoardDocs (HTTP scraping), Ballotpedia (HTTP scraping), Job postings (JobSpy). Signals Database tab (18 columns including Pipeline Link). 13 Telegram commands, all direct-dispatch. Daily scan at 7:45 AM CST. BoardDocs/Ballotpedia/RSS wrapped in try/except (non-fatal). `_last_signal_batch` is in-memory — run `/signals` before `/signal_act` or `/signal_info` in a new session.
 
 **Signal enrichment must run before acting on signals.** Never queue a district based on a headline alone. `enrich_signal()` does Serper web search + Claude Haiku analysis for CodeCombat relevance (strong/moderate/weak/none). A $6.2B bond can be WEAK if it's all devices. A no-dollar STEAM coordinator hire can be STRONG. Auto-runs on Tier 1 during daily scans; manual via `/signal_enrich N`.
 
@@ -383,6 +389,10 @@ firstcocoagent/
 | `/signal_dismiss N` | archive signal (hidden from default view) |
 | `/signal_scan` | trigger manual signal scan of Gmail |
 | `/signal_stats` | signal counts by type and state |
+| `/signal_rss` | manual RSS-only scan (K-12 Dive, eSchool News, CSTA) |
+| `/signal_board` | manual BoardDocs agenda scan (25 districts) |
+| `/signal_bonds` | manual Ballotpedia bond measure scan |
+| `/export_sequence [name]` | export Outreach sequence to Google Doc |
 | `/ping_gas`, `ping gas`, `test gas` | ping GAS bridge |
 | `/train_voice`, `train voice` | train voice from Gmail (24 months) |
 | `/grade_draft`, `grade draft` | feedback on last draft → updates voice_profile.md |

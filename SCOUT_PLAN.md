@@ -1,9 +1,9 @@
 # SCOUT MASTER PLAN
-*Last updated: 2026-04-05 — Session 44*
+*Last updated: 2026-04-06 — Session 45*
 
 ---
 
-## YOU ARE HERE → Signal Intelligence System Phase 1+2 COMPLETE. Enrichment layer live (web research + CodeCombat relevance scoring). Job posting scanner (Indeed/JobSpy) integrated. Quality pass done (150→40 actionable signals). All 10 Telegram commands working on Railway. Next session: act on STRONG signals (Tulsa PS bond vote result, Richardson ISD CTE, Acton-Boxborough STEAM hire), RSS feed ingestion, BoardDocs Phase 3.
+## YOU ARE HERE → Signal system expanded: RSS feeds (3), BoardDocs (25 districts), Ballotpedia bond tracking, signal-to-deal attribution all built and verified. 7 signal sources total. 3 Outreach sequences created (License Request 2026, Algebra Webinar Attendees/Non-Attendees). Sequence copy rules + send schedules fully documented. Next: leadership change monitoring, RFP monitoring, then verify Google Alert parser on ~April 9.
 
 ---
 
@@ -263,6 +263,49 @@ Surviving prospects are added to the Prospecting Queue with email, first name, l
 
 ---
 
+## COMPLETED: Signal System Expansion + Outreach Sequences (Session 45)
+
+### Signal sources added
+- **RSS feeds:** K-12 Dive, eSchool News, CSTA. feedparser library. Classified through existing regex pipeline ($0). `/signal_rss` command. 220 articles ingested on first run.
+- **BoardDocs scraper:** 25 territory districts (TX 5, OH 4, IL 5, PA 3, CT 3, MI 4, IN 1). Auto-discovers committee IDs. Scans recent meeting agendas for tech/CS/CTE/bond keywords. 17 signals on verified run. `/signal_board` command.
+- **Ballotpedia bond tracking:** Scrapes ballotpedia.org for K-12 bond measures in 12 territory states (CA excluded — too many). Tracks upcoming votes + passed/failed results. 37 territory measures found including Tulsa PS 4 propositions. `/signal_bonds` command.
+- **Signal-to-deal attribution:** Pipeline Link column on Signals tab + Signal ID column on Prospecting Queue (19→20 columns). `/signal_act` now passes signal ID through and writes Pipeline Link back.
+
+### Infrastructure fixes
+- Signal dedup fix: `get_processed_message_ids()` now reads both Message ID + Source URL columns to build composite keys matching `write_signals` logic.
+- BoardDocs/Ballotpedia/RSS wrapped in try/except in both orchestrators — one source failing can't crash the daily scan.
+- Disabled hourly check-ins and weekend greetings (not useful currently).
+
+### Outreach sequences created
+| ID | Name | Steps | Type |
+|----|------|-------|------|
+| 1999 | !!!2026 License Request Seq (April) | 7 | Inbound license request |
+| 2000 | Algebra Webinar Seq (April 2026) Attendees | 4 | Webinar follow-up |
+| 2001 | Algebra Webinar Seq (April 2026) Non-attendees | 4 | Webinar follow-up |
+
+### Outreach API improvements
+- Added `_api_patch()` method to outreach_client.py
+- Added `export_sequence()` + `format_sequence_export()` for pulling full sequence content
+- Added `/export_sequence` Telegram command
+- **CRITICAL FIX:** `toRecipients` must be `[]` (empty) on all templates. Setting to `["{{toRecipient}}"]` causes all emails to fail with "Invalid recipients" — and failed states can't be retried via API.
+- Re-authorized OAuth with `sequenceStates.delete` scope
+- Schedule scopes confirmed non-existent — schedules are UI-only
+
+### Send schedules created (Outreach UI)
+- "Teacher Tue-Thu Multi-Window" — Tue/Wed/Thu, 3 slots: 6:30-8 AM, 12-1 PM, 3:30-4:30 PM
+- "Admin Mon-Thurs Multi-Window" — Mon/Tue/Wed/Thu, 3 slots: 6:30-8 AM, 10-11 AM, 3-5 PM
+- "Hot Lead Mon-Fri" — Mon-Fri, 7 AM-4 PM
+
+### Sequence copy rules fully updated
+- Zero AI-written traces, stand out from pack
+- Framing as pattern is Steven's preference over case studies
+- Default variables: {{first_name}}, {{company}}, {{state}} (license requests = first_name only)
+- Value props expanded (vertical alignment, 10-product suite, implementation support)
+- All URLs must be hyperlinked
+- Full seasonal calendar: Budget Season (Feb-Jun), Buying Season (Jul-Sep), Pre-Pilot (Oct-Dec), Pilot (Jan-Jun), Summer PD, Conference Season
+
+---
+
 ## IN PROGRESS: Trigger-Based Prospecting Aggregator
 
 ### Research complete (Session 43)
@@ -292,9 +335,10 @@ Surviving prospects are added to the Prospecting Queue with email, first name, l
 - Seward Public Schools, NE: $25M bond
 
 ### Phase plan
-- **Phase 1 (next session):** Process all 500+ Gmail emails into Signals Database. Subscribe to 11 missing state DOE newsletters. Enhance Google Alerts. Act on 6 territory signals.
-- **Phase 2:** Build automated aggregator on Railway (board meeting scraping via BoardDocs/Parse.bot, job posting monitoring via JobSpy, news monitoring via Serper/Exa)
-- **Phase 3:** Bond measure tracking (Ballotpedia), leadership change monitoring, signal clustering + auto-scoring, RFP monitoring
+- **Phase 1:** ✅ DONE (Session 44) — Process Gmail emails, subscribe DOE newsletters, enhance Google Alerts
+- **Phase 2:** ✅ DONE (Session 45) — RSS feeds (3), BoardDocs (25 districts), Ballotpedia bond tracking, signal-to-deal attribution
+- **Phase 3 (in progress):** Leadership change monitoring, RFP monitoring (state procurement portals). Signal clustering + auto-scoring already exists.
+- **Phase 4 (future):** BoardDocs noise filtering improvements, additional RSS/signal sources
 
 ---
 

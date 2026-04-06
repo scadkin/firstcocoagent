@@ -589,3 +589,70 @@ Built Scout's complete signal intelligence system from scratch. Processes Gmail 
 - Cost tracking uses same `_track_usage()` / `_get_cost()` pattern as district_prospector
 - Enrichment uses Serper for web search (same as C4) + Claude Haiku (not Sonnet — structured extraction doesn't need it)
 - GAS bridge `search_inbox_full` with `body_limit=65000` for alerts, `15000` for Burbio/DOE
+
+---
+
+## Session 45 (2026-04-06) — Signal System Expansion + Outreach Sequences + Sequence Rules
+
+### Signal sources added (3 new, 7 total)
+- **RSS feeds:** `feedparser` library added to requirements. 3 feeds: K-12 Dive (`k12dive.com/feeds/news/`), eSchool News (`eschoolnews.com/feed/`), CSTA (`csteachers.org/feed/`). EdWeek has no RSS (says "future feature"), District Admin returns 403. `process_rss_feeds()` function with `since_date` filtering. Source type: `rss_feed`. `/signal_rss` command.
+- **BoardDocs scraper:** 25 territory districts hardcoded in `BOARDDOCS_DISTRICTS` list. HTTP POST to `BD-GetMeetingsList?open` and `PRINT-AgendaDetailed`. Auto-discovers committee_id from public page. `_BOARD_TECH_KEYWORDS` regex for CS/CTE/STEM + `_BOARD_BOND_KEYWORDS` for bond/budget. Capped at 3 tech + 1 bond signal per meeting to reduce noise. HTML entity stripping. Headlines use keyword + trailing context. Source type: `boarddocs`. `/signal_board` command.
+- **Ballotpedia bond tracking:** Scrapes `ballotpedia.org/Local_school_bonds_on_the_ballot`. Parses `<li>` items with `re.DOTALL`. Filters to 12 territory states (CA excluded — thousands of results). 2025-2026 only. Detects passed/failed from `<img alt="">` icons. Deduplicates within batch. Source type: `ballotpedia`. `/signal_bonds` command.
+
+### Signal-to-deal attribution
+- Added "Pipeline Link" column to Signals tab (18th column, `NUM_COLS` = 18)
+- Added "Signal ID" column to Prospecting Queue (19th column, before Notes which moves to 20th)
+- `add_district()` now accepts `source` and `signal_id` params
+- `/signal_act` passes signal ID through and calls `link_signal_to_prospect()` to write Pipeline Link
+- `migrate_prospect_columns()` updated for 19→20 column migration
+- `_load_all_prospects()` range updated from `A:S` to `A:T`
+
+### Signal infrastructure fixes
+- **Dedup fix:** `get_processed_message_ids()` was only reading Message ID column. `write_signals` constructs `msg_id|url` composite keys. Now reads both Source URL + Message ID columns (adjacent: P and Q) to build matching composite keys.
+- **Daily scan protection:** BoardDocs, Ballotpedia, and RSS all wrapped in try/except in both `process_all_signals()` and `process_new_signals()`. One source failing can't crash the daily scan. Morning scan was failing before this fix.
+- **Disabled scheduler events:** Hourly check-ins removed from `scheduler.py`. Weekend greetings replaced with early `return None` for `weekday >= 5`.
+
+### Outreach sequences created
+- **!!!2026 License Request Seq (April)** — ID 1999, 7 steps. Step 3 uses existing template 43784. Based on prompt Steven crafted with claude.ai using exported version of old sequence (ID 1860).
+- **Algebra Webinar Seq (April 2026) Attendees** — ID 2000, 4 steps. Recording, resources doc, PD certificate links. Step 3 = existing template 43784.
+- **Algebra Webinar Seq (April 2026) Non-attendees** — ID 2001, 4 steps. Same structure, different messaging (missed-it angle).
+- All 14 webinar leads loaded (4 attended, 10 no-show). 2 initially failed (active in other sequence, opted out) — retried successfully.
+
+### Outreach API improvements
+- Added `_api_patch()` method to `outreach_client.py`
+- Added `export_sequence()` — pulls sequence metadata, steps, sequenceTemplates, and full template content (subject + bodyHtml)
+- Added `format_sequence_export()` — formats as readable markdown
+- Added `/export_sequence [name]` Telegram command
+- **CRITICAL BUG FOUND:** Setting `toRecipients: ["{{toRecipient}}"]` on templates causes ALL emails to fail with "Invalid recipients." Must be `[]`. Failed states cannot be retried/deleted via API — manual UI clicks required. Fixed all 12 templates across 3 sequences.
+- Re-authorized OAuth with `sequenceStates.delete` scope added
+- Schedule scopes (`schedules.read`/`schedules.write`) confirmed non-existent in Outreach API
+
+### Send schedules (created in Outreach UI)
+- **"Teacher Tue-Thu Multi-Window"** — Tue/Wed/Thu, 3 slots: 6:30-8 AM, 12-1 PM, 3:30-4:30 PM
+- **"Admin Mon-Thurs Multi-Window"** — Mon/Tue/Wed/Thu, 3 slots: 6:30-8 AM, 10-11 AM, 3-5 PM
+- **"Hot Lead Mon-Fri"** — Mon-Fri, 7 AM-4 PM
+- Based on cross-referencing Claude.ai, Grok, Gemini, ChatGPT research on K-12 email timing (EdWeek survey, K-12 marketing data)
+
+### Sequence copy rules overhaul
+- Zero AI-written traces rule added
+- Framing as pattern is Steven's preference over case studies
+- Default variables: `{{first_name}}`, `{{company}}`, `{{state}}` (license requests = first_name only exception)
+- Value props expanded: vertical alignment K-12, 10-product suite, implementation support, PCEP certification
+- All URLs must be hyperlinked (not just codecombat.com/schools)
+- Full seasonal calendar: Budget Season (Feb-Jun), Buying Season (Jul-Sep), Pre-Pilot (Oct-Dec), Pilot (Jan-Jun), Summer PD, Conference Season
+- Minimum 5 days between ALL steps (license request Steps 1-3 are exceptions)
+
+### CLAUDE.md maintenance
+- Trimmed from 43,169 to 36,548 chars (under 40k limit). Condensed session history, collapsed completed status items, trimmed C4 implementation details.
+
+### Key decisions
+- CA excluded from Ballotpedia (thousands of results would swamp the signal database)
+- Hourly check-ins and weekend greetings disabled (not useful currently)
+- Outreach app settings page: `https://developers.outreach.io/apps/ai-coco-automation/edit?section=api`
+- Schedule scopes don't exist — schedules are Outreach UI only, forever
+
+### Architectural patterns
+- All new signal sources (RSS, BoardDocs, Ballotpedia) follow same pattern: `scan_*()` function returns list of signal dicts → `write_signals()` handles dedup → wired into both orchestrators with try/except
+- BoardDocs uses `urllib.request` (not httpx) since signal_processor already imports it
+- RSS uses `feedparser` library (new dependency)
+- Ballotpedia parses raw HTML with regex (no API available)
