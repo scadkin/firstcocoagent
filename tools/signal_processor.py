@@ -644,9 +644,16 @@ def compute_heat_score(signal_type: str, tier: int, in_territory: bool,
     return min(base, 100)
 
 
-def effective_heat(base_heat: int, days_old: int, tier: int) -> int:
-    """Apply decay to heat score based on age and tier."""
-    if tier == 1:
+def effective_heat(base_heat: int, days_old: int, tier: int,
+                   urgency: str = "routine") -> int:
+    """Apply decay to heat score based on age, tier, and urgency.
+    Time-sensitive/urgent signals decay much slower — the event matters
+    more than when we first heard about it."""
+    if urgency in ("urgent", "time_sensitive"):
+        # Minimal decay for actionable signals — the opportunity window
+        # is what matters, not how old the email is
+        decay_rate = 0.97  # half-life ~160 days
+    elif tier == 1:
         decay_rate = 0.93  # half-life ~90 days
     elif tier == 2:
         decay_rate = 0.88  # half-life ~45 days
@@ -811,7 +818,8 @@ def get_active_signals(state_filter: str = "", scope_filter: str = "",
 
         base_heat = int(sig.get("Heat Score", 0) or 0)
         tier = int(sig.get("Tier", 3) or 3)
-        sig["effective_heat"] = effective_heat(base_heat, days_old, tier)
+        urgency = sig.get("Urgency", "routine")
+        sig["effective_heat"] = effective_heat(base_heat, days_old, tier, urgency)
         sig["days_old"] = days_old
         signals.append(sig)
 
@@ -1959,9 +1967,15 @@ _SIGNAL_TYPE_TAGS = {
 }
 
 
-def format_hot_signals(limit: int = 5, state_filter: str = "") -> str:
-    """Format top signals for Telegram display."""
+def format_hot_signals(limit: int = 5, state_filter: str = "",
+                       territory_only: bool = True) -> str:
+    """Format top signals for Telegram display. Territory-only by default."""
     signals = get_active_signals(state_filter=state_filter, scope_filter="district")
+
+    # Default: filter to territory states only
+    if territory_only and not state_filter:
+        signals = [s for s in signals
+                   if s.get("State", "").upper() in TERRITORY_STATES_WITH_CA]
 
     if not signals:
         return "No active district signals found."

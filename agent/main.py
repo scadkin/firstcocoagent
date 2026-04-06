@@ -2582,9 +2582,11 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif user_text.lower() in ["/signals", "signals", "show signals", "hot signals"]:
         try:
             loop = asyncio.get_event_loop()
-            output = await loop.run_in_executor(None, signal_processor.format_hot_signals, 5, "")
-            _last_signal_batch = await loop.run_in_executor(
+            output = await loop.run_in_executor(None, signal_processor.format_hot_signals, 5, "", True)
+            all_sigs = await loop.run_in_executor(
                 None, signal_processor.get_active_signals, "", "district", "new,surfaced")
+            _last_signal_batch = [s for s in all_sigs
+                                  if s.get("State", "").upper() in signal_processor.TERRITORY_STATES_WITH_CA]
             await send_message(output)
         except Exception as e:
             await send_message(f"Signal error: {e}")
