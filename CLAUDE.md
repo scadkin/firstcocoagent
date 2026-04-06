@@ -1,5 +1,5 @@
 # SCOUT — Claude Code Reference
-*Last updated: 2026-04-05 — Session 44*
+*Last updated: 2026-04-05 — Session 45*
 
 ---
 
@@ -8,28 +8,12 @@
 **Session 44: Signal Intelligence System fully operational. 18,401 signals processed, enrichment layer live (Serper + Claude relevance scoring), job posting scanner (Indeed/JobSpy), 10 Telegram commands verified on Railway, quality pass done (150→40 actionable), Google Alerts overhauled (28→18), DOE newsletters all 13 states. Next: act on 4 STRONG enriched signals (Tulsa bond vote result Tue, Richardson CTE, Acton-Boxborough, Norwalk), first new alert digest ~April 9.**
 
 ### What was done (Session 44)
-- **Signal Intelligence System:** Built `tools/signal_processor.py` — 3-tier pipeline (regex parsing → Claude Haiku extraction → clustering/scoring). 17-column Signals Database tab. NCES district→state lookup (8,133 districts). Cross-reference against Active Accounts/Pipeline/Queue. Heat scoring with time decay.
-- **Batch Processing:** Processed 380 Google Alert digests (18,065 stories), 41 Burbio newsletters (201 signals), 36 DOE newsletters (135 signals). Total: 18,401 signals, 272 territory-relevant, 68 Tier 1. Cost: $0.30.
-- **Signal Enrichment Layer:** `enrich_signal()` does Serper web search + Claude Haiku analysis for CodeCombat relevance (strong/moderate/weak/none). Returns spending breakdown, key contacts, timeline, talking points, recommended action. $0.002/signal. Auto-runs on Tier 1 in daily scans. Enriched all 12 queued districts: 4 STRONG (Tulsa PS, Richardson ISD, Acton-Boxborough, Norwalk PS), 6 MODERATE (Dallas ISD, Sand Springs, Lamar, North East, Tuloso-Midway, Somers), 2 WEAK (Ingham, Seward).
-- **Job Posting Scanner:** `scan_job_postings()` uses python-jobspy to scrape Indeed for K-12 CS/CTE/STEM teacher hiring across all territory states. Integrated into full scan + `/signal_jobs` command.
-- **Quality Pass:** Expired 161 market_intel noise signals + 5 rejected/non-tech bonds. Territory signals: 150→40 actionable.
-- **Territory Filtering Fix:** `/signals` defaults to territory-only (was showing NC, MD, etc.).
-- **Urgency-Aware Decay:** Bond/leadership/RFP signals use minimal decay (0.97/week) instead of standard Tier 1 decay (0.93/week).
-- **Prospecting Queue:** 12 trigger districts added. Strategy: "trigger", Source: "trigger_burbio".
-- **Telegram Commands:** 10 commands — `/signals`, `/signals all|[state]|new`, `/signal_info N`, `/signal_enrich N`, `/signal_act N`, `/signal_dismiss N`, `/signal_scan`, `/signal_jobs`, `/signal_stats`. All direct-dispatch, all verified on Railway.
-- **Scheduler:** Daily signal scan at 7:45 AM CST. Auto-enriches Tier 1. Retry-once on failure.
-- **Morning Brief:** MARKET SIGNALS section with signal-of-the-day. Word budget 200→250.
-- **DOE Newsletters:** All 13 territory states subscribed (GovDelivery: TX/OH/MI/IN/OK, CDE listservs: CA, state portals: MA/NE/NV/IL, listserv: CT, PENN*LINK: PA).
-- **Gmail Filter:** `*SIGNALS` label auto-applied, skip inbox.
-- **Google Alert Overhaul:** 28→18 alerts. 22 removed (redundant grade-level splits, esports, duplicate STEM/coding). 6 kept (market awareness). 12 added (3 bond, 3 leadership, 2 AI policy, 1 CTE, 1 tech, 2 territory).
-- **Free Newsletters:** K-12 Dive, EdWeek Market Brief, eSchool News, District Administration, CSTA.
+- Signal Intelligence System: `tools/signal_processor.py` — 3-tier pipeline, 18,401 signals ($0.30), enrichment layer ($0.002/signal), job scanner, 10 Telegram commands, daily 7:45 AM scan, quality pass (150→40 actionable).
+- Google Alerts overhauled (28→18, buying-signal focused). DOE newsletters for all 13 states. Free newsletter subscriptions (K-12 Dive, EdWeek, eSchool News, District Admin, CSTA).
+- 4 STRONG enriched signals: Tulsa PS, Richardson ISD, Acton-Boxborough, Norwalk PS. 6 MODERATE, 2 WEAK.
 
 ### What was done (Session 43)
-- **C4 Sequence Automation:** Enriched 1,274 prospects (title, state, parent district, international). Wrote 4 sequences through 7 iterations. Created 4 Outreach sequences (IDs 1995-1998). Loaded 1,119 prospects. Created "C4 Tue-Thu Morning" schedule (ID 50). Updated 135 prospect timezones. Fixed 11 CUE sequences with missing delivery schedules.
-- **Trigger Aggregator Research:** K-12 buying signals ranked (bonds > leadership > board meetings > RFPs > jobs > grants). Burbio deep dive (~$4,500/yr, can replicate 60-70% free). AI aggregator architecture patterns. MCP inventory (Apify, Tavily, JobSpy, RSS, Twitter, Puppeteer).
-- **GAS Bridge Enhancement:** Added `search_inbox_full` to Code.gs and gas_bridge.py — returns full email bodies with pagination, labels, message/thread IDs. Deployed and verified.
-- **Gmail Signal Discovery:** Found 29 Google Alerts (359 emails), 41 Burbio newsletters, 118 DOE/newsletter emails. Only subscribed to OK + TN newsletters (11 states missing).
-- **Railway API Access:** Configured Railway API token locally for pulling env vars without asking Steven.
+- C4 Sequence Automation: 4 Outreach sequences (IDs 1995-1998), 1,119 prospects, schedule ID 50. GAS bridge `search_inbox_full`. Trigger aggregator research in `docs/trigger_aggregator_research.md`.
 
 ### What still needs to be done
 - **Act on 4 STRONG enriched signals** — Tulsa PS (bond vote Apr 7, contact Robert F. Burton), Richardson ISD ($86M CTE center), Acton-Boxborough (STEAM coordinator hire), Norwalk PS (3 clustered signals). Research contacts + draft outreach.
@@ -43,32 +27,12 @@
 - See `SCOUT_PLAN.md` for full roadmap
 
 ### Current status
-- Phases 1–5: ✅ all verified
-- Phase 6A (Campaign Engine): ✅
-- Phase 6B (Research Engine — 15 layers): ✅
-- Phase 6C (Activity Tracking + KPI + CSV Import + Gmail Intel): ✅
-- Phase 6D (Daily Call List): ✅
-- Phase 6E (District Prospecting Queue): ✅ fully verified (Session 19)
-- Phase 6F (Pipeline Snapshot): ✅ fully verified (Session 22)
-- Enhancements A1-A3 + B1: ✅ implemented (Session 23)
-- Enhancement B2: ✅ fully verified (Session 30) — all 8 tests passed
-- Enhancement C1 (Territory Master List): ✅ fully verified (Session 32)
-- Enhancement C3 (Closed-Lost Winback): ✅ fully verified (Session 34)
-- Enhancement C4 (Cold License Requests): ✅ fully verified + signed off (Session 37)
-- Todo List Feature: ✅ built + deployed (Session 38)
-- CUE 2026 lead enrichment: ✅ 1,298 leads enriched + rep tabs (Session 38)
-- Outreach write access: ✅ OAuth re-authorized (Session 38)
-- Outreach sequence creation: ✅ 11 CUE sequences created + prospects loaded (Session 38)
-- SoCal CSV filtering: ✅ 5 passes complete (Session 26)
-- Session transcript capture: ✅ set up (Session 36), numbering fixed (Session 39)
-- C2 Research Engine: ✅ upgraded + live verified (Session 42) — 20 layers, 3 indices, parallelized. Houston 8→82 contacts, 2→44 verified.
-- C5 Proximity + ESA: ✅ built + verified (Session 42) — targeted proximity, ESA mapping, add nearby command. Tested TX/OH/OK.
-- C4 Sequence Automation: ✅ (Session 43) — 4 sequences in Outreach (IDs 1995-1998), 1,119 prospects loaded. Tue/Wed/Thu 8-10 AM schedule. First emails fire Tuesday.
-- Trigger Aggregator Research: ✅ (Session 43) — Full research in `docs/trigger_aggregator_research.md`. GAS bridge enhanced with `search_inbox_full`.
-- Signal Intelligence System: ✅ (Session 44) — `tools/signal_processor.py`. 18,401 signals processed ($0.30), enrichment layer ($0.002/signal), job scanner (Indeed/JobSpy), 10 Telegram commands, daily 7:45 AM scan, morning brief. Quality pass: 150→40 actionable territory signals. 4 STRONG enriched signals ready for action.
-- DOE Newsletter Subscriptions: ✅ (Session 44) — All 13 territory states covered. Gmail filter auto-sorts to `*SIGNALS` label.
-- Google Alert Overhaul: ✅ (Session 44) — 28→18 alerts. Buying-signal focused (bonds, leadership, AI policy, CTE, territory-specific).
-- Free Newsletter Subscriptions: ✅ (Session 44) — K-12 Dive, EdWeek Market Brief, eSchool News, District Administration, CSTA.
+- Phases 1–6F, Enhancements A1-A3, B1-B2, C1, C3-C5: ✅ all verified
+- Todo List, CUE enrichment, Outreach sequences, SoCal CSV, Session transcripts: ✅
+- C2 Research Engine: ✅ (Session 42) — 20 layers, 3 indices, parallelized.
+- C4 Sequence Automation: ✅ (Session 43) — 4 sequences in Outreach (IDs 1995-1998), 1,119 prospects.
+- Signal Intelligence System: ✅ (Session 44) — 18,401 signals, enrichment, job scanner, 10 commands, daily scan. 4 STRONG signals ready for action.
+- DOE Newsletters + Google Alert Overhaul + Free Newsletters: ✅ (Session 44)
 
 ### Other completed features
 - **Weekend scheduler (B1):** Sat 11am, Sun 1pm greeting. No auto check-ins. `/eod` works manually.
@@ -98,9 +62,7 @@
 - All sequences are DRAFTS → Google Doc → Steven reviews. Status includes "draft".
 
 ### SoCal CSV Filtering (Sessions 25-27) — COMPLETE
-- Offline scripts in `scripts/socal_filter*.py` (5 passes). NOT Scout feature code.
-- Merged output: `~/Downloads/My merged leads list - Including SoCal - as of 3-7-26.csv` (86,993 leads), contacts (19,775)
-- SoCal counties: Los Angeles, San Diego, Orange, Riverside, San Bernardino, Kern, Ventura, Santa Barbara, San Luis Obispo, Imperial
+- Offline scripts in `scripts/socal_filter*.py`. SoCal counties: LA, SD, Orange, Riverside, San Bernardino, Kern, Ventura, Santa Barbara, SLO, Imperial.
 
 ### Outreach.io API (Sessions 34, 38, 43)
 - Steven's user ID: **11**. OAuth app: "AI Coco Automation" (Development mode).
@@ -121,22 +83,11 @@
 - **Steven's mailbox for sending:** steven@codecombat.com (ID 11).
 
 ### C4 Cold License Requests (Sessions 34-37) — VERIFIED
-- Strategy: "cold_license_request" — inbound license requests that went cold (no opp, no pricing sent).
-- 3 sequences: IDs 507, 1768, 1860. `/c4`, `/c4_clear`, `/cleanup_queue`, `/fix_queue`.
-- **Final results:** 1,274 targets, 113 empty states, 100% district coverage, $1.38/run.
-- **Full pipeline:** pattern extraction → SF domain lookup → NCES territory matching → Claude batch inference → Serper web search (school name + full email) → NCES district re-matching → Claude extraction from search results.
+- Strategy: "cold_license_request" — inbound license requests that went cold. 1,274 targets, $1.38/run.
+- `/c4`, `/c4_clear`, `/cleanup_queue`, `/fix_queue`. C4 Audit tab for spot-checking.
 - **Email domain ranks higher than company name** (`email_priority=True`). Student emails excluded.
-- territory_matcher.py: pattern extraction + Claude inference + Serper search + comprehensive state extraction.
-- `extract_state_from_email()`: k12 domains, .gov, state suffixes, education keyword stripping, state names, expanded city/county map.
-- `is_socal_domain()`: known SoCal district abbreviations (KNOWN_SOCAL_DOMAIN_ROOTS).
-- `is_socal_by_name()`: company name + Claude city/district checked for SoCal city names.
-- `is_student_email()`: "student" anywhere in domain.
-- `_scrape_resolve_locations()`: Serper search (school name + email) with parallel ThreadPoolExecutor, deduped domains, generic email school name search. Claude extracts state + district from results.
-- **Deterministic international detection:** TLDs, foreign edu domains (.edu.pa, .ac.uk, .bc.ca), company name keywords (école, liceo, colegio), search content signals (british columbia, .bc.ca/). Do NOT use ambiguous signals ("india" matches "Indiana").
-- **Claude JSON preamble fix:** Strip text before `[` and after `]` before json.loads(). Claude Sonnet sometimes writes analysis text before JSON.
-- **API cost tracking:** `_track_claude_usage()` + `_get_estimated_cost()` in district_prospector.py. Shows in `/c4` completion message.
-- C4 Audit tab for spot-checking exclusions.
-- `scripts/spot_check_c4.py`: local script to read Prospecting Queue + C4 Audit directly via Google Sheets API.
+- **Deterministic international detection:** TLDs, foreign edu domains, company name keywords. Do NOT use ambiguous signals ("india" matches "Indiana").
+- **Claude JSON preamble fix:** Strip text before `[` and after `]` before json.loads().
 
 ---
 
