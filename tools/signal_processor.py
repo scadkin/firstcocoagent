@@ -1061,6 +1061,248 @@ Content:
 
 
 # ─────────────────────────────────────────────
+# SIGNAL ENRICHMENT (Tier 3 — deep context)
+# ─────────────────────────────────────────────
+
+SERPER_API_KEY = os.environ.get("SERPER_API_KEY", "")
+SERPER_URL = "https://google.serper.dev/search"
+
+
+def enrich_signal(signal: dict) -> dict:
+    """
+    Deep-enrich a signal with web research + Claude analysis.
+    Searches for spending details, CTE/CS relevance, key contacts, timeline.
+    Returns the signal dict with added enrichment fields:
+      - enrichment_summary: 2-3 sentence CodeCombat-relevant analysis
+      - spending_breakdown: what the money is actually for
+      - cs_cte_relevance: none / weak / moderate / strong
+      - key_contacts: names + titles found
+      - recommended_action: specific next step
+      - enriched: True
+    """
+    district = signal.get("district", "") or signal.get("District", "")
+    state = signal.get("state", "") or signal.get("State", "")
+    sig_type = signal.get("signal_type", "") or signal.get("Signal Type", "")
+    headline = signal.get("headline", "") or signal.get("Headline", "")
+    dollar = signal.get("dollar_amount", "") or signal.get("Dollar Amount", "")
+
+    if not district or not state:
+        signal["enriched"] = False
+        signal["enrichment_summary"] = "Cannot enrich: missing district or state"
+        return signal
+
+    # Step 1: Web search for details
+    search_results = _search_signal_context(district, state, sig_type, dollar)
+
+    if not search_results:
+        signal["enriched"] = False
+        signal["enrichment_summary"] = "No additional context found via web search"
+        return signal
+
+    # Step 2: Claude analysis for CodeCombat relevance
+    enrichment = _analyze_signal_relevance(district, state, sig_type, headline,
+                                           dollar, search_results)
+
+    signal.update(enrichment)
+    signal["enriched"] = True
+    return signal
+
+
+def _search_signal_context(district: str, state: str, sig_type: str,
+                           dollar: str) -> str:
+    """Search the web for detailed context on a signal. Returns combined text."""
+    if not SERPER_API_KEY:
+        logger.warning("SERPER_API_KEY not set — cannot enrich signals")
+        return ""
+
+    import httpx
+
+    # Build targeted search queries based on signal type
+    queries = []
+    if sig_type in ("bond", "Bond"):
+        queries.append(f'"{district}" bond technology CTE STEM spending breakdown')
+        queries.append(f'"{district}" bond {dollar} career technical education computer science')
+    elif sig_type in ("leadership", "Leadership"):
+        queries.append(f'"{district}" new superintendent priorities technology curriculum')
+        queries.append(f'"{district}" superintendent CTE STEM computer science')
+    elif sig_type in ("ai_policy", "AI Policy"):
+        queries.append(f'"{district}" AI policy committee technology curriculum coding')
+    elif sig_type in ("hiring", "Hiring"):
+        queries.append(f'"{district}" CTE computer science coding teacher hiring program')
+    else:
+        queries.append(f'"{district}" {state} technology curriculum CTE computer science')
+
+    combined_text = ""
+    for query in queries[:2]:  # Max 2 searches per signal
+        try:
+            resp = httpx.post(
+                SERPER_URL,
+                headers={"X-API-Key": SERPER_API_KEY, "Content-Type": "application/json"},
+                json={"q": query, "num": 5},
+                timeout=15.0,
+            )
+            data = resp.json()
+            for item in data.get("organic", [])[:5]:
+                title = item.get("title", "")
+                snippet = item.get("snippet", "")
+                combined_text += f"\n{title}\n{snippet}\n"
+            time.sleep(0.5)
+        except Exception as e:
+            logger.warning(f"Serper search failed for '{query}': {e}")
+
+    return combined_text[:8000]  # Cap context size
+
+
+def _analyze_signal_relevance(district: str, state: str, sig_type: str,
+                              headline: str, dollar: str,
+                              search_context: str) -> dict:
+    """
+    Use Claude to analyze whether a signal represents a real CodeCombat opportunity.
+    Returns enrichment dict.
+    """
+    import anthropic
+
+    client = anthropic.Anthropic(timeout=90.0)
+
+    prompt = f"""Analyze this K-12 district signal for CodeCombat sales relevance. CodeCombat sells computer science, coding, and AI education curriculum to school districts.
+
+SIGNAL:
+- District: {district} ({state})
+- Type: {sig_type}
+- Headline: {headline}
+- Dollar Amount: {dollar}
+
+WEB RESEARCH CONTEXT:
+{search_context}
+
+Analyze and return a JSON object with exactly these fields:
+- "spending_breakdown": Brief summary of what the money/initiative is actually for (1-2 sentences)
+- "cs_cte_relevance": One of "strong", "moderate", "weak", "none"
+  - "strong" = explicitly mentions CS, coding, CTE technology pathways, STEM labs, or software curriculum
+  - "moderate" = CTE expansion, technology investment, or new programs that could include CS
+  - "weak" = device/infrastructure refresh only, or unrelated CTE (automotive, cosmetology)
+  - "none" = purely facilities, athletics, or no technology component
+- "relevance_reasoning": 1-2 sentences explaining why you rated the relevance this way
+- "key_contacts": Any named individuals with titles (technology directors, CTE directors, superintendents). Format: "Name - Title" separated by semicolons. Empty string if none found.
+- "timeline": When spending begins or key dates (election date, construction start, etc). Empty if unknown.
+- "recommended_action": One specific next step for the sales rep. Be concrete.
+- "talking_points": 1-2 specific talking points that reference the signal. What should the rep say in outreach that shows they know about this initiative?
+
+Return ONLY valid JSON. No explanation, no markdown."""
+
+    try:
+        response = client.messages.create(
+            model="claude-haiku-4-5-20251001",
+            max_tokens=1500,
+            messages=[{"role": "user", "content": prompt}]
+        )
+        _track_usage(response)
+
+        text = response.content[0].text.strip()
+        # Strip markdown fences
+        text = re.sub(r'^```(?:json)?\s*', '', text)
+        text = re.sub(r'\s*```$', '', text)
+        start = text.find('{')
+        end = text.rfind('}')
+        if start >= 0 and end > start:
+            text = text[start:end + 1]
+
+        result = json.loads(text)
+        return {
+            "spending_breakdown": result.get("spending_breakdown", ""),
+            "cs_cte_relevance": result.get("cs_cte_relevance", "unknown"),
+            "relevance_reasoning": result.get("relevance_reasoning", ""),
+            "key_contacts": result.get("key_contacts", ""),
+            "timeline": result.get("timeline", ""),
+            "recommended_action": result.get("recommended_action", ""),
+            "talking_points": result.get("talking_points", ""),
+        }
+
+    except json.JSONDecodeError as e:
+        logger.warning(f"Failed to parse enrichment JSON: {e}")
+        return {"cs_cte_relevance": "unknown", "enrichment_summary": "Claude parse error"}
+    except Exception as e:
+        logger.warning(f"Signal enrichment failed: {e}")
+        return {"cs_cte_relevance": "unknown", "enrichment_summary": f"Error: {e}"}
+
+
+def enrich_top_signals(signals: list, min_tier: int = 1,
+                       max_enrich: int = 10,
+                       progress_callback=None) -> list:
+    """
+    Enrich the top N signals that meet the tier threshold.
+    Only enriches territory-matching, district-scoped signals.
+    Returns the enriched signals.
+    """
+    to_enrich = [
+        s for s in signals
+        if (int(s.get("tier", s.get("Tier", 3))) <= min_tier
+            and (s.get("scope", s.get("Scope", "")) == "district")
+            and (s.get("state", s.get("State", "")).upper() in TERRITORY_STATES_WITH_CA)
+            and not s.get("enriched"))
+    ][:max_enrich]
+
+    enriched = []
+    for i, sig in enumerate(to_enrich):
+        if progress_callback:
+            district = sig.get("district", sig.get("District", ""))
+            progress_callback(f"Enriching {i+1}/{len(to_enrich)}: {district}...")
+        enriched_sig = enrich_signal(sig)
+        enriched.append(enriched_sig)
+        time.sleep(1)  # Rate limit between enrichments
+
+    return enriched
+
+
+def format_enriched_signal(sig: dict) -> str:
+    """Format an enriched signal for Telegram display."""
+    district = sig.get("district", sig.get("District", ""))
+    state = sig.get("state", sig.get("State", ""))
+    sig_type = sig.get("signal_type", sig.get("Signal Type", ""))
+    headline = sig.get("headline", sig.get("Headline", ""))
+    dollar = sig.get("dollar_amount", sig.get("Dollar Amount", ""))
+    relevance = sig.get("cs_cte_relevance", "unknown")
+
+    relevance_emoji = {
+        "strong": "🟢 STRONG",
+        "moderate": "🟡 MODERATE",
+        "weak": "🔴 WEAK",
+        "none": "⚫ NONE",
+    }.get(relevance, "❓ UNKNOWN")
+
+    lines = [f"📊 *{district}* ({state})\n"]
+    lines.append(f"Signal: {sig_type} | {dollar}" if dollar else f"Signal: {sig_type}")
+    lines.append(f"Headline: {headline}")
+    lines.append(f"\n*CodeCombat Relevance: {relevance_emoji}*")
+
+    breakdown = sig.get("spending_breakdown", "")
+    if breakdown:
+        lines.append(f"\n*Spending:* {breakdown}")
+
+    reasoning = sig.get("relevance_reasoning", "")
+    if reasoning:
+        lines.append(f"*Why:* {reasoning}")
+
+    contacts = sig.get("key_contacts", "")
+    if contacts:
+        lines.append(f"\n*Contacts:* {contacts}")
+
+    timeline = sig.get("timeline", "")
+    if timeline:
+        lines.append(f"*Timeline:* {timeline}")
+
+    action = sig.get("recommended_action", "")
+    if action:
+        lines.append(f"\n*Next step:* {action}")
+
+    talking = sig.get("talking_points", "")
+    if talking:
+        lines.append(f"\n*Talking points:* {talking}")
+
+    return "\n".join(lines)
+
+
+# ─────────────────────────────────────────────
 # FULL PROCESSING PIPELINE
 # ─────────────────────────────────────────────
 
