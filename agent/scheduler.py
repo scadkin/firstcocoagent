@@ -12,6 +12,7 @@ class Scheduler:
         self._last_checkin_hour = None
         self._last_weekend_greeting_date = None
         self._last_signal_scan_date = None
+        self._last_leadership_scan_date = None
         self._user_active_today = False
         self._user_active_date = None
 
@@ -44,6 +45,11 @@ class Scheduler:
             if self._last_signal_scan_date != today:
                 self._last_signal_scan_date = today
                 return "signal_scan"
+
+        if hour == 8 and minute == 0:
+            if now.weekday() == 0 and self._last_leadership_scan_date != today:
+                self._last_leadership_scan_date = today
+                return "leadership_scan"
 
         if hour == 9 and minute == 15:
             if self._last_morning_brief_date != today:

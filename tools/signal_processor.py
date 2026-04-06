@@ -1553,6 +1553,13 @@ _BOARD_BOND_KEYWORDS = re.compile(
     re.IGNORECASE,
 )
 
+# Keywords that indicate superintendent leadership changes
+_BOARD_LEADERSHIP_KEYWORDS = re.compile(
+    r"\b(?:superintendent.(?:search|resignation|retirement|appointment|hire|vacancy|transition)|"
+    r"interim.superintendent)\b",
+    re.IGNORECASE,
+)
+
 _BOARDDOCS_HEADERS = {
     "X-Requested-With": "XMLHttpRequest",
     "Content-Type": "application/x-www-form-urlencoded",
@@ -1718,6 +1725,32 @@ def _extract_agenda_signals(agenda_text: str, district_name: str,
             "customer_status": cust_status,
             "url": meeting_url,
             "message_id": f"bd_{org_code}_{meeting_id}_bond",
+        })
+
+    # Emit at most 1 leadership signal per meeting
+    leadership_match = _BOARD_LEADERSHIP_KEYWORDS.search(agenda_text)
+    if leadership_match:
+        ldr_keyword = leadership_match.group(0).strip()
+        ldr_trailing = agenda_text[leadership_match.end():leadership_match.end() + 150].strip()
+        ldr_trailing = re.sub(r"^\W+", "", ldr_trailing)
+        heat = compute_heat_score("board_meeting", 1, in_territory, cust_status)
+        headline = f"Board: {ldr_keyword} — {ldr_trailing[:120]}"
+        signals.append({
+            "date": meeting_date,
+            "source": "boarddocs",
+            "source_detail": f"BoardDocs — {district_name}",
+            "signal_type": "board_meeting",
+            "scope": "district",
+            "district": district_name,
+            "state": state,
+            "headline": headline,
+            "dollar_amount": "",
+            "tier": 1,
+            "heat_score": heat,
+            "urgency": "time_sensitive",
+            "customer_status": cust_status,
+            "url": meeting_url,
+            "message_id": f"bd_{org_code}_{meeting_id}_leadership",
         })
 
     return signals
@@ -1935,6 +1968,213 @@ def scan_ballotpedia(progress_callback=None) -> list:
     if progress_callback:
         progress_callback(f"Ballotpedia: {len(deduped)} territory bond measures")
     return deduped
+
+
+# ─────────────────────────────────────────────
+# LEADERSHIP CHANGE SCANNER (Serper + Claude)
+# ─────────────────────────────────────────────
+
+def scan_leadership_changes(states=None, progress_callback=None) -> list:
+    """
+    Scan for K-12 superintendent changes across territory states via Serper web search.
+    Uses Claude Haiku to extract structured data from search results.
+    Returns list of signal dicts. Cost: ~$0.03/scan.
+    """
+    if not SERPER_API_KEY:
+        logger.warning("SERPER_API_KEY not set — cannot scan leadership changes")
+        return []
+
+    import httpx
+
+    _load_nces_lookup()
+    _load_cross_references()
+
+    scan_states = states or list(TERRITORY_STATES)  # No CA — too noisy
+    all_snippets = []
+    seen_urls = set()
+
+    if progress_callback:
+        progress_callback(f"Searching {len(scan_states)} states for superintendent changes...")
+
+    for state_abbr in scan_states:
+        state_name = ABBR_TO_STATE_NAME.get(state_abbr, state_abbr)
+        queries = [
+            f'"superintendent" ("hired" OR "appointed" OR "named" OR "resigned" OR "retired") "{state_name}" school district',
+            f'"superintendent" ("search" OR "vacancy" OR "interim") "{state_name}" school district',
+        ]
+        for query in queries:
+            try:
+                resp = httpx.post(
+                    SERPER_URL,
+                    headers={"X-API-Key": SERPER_API_KEY, "Content-Type": "application/json"},
+                    json={"q": query, "num": 10, "tbs": "qdr:m"},
+                    timeout=15.0,
+                )
+                data = resp.json()
+                for item in data.get("organic", [])[:10]:
+                    url = item.get("link", "")
+                    if url and url not in seen_urls:
+                        seen_urls.add(url)
+                        all_snippets.append({
+                            "title": item.get("title", ""),
+                            "snippet": item.get("snippet", ""),
+                            "url": url,
+                            "searched_state": state_abbr,
+                        })
+                time.sleep(0.5)
+            except Exception as e:
+                logger.warning(f"Serper leadership search failed for {state_abbr}: {e}")
+
+    if not all_snippets:
+        logger.info("Leadership scan: no search results found")
+        if progress_callback:
+            progress_callback("No superintendent changes found in search results.")
+        return []
+
+    logger.info(f"Leadership scan: {len(all_snippets)} unique articles from {len(scan_states)} states")
+
+    # Build combined text for Claude extraction
+    combined_text = ""
+    for s in all_snippets:
+        combined_text += f"\n[{s['searched_state']}] {s['title']}\n{s['snippet']}\nURL: {s['url']}\n"
+    combined_text = combined_text[:12000]  # Cap context size
+
+    if progress_callback:
+        progress_callback(f"Extracting leadership changes from {len(all_snippets)} articles...")
+
+    # Single Claude Haiku call for all results
+    import anthropic
+    try:
+        client = anthropic.Anthropic(timeout=90.0)
+        prompt = f"""Extract K-12 school district superintendent changes from these search results.
+
+IMPORTANT:
+- Only include K-12 public school district superintendents
+- EXCLUDE: police superintendents, public works superintendents, university/college leaders, state education commissioners, private school leaders
+- Only include actual changes (hired, appointed, resigned, retired, interim named, search announced)
+- Do NOT include routine news about sitting superintendents (statements, policy updates, etc.)
+
+Return a JSON array. Each item:
+{{
+  "district": "District Name",
+  "state": "XX",
+  "person_name": "Dr. Jane Smith",
+  "change_type": "hired|appointed|resigned|retired|interim|search",
+  "headline": "One sentence describing the change"
+}}
+
+If no superintendent changes found, return [].
+Return ONLY a valid JSON array — no commentary.
+
+Search results:
+{combined_text}"""
+
+        response = client.messages.create(
+            model="claude-haiku-4-5-20251001",
+            max_tokens=2000,
+            messages=[{"role": "user", "content": prompt}],
+        )
+        _track_usage(response)
+        raw_text = response.content[0].text.strip()
+    except Exception as e:
+        logger.error(f"Claude leadership extraction failed: {e}")
+        return []
+
+    # Parse JSON — strip markdown fences and preamble
+    try:
+        clean = raw_text
+        if "```" in clean:
+            clean = clean.split("```")[1]
+            if clean.startswith("json"):
+                clean = clean[4:]
+        start = clean.find("[")
+        end = clean.rfind("]")
+        if start == -1 or end == -1:
+            logger.warning(f"Leadership extraction: no JSON array found in response")
+            return []
+        items = json.loads(clean[start:end + 1])
+    except json.JSONDecodeError as e:
+        logger.warning(f"Leadership extraction JSON parse failed: {e}")
+        return []
+
+    # Post-process extracted items
+    signals = []
+    dedup_seen = set()
+    year_month = datetime.now().strftime("%Y_%m")
+
+    # Build URL lookup by (title snippet) for source_detail
+    url_by_district = {}
+    for s in all_snippets:
+        title_lower = s["title"].lower()
+        for item in items:
+            dist_lower = item.get("district", "").lower()
+            if dist_lower and dist_lower in title_lower:
+                url_by_district[dist_lower] = s["url"]
+
+    for item in items:
+        district = item.get("district", "").strip()
+        state = item.get("state", "").strip().upper()
+        change_type = item.get("change_type", "").strip().lower()
+        headline = item.get("headline", "").strip()
+
+        if not district or not state or not change_type:
+            continue
+
+        # Validate state is in territory
+        if state not in TERRITORY_STATES_WITH_CA:
+            continue
+
+        # NCES lookup for validation/correction
+        nces_state = lookup_district_state(district)
+        if nces_state:
+            state = nces_state
+
+        # Dedup within scan by (district, change_type)
+        norm_district = csv_importer.normalize_name(district)
+        dedup_key = (norm_district, change_type)
+        if dedup_key in dedup_seen:
+            continue
+        dedup_seen.add(dedup_key)
+
+        # Customer relationship check
+        cust_status = check_customer_status(district)
+
+        # Urgency based on relationship
+        urgency = "urgent" if cust_status == "active" else "time_sensitive"
+
+        # Heat score
+        heat = compute_heat_score("leadership", 1, True, cust_status)
+
+        # Message ID for cross-scan dedup (monthly granularity)
+        msg_id = f"leadership_{norm_district}_{change_type}_{year_month}"
+
+        # Source detail with article domain
+        best_url = url_by_district.get(district.lower(), "")
+        domain = urlparse(best_url).netloc if best_url else "web search"
+
+        signals.append({
+            "date": datetime.now().strftime("%Y-%m-%d"),
+            "source": "leadership_scan",
+            "source_detail": f"Serper scan — {domain}",
+            "signal_type": "leadership",
+            "scope": "district",
+            "district": district,
+            "state": state,
+            "headline": headline[:200],
+            "dollar_amount": "",
+            "tier": 1,
+            "heat_score": heat,
+            "urgency": urgency,
+            "customer_status": cust_status,
+            "url": "",  # Empty for correct dedup — write_signals key falls back to msg_id only
+            "message_id": msg_id,
+        })
+
+    logger.info(f"Leadership scan: {len(signals)} superintendent changes extracted "
+                f"({len(items)} raw, {len(items) - len(signals)} filtered/deduped)")
+    if progress_callback:
+        progress_callback(f"Leadership scan: {len(signals)} superintendent changes found")
+    return signals
 
 
 # ─────────────────────────────────────────────
@@ -2684,7 +2924,10 @@ def format_hot_signals(limit: int = 5, state_filter: str = "",
             status_marker = " | recent"
 
         district_display = f"{district} ({state})" if state else district
-        lines.append(f"{i}. [{tag}] *{district_display}* — {headline}")
+        risk_prefix = ""
+        if sig.get("Signal Type") == "leadership" and sig.get("Customer Status") == "active":
+            risk_prefix = "⚠️ RISK "
+        lines.append(f"{i}. {risk_prefix}[{tag}] *{district_display}* — {headline}")
         lines.append(f"   Heat: {heat}{status_marker}")
 
     if total > limit:
@@ -2709,6 +2952,9 @@ def format_signal_detail(signal: dict, related: list = None) -> str:
     urgency = signal.get("Urgency", "routine")
 
     lines = [f"📊 *{district}* ({state}) — Heat Score: {heat}\n"]
+
+    if sig_type == "leadership" and cust == "active":
+        lines.append("⚠️ ACCOUNT RISK — active customer leadership change\n")
 
     if urgency == "urgent":
         lines.append("⚡ URGENT — time-sensitive opportunity\n")

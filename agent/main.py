@@ -2847,6 +2847,33 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await send_message(f"RSS scan failed: {e}")
         return
 
+    elif user_text.lower() in ["/signal_leadership", "signal leadership", "scan leadership"]:
+        await send_message("👔 Scanning for superintendent changes...")
+        try:
+            loop = asyncio.get_event_loop()
+            leadership_signals = await loop.run_in_executor(
+                None, signal_processor.scan_leadership_changes, None, None)
+            if leadership_signals:
+                write_result = await loop.run_in_executor(
+                    None, signal_processor.write_signals, leadership_signals)
+                lines = [f"👔 *Leadership Scan Complete* — {len(leadership_signals)} changes found\n"]
+                for i, sig in enumerate(leadership_signals[:10], 1):
+                    dist = sig.get("district", "")
+                    state = sig.get("state", "")
+                    headline = sig.get("headline", "")[:80]
+                    cust = sig.get("customer_status", "")
+                    risk = "⚠️ " if cust == "active" else ""
+                    lines.append(f"  {risk}{i}. {dist} ({state}) — {headline}")
+                if len(leadership_signals) > 10:
+                    lines.append(f"\n  ... and {len(leadership_signals) - 10} more")
+                lines.append(f"\nWritten: {write_result['written']} | Deduped: {write_result['skipped']}")
+                await send_message("\n".join(lines))
+            else:
+                await send_message("No superintendent changes found.")
+        except Exception as e:
+            await send_message(f"Leadership scan failed: {e}")
+        return
+
     elif user_text.lower() in ["/signal_scan", "signal scan", "scan signals"]:
         await send_message("📬 Starting signal scan... This may take a few minutes.")
         try:
@@ -3116,6 +3143,33 @@ async def _run_daily_signal_scan():
         except Exception as retry_err:
             logger.error(f"Daily signal scan retry failed: {retry_err}")
             await send_message("⚠️ Signal scan failed. Will retry tomorrow.")
+
+
+async def _run_leadership_scan():
+    """Scheduled weekly leadership scan — Mondays at 8:00 AM CST."""
+    try:
+        loop = asyncio.get_event_loop()
+        signals = await loop.run_in_executor(
+            None, signal_processor.scan_leadership_changes, None, None)
+        if signals:
+            write_result = await loop.run_in_executor(
+                None, signal_processor.write_signals, signals)
+            lines = [f"👔 *Weekly Leadership Scan* — {len(signals)} changes found\n"]
+            for i, sig in enumerate(signals[:10], 1):
+                dist = sig.get("district", "")
+                state = sig.get("state", "")
+                headline = sig.get("headline", "")[:80]
+                cust = sig.get("customer_status", "")
+                risk = "⚠️ " if cust == "active" else ""
+                lines.append(f"  {risk}{i}. {dist} ({state}) — {headline}")
+            if len(signals) > 10:
+                lines.append(f"\n  ... and {len(signals) - 10} more")
+            lines.append(f"\nWritten: {write_result['written']} | Deduped: {write_result['skipped']}")
+            await send_message("\n".join(lines))
+        else:
+            logger.info("Weekly leadership scan: no changes found")
+    except Exception as e:
+        logger.error(f"Weekly leadership scan failed: {e}")
 
 
 async def send_eod_report():
@@ -3445,6 +3499,8 @@ async def _run_telegram_and_scheduler():
                 asyncio.create_task(send_weekend_greeting())
             elif sched_event == "signal_scan":
                 asyncio.create_task(_run_daily_signal_scan())
+            elif sched_event == "leadership_scan":
+                asyncio.create_task(_run_leadership_scan())
             if gas and FIREFLIES_API_KEY:
                 asyncio.create_task(_check_precall_briefs(gas))
                 now_ts = time.time()

@@ -37,7 +37,7 @@
 
 ### Current status
 - All prior phases + enhancements: ✅
-- Signal Intelligence System: ✅ (Session 44-45) — 7 sources (Google Alerts, Burbio, DOE, RSS, BoardDocs, Ballotpedia, Job postings). 13 Telegram commands. Daily 7:45 AM scan. Signal-to-deal attribution wired.
+- Signal Intelligence System: ✅ (Session 44-46) — 8 sources (Google Alerts, Burbio, DOE, RSS, BoardDocs, Ballotpedia, Job postings, Leadership scan). 14 Telegram commands. Daily 7:45 AM scan + weekly Monday 8 AM leadership scan. Signal-to-deal attribution wired.
 - Outreach sequences: ✅ — IDs 1995-2001 (C4 x4, License Request, Webinar x2). 3 send schedules.
 - Sequence copy rules: ✅ — Comprehensive rules in memory. Seasonal calendar. Send schedules.
 
@@ -205,7 +205,7 @@
 
 **ESA_PATTERNS in target_roles.py has 78 entity name variations.** From Steven's ROLES and KEYWORDS doc. Covers ESC, BOCES, IU, COE, ROE, ISC, ESU, AEA, CESA, SELPA, JPA, SSA, and dozens more.
 
-**`signal_processor.py` is a flat module imported at top of main.py.** 7 signal sources: Google Alerts (regex), Burbio (Claude), DOE (Claude), RSS (feedparser), BoardDocs (HTTP scraping), Ballotpedia (HTTP scraping), Job postings (JobSpy). Signals Database tab (18 columns including Pipeline Link). 13 Telegram commands, all direct-dispatch. Daily scan at 7:45 AM CST. BoardDocs/Ballotpedia/RSS wrapped in try/except (non-fatal). `_last_signal_batch` is in-memory — run `/signals` before `/signal_act` or `/signal_info` in a new session.
+**`signal_processor.py` is a flat module imported at top of main.py.** 8 signal sources: Google Alerts (regex), Burbio (Claude), DOE (Claude), RSS (feedparser), BoardDocs (HTTP scraping), Ballotpedia (HTTP scraping), Job postings (JobSpy), Leadership scan (Serper + Claude). Signals Database tab (18 columns including Pipeline Link). 14 Telegram commands, all direct-dispatch. Daily scan at 7:45 AM CST. Weekly leadership scan Monday 8 AM CST (~$0.03/scan). BoardDocs/Ballotpedia/RSS wrapped in try/except (non-fatal). `_last_signal_batch` is in-memory — run `/signals` before `/signal_act` or `/signal_info` in a new session.
 
 **Signal enrichment must run before acting on signals.** Never queue a district based on a headline alone. `enrich_signal()` does Serper web search + Claude Haiku analysis for CodeCombat relevance (strong/moderate/weak/none). A $6.2B bond can be WEAK if it's all devices. A no-dollar STEAM coordinator hire can be STRONG. Auto-runs on Tier 1 during daily scans; manual via `/signal_enrich N`.
 
@@ -392,6 +392,7 @@ firstcocoagent/
 | `/signal_rss` | manual RSS-only scan (K-12 Dive, eSchool News, CSTA) |
 | `/signal_board` | manual BoardDocs agenda scan (25 districts) |
 | `/signal_bonds` | manual Ballotpedia bond measure scan |
+| `/signal_leadership` | manual superintendent change scan (Serper + Claude, ~$0.03) |
 | `/export_sequence [name]` | export Outreach sequence to Google Doc |
 | `/ping_gas`, `ping gas`, `test gas` | ping GAS bridge |
 | `/train_voice`, `train voice` | train voice from Gmail (24 months) |
