@@ -5,7 +5,19 @@
 
 ## CURRENT STATE — update this after each session
 
-**Session 44: Signal Intelligence System BUILT — `tools/signal_processor.py` (3-tier pipeline: regex parsing + Claude Haiku extraction + clustering). Signals Database tab, 8 Telegram commands, scheduler at 7:45 AM, morning brief integration. IN PROGRESS: batch processing 500+ emails, 6 Burbio signals to queue, DOE newsletter signups.**
+**Session 44: Signal Intelligence System COMPLETE. 18,401 signals processed ($0.30), 272 territory hits, 68 Tier 1, 12 districts queued. DOE newsletters subscribed (all 13 states). Google Alerts overhauled (28→18, buying-signal focused). Next: verify Railway deployment, wait for first new alert digest, then Phase 2 aggregator (BoardDocs, job scraping).**
+
+### What was done (Session 44)
+- **Signal Intelligence System:** Built `tools/signal_processor.py` — 3-tier pipeline (regex parsing → Claude Haiku extraction → clustering/scoring). 17-column Signals Database tab. NCES district→state lookup (8,133 districts). Cross-reference against Active Accounts/Pipeline/Queue. Heat scoring with time decay.
+- **Batch Processing:** Processed 380 Google Alert digests (18,065 stories), 41 Burbio newsletters (201 signals), 36 DOE newsletters (135 signals). Total: 18,401 signals, 272 territory-relevant, 68 Tier 1. Cost: $0.30.
+- **Prospecting Queue:** Added 12 high-priority trigger districts: Dallas ISD ($6.2B bond), Richardson ISD ($1.4B), Lamar ISD ($1.9B), Tulsa PS ($200M), North East ISD ($495M), Sand Springs PS ($114M), Tuloso-Midway ISD ($136M), Ingham ISD ($100M), Seward PS ($25M), Somers PS (AI committee), Acton-Boxborough (STEAM hire), Norwalk PS (3 clustered signals).
+- **Telegram Commands:** 8 new commands — `/signals`, `/signals all`, `/signals [state]`, `/signal_info N`, `/signal_act N`, `/signal_dismiss N`, `/signal_scan`, `/signal_stats`. All direct-dispatch.
+- **Scheduler:** Daily signal scan at 7:45 AM CST (before 9:15 morning brief). Retry-once on failure.
+- **Morning Brief:** MARKET SIGNALS section with signal-of-the-day. Word budget 200→250.
+- **DOE Newsletter Subscriptions:** TX, OH, MI, IN, CA (3 CDE listservs), MA, NE, NV, IL, CT (listserv), PA (PENN*LINK request sent). All 13 territory states now covered (had OK + TN).
+- **Gmail Filter:** `*SIGNALS` label auto-applied, skip inbox for all signal sources.
+- **Google Alert Overhaul:** 28→18 alerts. Removed 22 redundant/low-value (grade-level splits, esports, duplicate STEM/coding variants). Kept 6 core market awareness. Added 12 buying-signal alerts (3 bond, 3 leadership, 2 AI policy, 1 CTE, 1 tech spending, 2 territory-specific).
+- **Free Newsletter Subscriptions:** Signed up for K-12 Dive, EdWeek Market Brief, eSchool News, District Administration, CSTA.
 
 ### What was done (Session 43)
 - **C4 Sequence Automation:** Enriched 1,274 prospects (title, state, parent district, international). Wrote 4 sequences through 7 iterations. Created 4 Outreach sequences (IDs 1995-1998). Loaded 1,119 prospects. Created "C4 Tue-Thu Morning" schedule (ID 50). Updated 135 prospect timezones. Fixed 11 CUE sequences with missing delivery schedules.
@@ -15,11 +27,10 @@
 - **Railway API Access:** Configured Railway API token locally for pulling env vars without asking Steven.
 
 ### What still needs to be done
-- **Process 500+ Gmail signals** — Extract leads, districts, buying signals from Google Alerts, Burbio, DOE newsletters into a Signals Database
-- **Act on 6 Burbio territory signals** — Dallas $6.2B bond, Tulsa $200M bond, Marquette MI $60M, Somers CT AI committee, Acton-Boxborough MA STEAM coordinator, Seward NE $25M bond
-- **Subscribe to 11 missing state DOE newsletters** — Only have OK + TN
-- **Enhance Google Alerts** — Add buying signal keywords (bond measures, superintendent changes, AI policy)
-- **Build automated aggregator on Railway** — Board meeting scraping (BoardDocs), job posting monitoring (JobSpy), news monitoring (Serper/Exa)
+- **Verify Railway deployment** — Confirm `/signals` and `/signal_scan` work in Telegram after Railway picks up the new commit
+- **Wait for first new alert digest** — New Google Alert keywords (bonds, leadership, AI policy) arrive next week. Run `/signal_scan` to verify parser handles new keyword sections.
+- **Build automated aggregator Phase 2** — BoardDocs board meeting scraping, job posting monitoring (Indeed/JobSpy), news monitoring (Serper/Exa)
+- **Signal-to-deal attribution** — Track which signals lead to deals (Pipeline Link column ready but not wired)
 - **Firecrawl paid plan** — Deferred (budget). L18/L19 skip gracefully.
 - **Parse.bot integration** — Waiting on their DNS fix.
 - **Territory map visualization** — Future.
@@ -48,6 +59,9 @@
 - C5 Proximity + ESA: ✅ built + verified (Session 42) — targeted proximity, ESA mapping, add nearby command. Tested TX/OH/OK.
 - C4 Sequence Automation: ✅ (Session 43) — 4 sequences in Outreach (IDs 1995-1998), 1,119 prospects loaded. Tue/Wed/Thu 8-10 AM schedule. First emails fire Tuesday.
 - Trigger Aggregator Research: ✅ (Session 43) — Full research in `docs/trigger_aggregator_research.md`. GAS bridge enhanced with `search_inbox_full`.
+- Signal Intelligence System: ✅ (Session 44) — `tools/signal_processor.py`, 18,401 signals processed, 272 territory, 68 Tier 1. 12 districts queued. 8 Telegram commands. Daily scanner at 7:45 AM. Morning brief integration.
+- DOE Newsletter Subscriptions: ✅ (Session 44) — All 13 territory states covered. Gmail filter auto-sorts to `*SIGNALS` label.
+- Google Alert Overhaul: ✅ (Session 44) — 28→18 alerts. Buying-signal focused (bonds, leadership, AI policy, CTE, territory-specific).
 
 ### Other completed features
 - **Weekend scheduler (B1):** Sat 11am, Sun 1pm greeting. No auto check-ins. `/eod` works manually.
@@ -326,6 +340,7 @@ firstcocoagent/
 │   ├── district_prospector.py  ← MODULE not class. discover_districts(), suggest_upward_targets()
 │   ├── lead_importer.py        ← MODULE not class. import_leads(), import_contacts(), enrich
 │   ├── proximity_engine.py     ← MODULE not class. C5: proximity search, ESA mapping
+│   ├── signal_processor.py     ← MODULE not class. Signal intelligence: Gmail parsing, classification, scoring
 │   └── fireflies.py            ← FirefliesClient, FirefliesError
 ├── gas/
 │   ├── CLAUDE.md               ← GAS deployment checklist and gotchas
@@ -392,6 +407,13 @@ firstcocoagent/
 | `research [district], [state]`, `look up [district] in [state]` | direct dispatch to research_district — bypasses Claude |
 | `proximity [state] [miles]`, `nearby districts in [state]` | find districts near active accounts (C5) |
 | `esa [state]`, `service centers in [state]` | ESA/ESC region opportunities (C5) |
+| `/signals` | top 5 district signals by heat score |
+| `/signals all`, `/signals [state]`, `/signals new` | all signals, state filter, new only |
+| `/signal_info N` | full detail on signal #N from last `/signals` list |
+| `/signal_act N` | fast-path: mark acted → add to Prospecting Queue → auto-research |
+| `/signal_dismiss N` | archive signal (hidden from default view) |
+| `/signal_scan` | trigger manual signal scan of Gmail |
+| `/signal_stats` | signal counts by type and state |
 | `/ping_gas`, `ping gas`, `test gas` | ping GAS bridge |
 | `/train_voice`, `train voice` | train voice from Gmail (24 months) |
 | `/grade_draft`, `grade draft` | feedback on last draft → updates voice_profile.md |

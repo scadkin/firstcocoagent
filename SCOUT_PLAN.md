@@ -1,22 +1,42 @@
 # SCOUT MASTER PLAN
-*Last updated: 2026-04-05 — Session 43*
+*Last updated: 2026-04-05 — Session 44*
 
 ---
 
-## YOU ARE HERE → C4 sequence automation DONE (1,119 prospects loaded into 4 Outreach sequences, first emails Tuesday). Trigger-based prospecting aggregator IN PROGRESS — research complete, GAS bridge enhanced, Gmail scanning infrastructure ready. Next: process 500+ Gmail signals into Signals Database, then build automated aggregator.
+## YOU ARE HERE → Signal Intelligence System Phase 1 COMPLETE. 18,401 signals processed, 12 districts queued, all 13 states covered for DOE newsletters, Google Alerts overhauled for buying signals. Next: verify Railway deployment, then Phase 2 aggregator (BoardDocs, job scraping, RSS feeds).
 
 ---
 
-## CURRENT FOCUS: Trigger-Based Prospecting Aggregator
+## COMPLETED: Signal Intelligence System — Phase 1 (Session 44)
 
-**Where we stopped:** Research complete. GAS bridge enhanced with `search_inbox_full` (full email bodies + pagination). Verified working. 500+ emails ready to process (29 Google Alerts with 359 emails, 41 Burbio newsletters, 118 DOE/newsletter emails). Burbio content already extracted for most recent 8 newsletters (Mailchimp URLs fetched by agent).
+### What was built
+- `tools/signal_processor.py` — 3-tier processing pipeline (regex → Claude Haiku → clustering)
+- 17-column Signals Database tab with heat scoring, time decay, urgency classification
+- NCES district→state lookup (8,133 districts) for territory filtering
+- Cross-reference against Active Accounts, Pipeline, Prospecting Queue, Closed-Lost
+- 8 Telegram commands: `/signals`, `/signal_act`, `/signal_info`, `/signal_dismiss`, `/signal_scan`, `/signal_stats`
+- Daily automated scan at 7:45 AM CST with retry logic
+- Morning brief MARKET SIGNALS section with signal-of-the-day
 
-**Next session starts with:**
-1. Process all 500+ Gmail signals into a Signals Database (Google Sheet tab)
-2. Act on 6 territory-specific signals from Burbio (Dallas ISD $6.2B bond, Tulsa $200M bond, Marquette MI $60M, Somers CT K-12 AI committee, Acton-Boxborough MA STEAM coordinator, Seward NE $25M bond)
-3. Subscribe Steven to DOE newsletters for the 11 missing states (only has OK + TN currently)
-4. Enhance Google Alerts with additional keywords (buying signals, AI policy, bond measures, superintendent changes)
-5. Build automated aggregator on Railway (board meeting scraping, job posting monitoring, news monitoring)
+### Batch results
+- 380 Google Alert digests → 18,065 stories (all programmatic, $0)
+- 41 Burbio newsletters → 201 signals (Claude Haiku extraction)
+- 36 DOE newsletters → 135 signals (two-pass triage + Claude Haiku)
+- **Total: 18,401 signals, 272 territory-relevant, 68 Tier 1, 46 clusters**
+- **Cost: $0.30**
+- 12 districts added to Prospecting Queue (Dallas ISD $6.2B, Richardson ISD $1.4B, Lamar ISD $1.9B, etc.)
+
+### Signal sources expanded
+- **DOE newsletters:** Subscribed to all 13 territory states (was OK + TN only). GovDelivery (TX, OH, MI, IN), CDE listservs (CA), state portals (MA, NE, NV, IL), listserv (CT), PENN*LINK request (PA).
+- **Google Alerts overhauled:** 28→18 alerts. Removed 22 redundant (grade-level splits, esports, duplicate variants). Kept 6 core market awareness. Added 12 buying-signal alerts (3 bond, 3 leadership, 2 AI policy, 1 CTE, 1 tech, 2 territory).
+- **Free newsletters:** K-12 Dive, EdWeek Market Brief, eSchool News, District Administration, CSTA.
+- **Gmail filter:** `*SIGNALS` label auto-applied, skip inbox for all signal sources.
+
+### Next session starts with:
+1. Verify Railway deployment — test `/signals` and `/signal_scan` in Telegram
+2. Wait for first new Google Alert digest (1 week) — verify parser handles new bond/leadership keyword sections
+3. Phase 2 aggregator: BoardDocs scraping, job posting monitoring, RSS feed ingestion
+4. Signal quality tuning — review Tier 1 signals, adjust classification patterns if needed
 
 ---
 
