@@ -2874,6 +2874,31 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await send_message(f"Leadership scan failed: {e}")
         return
 
+    elif user_text.lower() in ["/signal_rfp", "signal rfp", "scan rfp", "scan rfps"]:
+        await send_message("📋 Scanning for CS/STEM RFP opportunities...")
+        try:
+            loop = asyncio.get_event_loop()
+            rfp_signals = await loop.run_in_executor(
+                None, signal_processor.scan_rfp_opportunities, None, None)
+            if rfp_signals:
+                write_result = await loop.run_in_executor(
+                    None, signal_processor.write_signals, rfp_signals)
+                lines = [f"📋 *RFP Scan Complete* — {len(rfp_signals)} opportunities found\n"]
+                for i, sig in enumerate(rfp_signals[:10], 1):
+                    dist = sig.get("district", "")
+                    state = sig.get("state", "")
+                    headline = sig.get("headline", "")[:80]
+                    lines.append(f"  {i}. {dist} ({state}) — {headline}")
+                if len(rfp_signals) > 10:
+                    lines.append(f"\n  ... and {len(rfp_signals) - 10} more")
+                lines.append(f"\nWritten: {write_result['written']} | Deduped: {write_result['skipped']}")
+                await send_message("\n".join(lines))
+            else:
+                await send_message("No CodeCombat-relevant RFP opportunities found.")
+        except Exception as e:
+            await send_message(f"RFP scan failed: {e}")
+        return
+
     elif user_text.lower() in ["/signal_scan", "signal scan", "scan signals"]:
         await send_message("📬 Starting signal scan... This may take a few minutes.")
         try:
@@ -3170,6 +3195,31 @@ async def _run_leadership_scan():
             logger.info("Weekly leadership scan: no changes found")
     except Exception as e:
         logger.error(f"Weekly leadership scan failed: {e}")
+
+
+async def _run_rfp_scan():
+    """Scheduled weekly RFP scan — Mondays at 8:15 AM CST."""
+    try:
+        loop = asyncio.get_event_loop()
+        signals = await loop.run_in_executor(
+            None, signal_processor.scan_rfp_opportunities, None, None)
+        if signals:
+            write_result = await loop.run_in_executor(
+                None, signal_processor.write_signals, signals)
+            lines = [f"📋 *Weekly RFP Scan* — {len(signals)} opportunities found\n"]
+            for i, sig in enumerate(signals[:10], 1):
+                dist = sig.get("district", "")
+                state = sig.get("state", "")
+                headline = sig.get("headline", "")[:80]
+                lines.append(f"  {i}. {dist} ({state}) — {headline}")
+            if len(signals) > 10:
+                lines.append(f"\n  ... and {len(signals) - 10} more")
+            lines.append(f"\nWritten: {write_result['written']} | Deduped: {write_result['skipped']}")
+            await send_message("\n".join(lines))
+        else:
+            logger.info("Weekly RFP scan: no opportunities found")
+    except Exception as e:
+        logger.error(f"Weekly RFP scan failed: {e}")
 
 
 async def send_eod_report():
@@ -3501,6 +3551,8 @@ async def _run_telegram_and_scheduler():
                 asyncio.create_task(_run_daily_signal_scan())
             elif sched_event == "leadership_scan":
                 asyncio.create_task(_run_leadership_scan())
+            elif sched_event == "rfp_scan":
+                asyncio.create_task(_run_rfp_scan())
             if gas and FIREFLIES_API_KEY:
                 asyncio.create_task(_check_precall_briefs(gas))
                 now_ts = time.time()

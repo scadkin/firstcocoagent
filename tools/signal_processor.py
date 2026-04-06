@@ -2178,6 +2178,230 @@ Search results:
 
 
 # ─────────────────────────────────────────────
+# RFP OPPORTUNITY SCANNER (Serper + Claude)
+# ─────────────────────────────────────────────
+
+def scan_rfp_opportunities(states=None, progress_callback=None) -> list:
+    """
+    Scan for K-12 RFPs relevant to CodeCombat across territory states via Serper web search.
+    Uses Claude Haiku to extract and filter for CodeCombat-relevant opportunities only.
+    Returns list of signal dicts. Cost: ~$0.03/scan.
+    """
+    if not SERPER_API_KEY:
+        logger.warning("SERPER_API_KEY not set — cannot scan RFP opportunities")
+        return []
+
+    import httpx
+
+    _load_nces_lookup()
+    _load_cross_references()
+
+    scan_states = states or list(TERRITORY_STATES)  # No CA — too many RFPs
+    all_snippets = []
+    seen_urls = set()
+
+    if progress_callback:
+        progress_callback(f"Searching {len(scan_states)} states for CS/STEM RFPs...")
+
+    for state_abbr in scan_states:
+        state_name = ABBR_TO_STATE_NAME.get(state_abbr, state_abbr)
+        queries = [
+            f'"RFP" OR "request for proposal" "computer science" OR "coding" OR "programming" curriculum school "{state_name}"',
+            f'"RFP" OR "request for proposal" "STEM" OR "CTE" software OR curriculum school district "{state_name}"',
+        ]
+        for query in queries:
+            try:
+                resp = httpx.post(
+                    SERPER_URL,
+                    headers={"X-API-Key": SERPER_API_KEY, "Content-Type": "application/json"},
+                    json={"q": query, "num": 10, "tbs": "qdr:m"},
+                    timeout=15.0,
+                )
+                data = resp.json()
+                for item in data.get("organic", [])[:10]:
+                    url = item.get("link", "")
+                    if url and url not in seen_urls:
+                        seen_urls.add(url)
+                        all_snippets.append({
+                            "title": item.get("title", ""),
+                            "snippet": item.get("snippet", ""),
+                            "url": url,
+                            "searched_state": state_abbr,
+                        })
+                time.sleep(0.5)
+            except Exception as e:
+                logger.warning(f"Serper RFP search failed for {state_abbr}: {e}")
+
+    if not all_snippets:
+        logger.info("RFP scan: no search results found")
+        if progress_callback:
+            progress_callback("No RFP opportunities found in search results.")
+        return []
+
+    logger.info(f"RFP scan: {len(all_snippets)} unique articles from {len(scan_states)} states")
+
+    # Build combined text for Claude extraction
+    combined_text = ""
+    for s in all_snippets:
+        combined_text += f"\n[{s['searched_state']}] {s['title']}\n{s['snippet']}\nURL: {s['url']}\n"
+    combined_text = combined_text[:12000]
+
+    if progress_callback:
+        progress_callback(f"Filtering {len(all_snippets)} results for CodeCombat-relevant RFPs...")
+
+    # Single Claude Haiku call with aggressive CodeCombat relevance filtering
+    import anthropic
+    try:
+        client = anthropic.Anthropic(timeout=90.0)
+        prompt = f"""Extract K-12 school district RFP/bid/procurement opportunities from these search results.
+
+ONLY include RFPs where CodeCombat (a game-based computer science education platform) could be a strong candidate. CodeCombat teaches CS through game-based coding, offers AI-powered math tutoring (Algebra), and cybersecurity courses.
+
+INCLUDE these RFP categories:
+- Computer science, coding, or programming curriculum
+- STEM/STEAM/CTE software platforms
+- Game-based or project-based learning platforms
+- Math curriculum or software (especially algebra)
+- Cybersecurity education programs
+- Digital curriculum adoption with CS/technology strand
+- Professional development for CS/STEM teachers
+
+HARD EXCLUDE (even if they mention "technology"):
+- Construction, facilities, HVAC, roofing, furniture
+- Hardware only (Chromebooks, laptops, networking, Wi-Fi)
+- Food service, janitorial, transportation
+- Legal, insurance, auditing, financial services
+- LMS/SIS systems (Canvas, PowerSchool, Infinite Campus)
+- Assessment/testing platforms (unless CS-specific)
+- Generic office or admin software
+- ERP, payroll, HR systems
+
+For each relevant RFP, extract:
+{{
+  "district": "District Name",
+  "state": "XX",
+  "rfp_title": "Short title",
+  "deadline": "YYYY-MM-DD or empty string if unknown",
+  "what_theyre_buying": "1 sentence summary",
+  "headline": "RFP: [title] — [district] ([state])"
+}}
+
+If deadline is mentioned, append " — due [date]" to headline.
+If no CodeCombat-relevant RFPs found, return [].
+Return ONLY a valid JSON array — no commentary.
+
+Search results:
+{combined_text}"""
+
+        response = client.messages.create(
+            model="claude-haiku-4-5-20251001",
+            max_tokens=2000,
+            messages=[{"role": "user", "content": prompt}],
+        )
+        _track_usage(response)
+        raw_text = response.content[0].text.strip()
+    except Exception as e:
+        logger.error(f"Claude RFP extraction failed: {e}")
+        return []
+
+    # Parse JSON — strip markdown fences and preamble
+    try:
+        clean = raw_text
+        if "```" in clean:
+            clean = clean.split("```")[1]
+            if clean.startswith("json"):
+                clean = clean[4:]
+        start = clean.find("[")
+        end = clean.rfind("]")
+        if start == -1 or end == -1:
+            logger.warning("RFP extraction: no JSON array found in response")
+            return []
+        items = json.loads(clean[start:end + 1])
+    except json.JSONDecodeError as e:
+        logger.warning(f"RFP extraction JSON parse failed: {e}")
+        return []
+
+    # Post-process extracted items
+    signals = []
+    dedup_seen = set()
+    year_month = datetime.now().strftime("%Y_%m")
+
+    # Build URL lookup for source_detail
+    url_by_district = {}
+    for s in all_snippets:
+        title_lower = s["title"].lower()
+        for item in items:
+            dist_lower = item.get("district", "").lower()
+            if dist_lower and dist_lower in title_lower:
+                url_by_district[dist_lower] = s["url"]
+
+    for item in items:
+        district = item.get("district", "").strip()
+        state = item.get("state", "").strip().upper()
+        rfp_title = item.get("rfp_title", "").strip()
+        headline = item.get("headline", "").strip()
+
+        if not district or not state:
+            continue
+
+        # Validate state is in territory
+        if state not in TERRITORY_STATES_WITH_CA:
+            continue
+
+        # NCES lookup for validation/correction
+        nces_state = lookup_district_state(district)
+        if nces_state:
+            state = nces_state
+
+        # Dedup within scan by (district, rfp_title)
+        norm_district = csv_importer.normalize_name(district)
+        norm_title = rfp_title.lower().strip()[:50] if rfp_title else ""
+        dedup_key = (norm_district, norm_title)
+        if dedup_key in dedup_seen:
+            continue
+        dedup_seen.add(dedup_key)
+
+        # Customer relationship check
+        cust_status = check_customer_status(district)
+
+        # All RFPs are time_sensitive (deadline data from snippets is unreliable)
+        urgency = "time_sensitive"
+
+        # Heat score
+        heat = compute_heat_score("rfp", 1, True, cust_status)
+
+        # Message ID for cross-scan dedup (monthly granularity)
+        msg_id = f"rfp_{norm_district}_{year_month}"
+
+        # Full URL preserved in source_detail for future RFP submission tool
+        best_url = url_by_district.get(district.lower(), "")
+
+        signals.append({
+            "date": datetime.now().strftime("%Y-%m-%d"),
+            "source": "rfp_scan",
+            "source_detail": f"Serper — {best_url}" if best_url else "Serper — web search",
+            "signal_type": "rfp",
+            "scope": "district",
+            "district": district,
+            "state": state,
+            "headline": headline[:200],
+            "dollar_amount": "",
+            "tier": 1,
+            "heat_score": heat,
+            "urgency": urgency,
+            "customer_status": cust_status,
+            "url": "",  # Empty for correct dedup — write_signals key falls back to msg_id only
+            "message_id": msg_id,
+        })
+
+    logger.info(f"RFP scan: {len(signals)} CodeCombat-relevant RFPs extracted "
+                f"({len(items)} raw, {len(items) - len(signals)} filtered/deduped)")
+    if progress_callback:
+        progress_callback(f"RFP scan: {len(signals)} opportunities found")
+    return signals
+
+
+# ─────────────────────────────────────────────
 # RSS FEED INGESTION
 # ─────────────────────────────────────────────
 
