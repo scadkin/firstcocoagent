@@ -1578,8 +1578,13 @@ def _fetch_boarddocs_agenda(org_code: str, committee_id: str,
     try:
         with urllib.request.urlopen(req, timeout=20) as resp:
             html = resp.read().decode()
-            # Strip HTML → plain text
+            # Strip HTML tags → plain text
             text = re.sub(r"<[^>]+>", " ", html)
+            # Strip HTML entities
+            text = text.replace("&nbsp;", " ").replace("&amp;", "&")
+            text = text.replace("&lt;", "<").replace("&gt;", ">")
+            text = text.replace("&quot;", '"').replace("&#39;", "'")
+            text = re.sub(r"&\w+;", " ", text)  # catch remaining entities
             text = re.sub(r"\s+", " ", text).strip()
             return text
     except Exception as e:
@@ -1590,29 +1595,53 @@ def _fetch_boarddocs_agenda(org_code: str, committee_id: str,
 def _extract_agenda_signals(agenda_text: str, district_name: str,
                              state: str, meeting_date: str,
                              org_code: str, meeting_id: str) -> list:
-    """Extract buying signals from board meeting agenda text."""
+    """
+    Extract buying signals from board meeting agenda text.
+    Produces at most 1 signal per keyword category per meeting to avoid noise.
+    """
+    meeting_url = f"https://go.boarddocs.com/{org_code}/Board.nsf/goto?open=&id={meeting_id}"
+    cust_status = check_customer_status(district_name)
+    in_territory = state.upper() in TERRITORY_STATES_WITH_CA
+
+    # Collect best match per signal category (tech vs bond)
+    # For tech: group by the matched keyword to avoid duplicates
+    tech_matches = {}  # keyword_group → best context
+    for match in _BOARD_TECH_KEYWORDS.finditer(agenda_text):
+        keyword = match.group(0).lower().strip()
+        # Group similar keywords (e.g., all "software.*" matches → "software")
+        group = keyword.split()[0] if " " in keyword else keyword
+        if group not in tech_matches:
+            start = max(0, match.start() - 60)
+            end = min(len(agenda_text), match.end() + 100)
+            context = agenda_text[start:end].strip()
+            tech_matches[group] = context
+
+    bond_found = False
+    bond_context = ""
+    for match in _BOARD_BOND_KEYWORDS.finditer(agenda_text):
+        if not bond_found:
+            start = max(0, match.start() - 60)
+            end = min(len(agenda_text), match.end() + 100)
+            bond_context = agenda_text[start:end].strip()
+            bond_found = True
+
     signals = []
 
-    # Find tech/CS/CTE keyword matches with context
-    for match in _BOARD_TECH_KEYWORDS.finditer(agenda_text):
-        start = max(0, match.start() - 80)
-        end = min(len(agenda_text), match.end() + 120)
-        context = agenda_text[start:end].strip()
+    # Emit up to 3 tech signals per meeting (most distinct keyword groups)
+    for i, (group, context) in enumerate(tech_matches.items()):
+        if i >= 3:
+            break
 
-        # Classify the signal
         signal_type, tier = classify_signal(context)
         if signal_type == "market_intel":
             signal_type = "board_meeting"
             tier = 1
 
         dollar = extract_dollar_amount(context)
-        cust_status = check_customer_status(district_name)
-        in_territory = state.upper() in TERRITORY_STATES_WITH_CA
         heat = compute_heat_score(signal_type, tier, in_territory, cust_status)
 
-        headline = f"Board agenda: {context[:150]}"
-        meeting_url = f"https://go.boarddocs.com/{org_code}/Board.nsf/goto?open=&id={meeting_id}"
-        msg_id = f"bd_{org_code}_{meeting_id}_{match.start()}"
+        # Clean headline
+        headline = f"Board agenda ({group}): {context[:120]}"
 
         signals.append({
             "date": meeting_date,
@@ -1629,23 +1658,14 @@ def _extract_agenda_signals(agenda_text: str, district_name: str,
             "urgency": "time_sensitive",
             "customer_status": cust_status,
             "url": meeting_url,
-            "message_id": msg_id,
+            "message_id": f"bd_{org_code}_{meeting_id}_{group}",
         })
 
-    # Also check for bond/budget items
-    for match in _BOARD_BOND_KEYWORDS.finditer(agenda_text):
-        start = max(0, match.start() - 80)
-        end = min(len(agenda_text), match.end() + 120)
-        context = agenda_text[start:end].strip()
-
-        dollar = extract_dollar_amount(context)
-        cust_status = check_customer_status(district_name)
-        in_territory = state.upper() in TERRITORY_STATES_WITH_CA
+    # Emit at most 1 bond signal per meeting
+    if bond_found:
+        dollar = extract_dollar_amount(bond_context)
         heat = compute_heat_score("bond", 1, in_territory, cust_status)
-
-        headline = f"Board agenda: {context[:150]}"
-        meeting_url = f"https://go.boarddocs.com/{org_code}/Board.nsf/goto?open=&id={meeting_id}"
-        msg_id = f"bd_{org_code}_{meeting_id}_bond_{match.start()}"
+        headline = f"Board agenda (bond): {bond_context[:120]}"
 
         signals.append({
             "date": meeting_date,
@@ -1662,7 +1682,7 @@ def _extract_agenda_signals(agenda_text: str, district_name: str,
             "urgency": "time_sensitive",
             "customer_status": cust_status,
             "url": meeting_url,
-            "message_id": msg_id,
+            "message_id": f"bd_{org_code}_{meeting_id}_bond",
         })
 
     return signals
@@ -1687,71 +1707,64 @@ def scan_board_meetings(days_back: int = 30, progress_callback=None) -> list:
         state = entry["state"]
         org_code = entry["org_code"]
 
-        # Discover committee ID
-        committee_id = _discover_committee_id(org_code)
-        if not committee_id:
-            districts_failed += 1
-            logger.debug(f"BoardDocs: no committee_id for {district_name}")
-            continue
-
-        # Fetch meetings
-        meetings = _fetch_boarddocs_meetings(org_code, committee_id)
-        if not meetings:
-            districts_failed += 1
-            continue
-
-        districts_scanned += 1
-
-        # Filter to recent meetings
-        recent = [m for m in meetings
-                  if m.get("numberdate", "") >= cutoff_str
-                  and "cancel" not in m.get("name", "").lower()]
-
-        for meeting in recent[:3]:  # Cap at 3 most recent per district
-            meeting_id = meeting.get("unique", "")
-            meeting_date_raw = meeting.get("numberdate", "")
-            if not meeting_id:
+        try:
+            # Discover committee ID
+            committee_id = _discover_committee_id(org_code)
+            if not committee_id:
+                districts_failed += 1
                 continue
 
-            # Format date
-            if len(meeting_date_raw) == 8:
-                meeting_date = f"{meeting_date_raw[:4]}-{meeting_date_raw[4:6]}-{meeting_date_raw[6:]}"
-            else:
-                meeting_date = datetime.now().strftime("%Y-%m-%d")
-
-            # Fetch agenda
-            agenda_text = _fetch_boarddocs_agenda(org_code, committee_id, meeting_id)
-            if not agenda_text or len(agenda_text) < 100:
+            # Fetch meetings
+            meetings = _fetch_boarddocs_meetings(org_code, committee_id)
+            if not meetings:
+                districts_failed += 1
                 continue
 
-            meetings_scanned += 1
+            districts_scanned += 1
 
-            # Extract signals
-            meeting_signals = _extract_agenda_signals(
-                agenda_text, district_name, state, meeting_date,
-                org_code, meeting_id)
-            all_signals.extend(meeting_signals)
+            # Filter to recent meetings (skip cancelled)
+            recent = [m for m in meetings
+                      if m.get("numberdate", "") >= cutoff_str
+                      and "cancel" not in m.get("name", "").lower()]
+
+            for meeting in recent[:2]:  # Cap at 2 most recent per district
+                meeting_id = meeting.get("unique", "")
+                meeting_date_raw = meeting.get("numberdate", "")
+                if not meeting_id:
+                    continue
+
+                # Format date
+                if len(meeting_date_raw) == 8:
+                    meeting_date = f"{meeting_date_raw[:4]}-{meeting_date_raw[4:6]}-{meeting_date_raw[6:]}"
+                else:
+                    meeting_date = datetime.now().strftime("%Y-%m-%d")
+
+                # Fetch agenda
+                agenda_text = _fetch_boarddocs_agenda(org_code, committee_id, meeting_id)
+                if not agenda_text or len(agenda_text) < 200:
+                    continue
+
+                meetings_scanned += 1
+
+                # Extract signals (capped per meeting by _extract_agenda_signals)
+                meeting_signals = _extract_agenda_signals(
+                    agenda_text, district_name, state, meeting_date,
+                    org_code, meeting_id)
+                all_signals.extend(meeting_signals)
+
+        except Exception as e:
+            districts_failed += 1
+            logger.warning(f"BoardDocs error for {district_name}: {e}")
 
         if progress_callback and districts_scanned % 5 == 0:
             progress_callback(f"BoardDocs: {districts_scanned} districts scanned, "
                             f"{len(all_signals)} signals found")
 
-        time.sleep(0.5)  # Rate limit
-
-    # Deduplicate signals within this batch (same district + meeting can match multiple times)
-    seen_headlines = set()
-    deduped = []
-    for sig in all_signals:
-        # Group by district + meeting_id prefix (not keyword offset)
-        key = f"{sig['district']}|{sig['headline'][:80]}"
-        if key not in seen_headlines:
-            seen_headlines.add(key)
-            deduped.append(sig)
+        time.sleep(0.3)  # Rate limit
 
     logger.info(f"BoardDocs: {districts_scanned} districts, {meetings_scanned} meetings, "
-                f"{len(deduped)} signals (from {len(all_signals)} raw matches). "
-                f"{districts_failed} districts failed.")
-    return deduped
+                f"{len(all_signals)} signals. {districts_failed} failed.")
+    return all_signals
 
 
 # ─────────────────────────────────────────────
@@ -2280,11 +2293,15 @@ def process_all_signals(gas, progress_callback=None) -> dict:
     all_signals.extend(rss_signals)
 
     # Source 6: BoardDocs board meeting agendas (programmatic, $0)
-    if progress_callback:
-        progress_callback("Scanning BoardDocs agendas...")
-    board_signals = scan_board_meetings(days_back=30,
-                                         progress_callback=progress_callback)
-    all_signals.extend(board_signals)
+    board_signals = []
+    try:
+        if progress_callback:
+            progress_callback("Scanning BoardDocs agendas...")
+        board_signals = scan_board_meetings(days_back=30,
+                                             progress_callback=progress_callback)
+        all_signals.extend(board_signals)
+    except Exception as e:
+        logger.warning(f"BoardDocs scan failed (non-fatal): {e}")
 
     # Detect clusters
     clusters = detect_clusters(all_signals)
@@ -2389,9 +2406,13 @@ def process_new_signals(gas, since_date: str = None,
                                      progress_callback=progress_callback)
     all_signals.extend(rss_signals)
 
-    board_signals = scan_board_meetings(days_back=7,
-                                         progress_callback=progress_callback)
-    all_signals.extend(board_signals)
+    board_signals = []
+    try:
+        board_signals = scan_board_meetings(days_back=7,
+                                             progress_callback=progress_callback)
+        all_signals.extend(board_signals)
+    except Exception as e:
+        logger.warning(f"BoardDocs scan failed (non-fatal): {e}")
 
     clusters = detect_clusters(all_signals)
     write_result = write_signals(all_signals)
