@@ -684,17 +684,30 @@ def _next_signal_id(existing_ids: set) -> str:
 
 
 def get_processed_message_ids() -> set:
-    """Read all message IDs from the Signals tab for deduplication."""
+    """Read message IDs + URLs from Signals tab for deduplication.
+    Returns composite keys matching write_signals dedup logic: msg_id|url or msg_id."""
     try:
         service, sheet_id = _ensure_tab()
         msg_col_idx = SIGNAL_COLUMNS.index("Message ID")
-        col_letter = _col_letter(msg_col_idx)
+        url_col_idx = SIGNAL_COLUMNS.index("Source URL")
+        msg_letter = _col_letter(msg_col_idx)
+        url_letter = _col_letter(url_col_idx)
         result = service.spreadsheets().values().get(
             spreadsheetId=sheet_id,
-            range=f"'{TAB_SIGNALS}'!{col_letter}2:{col_letter}",
+            range=f"'{TAB_SIGNALS}'!{url_letter}2:{msg_letter}",
         ).execute()
         rows = result.get("values", [])
-        return {r[0] for r in rows if r and r[0]}
+        keys = set()
+        for r in rows:
+            if not r:
+                continue
+            # Columns: Source URL (idx 0), Message ID (idx 1)
+            url = r[0] if len(r) > 0 else ""
+            msg_id = r[1] if len(r) > 1 else ""
+            if msg_id:
+                dedup_key = f"{msg_id}|{url}" if url else msg_id
+                keys.add(dedup_key)
+        return keys
     except Exception as e:
         logger.warning(f"Failed to read message IDs: {e}")
         return set()
