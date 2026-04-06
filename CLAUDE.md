@@ -70,6 +70,7 @@
 - Tokens persist via GitHub (`memory/outreach_tokens.json`). Railway env vars: `OUTREACH_CLIENT_ID`, `OUTREACH_CLIENT_SECRET`, `OUTREACH_REDIRECT_URI`.
 - JSON:API format required. Content-Type: `application/vnd.api+json`.
 - **Sequence step interval is in SECONDS** (not minutes). 5 min=300, 4 days=345600, 6 days=518400.
+- **Outreach template `toRecipients` MUST be `[]` (empty).** Never set to `["{{toRecipient}}"]` — causes ALL emails to fail with "Invalid recipients." Failed states cannot be retried via API. Steven has to manually click "Try again" on every prospect in the UI.
 - Sequence creation flow: create sequence → create steps → create templates → link via sequenceTemplates → Steven activates in UI → Steven toggles templates active → THEN add prospects.
 - `enabled` is a private attribute — cannot activate sequences via API. Steven must toggle in UI.
 - `sequenceStates` cannot be PATCHed (no resume via API). `sequenceSteps` need delete scope to remove.
