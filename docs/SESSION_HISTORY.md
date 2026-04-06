@@ -530,3 +530,62 @@ Estimated speedup: 40-60% wall-time reduction. Steven approved the approach.
 - ESCs and career-tech centers are both Agency Type 4 but shown separately
 - Career-tech centers are prospecting targets (have CS/CTE decision-makers)
 - Steven prefers natural language over slash commands — all new features should have NL dispatch
+
+---
+
+## Session 44 (2026-04-05) — Signal Intelligence System + Enrichment + Alert Overhaul
+
+### Session Summary
+Built Scout's complete signal intelligence system from scratch. Processes Gmail emails (Google Alerts, Burbio newsletters, DOE newsletters) plus Indeed job postings into a Signals Database. Added enrichment layer that does web research + Claude analysis to score each signal for CodeCombat relevance before recommending action. Overhauled Google Alerts from 28 redundant alerts to 18 buying-signal focused alerts. Subscribed to DOE newsletters for all 13 territory states. Quality pass reduced noise from 150 to 40 actionable signals.
+
+### What was built
+- **`tools/signal_processor.py`** (~1,000 lines) — Core module. 3-tier pipeline: Tier 1 regex parsing ($0, Google Alerts), Tier 2 Claude Haiku extraction ($0.30 for 500+ emails, Burbio/DOE), Tier 3 enrichment ($0.002/signal, Serper + Claude relevance scoring).
+- **Signals Database tab** — 17 columns: ID, Date, Source, Source Detail, Signal Type, Scope, District, State, Headline, Dollar Amount, Tier, Heat Score, Urgency, Status, Customer Status, Source URL, Message ID.
+- **Signal enrichment** — `enrich_signal()` does Serper web search for spending details + Claude Haiku analysis for CodeCombat relevance (strong/moderate/weak/none). Returns: spending breakdown, CS/CTE relevance, key contacts, timeline, talking points, recommended action.
+- **Job posting scanner** — `scan_job_postings()` uses python-jobspy to scrape Indeed for CS/CTE/STEM teacher hiring. Filters to K-12 entities + CS-relevant roles.
+- **Google Alert parser** — `parse_google_alert()` regex-parses weekly digest emails into individual stories. Handles `\r\n` from GAS `getPlainBody()`. Extracts keyword, title, source, snippet, real URL (unwrapped from Google redirect).
+- **NCES district→state lookup** — Loads 8,133 districts from Territory Districts tab. Maps district names to states. Fixes the "Dallas ISD doesn't contain Texas" problem.
+- **Heat scoring** — Base score from signal type weights × territory bonus × customer modifier × cluster bonus × recency. Decay applied on read. Urgency-aware: time_sensitive/urgent signals use minimal decay (0.97/week).
+- **10 Telegram commands** — `/signals`, `/signals all|[state]|new`, `/signal_info N`, `/signal_enrich N`, `/signal_act N`, `/signal_dismiss N`, `/signal_scan`, `/signal_jobs`, `/signal_stats`. All direct-dispatch.
+- **Daily scanner** — Scheduler event at 7:45 AM CST. Auto-enriches Tier 1 signals. Retry-once on failure.
+- **Morning brief integration** — MARKET SIGNALS section injected via `build_signal_brief_block()`. Signal-of-the-day highlight.
+
+### Batch processing results
+- 380 Google Alert digests → 18,065 stories (regex parsed, $0)
+- 41 Burbio newsletters → 201 signals (Claude Haiku, ~$0.20)
+- 36 DOE newsletters → 135 signals (Claude Haiku, ~$0.10)
+- Total: 18,401 signals, 272 territory-relevant, 68 Tier 1, 46 clusters
+- Total cost: $0.30
+
+### Signal enrichment results (12 queued districts)
+- 🟢 STRONG (4): Tulsa PS (OK) — $200M CTE/STEM labs, vote Apr 7, Robert F. Burton; Richardson ISD (TX) — $86M CTE center, CTE District of Distinction; Acton-Boxborough (MA) — hiring STEAM Coordinator + Robotics; Norwalk PS (CT) — CTE + tech board discussion, 3 signals
+- 🟡 MODERATE (6): Dallas ISD (TX) — $145M tech but devices/infrastructure only; Sand Springs PS (OK); Lamar ISD (TX); North East ISD (TX); Tuloso-Midway ISD (TX); Somers PS (CT)
+- 🔴 WEAK/NONE (2): Ingham ISD (MI) — special ed bond; Seward PS (NE) — facilities only
+- Key insight: $6.2B Dallas ISD headline = MODERATE (devices), while no-dollar Acton-Boxborough = STRONG (STEAM hire). Enrichment completely reorders priority.
+
+### Quality pass
+- Expired 161 market_intel noise signals (stories mentioning a district name in passing)
+- Expired 5 rejected/non-tech bonds (locker rooms, tennis courts, rejected measures)
+- Restored 1 false positive (Lamar ISD caught by "facilities" regex — valid $1.9B bond)
+- Territory signals: 150→40 actionable
+
+### Signal sources expanded
+- DOE newsletters: GovDelivery (TX, OH, MI, IN, OK), CDE listservs (CA ×3), state portals (MA, NE, NV, IL), listserv (CT), PENN*LINK (PA)
+- Google Alerts: 28→18. Removed 22 redundant. Added 12 buying-signal focused.
+- Free newsletters: K-12 Dive, EdWeek Market Brief, eSchool News, District Administration, CSTA
+- Gmail filter: `*SIGNALS` label, skip inbox
+
+### Key decisions
+- Google Alerts stay as weekly digests (not daily) — parser knows the format, buying windows are 30-90 days
+- Default `/signals` is territory-only — out-of-territory signals are noise for Steven
+- Signal enrichment is mandatory before action ��� never queue a district on headline alone
+- market_intel scope="district" signals get expired — a story mentioning a district in passing is not a signal
+- Bond/leadership/RFP urgency = "time_sensitive" with minimal decay — the opportunity window matters, not email age
+- python-jobspy added to requirements.txt — imports gracefully (try/except) if not installed
+
+### Architectural patterns
+- signal_processor follows existing flat module pattern (like todo_manager, district_prospector)
+- `_last_signal_batch` is in-memory, same pattern as `_last_prospect_batch`
+- Cost tracking uses same `_track_usage()` / `_get_cost()` pattern as district_prospector
+- Enrichment uses Serper for web search (same as C4) + Claude Haiku (not Sonnet — structured extraction doesn't need it)
+- GAS bridge `search_inbox_full` with `body_limit=65000` for alerts, `15000` for Burbio/DOE

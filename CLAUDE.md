@@ -5,19 +5,24 @@
 
 ## CURRENT STATE — update this after each session
 
-**Session 44: Signal Intelligence System COMPLETE. 18,401 signals processed ($0.30), 272 territory hits, 68 Tier 1, 12 districts queued. DOE newsletters subscribed (all 13 states). Google Alerts overhauled (28→18, buying-signal focused). Next: verify Railway deployment, wait for first new alert digest, then Phase 2 aggregator (BoardDocs, job scraping).**
+**Session 44: Signal Intelligence System fully operational. 18,401 signals processed, enrichment layer live (Serper + Claude relevance scoring), job posting scanner (Indeed/JobSpy), 10 Telegram commands verified on Railway, quality pass done (150→40 actionable), Google Alerts overhauled (28→18), DOE newsletters all 13 states. Next: act on 4 STRONG enriched signals (Tulsa bond vote result Tue, Richardson CTE, Acton-Boxborough, Norwalk), first new alert digest ~April 9.**
 
 ### What was done (Session 44)
 - **Signal Intelligence System:** Built `tools/signal_processor.py` — 3-tier pipeline (regex parsing → Claude Haiku extraction → clustering/scoring). 17-column Signals Database tab. NCES district→state lookup (8,133 districts). Cross-reference against Active Accounts/Pipeline/Queue. Heat scoring with time decay.
 - **Batch Processing:** Processed 380 Google Alert digests (18,065 stories), 41 Burbio newsletters (201 signals), 36 DOE newsletters (135 signals). Total: 18,401 signals, 272 territory-relevant, 68 Tier 1. Cost: $0.30.
-- **Prospecting Queue:** Added 12 high-priority trigger districts: Dallas ISD ($6.2B bond), Richardson ISD ($1.4B), Lamar ISD ($1.9B), Tulsa PS ($200M), North East ISD ($495M), Sand Springs PS ($114M), Tuloso-Midway ISD ($136M), Ingham ISD ($100M), Seward PS ($25M), Somers PS (AI committee), Acton-Boxborough (STEAM hire), Norwalk PS (3 clustered signals).
-- **Telegram Commands:** 8 new commands — `/signals`, `/signals all`, `/signals [state]`, `/signal_info N`, `/signal_act N`, `/signal_dismiss N`, `/signal_scan`, `/signal_stats`. All direct-dispatch.
-- **Scheduler:** Daily signal scan at 7:45 AM CST (before 9:15 morning brief). Retry-once on failure.
+- **Signal Enrichment Layer:** `enrich_signal()` does Serper web search + Claude Haiku analysis for CodeCombat relevance (strong/moderate/weak/none). Returns spending breakdown, key contacts, timeline, talking points, recommended action. $0.002/signal. Auto-runs on Tier 1 in daily scans. Enriched all 12 queued districts: 4 STRONG (Tulsa PS, Richardson ISD, Acton-Boxborough, Norwalk PS), 6 MODERATE (Dallas ISD, Sand Springs, Lamar, North East, Tuloso-Midway, Somers), 2 WEAK (Ingham, Seward).
+- **Job Posting Scanner:** `scan_job_postings()` uses python-jobspy to scrape Indeed for K-12 CS/CTE/STEM teacher hiring across all territory states. Integrated into full scan + `/signal_jobs` command.
+- **Quality Pass:** Expired 161 market_intel noise signals + 5 rejected/non-tech bonds. Territory signals: 150→40 actionable.
+- **Territory Filtering Fix:** `/signals` defaults to territory-only (was showing NC, MD, etc.).
+- **Urgency-Aware Decay:** Bond/leadership/RFP signals use minimal decay (0.97/week) instead of standard Tier 1 decay (0.93/week).
+- **Prospecting Queue:** 12 trigger districts added. Strategy: "trigger", Source: "trigger_burbio".
+- **Telegram Commands:** 10 commands — `/signals`, `/signals all|[state]|new`, `/signal_info N`, `/signal_enrich N`, `/signal_act N`, `/signal_dismiss N`, `/signal_scan`, `/signal_jobs`, `/signal_stats`. All direct-dispatch, all verified on Railway.
+- **Scheduler:** Daily signal scan at 7:45 AM CST. Auto-enriches Tier 1. Retry-once on failure.
 - **Morning Brief:** MARKET SIGNALS section with signal-of-the-day. Word budget 200→250.
-- **DOE Newsletter Subscriptions:** TX, OH, MI, IN, CA (3 CDE listservs), MA, NE, NV, IL, CT (listserv), PA (PENN*LINK request sent). All 13 territory states now covered (had OK + TN).
-- **Gmail Filter:** `*SIGNALS` label auto-applied, skip inbox for all signal sources.
-- **Google Alert Overhaul:** 28→18 alerts. Removed 22 redundant/low-value (grade-level splits, esports, duplicate STEM/coding variants). Kept 6 core market awareness. Added 12 buying-signal alerts (3 bond, 3 leadership, 2 AI policy, 1 CTE, 1 tech spending, 2 territory-specific).
-- **Free Newsletter Subscriptions:** Signed up for K-12 Dive, EdWeek Market Brief, eSchool News, District Administration, CSTA.
+- **DOE Newsletters:** All 13 territory states subscribed (GovDelivery: TX/OH/MI/IN/OK, CDE listservs: CA, state portals: MA/NE/NV/IL, listserv: CT, PENN*LINK: PA).
+- **Gmail Filter:** `*SIGNALS` label auto-applied, skip inbox.
+- **Google Alert Overhaul:** 28→18 alerts. 22 removed (redundant grade-level splits, esports, duplicate STEM/coding). 6 kept (market awareness). 12 added (3 bond, 3 leadership, 2 AI policy, 1 CTE, 1 tech, 2 territory).
+- **Free Newsletters:** K-12 Dive, EdWeek Market Brief, eSchool News, District Administration, CSTA.
 
 ### What was done (Session 43)
 - **C4 Sequence Automation:** Enriched 1,274 prospects (title, state, parent district, international). Wrote 4 sequences through 7 iterations. Created 4 Outreach sequences (IDs 1995-1998). Loaded 1,119 prospects. Created "C4 Tue-Thu Morning" schedule (ID 50). Updated 135 prospect timezones. Fixed 11 CUE sequences with missing delivery schedules.
@@ -27,10 +32,11 @@
 - **Railway API Access:** Configured Railway API token locally for pulling env vars without asking Steven.
 
 ### What still needs to be done
-- **Verify Railway deployment** — Confirm `/signals` and `/signal_scan` work in Telegram after Railway picks up the new commit
-- **Wait for first new alert digest** — New Google Alert keywords (bonds, leadership, AI policy) arrive next week. Run `/signal_scan` to verify parser handles new keyword sections.
-- **Build automated aggregator Phase 2** — BoardDocs board meeting scraping, job posting monitoring (Indeed/JobSpy), news monitoring (Serper/Exa)
-- **Signal-to-deal attribution** — Track which signals lead to deals (Pipeline Link column ready but not wired)
+- **Act on 4 STRONG enriched signals** — Tulsa PS (bond vote Apr 7, contact Robert F. Burton), Richardson ISD ($86M CTE center), Acton-Boxborough (STEAM coordinator hire), Norwalk PS (3 clustered signals). Research contacts + draft outreach.
+- **First new Google Alert digest ~April 9** — Verify parser handles new bond/leadership/AI policy keyword sections. Run `/signal_scan` after.
+- **RSS feed ingestion** — Add K-12 Dive, EdWeek Market Brief, eSchool News as signal sources (RSS URLs identified)
+- **BoardDocs scraping** — Phase 3, complex per-district setup. Public board meeting agendas = leading indicator of tech purchases.
+- **Signal-to-deal attribution** — Track which signals lead to deals (Pipeline Link column in schema, not wired yet)
 - **Firecrawl paid plan** — Deferred (budget). L18/L19 skip gracefully.
 - **Parse.bot integration** — Waiting on their DNS fix.
 - **Territory map visualization** — Future.
@@ -59,9 +65,10 @@
 - C5 Proximity + ESA: ✅ built + verified (Session 42) — targeted proximity, ESA mapping, add nearby command. Tested TX/OH/OK.
 - C4 Sequence Automation: ✅ (Session 43) — 4 sequences in Outreach (IDs 1995-1998), 1,119 prospects loaded. Tue/Wed/Thu 8-10 AM schedule. First emails fire Tuesday.
 - Trigger Aggregator Research: ✅ (Session 43) — Full research in `docs/trigger_aggregator_research.md`. GAS bridge enhanced with `search_inbox_full`.
-- Signal Intelligence System: ✅ (Session 44) — `tools/signal_processor.py`, 18,401 signals processed, 272 territory, 68 Tier 1. 12 districts queued. 8 Telegram commands. Daily scanner at 7:45 AM. Morning brief integration.
+- Signal Intelligence System: ✅ (Session 44) — `tools/signal_processor.py`. 18,401 signals processed ($0.30), enrichment layer ($0.002/signal), job scanner (Indeed/JobSpy), 10 Telegram commands, daily 7:45 AM scan, morning brief. Quality pass: 150→40 actionable territory signals. 4 STRONG enriched signals ready for action.
 - DOE Newsletter Subscriptions: ✅ (Session 44) — All 13 territory states covered. Gmail filter auto-sorts to `*SIGNALS` label.
 - Google Alert Overhaul: ✅ (Session 44) — 28→18 alerts. Buying-signal focused (bonds, leadership, AI policy, CTE, territory-specific).
+- Free Newsletter Subscriptions: ✅ (Session 44) — K-12 Dive, EdWeek Market Brief, eSchool News, District Administration, CSTA.
 
 ### Other completed features
 - **Weekend scheduler (B1):** Sat 11am, Sun 1pm greeting. No auto check-ins. `/eod` works manually.
@@ -239,6 +246,16 @@
 **`_last_proximity_result` is in-memory only — lost on bot restart.** Run `proximity [account]` before `add nearby` in a new session.
 
 **ESA_PATTERNS in target_roles.py has 78 entity name variations.** From Steven's ROLES and KEYWORDS doc. Covers ESC, BOCES, IU, COE, ROE, ISC, ESU, AEA, CESA, SELPA, JPA, SSA, and dozens more.
+
+**`signal_processor.py` is a flat module imported at top of main.py.** 3-tier pipeline: regex parsing (free, Google Alerts) → Claude Haiku extraction (Burbio/DOE) → enrichment (Serper + Claude relevance scoring). Signals Database tab in main Google Sheet. 10 Telegram commands, all direct-dispatch. Daily scan at 7:45 AM CST via scheduler. `_last_signal_batch` is in-memory — run `/signals` before `/signal_act` or `/signal_info` in a new session.
+
+**Signal enrichment must run before acting on signals.** Never queue a district based on a headline alone. `enrich_signal()` does Serper web search + Claude Haiku analysis for CodeCombat relevance (strong/moderate/weak/none). A $6.2B bond can be WEAK if it's all devices. A no-dollar STEAM coordinator hire can be STRONG. Auto-runs on Tier 1 during daily scans; manual via `/signal_enrich N`.
+
+**Google Alerts are weekly digests with all keywords bundled into one email.** Format: `=== News - N new results for [KEYWORD] ===` sections. Parser normalizes `\r\n` to `\n`. `body_limit=65000` required (digests are ~56K chars). ~80 stories per digest.
+
+**`/signals` defaults to territory-only.** `format_hot_signals(territory_only=True)` filters to 13 states + SoCal. Pass state_filter for single-state view. `_last_signal_batch` is also territory-filtered.
+
+**Bond/leadership/RFP signals use urgency="time_sensitive" with minimal decay.** Standard Tier 1 decay is 0.93/week. Time-sensitive signals use 0.97/week because the opportunity window matters more than email age.
 
 **Validate email before calling gas.create_draft().** GAS throws on malformed emails.
 

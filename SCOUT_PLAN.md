@@ -3,7 +3,7 @@
 
 ---
 
-## YOU ARE HERE → Signal Intelligence System Phase 1 COMPLETE. 18,401 signals processed, 12 districts queued, all 13 states covered for DOE newsletters, Google Alerts overhauled for buying signals. Next: verify Railway deployment, then Phase 2 aggregator (BoardDocs, job scraping, RSS feeds).
+## YOU ARE HERE → Signal Intelligence System Phase 1+2 COMPLETE. Enrichment layer live (web research + CodeCombat relevance scoring). Job posting scanner (Indeed/JobSpy) integrated. Quality pass done (150→40 actionable signals). All 10 Telegram commands working on Railway. Next session: act on STRONG signals (Tulsa PS bond vote result, Richardson ISD CTE, Acton-Boxborough STEAM hire), RSS feed ingestion, BoardDocs Phase 3.
 
 ---
 
@@ -32,11 +32,21 @@
 - **Free newsletters:** K-12 Dive, EdWeek Market Brief, eSchool News, District Administration, CSTA.
 - **Gmail filter:** `*SIGNALS` label auto-applied, skip inbox for all signal sources.
 
+### Enrichment + Phase 2 additions (later in Session 44)
+- **Signal enrichment layer:** `enrich_signal()` does Serper web search + Claude Haiku analysis for each Tier 1 signal. Returns: spending breakdown, CS/CTE relevance (strong/moderate/weak/none), key contacts, timeline, talking points, recommended action. Cost: $0.002/signal. Auto-runs on Tier 1 during daily scans.
+- **Job posting scanner:** `scan_job_postings()` uses python-jobspy to scrape Indeed for CS/CTE/STEM teacher hiring across all 13 territory states. Filters to K-12 entities + CS-relevant roles only. Integrated into full scan + `/signal_jobs` standalone command.
+- **Quality pass:** Expired 161 market_intel noise signals + 5 rejected/non-tech bonds. Signals went from 150→40 actionable territory signals.
+- **Territory filtering fix:** `/signals` now defaults to territory-only (was showing NC, MD, etc.)
+- **Urgency-aware decay:** Bond/leadership/RFP signals use minimal decay (0.97/week) so heat scores don't drop just because the email is old.
+- **Google Alerts overhauled:** 28→18 alerts. Removed 22 redundant. Added 12 buying-signal alerts (bonds, leadership, AI policy, CTE, territory-specific).
+- **Enrichment results for 12 queued districts:** 4 STRONG (Tulsa PS, Richardson ISD, Acton-Boxborough, Norwalk PS), 6 MODERATE, 2 WEAK.
+
 ### Next session starts with:
-1. Verify Railway deployment — test `/signals` and `/signal_scan` in Telegram
-2. Wait for first new Google Alert digest (1 week) — verify parser handles new bond/leadership keyword sections
-3. Phase 2 aggregator: BoardDocs scraping, job posting monitoring, RSS feed ingestion
-4. Signal quality tuning — review Tier 1 signals, adjust classification patterns if needed
+1. Check Tulsa PS bond vote result (April 7) — if passed, act immediately (Robert F. Burton, Exec Dir IT)
+2. Act on 4 STRONG enriched signals — research contacts + draft outreach for Tulsa, Richardson, Acton-Boxborough, Norwalk
+3. First new Google Alert digest arrives ~April 9 — verify parser handles new bond/leadership keyword sections
+4. RSS feed ingestion for K-12 Dive, EdWeek Market Brief, eSchool News
+5. BoardDocs board meeting agenda scraping (Phase 3 — complex, per-district setup)
 
 ---
 
