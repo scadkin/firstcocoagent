@@ -2847,6 +2847,72 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await send_message(f"Stats error: {e}")
         return
 
+    # ── Outreach export ─────────────────────────────────────────────────────
+
+    elif user_text.lower().startswith("/export_sequence"):
+        search_name = user_text[len("/export_sequence"):].strip()
+        if not search_name:
+            await send_message("Usage: `/export_sequence [name or partial name]`")
+            return
+        await send_message(f"📋 Searching for sequence matching \"{search_name}\"...")
+        try:
+            import tools.outreach_client as outreach_client
+            loop = asyncio.get_event_loop()
+
+            # Find matching sequence
+            sequences = await loop.run_in_executor(None, outreach_client.get_sequences)
+            match = None
+            for seq in sequences:
+                if search_name.lower() in seq.get("name", "").lower():
+                    match = seq
+                    break
+
+            if not match:
+                await send_message(f"No sequence found matching \"{search_name}\"")
+                return
+
+            await send_message(f"Found: **{match['name']}** (ID: {match['id']}). Exporting...")
+
+            # Export full sequence with templates
+            seq_info = await loop.run_in_executor(
+                None, outreach_client.export_sequence, int(match["id"]))
+            markdown = outreach_client.format_sequence_export(seq_info)
+
+            # Write to Google Doc
+            gas = get_gas_bridge()
+            if gas:
+                folder_id = os.environ.get("SEQUENCES_FOLDER_ID", "")
+                doc_result = await loop.run_in_executor(
+                    None, gas.create_google_doc,
+                    f"Export — {match['name']}",
+                    markdown,
+                    folder_id)
+                if doc_result.get("success"):
+                    doc_url = doc_result.get("url", "")
+                    await send_message(
+                        f"✅ Exported **{match['name']}** ({len(seq_info.get('steps', []))} steps)\n\n"
+                        f"📄 Google Doc: {doc_url}")
+                else:
+                    # Fallback: send markdown directly
+                    await send_message(f"Doc creation failed. Sending as text...")
+                    # Split if too long
+                    if len(markdown) > 4000:
+                        for i in range(0, len(markdown), 4000):
+                            await send_message(markdown[i:i+4000])
+                    else:
+                        await send_message(markdown)
+            else:
+                # No GAS — send as text
+                if len(markdown) > 4000:
+                    for i in range(0, len(markdown), 4000):
+                        await send_message(markdown[i:i+4000])
+                else:
+                    await send_message(markdown)
+
+        except Exception as e:
+            await send_message(f"Export failed: {e}")
+        return
+
     # ── CSV upload description (pre-message before file upload) ─────────────
     # Steven can describe what a CSV is before uploading it, e.g.:
     # "this is a list of all the open opps in my pipeline"

@@ -850,3 +850,172 @@ def create_sequence(
         logger.info(f"  Sequence '{name}' created successfully with {len(created_steps)} steps")
 
     return result
+
+
+# ─────────────────────────────────────────────
+# SEQUENCE EXPORT
+# ─────────────────────────────────────────────
+
+def export_sequence(sequence_id: int | str) -> dict:
+    """
+    Export a full sequence with all settings, steps, and email content.
+    Returns a dict with everything needed to recreate or rework the sequence.
+    """
+    # 1. Get sequence metadata
+    resp = _api_get(f"/sequences/{sequence_id}")
+    seq_data = resp.get("data", {})
+    seq_attrs = seq_data.get("attributes", {})
+
+    seq_info = {
+        "id": seq_data.get("id"),
+        "name": seq_attrs.get("name", ""),
+        "description": seq_attrs.get("description", ""),
+        "enabled": seq_attrs.get("enabled", False),
+        "sequence_type": seq_attrs.get("sequenceType", ""),
+        "sharing": seq_attrs.get("sharing", ""),
+        "tags": seq_attrs.get("tags", []),
+        "max_activations": seq_attrs.get("maxActivations", 0),
+        "throttle_max_adds_per_day": seq_attrs.get("throttleMaxAddsPerDay", 0),
+        "throttle_capacity": seq_attrs.get("throttleCapacity", 0),
+        "num_contacted": seq_attrs.get("numContactedProspects", 0),
+        "num_replied": seq_attrs.get("numRepliedProspects", 0),
+        "open_count": seq_attrs.get("openCount", 0),
+        "click_count": seq_attrs.get("clickCount", 0),
+        "reply_count": seq_attrs.get("replyCount", 0),
+        "bounce_count": seq_attrs.get("bounceCount", 0),
+        "deliver_count": seq_attrs.get("deliverCount", 0),
+        "created_at": seq_attrs.get("createdAt", ""),
+        "updated_at": seq_attrs.get("updatedAt", ""),
+    }
+
+    # Get schedule relationship
+    schedule_rel = seq_data.get("relationships", {}).get("schedule", {}).get("data")
+    if schedule_rel:
+        seq_info["schedule_id"] = schedule_rel.get("id")
+
+    # 2. Get sequence steps
+    steps_raw = _api_get_all("/sequenceSteps", {
+        "filter[sequence][id]": str(sequence_id),
+    })
+    steps = []
+    for step in sorted(steps_raw, key=lambda s: s.get("attributes", {}).get("order", 0)):
+        s_attrs = step.get("attributes", {})
+        steps.append({
+            "id": step.get("id"),
+            "step_type": s_attrs.get("stepType", ""),
+            "order": s_attrs.get("order", 0),
+            "interval": s_attrs.get("interval", 0),
+            "name": s_attrs.get("name", ""),
+            "task_note": s_attrs.get("taskNote", ""),
+        })
+
+    # 3. Get sequenceTemplates to find template IDs for each step
+    seq_templates_raw = _api_get_all("/sequenceTemplates", {
+        "filter[sequence][id]": str(sequence_id),
+    })
+    step_to_template = {}
+    for st in seq_templates_raw:
+        rels = st.get("relationships", {})
+        step_rel = rels.get("sequenceStep", {}).get("data", {})
+        tmpl_rel = rels.get("template", {}).get("data", {})
+        if step_rel and tmpl_rel:
+            step_to_template[str(step_rel.get("id"))] = str(tmpl_rel.get("id"))
+
+    # 4. Fetch each template's content
+    for step in steps:
+        template_id = step_to_template.get(str(step["id"]))
+        if template_id:
+            try:
+                tmpl_resp = _api_get(f"/templates/{template_id}")
+                tmpl_data = tmpl_resp.get("data", {})
+                tmpl_attrs = tmpl_data.get("attributes", {})
+                step["template_id"] = template_id
+                step["subject"] = tmpl_attrs.get("subject", "")
+                step["body_html"] = tmpl_attrs.get("bodyHtml", "")
+                step["body_text"] = tmpl_attrs.get("bodyText", "")
+                step["to_recipients"] = tmpl_attrs.get("toRecipients", [])
+                step["cc_recipients"] = tmpl_attrs.get("ccRecipients", [])
+                step["open_count"] = tmpl_attrs.get("openCount", 0)
+                step["reply_count"] = tmpl_attrs.get("replyCount", 0)
+            except Exception as e:
+                step["template_error"] = str(e)
+
+    seq_info["steps"] = steps
+    return seq_info
+
+
+def format_sequence_export(seq_info: dict) -> str:
+    """Format an exported sequence as a readable markdown document."""
+    lines = []
+    lines.append(f"# Sequence Export: {seq_info['name']}")
+    lines.append(f"*Exported from Outreach.io — ID: {seq_info['id']}*\n")
+
+    lines.append("## Settings")
+    lines.append(f"- **Type:** {seq_info.get('sequence_type', '')}")
+    lines.append(f"- **Enabled:** {seq_info.get('enabled', False)}")
+    lines.append(f"- **Sharing:** {seq_info.get('sharing', '')}")
+    lines.append(f"- **Max Activations:** {seq_info.get('max_activations', '')}")
+    lines.append(f"- **Throttle Max Adds/Day:** {seq_info.get('throttle_max_adds_per_day', '')}")
+    lines.append(f"- **Tags:** {', '.join(seq_info.get('tags', [])) or 'none'}")
+    if seq_info.get("schedule_id"):
+        lines.append(f"- **Schedule ID:** {seq_info['schedule_id']}")
+    if seq_info.get("description"):
+        lines.append(f"- **Description:** {seq_info['description']}")
+    lines.append(f"- **Created:** {seq_info.get('created_at', '')}")
+    lines.append(f"- **Last Updated:** {seq_info.get('updated_at', '')}")
+
+    lines.append("\n## Performance")
+    lines.append(f"- Contacted: {seq_info.get('num_contacted', 0)}")
+    lines.append(f"- Replied: {seq_info.get('num_replied', 0)}")
+    lines.append(f"- Opens: {seq_info.get('open_count', 0)}")
+    lines.append(f"- Clicks: {seq_info.get('click_count', 0)}")
+    lines.append(f"- Bounced: {seq_info.get('bounce_count', 0)}")
+    lines.append(f"- Delivered: {seq_info.get('deliver_count', 0)}")
+
+    lines.append(f"\n## Steps ({len(seq_info.get('steps', []))} total)\n")
+
+    for step in seq_info.get("steps", []):
+        order = step.get("order", "?")
+        step_type = step.get("step_type", "email")
+        interval_sec = step.get("interval", 0)
+
+        # Convert interval to readable format
+        if interval_sec >= 86400:
+            interval_str = f"{interval_sec // 86400} days"
+        elif interval_sec >= 3600:
+            interval_str = f"{interval_sec // 3600} hours"
+        elif interval_sec >= 60:
+            interval_str = f"{interval_sec // 60} minutes"
+        else:
+            interval_str = f"{interval_sec} seconds"
+
+        lines.append(f"### Step {order} — {step_type.title()}")
+        lines.append(f"- **Interval:** {interval_str} after previous step")
+        if step.get("name"):
+            lines.append(f"- **Name:** {step['name']}")
+        if step.get("template_id"):
+            lines.append(f"- **Template ID:** {step['template_id']}")
+        if step.get("open_count") or step.get("reply_count"):
+            lines.append(f"- **Opens:** {step.get('open_count', 0)} | **Replies:** {step.get('reply_count', 0)}")
+
+        subject = step.get("subject", "")
+        if subject:
+            lines.append(f"\n**Subject:** {subject}")
+
+        body_html = step.get("body_html", "")
+        if body_html:
+            lines.append(f"\n**Email Body (HTML):**\n```html\n{body_html}\n```")
+
+        body_text = step.get("body_text", "")
+        if body_text:
+            lines.append(f"\n**Email Body (Plain Text):**\n```\n{body_text}\n```")
+
+        if step.get("task_note"):
+            lines.append(f"\n**Task Note:** {step['task_note']}")
+
+        if step.get("template_error"):
+            lines.append(f"\n⚠️ **Template fetch error:** {step['template_error']}")
+
+        lines.append("")  # blank line between steps
+
+    return "\n".join(lines)
