@@ -66,9 +66,4 @@ class Scheduler:
                 self._last_eod_report_date = today
                 return "eod_report"
 
-        if 10 <= hour <= 15 and minute == 0:
-            if self._last_checkin_hour != (today, hour):
-                self._last_checkin_hour = (today, hour)
-                return "checkin"
-
         return None
