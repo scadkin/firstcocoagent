@@ -35,19 +35,8 @@ class Scheduler:
         minute = now.minute
         weekday = now.weekday()  # 0=Mon, 5=Sat, 6=Sun
 
-        # ── Weekend schedule ──
-        if weekday == 5:  # Saturday
-            if hour == 11 and minute == 0:
-                if self._last_weekend_greeting_date != today and not self._is_user_active_today():
-                    self._last_weekend_greeting_date = today
-                    return "weekend_greeting"
-            return None
-
-        if weekday == 6:  # Sunday
-            if hour == 13 and minute == 0:
-                if self._last_weekend_greeting_date != today and not self._is_user_active_today():
-                    self._last_weekend_greeting_date = today
-                    return "weekend_greeting"
+        # ── Weekend: no scheduled events ──
+        if weekday >= 5:
             return None
 
         # ── Weekday schedule (Mon-Fri) ──
