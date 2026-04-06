@@ -1303,6 +1303,132 @@ def format_enriched_signal(sig: dict) -> str:
 
 
 # ─────────────────────────────────────────────
+# JOB POSTING SCANNER (Phase 2 source)
+# ─────────────────────────────────────────────
+
+# K-12 indicators in company names
+_K12_COMPANY_PATTERNS = re.compile(
+    r'school district|public schools|isd\b|cisd\b|cusd\b|usd\b|'
+    r'school board|board of education|county schools|city schools|'
+    r'independent school|community school|area school|regional school',
+    re.IGNORECASE,
+)
+
+# Job title patterns that indicate CS/CTE hiring (direct buying signal)
+_CS_JOB_PATTERNS = re.compile(
+    r'computer science|coding|CS teacher|CTE.*(?:tech|computer|STEM)|'
+    r'STEM teacher|STEM coordinator|technology teacher|'
+    r'robotics|AI teacher|artificial intelligence.*teacher|'
+    r'STEAM coordinator|CTE director|technology director|'
+    r'curriculum.*technology|instructional technology',
+    re.IGNORECASE,
+)
+
+# Job searches to run per state
+_JOB_SEARCH_QUERIES = [
+    "computer science teacher school district",
+    "CTE technology teacher school district",
+    "STEM coding teacher school district",
+]
+
+
+def scan_job_postings(states: list = None, hours_old: int = 168,
+                      max_per_state: int = 15,
+                      progress_callback=None) -> list:
+    """
+    Scan Indeed for K-12 CS/CTE/STEM job postings in territory states.
+    Returns list of signal dicts.
+    """
+    try:
+        from jobspy import scrape_jobs
+    except ImportError:
+        logger.warning("python-jobspy not installed — skipping job scan")
+        return []
+
+    if states is None:
+        states = list(TERRITORY_STATES)
+
+    # Map state abbreviations to full names for Indeed search
+    abbr_to_name = {v: k.title() for k, v in STATE_NAME_TO_ABBR.items()}
+
+    all_signals = []
+    seen_companies = set()  # Dedup by company name per scan
+
+    for state in states:
+        state_name = abbr_to_name.get(state, state)
+        if progress_callback:
+            progress_callback(f"Scanning jobs in {state_name}...")
+
+        for query in _JOB_SEARCH_QUERIES:
+            try:
+                jobs = scrape_jobs(
+                    site_name=["indeed"],
+                    search_term=query,
+                    location=state_name,
+                    results_wanted=max_per_state,
+                    hours_old=hours_old,
+                    country_indeed="USA",
+                )
+            except Exception as e:
+                logger.warning(f"JobSpy failed for '{query}' in {state_name}: {e}")
+                continue
+
+            for _, job in jobs.iterrows():
+                company = str(job.get("company", ""))
+                title = str(job.get("title", ""))
+                location = str(job.get("location", ""))
+
+                # Filter: must be K-12 entity
+                if not _K12_COMPANY_PATTERNS.search(company):
+                    continue
+
+                # Filter: must be CS/CTE/STEM role
+                if not _CS_JOB_PATTERNS.search(title):
+                    continue
+
+                # Dedup by company within this scan
+                company_key = csv_importer.normalize_name(company)
+                if company_key in seen_companies:
+                    continue
+                seen_companies.add(company_key)
+
+                # Look up district in NCES
+                district_state = lookup_district_state(company)
+                if not district_state:
+                    district_state = state
+
+                cust_status = check_customer_status(company)
+                in_territory = district_state.upper() in TERRITORY_STATES_WITH_CA
+
+                heat = compute_heat_score(
+                    "hiring", 2, in_territory, cust_status,
+                )
+
+                all_signals.append({
+                    "date": datetime.now().strftime("%Y-%m-%d"),
+                    "source": "job_posting",
+                    "source_detail": f"Indeed — {state_name}",
+                    "signal_type": "hiring",
+                    "scope": "district",
+                    "district": company,
+                    "state": district_state,
+                    "headline": f"Hiring: {title}",
+                    "dollar_amount": "",
+                    "tier": 2,
+                    "heat_score": heat,
+                    "urgency": "time_sensitive",
+                    "customer_status": cust_status,
+                    "url": str(job.get("job_url", "")),
+                    "message_id": f"job_{company_key}_{datetime.now().strftime('%Y%m')}",
+                })
+
+            time.sleep(1)  # Rate limit between searches
+
+    logger.info(f"Job scan: {len(all_signals)} K-12 CS/CTE/STEM postings found across {len(states)} states")
+    return all_signals
+
+
+# ─────────────────────────────────────────────
 # FULL PROCESSING PIPELINE
 # ─────────────────────────────────────────────
 
@@ -1683,6 +1809,12 @@ def process_all_signals(gas, progress_callback=None) -> dict:
     doe_signals = process_doe_newsletters(gas, progress_callback=progress_callback)
     all_signals.extend(doe_signals)
 
+    # Source 4: Job postings (Indeed via JobSpy)
+    if progress_callback:
+        progress_callback("Scanning job postings...")
+    job_signals = scan_job_postings(progress_callback=progress_callback)
+    all_signals.extend(job_signals)
+
     # Detect clusters
     clusters = detect_clusters(all_signals)
 
@@ -1708,6 +1840,19 @@ def process_all_signals(gas, progress_callback=None) -> dict:
                          and s.get("scope") == "district"]
     tier1 = [s for s in territory_signals if s.get("tier") == 1]
 
+    # Auto-enrich Tier 1 territory signals
+    enriched_signals = []
+    if tier1 and SERPER_API_KEY:
+        if progress_callback:
+            progress_callback(f"Enriching {min(len(tier1), 10)} Tier 1 signals...")
+        enriched_signals = enrich_top_signals(
+            tier1, min_tier=1, max_enrich=10,
+            progress_callback=progress_callback)
+
+    # Separate enriched signals by relevance
+    strong = [s for s in enriched_signals if s.get("cs_cte_relevance") == "strong"]
+    moderate = [s for s in enriched_signals if s.get("cs_cte_relevance") == "moderate"]
+
     summary = {
         "total_signals": len(all_signals),
         "written": write_result["written"],
@@ -1715,6 +1860,7 @@ def process_all_signals(gas, progress_callback=None) -> dict:
         "alert_signals": len(alert_signals),
         "burbio_signals": len(burbio_signals),
         "doe_signals": len(doe_signals),
+        "job_signals": len(job_signals),
         "territory_district_signals": len(territory_signals),
         "tier1_signals": len(tier1),
         "clusters": len(clusters),
@@ -1722,10 +1868,14 @@ def process_all_signals(gas, progress_callback=None) -> dict:
         "cost": round(_get_cost(), 2),
         "top_signals": sorted(territory_signals, key=lambda s: s.get("heat_score", 0), reverse=True)[:10],
         "cluster_list": sorted(clusters.values(), key=lambda c: c["cluster_score"], reverse=True)[:5],
+        "enriched_count": len(enriched_signals),
+        "strong_signals": strong,
+        "moderate_signals": moderate,
     }
 
     logger.info(f"Signal scan complete: {summary['total_signals']} total, "
                 f"{summary['territory_district_signals']} territory, "
+                f"{len(enriched_signals)} enriched ({len(strong)} strong), "
                 f"${summary['cost']:.2f} cost")
 
     return summary
@@ -1768,6 +1918,18 @@ def process_new_signals(gas, since_date: str = None,
     territory_signals = [s for s in all_signals
                          if s.get("state", "").upper() in TERRITORY_STATES_WITH_CA
                          and s.get("scope") == "district"]
+    tier1 = [s for s in territory_signals if s.get("tier") == 1]
+
+    # Auto-enrich new Tier 1 signals
+    enriched_signals = []
+    if tier1 and SERPER_API_KEY:
+        if progress_callback:
+            progress_callback(f"Enriching {min(len(tier1), 5)} Tier 1 signals...")
+        enriched_signals = enrich_top_signals(
+            tier1, min_tier=1, max_enrich=5,
+            progress_callback=progress_callback)
+
+    strong = [s for s in enriched_signals if s.get("cs_cte_relevance") == "strong"]
 
     return {
         "total_signals": len(all_signals),
@@ -1777,9 +1939,11 @@ def process_new_signals(gas, since_date: str = None,
         "burbio_signals": len(burbio_signals),
         "doe_signals": len(doe_signals),
         "territory_district_signals": len(territory_signals),
-        "tier1_signals": len([s for s in territory_signals if s.get("tier") == 1]),
+        "tier1_signals": len(tier1),
         "clusters": len(clusters),
         "cost": round(_get_cost(), 2),
+        "enriched_count": len(enriched_signals),
+        "strong_signals": strong,
     }
 
 
@@ -1890,6 +2054,8 @@ def format_scan_summary(summary: dict) -> str:
     lines.append(f"  📰 Google Alerts: {summary['alert_signals']}")
     lines.append(f"  📋 Burbio: {summary['burbio_signals']}")
     lines.append(f"  🏛️ DOE: {summary['doe_signals']}")
+    if summary.get("job_signals"):
+        lines.append(f"  💼 Job postings: {summary['job_signals']}")
 
     lines.append(f"\n🎯 Territory signals: {summary['territory_district_signals']}")
     lines.append(f"  🔴 Tier 1 (act now): {summary['tier1_signals']}")
@@ -1909,9 +2075,25 @@ def format_scan_summary(summary: dict) -> str:
             heat = sig.get("heat_score", 0)
             lines.append(f"  {i}. [{tag}] {district} ({state}) — {headline} (heat: {heat})")
 
+    # Enrichment results
+    enriched_count = summary.get("enriched_count", 0)
+    if enriched_count:
+        strong = summary.get("strong_signals", [])
+        lines.append(f"\n🔍 *Enriched:* {enriched_count} Tier 1 signals analyzed")
+        if strong:
+            lines.append(f"  🟢 *STRONG relevance ({len(strong)}):*")
+            for s in strong[:3]:
+                dist = s.get("district", "")
+                st = s.get("state", "")
+                action = s.get("recommended_action", "")[:60]
+                lines.append(f"    {dist} ({st}) — {action}")
+        moderate = summary.get("moderate_signals", [])
+        if moderate:
+            lines.append(f"  🟡 Moderate: {len(moderate)} districts")
+
     lines.append(f"\nWritten: {summary['written']} | Deduped: {summary['skipped_dedup']}")
     lines.append(f"Cost: ${summary['cost']:.2f}")
-    lines.append(f"\nUse `/signals` to review top signals.")
+    lines.append(f"\nUse `/signals` to review | `/signal_enrich N` for deep analysis")
 
     return "\n".join(lines)
 

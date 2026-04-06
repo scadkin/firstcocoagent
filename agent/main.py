@@ -2698,6 +2698,52 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await send_message(f"Signal dismiss error: {e}")
         return
 
+    elif user_text.lower().startswith("/signal_enrich"):
+        idx_text = user_text[len("/signal_enrich"):].strip()
+        try:
+            idx = int(idx_text) - 1
+            if not _last_signal_batch or idx < 0 or idx >= len(_last_signal_batch):
+                await send_message("Run `/signals` first to load the signal list.")
+                return
+            sig = _last_signal_batch[idx]
+            district = sig.get("District", "Unknown")
+            await send_message(f"🔍 Enriching {district}... (web research + relevance analysis)")
+            loop = asyncio.get_event_loop()
+            enriched = await loop.run_in_executor(None, signal_processor.enrich_signal, sig)
+            output = signal_processor.format_enriched_signal(enriched)
+            await send_message(output)
+        except (ValueError, IndexError):
+            await send_message("Usage: `/signal_enrich 1` (number from `/signals` list)")
+        except Exception as e:
+            await send_message(f"Enrich error: {e}")
+        return
+
+    elif user_text.lower() in ["/signal_jobs", "signal jobs", "scan jobs"]:
+        await send_message("💼 Scanning job postings across territory states...")
+        try:
+            loop = asyncio.get_event_loop()
+            job_signals = await loop.run_in_executor(
+                None, signal_processor.scan_job_postings, None, 168, 15,
+                lambda msg: None)  # suppress progress for Telegram
+            if job_signals:
+                write_result = await loop.run_in_executor(
+                    None, signal_processor.write_signals, job_signals)
+                lines = [f"💼 *Job Scan Complete* — {len(job_signals)} CS/CTE/STEM postings found\n"]
+                for i, sig in enumerate(job_signals[:10], 1):
+                    dist = sig.get("district", "")
+                    state = sig.get("state", "")
+                    headline = sig.get("headline", "")[:50]
+                    lines.append(f"  {i}. {dist} ({state}) — {headline}")
+                if len(job_signals) > 10:
+                    lines.append(f"\n  ... and {len(job_signals) - 10} more")
+                lines.append(f"\nWritten: {write_result['written']} | Deduped: {write_result['skipped']}")
+                await send_message("\n".join(lines))
+            else:
+                await send_message("No K-12 CS/CTE/STEM job postings found this week.")
+        except Exception as e:
+            await send_message(f"Job scan failed: {e}")
+        return
+
     elif user_text.lower() in ["/signal_scan", "signal scan", "scan signals"]:
         await send_message("📬 Starting signal scan... This may take a few minutes.")
         try:
