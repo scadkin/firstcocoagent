@@ -47,7 +47,7 @@ TAB_SIGNALS = "Signals"
 SIGNAL_COLUMNS = [
     "ID",               # SIG-001
     "Date Detected",    # YYYY-MM-DD (from email date)
-    "Source",           # google_alert / burbio / doe_newsletter / rss_feed / job_posting / boarddocs / manual
+    "Source",           # google_alert / burbio / doe_newsletter / rss_feed / job_posting / boarddocs / ballotpedia / manual
     "Source Detail",    # Alert keyword or newsletter title
     "Signal Type",      # bond / leadership / board_meeting / rfp / hiring / grant / ai_policy / technology / curriculum / enrollment / market_intel
     "Scope",            # district / state / national
@@ -1803,6 +1803,141 @@ def scan_board_meetings(days_back: int = 30, progress_callback=None) -> list:
 
 
 # ─────────────────────────────────────────────
+# BALLOTPEDIA BOND TRACKING
+# ─────────────────────────────────────────────
+
+_BALLOTPEDIA_URL = "https://ballotpedia.org/Local_school_bonds_on_the_ballot"
+
+# Regex to parse Ballotpedia bond list entries
+# Format: "District Name, State, Measure Details (Month Year)" + result icon or "On the ballot"
+_BALLOT_ENTRY_RE = re.compile(
+    r'<a[^>]*href="(/[^"]+)"[^>]*>([^<]+)</a>'
+    r'[^<]*(?:<img[^>]*alt="([^"]*)"[^>]*/?>)?'
+    r'|On the ballot',
+    re.IGNORECASE,
+)
+
+# Parse district + state + date from measure title
+_BALLOT_TITLE_RE = re.compile(
+    r'^(.+?),\s*([A-Za-z\s]+?),\s*(.+?)\s*\((\w+\s+\d{4})\)\s*$'
+)
+
+
+def scan_ballotpedia(progress_callback=None) -> list:
+    """
+    Scrape Ballotpedia for school bond measures in territory states.
+    Parses both 2025 (with results) and 2026 (upcoming) sections.
+    Returns list of signal dicts. $0 cost (no Claude calls).
+    """
+    all_signals = []
+
+    try:
+        req = urllib.request.Request(_BALLOTPEDIA_URL, headers={
+            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)"})
+        with urllib.request.urlopen(req, timeout=20) as resp:
+            html = resp.read().decode()
+    except Exception as e:
+        logger.warning(f"Ballotpedia fetch failed: {e}")
+        return []
+
+    # Parse <li> items with bond measure links (multiline HTML)
+    li_pattern = re.compile(
+        r'<li>\s*<a[^>]*href="([^"]+)"[^>]*>([^<]+)</a>'
+        r'\s*(?:<img[^>]*alt="([^"]*)"[^>]*/?>)?\s*'
+        r'(.*?)\s*</li>',
+        re.DOTALL,
+    )
+
+    for match in li_pattern.finditer(html):
+        href = match.group(1).strip()
+        title = match.group(2).strip()
+        result_icon = (match.group(3) or "").strip()
+        trailing = (match.group(4) or "").strip()
+
+        # Parse: "District, State, Measure Details (Month Year)"
+        title_match = _BALLOT_TITLE_RE.match(title)
+        if not title_match:
+            continue
+
+        district = title_match.group(1).strip()
+        state_name = title_match.group(2).strip().lower()
+        measure_detail = title_match.group(3).strip()
+        date_str = title_match.group(4).strip()
+
+        state_abbr = STATE_NAME_TO_ABBR.get(state_name, "")
+        if not state_abbr or state_abbr not in TERRITORY_STATES:
+            continue  # Use TERRITORY_STATES (no CA) — CA has thousands of bonds
+
+        # Only include recent measures (2025-2026)
+        if not any(yr in date_str for yr in ("2025", "2026")):
+            continue
+
+        # Determine result from icon alt text or trailing text
+        if "approved" in result_icon.lower() or "yes" in result_icon.lower():
+            result = "passed"
+            urgency = "urgent"
+        elif "defeated" in result_icon.lower() or "no" in result_icon.lower():
+            result = "failed"
+            urgency = "routine"
+        elif "on the ballot" in trailing.lower():
+            result = "upcoming"
+            urgency = "time_sensitive"
+        else:
+            result = "unknown"
+            urgency = "time_sensitive"
+
+        dollar = extract_dollar_amount(measure_detail + " " + title)
+
+        if result == "passed":
+            headline = f"Bond PASSED: {district} — {measure_detail}"
+        elif result == "failed":
+            headline = f"Bond failed: {district} — {measure_detail}"
+        elif result == "upcoming":
+            headline = f"Bond vote {date_str}: {district} — {measure_detail}"
+        else:
+            headline = f"Bond measure: {district} — {measure_detail}"
+
+        cust_status = check_customer_status(district)
+        heat = compute_heat_score("bond", 1, True, cust_status)
+        if result == "passed":
+            heat = min(100, heat + 15)
+
+        msg_id = f"ballot_{state_abbr}_{district}_{date_str}".replace(" ", "_")
+
+        all_signals.append({
+            "date": datetime.now().strftime("%Y-%m-%d"),
+            "source": "ballotpedia",
+            "source_detail": f"Ballotpedia — {date_str}",
+            "signal_type": "bond",
+            "scope": "district",
+            "district": district,
+            "state": state_abbr,
+            "headline": headline[:200],
+            "dollar_amount": dollar,
+            "tier": 1,
+            "heat_score": heat,
+            "urgency": urgency,
+            "customer_status": cust_status,
+            "url": href,
+            "message_id": msg_id,
+        })
+
+    # Deduplicate within batch (Ballotpedia lists measures in multiple sections)
+    seen = set()
+    deduped = []
+    for sig in all_signals:
+        if sig["message_id"] not in seen:
+            seen.add(sig["message_id"])
+            deduped.append(sig)
+
+    logger.info(f"Ballotpedia: {len(deduped)} territory bond measures "
+                f"({len(all_signals) - len(deduped)} dupes removed)")
+    if progress_callback:
+        progress_callback(f"Ballotpedia: {len(deduped)} territory bond measures")
+    return deduped
+
+
+# ─────────────────────────────────────────────
 # RSS FEED INGESTION
 # ─────────────────────────────────────────────
 
@@ -2338,6 +2473,16 @@ def process_all_signals(gas, progress_callback=None) -> dict:
     except Exception as e:
         logger.warning(f"BoardDocs scan failed (non-fatal): {e}")
 
+    # Source 7: Ballotpedia bond measures (programmatic, $0)
+    ballot_signals = []
+    try:
+        if progress_callback:
+            progress_callback("Scanning Ballotpedia bonds...")
+        ballot_signals = scan_ballotpedia(progress_callback=progress_callback)
+        all_signals.extend(ballot_signals)
+    except Exception as e:
+        logger.warning(f"Ballotpedia scan failed (non-fatal): {e}")
+
     # Detect clusters
     clusters = detect_clusters(all_signals)
 
@@ -2386,6 +2531,7 @@ def process_all_signals(gas, progress_callback=None) -> dict:
         "job_signals": len(job_signals),
         "rss_signals": len(rss_signals),
         "board_signals": len(board_signals),
+        "ballot_signals": len(ballot_signals),
         "territory_district_signals": len(territory_signals),
         "tier1_signals": len(tier1),
         "clusters": len(clusters),
@@ -2449,6 +2595,13 @@ def process_new_signals(gas, since_date: str = None,
     except Exception as e:
         logger.warning(f"BoardDocs scan failed (non-fatal): {e}")
 
+    ballot_signals = []
+    try:
+        ballot_signals = scan_ballotpedia(progress_callback=progress_callback)
+        all_signals.extend(ballot_signals)
+    except Exception as e:
+        logger.warning(f"Ballotpedia scan failed (non-fatal): {e}")
+
     clusters = detect_clusters(all_signals)
     write_result = write_signals(all_signals)
 
@@ -2477,6 +2630,7 @@ def process_new_signals(gas, since_date: str = None,
         "doe_signals": len(doe_signals),
         "rss_signals": len(rss_signals),
         "board_signals": len(board_signals),
+        "ballot_signals": len(ballot_signals),
         "territory_district_signals": len(territory_signals),
         "tier1_signals": len(tier1),
         "clusters": len(clusters),
@@ -2605,6 +2759,8 @@ def format_scan_summary(summary: dict) -> str:
         lines.append(f"  📡 RSS feeds: {summary['rss_signals']}")
     if summary.get("board_signals"):
         lines.append(f"  🏛 BoardDocs: {summary['board_signals']}")
+    if summary.get("ballot_signals"):
+        lines.append(f"  🗳 Ballotpedia: {summary['ballot_signals']}")
 
     lines.append(f"\n🎯 Territory signals: {summary['territory_district_signals']}")
     lines.append(f"  🔴 Tier 1 (act now): {summary['tier1_signals']}")

@@ -2756,6 +2756,33 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await send_message(f"Job scan failed: {e}")
         return
 
+    elif user_text.lower() in ["/signal_bonds", "signal bonds", "scan bonds", "scan ballotpedia"]:
+        await send_message("🗳 Scanning Ballotpedia for bond measures...")
+        try:
+            loop = asyncio.get_event_loop()
+            ballot_signals = await loop.run_in_executor(
+                None, signal_processor.scan_ballotpedia, None)
+            if ballot_signals:
+                write_result = await loop.run_in_executor(
+                    None, signal_processor.write_signals, ballot_signals)
+                lines = [f"🗳 *Ballotpedia Scan Complete* — {len(ballot_signals)} territory bond measures\n"]
+                for i, sig in enumerate(ballot_signals[:10], 1):
+                    dist = sig.get("district", "")
+                    state = sig.get("state", "")
+                    headline = sig.get("headline", "")[:70]
+                    dollar = sig.get("dollar_amount", "")
+                    dollar_str = f" {dollar}" if dollar else ""
+                    lines.append(f"  {i}. {dist} ({state}){dollar_str} — {headline}")
+                if len(ballot_signals) > 10:
+                    lines.append(f"\n  ... and {len(ballot_signals) - 10} more")
+                lines.append(f"\nWritten: {write_result['written']} | Deduped: {write_result['skipped']}")
+                await send_message("\n".join(lines))
+            else:
+                await send_message("No territory bond measures found on Ballotpedia.")
+        except Exception as e:
+            await send_message(f"Ballotpedia scan failed: {e}")
+        return
+
     elif user_text.lower() in ["/signal_board", "signal board", "scan board", "scan boarddocs"]:
         await send_message("🏛 Scanning BoardDocs agendas... This may take a few minutes.")
         try:
