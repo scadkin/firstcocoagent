@@ -56,6 +56,7 @@ def is_authenticated() -> bool:
 def get_auth_url() -> str:
     """Build the OAuth authorization URL for the user to visit in their browser."""
     scopes = "+".join([
+        # Read scopes
         "accounts.read",
         "prospects.read",
         "sequences.read",
@@ -67,6 +68,14 @@ def get_auth_url() -> str:
         "calls.read",
         "events.read",
         "users.read",
+        # Write scopes
+        "sequences.write",
+        "sequenceSteps.write",
+        "sequenceTemplates.write",
+        "sequenceStates.write",
+        "sequenceStates.delete",
+        "templates.write",
+        "prospects.write",
     ])
     return (
         f"{AUTH_URL}?client_id={_CLIENT_ID}"

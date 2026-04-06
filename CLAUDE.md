@@ -78,7 +78,7 @@
 - Default settings for all sequences: owner=Steven (ID 11), sharing=private, throttleMaxAddsPerDay=150, throttleCapacity=200, maxActivations=200.
 - **Can PATCH sequences to change schedule** (Session 43). Set `relationships.schedule.data` to `{type: "schedule", id: <int>}`.
 - **Prospect timezone field is `timeZone`** (camelCase), not `timezone`. Can be PATCHed.
-- **Cannot read/write schedules via API** (needs `schedules.read`/`schedules.write` scopes we don't have). Steven creates/edits schedules in the Outreach UI.
+- **Cannot read/write schedules via API** (scopes don't exist). Steven creates/edits schedules in the Outreach UI. Three standard schedules: "Teacher Tue-Thu Multi-Window" (teachers), "Admin Mon-Thurs Multi-Window" (admins/district), "Hot Lead Mon-Fri" (inbound/speed). Always assign one to every sequence.
 - **C4 sequences:** IDs 1995 (Teachers, 6 steps), 1996 (District/Admin, 5 steps), 1997 (School General, 6 steps), 1998 (District General, 5 steps). Schedule: "C4 Tue-Thu Morning" (ID 50).
 - **Steven's info dump template:** ID 43784 ("New referral/info dump email 2026 DRAFT"). Reuse via existing template ID when creating sequence steps.
 - **Steven's mailbox for sending:** steven@codecombat.com (ID 11).
