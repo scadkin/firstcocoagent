@@ -73,7 +73,7 @@ district_prospector.discover_districts(state, max_results=15) -> dict  # sync
 district_prospector.suggest_upward_targets() -> dict
 district_prospector.suggest_closed_lost_targets(buffer_months=6, lookback_months=18) -> dict
 district_prospector.suggest_cold_license_requests(sequence_ids=None, progress_callback=None) -> dict
-district_prospector.add_district(name, state, notes="", strategy="cold") -> dict
+district_prospector.add_district(name, state, notes="", strategy="cold", source="manual", signal_id="") -> dict
 district_prospector.get_pending(limit=5) -> list[dict]
 district_prospector.get_all_prospects(status_filter="") -> list[dict]
 district_prospector.approve_districts(indices, batch) -> list[dict]
@@ -83,11 +83,12 @@ district_prospector.clear_by_strategy(strategy) -> dict
 district_prospector.cleanup_prospect_queue() -> dict
 district_prospector.migrate_prospect_columns() -> dict
 
-# Prospecting Queue: 19 columns
+# Prospecting Queue: 20 columns
 # State | Account Name | Email | First Name | Last Name | Deal Level | Parent District |
 # Name Key | Strategy | Source | Status | Priority | Date Added | Date Approved |
-# Sequence Doc URL | Est. Enrollment | School Count | Total Licenses | Notes
-# Strategy: upward | cold | winback | cold_license_request
+# Sequence Doc URL | Est. Enrollment | School Count | Total Licenses | Signal ID | Notes
+# Strategy: upward | cold | winback | cold_license_request | trigger
+# Source: web_search | manual | upward_auto | pipeline_closed | outreach | signal
 # Status: pending | approved | researching | draft | complete | skipped
 ```
 
@@ -188,6 +189,7 @@ signal_processor.process_all_signals(gas) -> dict  # sync, full batch — all so
 signal_processor.process_new_signals(gas, since_date=None) -> dict  # sync, incremental
 signal_processor.get_active_signals(state_filter="", scope_filter="", status_filter="new,surfaced") -> list[dict]
 signal_processor.update_signal_status(signal_id, new_status) -> bool
+signal_processor.link_signal_to_prospect(signal_id, prospect_name) -> bool
 signal_processor.write_signals(signals) -> dict  # {written, skipped}
 signal_processor.format_hot_signals(limit=5, state_filter="") -> str  # Telegram display
 signal_processor.format_signal_detail(signal, related=None) -> str

@@ -62,6 +62,7 @@ SIGNAL_COLUMNS = [
     "Customer Status",  # active / pipeline / closed_lost / prospect / new
     "Source URL",       # Link to article
     "Message ID",       # Gmail message ID for dedup
+    "Pipeline Link",    # Prospect name key — links signal to deal in Prospecting Queue/Pipeline
 ]
 
 NUM_COLS = len(SIGNAL_COLUMNS)
@@ -775,6 +776,7 @@ def write_signals(signals: list) -> dict:
             sig.get("customer_status", "new"),
             sig.get("url", ""),
             sig.get("message_id", ""),
+            "",  # Pipeline Link (populated when signal leads to deal)
         ]
         rows.append(row)
 
@@ -871,6 +873,35 @@ def update_signal_status(signal_id: str, new_status: str) -> bool:
         return False
     except Exception as e:
         logger.warning(f"Failed to update signal status: {e}")
+        return False
+
+
+def link_signal_to_prospect(signal_id: str, prospect_name: str) -> bool:
+    """Set the Pipeline Link column on a signal to the prospect/district name."""
+    try:
+        service, sheet_id = _ensure_tab()
+        last_col = _col_letter(NUM_COLS - 1)
+        result = service.spreadsheets().values().get(
+            spreadsheetId=sheet_id,
+            range=f"'{TAB_SIGNALS}'!A2:{last_col}",
+        ).execute()
+        rows = result.get("values", [])
+
+        link_col_idx = SIGNAL_COLUMNS.index("Pipeline Link")
+        for i, row in enumerate(rows):
+            if row and row[0] == signal_id:
+                row_num = i + 2
+                col_letter = _col_letter(link_col_idx)
+                service.spreadsheets().values().update(
+                    spreadsheetId=sheet_id,
+                    range=f"'{TAB_SIGNALS}'!{col_letter}{row_num}",
+                    valueInputOption="RAW",
+                    body={"values": [[prospect_name]]},
+                ).execute()
+                return True
+        return False
+    except Exception as e:
+        logger.warning(f"Failed to link signal to prospect: {e}")
         return False
 
 

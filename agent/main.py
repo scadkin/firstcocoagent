@@ -2659,9 +2659,19 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
             # Mark signal as acted
             loop = asyncio.get_event_loop()
-            await loop.run_in_executor(None, signal_processor.update_signal_status, sig.get("ID", ""), "acted")
+            signal_id = sig.get("ID", "")
+            await loop.run_in_executor(None, signal_processor.update_signal_status, signal_id, "acted")
 
-            # Add to Prospecting Queue
+            # Update Pipeline Link on the signal
+            if signal_id:
+                try:
+                    await loop.run_in_executor(
+                        None, signal_processor.link_signal_to_prospect,
+                        signal_id, district)
+                except Exception:
+                    pass  # Non-fatal
+
+            # Add to Prospecting Queue with signal attribution
             headline = sig.get("Headline", "")
             dollar = sig.get("Dollar Amount", "")
             sig_type = sig.get("Signal Type", "")
@@ -2671,11 +2681,11 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
             result = await loop.run_in_executor(
                 None, district_prospector.add_district,
-                district, state, notes, "trigger")
+                district, state, notes, "trigger", "signal", signal_id)
 
             await send_message(
                 f"✅ {district} ({state}) queued for research.\n"
-                f"Strategy: trigger | Signal: {sig_type}\n"
+                f"Strategy: trigger | Signal: {signal_id} ({sig_type})\n"
                 f"I'll notify you when the sequence draft is ready.")
         except (ValueError, IndexError):
             await send_message("Usage: `/signal_act 1` (number from `/signals` list)")

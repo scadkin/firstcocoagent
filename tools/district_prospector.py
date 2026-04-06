@@ -68,8 +68,8 @@ PROSPECT_COLUMNS = [
     "Deal Level",       # "school" | "district" — was the deal at a school or district?
     "Parent District",  # for school-level deals: the parent district name. Empty for district-level.
     "Name Key",         # normalized via csv_importer.normalize_name()
-    "Strategy",         # "upward" | "cold" | "winback" | "cold_license_request"
-    "Source",           # "web_search" | "manual" | "upward_auto" | "pipeline_closed" | "outreach"
+    "Strategy",         # "upward" | "cold" | "winback" | "cold_license_request" | "trigger"
+    "Source",           # "web_search" | "manual" | "upward_auto" | "pipeline_closed" | "outreach" | "signal"
     "Status",           # "pending" | "approved" | "researching" | "draft" | "complete" | "skipped"
     "Priority",         # numeric score (higher = more important)
     "Date Added",
@@ -78,6 +78,7 @@ PROSPECT_COLUMNS = [
     "Est. Enrollment",
     "School Count",
     "Total Licenses",
+    "Signal ID",        # SIG-XXX from Signals tab (for attribution tracking)
     "Notes",            # always last
 ]
 
@@ -171,22 +172,19 @@ def _ensure_tab():
 
 def migrate_prospect_columns() -> dict:
     """
-    Migrate old 16-column Prospecting Queue rows to 19-column layout.
-    Inserts Email, First Name, Last Name columns after Account Name.
-
-    Old: State | Account Name | Deal Level | Parent District | Name Key | Strategy(idx5) | ...
-    New: State | Account Name | Email | First Name | Last Name | Deal Level | Parent District | Name Key | Strategy(idx8) | ...
+    Migrate Prospecting Queue rows to current column layout (20 columns).
+    Handles 16→19 (adds Email/First/Last) and 19→20 (adds Signal ID before Notes).
 
     Safe to run multiple times — detects which rows need migration.
     Returns {migrated, total, already_correct, errors}.
     """
-    _KNOWN_STRATEGIES = {"upward", "cold", "winback", "cold_license_request"}
+    _KNOWN_STRATEGIES = {"upward", "cold", "winback", "cold_license_request", "trigger"}
+    num_cols = len(PROSPECT_COLUMNS)  # 20
 
     try:
         service = _get_service()
         sheet_id = _get_sheet_id()
 
-        # Read ALL data including header to understand current state
         result = service.spreadsheets().values().get(
             spreadsheetId=sheet_id,
             range=f"'{TAB_PROSPECT_QUEUE}'!A:Z"
@@ -202,25 +200,28 @@ def migrate_prospect_columns() -> dict:
         new_data = []
 
         for row in data_rows:
-            # Pad to at least 19 columns
-            padded = list(row) + [""] * max(0, 19 - len(row))
+            padded = list(row) + [""] * max(0, num_cols - len(row))
 
-            # Detection: check if Strategy value is at old index 5 or new index 8
             val_at_5 = padded[5] if len(padded) > 5 else ""
             val_at_8 = padded[8] if len(padded) > 8 else ""
 
-            if val_at_8 in _KNOWN_STRATEGIES:
-                # Already in new 19-column format
-                new_data.append(padded[:19])
+            if val_at_8 in _KNOWN_STRATEGIES and len(row) >= 20:
+                # Already in 20-column format
+                new_data.append(padded[:num_cols])
                 already_correct += 1
+            elif val_at_8 in _KNOWN_STRATEGIES and len(row) <= 19:
+                # 19-column format — insert empty Signal ID before Notes (last col)
+                migrated_row = padded[:18] + [""] + [padded[18]]
+                new_data.append(migrated_row[:num_cols])
+                migrated_count += 1
             elif val_at_5 in _KNOWN_STRATEGIES:
-                # Old 16-column format — insert 3 empty cols after Account Name
+                # Old 16-column format — insert 3 empty cols after Account Name + Signal ID
                 migrated_row = padded[:2] + ["", "", ""] + padded[2:]
-                new_data.append(migrated_row[:19])
+                migrated_row = migrated_row[:18] + [""] + [migrated_row[18] if len(migrated_row) > 18 else ""]
+                new_data.append(migrated_row[:num_cols])
                 migrated_count += 1
             else:
-                # Unknown format — keep as-is, pad to 19
-                new_data.append(padded[:19])
+                new_data.append(padded[:num_cols])
                 logger.warning(f"migrate_prospect_columns: unknown row format, keeping as-is: {padded[:6]}")
 
         # Clear all data and rewrite with correct header + migrated data
@@ -261,7 +262,7 @@ def _load_all_prospects() -> list[dict]:
         sheet_id = _get_sheet_id()
         result = service.spreadsheets().values().get(
             spreadsheetId=sheet_id,
-            range=f"'{TAB_PROSPECT_QUEUE}'!A:S"
+            range=f"'{TAB_PROSPECT_QUEUE}'!A:T"
         ).execute()
         rows = result.get("values", [])
         if len(rows) < 2:
@@ -347,7 +348,7 @@ def cleanup_prospect_queue() -> dict:
 
         result = service.spreadsheets().values().get(
             spreadsheetId=sheet_id,
-            range=f"'{TAB_PROSPECT_QUEUE}'!A:S"
+            range=f"'{TAB_PROSPECT_QUEUE}'!A:T"
         ).execute()
         rows = result.get("values", [])
         if len(rows) < 2:
@@ -2158,7 +2159,8 @@ def _write_c4_audit(pricing_sent: list, has_opp: list, active: list,
     )
 
 
-def add_district(name: str, state: str, notes: str = "", strategy: str = "cold") -> dict:
+def add_district(name: str, state: str, notes: str = "", strategy: str = "cold",
+                  source: str = "manual", signal_id: str = "") -> dict:
     """
     Manually add a district to the prospecting queue.
 
@@ -2204,7 +2206,7 @@ def add_district(name: str, state: str, notes: str = "", strategy: str = "cold")
             "",             # Parent District
             name_key,       # Name Key
             strategy,       # Strategy
-            "manual",       # Source
+            source,         # Source
             "pending",      # Status
             str(priority),  # Priority
             now,            # Date Added
@@ -2213,6 +2215,7 @@ def add_district(name: str, state: str, notes: str = "", strategy: str = "cold")
             "",             # Est. Enrollment
             "",             # School Count
             "",             # Total Licenses
+            signal_id,      # Signal ID
             notes,          # Notes (always last)
         ]
         _write_rows([row])
