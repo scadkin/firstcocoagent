@@ -28,6 +28,9 @@ firecrawl-py>=2.0.0
 # Phase 2: Job posting scanner
 python-jobspy>=1.1.0
 
+# RSS feed parsing
+feedparser>=6.0.0
+
 # Utilities
 python-dotenv>=1.0.0
 

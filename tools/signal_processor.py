@@ -24,6 +24,8 @@ from collections import defaultdict
 from datetime import datetime, timedelta
 from urllib.parse import unquote, urlparse, parse_qs
 
+import feedparser
+
 from google.oauth2.service_account import Credentials
 from googleapiclient.discovery import build
 
@@ -44,7 +46,7 @@ TAB_SIGNALS = "Signals"
 SIGNAL_COLUMNS = [
     "ID",               # SIG-001
     "Date Detected",    # YYYY-MM-DD (from email date)
-    "Source",           # google_alert / burbio / doe_newsletter / manual
+    "Source",           # google_alert / burbio / doe_newsletter / rss_feed / job_posting / manual
     "Source Detail",    # Alert keyword or newsletter title
     "Signal Type",      # bond / leadership / board_meeting / rfp / hiring / grant / ai_policy / technology / curriculum / enrollment / market_intel
     "Scope",            # district / state / national
@@ -1437,6 +1439,138 @@ def scan_job_postings(states: list = None, hours_old: int = 168,
 
 
 # ─────────────────────────────────────────────
+# RSS FEED INGESTION
+# ─────────────────────────────────────────────
+
+RSS_FEEDS = [
+    {
+        "name": "K-12 Dive",
+        "url": "https://www.k12dive.com/feeds/news/",
+        "source_detail": "K-12 Dive",
+    },
+    {
+        "name": "eSchool News",
+        "url": "https://www.eschoolnews.com/feed/",
+        "source_detail": "eSchool News",
+    },
+    {
+        "name": "CSTA",
+        "url": "https://csteachers.org/feed/",
+        "source_detail": "CSTA",
+    },
+]
+
+
+def process_rss_feeds(since_date: str = "", progress_callback=None) -> list:
+    """
+    Fetch and process RSS feeds for K-12 buying signals.
+    Uses feedparser + existing classify_signal pipeline. No Claude calls ($0).
+    Returns list of signal dicts.
+    """
+    if since_date:
+        try:
+            since_dt = datetime.strptime(since_date, "%Y-%m-%d")
+        except ValueError:
+            since_dt = datetime.now() - timedelta(days=7)
+    else:
+        since_dt = None
+
+    all_signals = []
+    total_articles = 0
+    feeds_processed = 0
+
+    for feed_config in RSS_FEEDS:
+        feed_name = feed_config["name"]
+        feed_url = feed_config["url"]
+        source_detail = feed_config["source_detail"]
+
+        try:
+            feed = feedparser.parse(feed_url)
+        except Exception as e:
+            logger.warning(f"RSS fetch failed for {feed_name}: {e}")
+            continue
+
+        if feed.bozo and not feed.entries:
+            logger.warning(f"RSS parse error for {feed_name}: {feed.bozo_exception}")
+            continue
+
+        feeds_processed += 1
+        feed_articles = 0
+
+        for entry in feed.entries:
+            # Parse publication date
+            pub_date = None
+            if hasattr(entry, "published_parsed") and entry.published_parsed:
+                pub_date = datetime(*entry.published_parsed[:6])
+            elif hasattr(entry, "updated_parsed") and entry.updated_parsed:
+                pub_date = datetime(*entry.updated_parsed[:6])
+
+            # Filter by since_date
+            if since_dt and pub_date and pub_date < since_dt:
+                continue
+
+            title = entry.get("title", "").strip()
+            if not title or len(title) < 10:
+                continue
+
+            # Build text for classification from title + summary
+            summary = entry.get("summary", "")
+            # Strip HTML tags from summary
+            summary_text = re.sub(r"<[^>]+>", " ", summary).strip()
+            summary_text = re.sub(r"\s+", " ", summary_text)[:500]
+
+            text = f"{title} {summary_text}"
+            link = entry.get("link", "")
+
+            # Classify
+            signal_type, tier = classify_signal(text)
+
+            # Extract district/state and dollar amounts
+            district, state = extract_district_and_state(text)
+            dollar = extract_dollar_amount(text)
+
+            scope = "district" if district else "national"
+            in_territory = state.upper() in TERRITORY_STATES_WITH_CA if state else False
+            cust_status = check_customer_status(district)
+
+            heat = compute_heat_score(signal_type, tier, in_territory, cust_status)
+
+            date_str = pub_date.strftime("%Y-%m-%d") if pub_date else datetime.now().strftime("%Y-%m-%d")
+
+            # Use feed URL + entry link as dedup key
+            msg_id = f"rss_{source_detail}|{link}"
+
+            all_signals.append({
+                "date": date_str,
+                "source": "rss_feed",
+                "source_detail": source_detail,
+                "signal_type": signal_type,
+                "scope": scope,
+                "district": district,
+                "state": state,
+                "headline": title[:200],
+                "dollar_amount": dollar,
+                "tier": tier,
+                "heat_score": heat,
+                "urgency": "routine",
+                "customer_status": cust_status,
+                "url": link,
+                "message_id": msg_id,
+            })
+
+            feed_articles += 1
+            total_articles += 1
+
+        if progress_callback:
+            progress_callback(f"RSS {feed_name}: {feed_articles} articles processed")
+
+        logger.info(f"RSS {feed_name}: {len(feed.entries)} entries → {feed_articles} signals")
+
+    logger.info(f"RSS feeds: {feeds_processed}/{len(RSS_FEEDS)} feeds → {total_articles} signals")
+    return all_signals
+
+
+# ─────────────────────────────────────────────
 # FULL PROCESSING PIPELINE
 # ─────────────────────────────────────────────
 
@@ -1823,6 +1957,12 @@ def process_all_signals(gas, progress_callback=None) -> dict:
     job_signals = scan_job_postings(progress_callback=progress_callback)
     all_signals.extend(job_signals)
 
+    # Source 5: RSS feeds (programmatic, $0)
+    if progress_callback:
+        progress_callback("Scanning RSS feeds...")
+    rss_signals = process_rss_feeds(progress_callback=progress_callback)
+    all_signals.extend(rss_signals)
+
     # Detect clusters
     clusters = detect_clusters(all_signals)
 
@@ -1869,6 +2009,7 @@ def process_all_signals(gas, progress_callback=None) -> dict:
         "burbio_signals": len(burbio_signals),
         "doe_signals": len(doe_signals),
         "job_signals": len(job_signals),
+        "rss_signals": len(rss_signals),
         "territory_district_signals": len(territory_signals),
         "tier1_signals": len(tier1),
         "clusters": len(clusters),
@@ -1920,6 +2061,10 @@ def process_new_signals(gas, since_date: str = None,
                                           progress_callback=progress_callback)
     all_signals.extend(doe_signals)
 
+    rss_signals = process_rss_feeds(since_date=since_date,
+                                     progress_callback=progress_callback)
+    all_signals.extend(rss_signals)
+
     clusters = detect_clusters(all_signals)
     write_result = write_signals(all_signals)
 
@@ -1946,6 +2091,7 @@ def process_new_signals(gas, since_date: str = None,
         "alert_signals": len(alert_signals),
         "burbio_signals": len(burbio_signals),
         "doe_signals": len(doe_signals),
+        "rss_signals": len(rss_signals),
         "territory_district_signals": len(territory_signals),
         "tier1_signals": len(tier1),
         "clusters": len(clusters),
@@ -2070,6 +2216,8 @@ def format_scan_summary(summary: dict) -> str:
     lines.append(f"  🏛️ DOE: {summary['doe_signals']}")
     if summary.get("job_signals"):
         lines.append(f"  💼 Job postings: {summary['job_signals']}")
+    if summary.get("rss_signals"):
+        lines.append(f"  📡 RSS feeds: {summary['rss_signals']}")
 
     lines.append(f"\n🎯 Territory signals: {summary['territory_district_signals']}")
     lines.append(f"  🔴 Tier 1 (act now): {summary['tier1_signals']}")

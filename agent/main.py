@@ -2746,6 +2746,41 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await send_message(f"Job scan failed: {e}")
         return
 
+    elif user_text.lower() in ["/signal_rss", "signal rss", "scan rss"]:
+        await send_message("📡 Scanning RSS feeds...")
+        try:
+            loop = asyncio.get_event_loop()
+            rss_signals = await loop.run_in_executor(
+                None, signal_processor.process_rss_feeds, "", None)
+            if rss_signals:
+                write_result = await loop.run_in_executor(
+                    None, signal_processor.write_signals, rss_signals)
+                territory = [s for s in rss_signals
+                             if s.get("state", "").upper() in signal_processor.TERRITORY_STATES_WITH_CA
+                             and s.get("scope") == "district"]
+                lines = [f"📡 *RSS Scan Complete* — {len(rss_signals)} articles from {len(signal_processor.RSS_FEEDS)} feeds\n"]
+                if territory:
+                    lines.append(f"🎯 Territory signals: {len(territory)}")
+                    for i, sig in enumerate(territory[:8], 1):
+                        dist = sig.get("district", "")
+                        state = sig.get("state", "")
+                        headline = sig.get("headline", "")[:50]
+                        lines.append(f"  {i}. {dist} ({state}) — {headline}")
+                non_mi = [s for s in rss_signals if s.get("signal_type") != "market_intel"]
+                if non_mi and not territory:
+                    lines.append(f"\nClassified signals: {len(non_mi)} (non-market-intel)")
+                    for i, sig in enumerate(non_mi[:5], 1):
+                        headline = sig.get("headline", "")[:60]
+                        stype = sig.get("signal_type", "")
+                        lines.append(f"  {i}. [{stype}] {headline}")
+                lines.append(f"\nWritten: {write_result['written']} | Deduped: {write_result['skipped']}")
+                await send_message("\n".join(lines))
+            else:
+                await send_message("No articles found from RSS feeds.")
+        except Exception as e:
+            await send_message(f"RSS scan failed: {e}")
+        return
+
     elif user_text.lower() in ["/signal_scan", "signal scan", "scan signals"]:
         await send_message("📬 Starting signal scan... This may take a few minutes.")
         try:
