@@ -182,6 +182,15 @@ proximity_engine.haversine_miles(lat1, lon1, lat2, lon2) -> float
 # Agency Type 4 = ESAs. Only prospects Type 1/2/7/9 (regular districts).
 ```
 
+## territory_map — MODULE (lazy import)
+```python
+import tools.territory_map as territory_map
+territory_map.generate_territory_map(state_filter="") -> str  # returns HTML string
+territory_map.generate_territory_map_file(output_path="", state_filter="") -> str  # writes file, returns path
+# Layers: Active Accounts (green), Pipeline (orange), Prospects (blue), ESAs (purple), All Districts (gray clustered)
+# Uses: territory_data, csv_importer, district_prospector, pipeline_tracker, folium
+```
+
 ## signal_processor — MODULE not class
 ```python
 import tools.signal_processor as signal_processor

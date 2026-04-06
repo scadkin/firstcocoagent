@@ -1778,6 +1778,35 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await send_message(f"❌ Territory gaps error: {e}")
         return
 
+    elif user_text.lower().startswith("/territory_map"):
+        args = user_text[len("/territory_map"):].strip()
+        state_filter = args.upper() if args else ""
+        label = f" for {state_filter}" if state_filter else ""
+        await send_message(f"🗺 Generating territory map{label}... This may take a minute.")
+        try:
+            import tools.territory_map as territory_map
+            loop = asyncio.get_event_loop()
+            html = await loop.run_in_executor(
+                None, territory_map.generate_territory_map, state_filter)
+            # Upload HTML to Google Drive as a Doc (HTML content renders)
+            title = f"Scout Territory Map{label} — {datetime.now().strftime('%Y-%m-%d')}"
+            doc_result = gas.create_google_doc(title, html,
+                folder_id=os.environ.get("SEQUENCES_FOLDER_ID", ""))
+            if doc_result.get("success"):
+                await send_message(f"🗺 *Territory Map Generated*{label}\n\n"
+                                   f"📄 {doc_result['url']}")
+            else:
+                # Fallback: save to temp file and report
+                import tempfile
+                path = os.path.join(tempfile.gettempdir(), "scout_territory_map.html")
+                with open(path, "w") as f:
+                    f.write(html)
+                await send_message(f"🗺 Map generated but Google Drive upload failed. "
+                                   f"Saved locally at {path}")
+        except Exception as e:
+            await send_message(f"❌ Territory map error: {e}")
+        return
+
     # ── C5: Proximity + ESA commands ──────────────────────────────────────────
 
     elif re.match(

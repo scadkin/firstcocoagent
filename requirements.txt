@@ -31,6 +31,9 @@ python-jobspy>=1.1.0
 # RSS feed parsing
 feedparser>=6.0.0
 
+# Territory map visualization
+folium>=0.17.0
+
 # Utilities
 python-dotenv>=1.0.0
 

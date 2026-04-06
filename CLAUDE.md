@@ -434,6 +434,7 @@ firstcocoagent/
 | `/territory_sync [state]` | download NCES territory data for one state or all |
 | `/territory_stats [state]` | territory coverage summary (districts, schools, enrollment) |
 | `/territory_gaps <state>` | gap analysis: cross-ref territory vs Active Accounts + Prospecting Queue |
+| `/territory_map [state]` | generate interactive Folium territory map → Google Drive link |
 | `/pipeline` | show open pipeline summary with stale alerts |
 | `/pipeline_import` | next CSV upload imports as opportunities (Pipeline tab) |
 | `/import_closed_lost` | next CSV upload imports as closed-lost opps (Closed Lost tab) |
