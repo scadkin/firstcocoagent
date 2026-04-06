@@ -361,6 +361,25 @@ def _api_post(path: str, payload: dict) -> dict:
     return resp.json()
 
 
+def _api_patch(path: str, payload: dict) -> dict:
+    """Make a PATCH request to the Outreach API (JSON:API format)."""
+    url = f"{API_BASE}{path}"
+    headers = _get_headers()
+
+    resp = httpx.patch(url, headers=headers, json=payload, timeout=30.0)
+    if resp.status_code == 401:
+        if _refresh_access_token():
+            headers = _get_headers()
+            resp = httpx.patch(url, headers=headers, json=payload, timeout=30.0)
+
+    if resp.status_code not in (200, 201):
+        body = resp.text[:500]
+        logger.error(f"Outreach PATCH {path} HTTP {resp.status_code}: {body}")
+        raise Exception(f"Outreach API error {resp.status_code}: {body}")
+
+    return resp.json()
+
+
 def _api_get_all(path: str, params: dict | None = None, max_pages: int = 50) -> list:
     """
     Paginate through all results for a GET endpoint.
