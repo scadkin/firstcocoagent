@@ -22,7 +22,8 @@ import re
 import time
 from collections import defaultdict
 from datetime import datetime, timedelta
-from urllib.parse import unquote, urlparse, parse_qs
+import urllib.request
+from urllib.parse import unquote, urlencode, urlparse, parse_qs
 
 import feedparser
 
@@ -46,7 +47,7 @@ TAB_SIGNALS = "Signals"
 SIGNAL_COLUMNS = [
     "ID",               # SIG-001
     "Date Detected",    # YYYY-MM-DD (from email date)
-    "Source",           # google_alert / burbio / doe_newsletter / rss_feed / job_posting / manual
+    "Source",           # google_alert / burbio / doe_newsletter / rss_feed / job_posting / boarddocs / manual
     "Source Detail",    # Alert keyword or newsletter title
     "Signal Type",      # bond / leadership / board_meeting / rfp / hiring / grant / ai_policy / technology / curriculum / enrollment / market_intel
     "Scope",            # district / state / national
@@ -1452,6 +1453,308 @@ def scan_job_postings(states: list = None, hours_old: int = 168,
 
 
 # ─────────────────────────────────────────────
+# BOARDDOCS BOARD MEETING SCRAPER
+# ─────────────────────────────────────────────
+
+# Registry of territory districts on BoardDocs.
+# Format: {state}/{org_code} → {name, committee_id (auto-discovered if blank)}
+BOARDDOCS_DISTRICTS = [
+    # Texas
+    {"state": "TX", "org_code": "tx/austinisd", "name": "Austin ISD"},
+    {"state": "TX", "org_code": "tx/disd", "name": "Dallas ISD"},
+    {"state": "TX", "org_code": "tx/fisd", "name": "Friendswood ISD"},
+    {"state": "TX", "org_code": "tx/hisd", "name": "Humble ISD"},
+    {"state": "TX", "org_code": "tx/rrisd", "name": "Round Rock ISD"},
+    # Ohio
+    {"state": "OH", "org_code": "oh/columbus", "name": "Columbus City Schools"},
+    {"state": "OH", "org_code": "oh/cps", "name": "Cincinnati Public Schools"},
+    {"state": "OH", "org_code": "oh/akron", "name": "Akron Public Schools"},
+    {"state": "OH", "org_code": "oh/dublin", "name": "Dublin City Schools"},
+    # Illinois
+    {"state": "IL", "org_code": "il/d365u", "name": "Valley View SD 365U"},
+    {"state": "IL", "org_code": "il/oswego308", "name": "Oswego CUSD 308"},
+    {"state": "IL", "org_code": "il/ecusd7", "name": "Edwardsville CUSD 7"},
+    {"state": "IL", "org_code": "il/d303", "name": "St. Charles CUSD 303"},
+    {"state": "IL", "org_code": "il/ccsd21", "name": "CCSD 21"},
+    # Pennsylvania
+    {"state": "PA", "org_code": "pa/down", "name": "Downingtown Area SD"},
+    {"state": "PA", "org_code": "pa/govm", "name": "Governor Mifflin SD"},
+    {"state": "PA", "org_code": "pa/ojrsd", "name": "Owen J. Roberts SD"},
+    # Connecticut
+    {"state": "CT", "org_code": "ct/nhps", "name": "New Haven Public Schools"},
+    {"state": "CT", "org_code": "ct/greenwich", "name": "Greenwich Public Schools"},
+    {"state": "CT", "org_code": "ct/elsd", "name": "East Lyme SD"},
+    # Michigan
+    {"state": "MI", "org_code": "mi/lansing", "name": "Lansing SD"},
+    {"state": "MI", "org_code": "mi/troysd", "name": "Troy SD"},
+    {"state": "MI", "org_code": "mi/bsdmi", "name": "Berkley SD"},
+    {"state": "MI", "org_code": "mi/washisd", "name": "Washtenaw ISD"},
+    # Indiana
+    {"state": "IN", "org_code": "in/sacs", "name": "South Adams Community Schools"},
+    # Oklahoma — limited BoardDocs presence, most use different systems
+    # Massachusetts, Nevada, Nebraska, Tennessee — search yielded no BoardDocs results
+]
+
+# Cache for committee IDs (auto-discovered)
+_boarddocs_committee_cache = {}
+
+# Keywords that indicate tech/CS/CTE buying signals in board agendas
+_BOARD_TECH_KEYWORDS = re.compile(
+    r"\b(?:computer science|coding|STEM|CTE|career.technical|"
+    r"technology.(?:replacement|upgrade|adoption|refresh|initiative|investment|plan)|"
+    r"software.(?:license|contract|purchase|renewal|platform|subscription)|"
+    r"curriculum.(?:adoption|review|implement)|"
+    r"1:1\s*device|device.refresh|chromebook|laptop|"
+    r"artificial intelligence|AI.(?:policy|committee|guidelines)|"
+    r"digital.(?:learning|transformation|literacy)|"
+    r"cybersecurity|cyber.security|"
+    r"e-?rate|Perkins|Title.IV|ESSER|"
+    r"RFP|request.for.proposal|procurement.(?:technology|software))\b",
+    re.IGNORECASE,
+)
+
+# Keywords that indicate bond/budget signals
+_BOARD_BOND_KEYWORDS = re.compile(
+    r"\b(?:bond.(?:measure|election|issue|referendum|authorization)|"
+    r"capital.improvement|facilities.plan|"
+    r"budget.(?:amendment|approval|hearing)|"
+    r"technology.budget|tech.budget)\b",
+    re.IGNORECASE,
+)
+
+_BOARDDOCS_HEADERS = {
+    "X-Requested-With": "XMLHttpRequest",
+    "Content-Type": "application/x-www-form-urlencoded",
+    "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
+}
+
+
+def _discover_committee_id(org_code: str) -> str:
+    """Auto-discover committee_id from a BoardDocs public page."""
+    if org_code in _boarddocs_committee_cache:
+        return _boarddocs_committee_cache[org_code]
+
+    url = f"https://go.boarddocs.com/{org_code}/Board.nsf/Public"
+    try:
+        req = urllib.request.Request(url, headers={
+            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)"})
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            html = resp.read().decode()
+            match = re.search(r'committeeid="([A-Z0-9]+)"', html)
+            if match:
+                cid = match.group(1)
+                _boarddocs_committee_cache[org_code] = cid
+                return cid
+    except Exception as e:
+        logger.debug(f"BoardDocs discovery failed for {org_code}: {e}")
+
+    return ""
+
+
+def _fetch_boarddocs_meetings(org_code: str, committee_id: str) -> list:
+    """Fetch meeting list from BoardDocs. Returns list of meeting dicts."""
+    url = f"https://go.boarddocs.com/{org_code}/Board.nsf/BD-GetMeetingsList?open"
+    data = urlencode({"current_committee_id": committee_id}).encode()
+    req = urllib.request.Request(url, data=data, headers=_BOARDDOCS_HEADERS)
+    try:
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            content = resp.read().decode()
+            if content:
+                return json.loads(content)
+    except Exception as e:
+        logger.debug(f"BoardDocs meeting list failed for {org_code}: {e}")
+    return []
+
+
+def _fetch_boarddocs_agenda(org_code: str, committee_id: str,
+                             meeting_id: str) -> str:
+    """Fetch full agenda text from a BoardDocs meeting. Returns plain text."""
+    url = f"https://go.boarddocs.com/{org_code}/Board.nsf/PRINT-AgendaDetailed"
+    data = urlencode({
+        "id": meeting_id,
+        "current_committee_id": committee_id,
+    }).encode()
+    req = urllib.request.Request(url, data=data, headers=_BOARDDOCS_HEADERS)
+    try:
+        with urllib.request.urlopen(req, timeout=20) as resp:
+            html = resp.read().decode()
+            # Strip HTML → plain text
+            text = re.sub(r"<[^>]+>", " ", html)
+            text = re.sub(r"\s+", " ", text).strip()
+            return text
+    except Exception as e:
+        logger.debug(f"BoardDocs agenda fetch failed for {org_code}/{meeting_id}: {e}")
+    return ""
+
+
+def _extract_agenda_signals(agenda_text: str, district_name: str,
+                             state: str, meeting_date: str,
+                             org_code: str, meeting_id: str) -> list:
+    """Extract buying signals from board meeting agenda text."""
+    signals = []
+
+    # Find tech/CS/CTE keyword matches with context
+    for match in _BOARD_TECH_KEYWORDS.finditer(agenda_text):
+        start = max(0, match.start() - 80)
+        end = min(len(agenda_text), match.end() + 120)
+        context = agenda_text[start:end].strip()
+
+        # Classify the signal
+        signal_type, tier = classify_signal(context)
+        if signal_type == "market_intel":
+            signal_type = "board_meeting"
+            tier = 1
+
+        dollar = extract_dollar_amount(context)
+        cust_status = check_customer_status(district_name)
+        in_territory = state.upper() in TERRITORY_STATES_WITH_CA
+        heat = compute_heat_score(signal_type, tier, in_territory, cust_status)
+
+        headline = f"Board agenda: {context[:150]}"
+        meeting_url = f"https://go.boarddocs.com/{org_code}/Board.nsf/goto?open=&id={meeting_id}"
+        msg_id = f"bd_{org_code}_{meeting_id}_{match.start()}"
+
+        signals.append({
+            "date": meeting_date,
+            "source": "boarddocs",
+            "source_detail": f"BoardDocs — {district_name}",
+            "signal_type": signal_type,
+            "scope": "district",
+            "district": district_name,
+            "state": state,
+            "headline": headline,
+            "dollar_amount": dollar,
+            "tier": tier,
+            "heat_score": heat,
+            "urgency": "time_sensitive",
+            "customer_status": cust_status,
+            "url": meeting_url,
+            "message_id": msg_id,
+        })
+
+    # Also check for bond/budget items
+    for match in _BOARD_BOND_KEYWORDS.finditer(agenda_text):
+        start = max(0, match.start() - 80)
+        end = min(len(agenda_text), match.end() + 120)
+        context = agenda_text[start:end].strip()
+
+        dollar = extract_dollar_amount(context)
+        cust_status = check_customer_status(district_name)
+        in_territory = state.upper() in TERRITORY_STATES_WITH_CA
+        heat = compute_heat_score("bond", 1, in_territory, cust_status)
+
+        headline = f"Board agenda: {context[:150]}"
+        meeting_url = f"https://go.boarddocs.com/{org_code}/Board.nsf/goto?open=&id={meeting_id}"
+        msg_id = f"bd_{org_code}_{meeting_id}_bond_{match.start()}"
+
+        signals.append({
+            "date": meeting_date,
+            "source": "boarddocs",
+            "source_detail": f"BoardDocs — {district_name}",
+            "signal_type": "bond",
+            "scope": "district",
+            "district": district_name,
+            "state": state,
+            "headline": headline,
+            "dollar_amount": dollar,
+            "tier": 1,
+            "heat_score": heat,
+            "urgency": "time_sensitive",
+            "customer_status": cust_status,
+            "url": meeting_url,
+            "message_id": msg_id,
+        })
+
+    return signals
+
+
+def scan_board_meetings(days_back: int = 30, progress_callback=None) -> list:
+    """
+    Scan BoardDocs districts for recent board meeting agendas.
+    Extracts tech/CS/CTE/bond buying signals from agenda text.
+    Returns list of signal dicts. $0 cost (no Claude calls).
+    """
+    cutoff = datetime.now() - timedelta(days=days_back)
+    cutoff_str = cutoff.strftime("%Y%m%d")
+
+    all_signals = []
+    districts_scanned = 0
+    meetings_scanned = 0
+    districts_failed = 0
+
+    for entry in BOARDDOCS_DISTRICTS:
+        district_name = entry["name"]
+        state = entry["state"]
+        org_code = entry["org_code"]
+
+        # Discover committee ID
+        committee_id = _discover_committee_id(org_code)
+        if not committee_id:
+            districts_failed += 1
+            logger.debug(f"BoardDocs: no committee_id for {district_name}")
+            continue
+
+        # Fetch meetings
+        meetings = _fetch_boarddocs_meetings(org_code, committee_id)
+        if not meetings:
+            districts_failed += 1
+            continue
+
+        districts_scanned += 1
+
+        # Filter to recent meetings
+        recent = [m for m in meetings
+                  if m.get("numberdate", "") >= cutoff_str
+                  and "cancel" not in m.get("name", "").lower()]
+
+        for meeting in recent[:3]:  # Cap at 3 most recent per district
+            meeting_id = meeting.get("unique", "")
+            meeting_date_raw = meeting.get("numberdate", "")
+            if not meeting_id:
+                continue
+
+            # Format date
+            if len(meeting_date_raw) == 8:
+                meeting_date = f"{meeting_date_raw[:4]}-{meeting_date_raw[4:6]}-{meeting_date_raw[6:]}"
+            else:
+                meeting_date = datetime.now().strftime("%Y-%m-%d")
+
+            # Fetch agenda
+            agenda_text = _fetch_boarddocs_agenda(org_code, committee_id, meeting_id)
+            if not agenda_text or len(agenda_text) < 100:
+                continue
+
+            meetings_scanned += 1
+
+            # Extract signals
+            meeting_signals = _extract_agenda_signals(
+                agenda_text, district_name, state, meeting_date,
+                org_code, meeting_id)
+            all_signals.extend(meeting_signals)
+
+        if progress_callback and districts_scanned % 5 == 0:
+            progress_callback(f"BoardDocs: {districts_scanned} districts scanned, "
+                            f"{len(all_signals)} signals found")
+
+        time.sleep(0.5)  # Rate limit
+
+    # Deduplicate signals within this batch (same district + meeting can match multiple times)
+    seen_headlines = set()
+    deduped = []
+    for sig in all_signals:
+        # Group by district + meeting_id prefix (not keyword offset)
+        key = f"{sig['district']}|{sig['headline'][:80]}"
+        if key not in seen_headlines:
+            seen_headlines.add(key)
+            deduped.append(sig)
+
+    logger.info(f"BoardDocs: {districts_scanned} districts, {meetings_scanned} meetings, "
+                f"{len(deduped)} signals (from {len(all_signals)} raw matches). "
+                f"{districts_failed} districts failed.")
+    return deduped
+
+
+# ─────────────────────────────────────────────
 # RSS FEED INGESTION
 # ─────────────────────────────────────────────
 
@@ -1976,6 +2279,13 @@ def process_all_signals(gas, progress_callback=None) -> dict:
     rss_signals = process_rss_feeds(progress_callback=progress_callback)
     all_signals.extend(rss_signals)
 
+    # Source 6: BoardDocs board meeting agendas (programmatic, $0)
+    if progress_callback:
+        progress_callback("Scanning BoardDocs agendas...")
+    board_signals = scan_board_meetings(days_back=30,
+                                         progress_callback=progress_callback)
+    all_signals.extend(board_signals)
+
     # Detect clusters
     clusters = detect_clusters(all_signals)
 
@@ -2023,6 +2333,7 @@ def process_all_signals(gas, progress_callback=None) -> dict:
         "doe_signals": len(doe_signals),
         "job_signals": len(job_signals),
         "rss_signals": len(rss_signals),
+        "board_signals": len(board_signals),
         "territory_district_signals": len(territory_signals),
         "tier1_signals": len(tier1),
         "clusters": len(clusters),
@@ -2078,6 +2389,10 @@ def process_new_signals(gas, since_date: str = None,
                                      progress_callback=progress_callback)
     all_signals.extend(rss_signals)
 
+    board_signals = scan_board_meetings(days_back=7,
+                                         progress_callback=progress_callback)
+    all_signals.extend(board_signals)
+
     clusters = detect_clusters(all_signals)
     write_result = write_signals(all_signals)
 
@@ -2105,6 +2420,7 @@ def process_new_signals(gas, since_date: str = None,
         "burbio_signals": len(burbio_signals),
         "doe_signals": len(doe_signals),
         "rss_signals": len(rss_signals),
+        "board_signals": len(board_signals),
         "territory_district_signals": len(territory_signals),
         "tier1_signals": len(tier1),
         "clusters": len(clusters),
@@ -2231,6 +2547,8 @@ def format_scan_summary(summary: dict) -> str:
         lines.append(f"  💼 Job postings: {summary['job_signals']}")
     if summary.get("rss_signals"):
         lines.append(f"  📡 RSS feeds: {summary['rss_signals']}")
+    if summary.get("board_signals"):
+        lines.append(f"  🏛 BoardDocs: {summary['board_signals']}")
 
     lines.append(f"\n🎯 Territory signals: {summary['territory_district_signals']}")
     lines.append(f"  🔴 Tier 1 (act now): {summary['tier1_signals']}")

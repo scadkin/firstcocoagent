@@ -2746,6 +2746,35 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await send_message(f"Job scan failed: {e}")
         return
 
+    elif user_text.lower() in ["/signal_board", "signal board", "scan board", "scan boarddocs"]:
+        await send_message("🏛 Scanning BoardDocs agendas... This may take a few minutes.")
+        try:
+            loop = asyncio.get_event_loop()
+            board_signals = await loop.run_in_executor(
+                None, signal_processor.scan_board_meetings, 30, None)
+            if board_signals:
+                write_result = await loop.run_in_executor(
+                    None, signal_processor.write_signals, board_signals)
+                lines = [f"🏛 *BoardDocs Scan Complete* — {len(board_signals)} signals from "
+                         f"{len(signal_processor.BOARDDOCS_DISTRICTS)} districts\n"]
+                for i, sig in enumerate(board_signals[:10], 1):
+                    dist = sig.get("district", "")
+                    state = sig.get("state", "")
+                    stype = sig.get("signal_type", "")
+                    headline = sig.get("headline", "")[15:65]  # skip "Board agenda: " prefix
+                    dollar = sig.get("dollar_amount", "")
+                    dollar_str = f" {dollar}" if dollar else ""
+                    lines.append(f"  {i}. [{stype}] {dist} ({state}){dollar_str} — {headline}")
+                if len(board_signals) > 10:
+                    lines.append(f"\n  ... and {len(board_signals) - 10} more")
+                lines.append(f"\nWritten: {write_result['written']} | Deduped: {write_result['skipped']}")
+                await send_message("\n".join(lines))
+            else:
+                await send_message("No buying signals found in recent board meeting agendas.")
+        except Exception as e:
+            await send_message(f"BoardDocs scan failed: {e}")
+        return
+
     elif user_text.lower() in ["/signal_rss", "signal rss", "scan rss"]:
         await send_message("📡 Scanning RSS feeds...")
         try:

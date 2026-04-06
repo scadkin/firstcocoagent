@@ -199,13 +199,15 @@ signal_processor.extract_district_and_state(text) -> tuple  # (district, state)
 signal_processor.extract_dollar_amount(text) -> str
 signal_processor.detect_clusters(signals) -> dict
 signal_processor.process_rss_feeds(since_date="", progress_callback=None) -> list  # sync, $0
+signal_processor.scan_board_meetings(days_back=30, progress_callback=None) -> list  # sync, $0
 signal_processor.RSS_FEEDS  # list of {name, url, source_detail} — K-12 Dive, eSchool News, CSTA
+signal_processor.BOARDDOCS_DISTRICTS  # list of {state, org_code, name} — 25 territory districts
 # Signals tab: 17 columns (ID, Date, Source, Source Detail, Signal Type, Scope,
 #   District, State, Headline, Dollar Amount, Tier, Heat Score, Urgency,
 #   Status, Customer Status, Source URL, Message ID)
 # Signal types: bond, leadership, board_meeting, rfp, hiring, grant, ai_policy,
 #   technology, curriculum, enrollment, market_intel
-# Sources: google_alert, burbio, doe_newsletter, rss_feed, job_posting, manual
+# Sources: google_alert, burbio, doe_newsletter, rss_feed, job_posting, boarddocs, manual
 # Status: new → surfaced → acted → expired
 # Uses: territory_data._load_territory_districts(), csv_importer (get_active_accounts, normalize_name),
 #   district_prospector (get_all_prospects), Claude Haiku for Burbio/DOE extraction, feedparser for RSS
