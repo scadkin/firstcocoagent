@@ -1,19 +1,25 @@
 # SCOUT — Claude Code Reference
-*Last updated: 2026-04-06 — Session 46*
+*Last updated: 2026-04-07 — Session 47*
 
 ---
 
 ## CURRENT STATE — update this after each session
 
-**Session 46: 5 features shipped. Leadership change monitoring (8 superintendent turnovers found). RFP monitoring (CodeCombat-relevant filtering). Legislative signal scanner (2 CS mandates: TX HB 1481, IL CS mandate). Territory map visualization (interactive Folium HTML, 10.3MB, sent via Telegram). BoardDocs noise filtering (false positive rejection). Next: verify Google Alert parser ~April 9, check Tulsa PS bond vote result, enhance territory map detail, continue with unbuilt prospecting strategies.**
+**Session 47: 15 features shipped. 22 of 24 prospecting strategies now built. Signal system: 19 sources, 31 commands. New scanners: grant (#20), budget (#21), AI Algebra (#23), Cybersecurity (#24), role/title (#7), CSTA (#8). Prospecting: lookalike (#22), sequence re-engagement (#11). Territory map: enriched popups + signal heat overlay. Dormant detection (#12), webinar tags (#14), pilot template (#15), fuzzy matching, District Administration RSS. Next: live-test on Railway, check Tulsa bond results, verify Google Alert parser ~April 9, shift to operating mode.**
+
+### What was done (Session 47)
+- **Territory map enriched popups + signal heat overlay.** Active Accounts show licenses, revenue, enrollment. Pipeline shows opp name, close date. HeatMap layer shows signal density (togglable).
+- **6 new signal scanners:** grant (#20 `/signal_grants`), budget (#21 `/signal_budget`), AI Algebra (#23 `/signal_algebra`), Cybersecurity (#24 `/signal_cyber`), role/title (#7 `/signal_roles`, ~$2.50/scan), CSTA (#8 `/signal_csta`, ~$1.20/scan).
+- **Cohort/lookalike prospecting (#22):** `/prospect_lookalike` — NCES districts demographically similar to best customers. $0.
+- **Sequence re-engagement (#11):** `/prospect_reengagement` — scans ALL Outreach sequences for finished/no-reply prospects. Segments: engaged/lurker/ghost.
+- **Dormant lead detection (#12):** `/dormant [days]` — accounts with past activity that went silent. Requires >= 1 prior activity.
+- **Webinar campaign tags (#14):** CSV routing recognizes "webinar"/"attendee"/"registrant".
+- **Pilot sequence template (#15):** 4-step, 12-day pilot offer archetype.
+- **Fuzzy name matching:** Token subset + Jaccard for territory cross-check and map coords.
+- **District Administration RSS:** Only verified working feed of 6 tested. EdWeek/THE Journal/GovTech broken XML.
 
 ### What was done (Session 46)
-- **Leadership change monitoring:** `scan_leadership_changes()` — Serper + Claude Haiku across 12 territory states. 8 superintendent changes found on first run (OH, MI). Weekly Monday 8 AM CST. `/signal_leadership` command. BoardDocs keyword expansion for superintendent search/resignation/appointment agenda items. Display-layer risk flagging: active customer leadership changes show "⚠️ ACCOUNT RISK" prefix.
-- **RFP monitoring:** `scan_rfp_opportunities()` — Serper + Claude Haiku with aggressive CodeCombat-relevance filtering (CS/STEM/CTE curriculum only, hard-excludes construction/food/devices). 0 results on first run (expected — RFPs are procurement postings, not news). Weekly Monday 8:15 AM CST. `/signal_rfp` command.
-- **Legislative signal scanner:** `scan_legislative_signals()` — state CS/STEM/CTE education mandates and policy changes. 2 signals found: TX HB 1481 tech mandate, IL CS education mandate. Monthly 1st Monday 8:30 AM CST. `/signal_legislation` command. Urgency: enacted/signed = urgent, passed committee = time_sensitive.
-- **Territory map visualization:** `tools/territory_map.py` — interactive Folium HTML with 5 layers: Active Accounts (green, 18), Pipeline (orange, 12), Prospects (blue, 108), ESAs (purple, 0), All Districts (gray clustered, 7978). Clickable popups. Layer toggles. Sent as Telegram file attachment (10.3 MB). `/territory_map [state]` command. `folium>=0.17.0` added.
-- **BoardDocs noise filtering:** `_BOARD_FALSE_POSITIVE` regex rejects tech matches near wheelchair, food service, janitorial, expo, fair, family night, athletic, playground. Checks 50 chars before + 150 chars after each keyword match.
-- **Permissions fix:** Global `Bash(*)` in `~/.claude/settings.json` and project `.claude/settings.local.json`. Deny list still blocks rm -rf, dd, mkfs. No more babysitting permission prompts.
+- Leadership change monitoring, RFP monitoring, legislative scanner, territory map visualization, BoardDocs noise filtering.
 
 ### What was done (Session 45)
 - Signal system expanded: RSS (3 feeds), BoardDocs (25 districts), Ballotpedia bonds, signal-to-deal attribution. 3 Outreach sequences. Sequence copy rules + send schedules.
@@ -22,18 +28,20 @@
 - Signal Intelligence System: 18,401 signals ($0.30), enrichment ($0.002/signal), job scanner, 10 commands, daily scan, quality pass (150→40). Google Alerts 28→18. DOE newsletters 13 states.
 
 ### What still needs to be done
+- **Live-test all Session 47 features on Railway** — deploy, run each scanner via Telegram, validate output quality.
 - **Verify Google Alert parser ~April 9** — First new digest with bond/leadership/AI policy keywords. Run `/signal_scan`.
-- **Tulsa PS bond vote result** — April 7. Check result, then decide whether to act.
-- **Enhance territory map** — More detail in popups (enrollment, school count, licenses). Possibly add signal heat overlay.
-- **Unbuilt prospecting strategies** — AI Algebra launch campaign (#23), Cybersecurity pre-launch (#24), grant-funded prospecting (#20), budget cycle targeting (#21).
-- **Phase 2 deeper sources** — Ballotpedia superintendent snapshots, state procurement portal scraping for RFPs.
-- **Firecrawl paid plan** — Deferred (budget).
+- **Check Tulsa PS bond results** — Vote was April 7. If Prop 3 ($104M tech) passed, act on Robert F. Burton (Exec Dir IT).
+- **Act on 4 STRONG enriched signals** — Tulsa PS, Richardson ISD, Acton-Boxborough, Norwalk PS.
+- **Shift to operating mode** — system is built. Run signals → prospects → research → sequences → outreach.
+- **#2 Usage-based prospecting** — Blocked on CodeCombat internal data from Steven's team.
+- **Firecrawl paid plan** — Deferred (budget). Was #1 research tool.
 - **Parse.bot integration** — Deferred (DNS).
 - See `SCOUT_PLAN.md` for full roadmap
 
 ### Current status
 - All prior phases + enhancements: ✅
-- Signal Intelligence System: ✅ (Session 44-47) — 14 sources (Google Alerts, Burbio, DOE, RSS, BoardDocs, Ballotpedia, Job postings, Leadership scan, RFP scan, Legislative scan, Grant scan, Budget scan, Algebra scan, Cybersecurity scan). 22 Telegram commands. Daily 7:45 AM scan + weekly Monday (leadership 8 AM, RFP 8:15 AM) + monthly 1st Monday (legislation 8:30 AM, grants 8:45 AM, budget 9:00 AM). Signal-to-deal attribution wired.
+- Signal Intelligence System: ✅ (Session 44-47) — 19 sources. 31 Telegram commands. Daily 7:45 AM + weekly Monday (leadership/RFP) + monthly 1st Monday (legislation/grants/budget). On-demand: roles, CSTA, algebra, cyber. Signal-to-deal attribution wired.
+- Prospecting strategies: ✅ 22 of 24 built. Only #2 (usage-based, blocked on CodeCombat data) remains.
 - Outreach sequences: ✅ — IDs 1995-2001 (C4 x4, License Request, Webinar x2). 3 send schedules.
 - Sequence copy rules: ✅ — Comprehensive rules in memory. Seasonal calendar. Send schedules.
 
@@ -201,7 +209,7 @@
 
 **ESA_PATTERNS in target_roles.py has 78 entity name variations.** From Steven's ROLES and KEYWORDS doc. Covers ESC, BOCES, IU, COE, ROE, ISC, ESU, AEA, CESA, SELPA, JPA, SSA, and dozens more.
 
-**`signal_processor.py` is a flat module imported at top of main.py.** 14 signal sources: Google Alerts (regex), Burbio (Claude), DOE (Claude), RSS (feedparser), BoardDocs (HTTP scraping), Ballotpedia (HTTP scraping), Job postings (JobSpy), Leadership scan (Serper + Claude), RFP scan (Serper + Claude), Legislative scan (Serper + Claude), Grant scan (Serper + Claude), Budget scan (Serper + Claude), Algebra scan (Serper + Claude), Cybersecurity scan (Serper + Claude). Signals Database tab (18 columns including Pipeline Link). 22 Telegram commands, all direct-dispatch. Daily scan at 7:45 AM CST. Weekly Monday: leadership 8 AM + RFP 8:15 AM. Monthly 1st Monday: legislation 8:30 AM + grants 8:45 AM + budget 9:00 AM. Algebra/cybersecurity scans are on-demand only (`/signal_algebra`, `/signal_cyber`). All ~$0.03/scan each. BoardDocs/Ballotpedia/RSS wrapped in try/except (non-fatal). `_last_signal_batch` is in-memory — run `/signals` before `/signal_act` or `/signal_info` in a new session.
+**`signal_processor.py` is a flat module imported at top of main.py.** 19 signal sources: Google Alerts (regex), Burbio (Claude), DOE (Claude), RSS (4 feeds, feedparser), BoardDocs (HTTP scraping), Ballotpedia (HTTP scraping), Job postings (JobSpy), Leadership scan (Serper + Claude), RFP scan (Serper + Claude), Legislative scan (Serper + Claude), Grant scan (Serper + Claude), Budget scan (Serper + Claude), Algebra scan (Serper + Claude), Cybersecurity scan (Serper + Claude), Role/title scan (Serper + Claude, ~$2.50), CSTA scan (Serper + Claude, ~$1.20). Signals Database tab (18 columns including Pipeline Link). 31 Telegram commands, all direct-dispatch. Daily scan at 7:45 AM CST. Weekly Monday: leadership 8 AM + RFP 8:15 AM. Monthly 1st Monday: legislation 8:30 AM + grants 8:45 AM + budget 9:00 AM. On-demand: algebra, cyber, roles, CSTA. BoardDocs/Ballotpedia/RSS wrapped in try/except (non-fatal). `_last_signal_batch` is in-memory — run `/signals` before `/signal_act` or `/signal_info` in a new session.
 
 **Signal enrichment must run before acting on signals.** Never queue a district based on a headline alone. `enrich_signal()` does Serper web search + Claude Haiku analysis for CodeCombat relevance (strong/moderate/weak/none). A $6.2B bond can be WEAK if it's all devices. A no-dollar STEAM coordinator hire can be STRONG. Auto-runs on Tier 1 during daily scans; manual via `/signal_enrich N`.
 
