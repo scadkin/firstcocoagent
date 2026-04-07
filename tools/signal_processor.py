@@ -3421,6 +3421,11 @@ RSS_FEEDS = [
         "url": "https://csteachers.org/feed/",
         "source_detail": "CSTA",
     },
+    {
+        "name": "District Administration",
+        "url": "https://www.districtadministration.com/feed",
+        "source_detail": "District Administration",
+    },
 ]
 
 

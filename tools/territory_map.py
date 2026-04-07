@@ -27,7 +27,7 @@ def generate_territory_map(state_filter: str = "") -> str:
     Returns HTML string.
     """
     import folium
-    from folium.plugins import MarkerCluster
+    from folium.plugins import MarkerCluster, HeatMap
 
     import tools.csv_importer as csv_importer
     import tools.territory_data as territory_data
@@ -308,6 +308,41 @@ def generate_territory_map(state_filter: str = "") -> str:
     active_group.add_to(m)
     logger.info(f"Active account markers: {active_count}")
 
+    # ── Layer: Signal Heat Map ──
+    signal_heat_count = 0
+    try:
+        import tools.signal_processor as signal_processor
+        active_signals = signal_processor.get_active_signals(state_filter=state_filter)
+        heat_data = []
+        for sig in active_signals:
+            if sig.get("Scope", "").lower() != "district":
+                continue  # Skip state-level signals (legislation) — no lat/lon
+            district = sig.get("District", "")
+            if not district:
+                continue
+            sig_key = csv_importer.normalize_name(district)
+            matched = _find_district_coords(districts, sig_key)
+            if not matched:
+                continue
+            try:
+                heat = int(sig.get("Heat Score", 0)) / 100.0
+            except (ValueError, TypeError):
+                heat = 0.3
+            heat_data.append([matched["lat"], matched["lon"], max(heat, 0.1)])
+        if heat_data:
+            HeatMap(
+                heat_data,
+                name=f"Signal Density ({len(heat_data)})",
+                show=False,
+                radius=25,
+                blur=20,
+                max_zoom=13,
+            ).add_to(m)
+            signal_heat_count = len(heat_data)
+            logger.info(f"Signal heatmap: {signal_heat_count} points")
+    except Exception as e:
+        logger.warning(f"Signal heatmap failed (non-fatal): {e}")
+
     # ── Layer control ──
     folium.LayerControl(collapsed=False).add_to(m)
 
@@ -323,6 +358,7 @@ def generate_territory_map(state_filter: str = "") -> str:
         <span style="color:blue;">&#9679;</span> Prospects ({prospect_count})
         <span style="color:purple;">&#9679;</span> ESAs ({esa_count})
         <span style="color:gray;">&#9679;</span> Districts ({placed_districts})
+        {f'<br><span style="color:red;">&#9679;</span> Signals ({signal_heat_count})' if signal_heat_count else ''}
     </div>
     """
     m.get_root().html.add_child(folium.Element(title_html))
