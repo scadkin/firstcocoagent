@@ -152,6 +152,13 @@ def _parse_csv_intent(text: str) -> dict | None:
     if any(p in lower for p in contact_patterns):
         return {"target": "sf_contacts", "label": "Salesforce contacts"}
 
+    # Webinar signals → route to prospecting queue
+    webinar_patterns = ["webinar", "attendee", "registrant"]
+    if any(p in lower for p in webinar_patterns):
+        if any(x in lower for x in ["didn't attend", "no show", "no-show", "missed", "non-attend"]):
+            return {"target": "prospect_webinar_missed", "label": "webinar non-attendees"}
+        return {"target": "prospect_webinar", "label": "webinar attendees"}
+
     # Prospect signals → route to accounts
     prospect_patterns = ["prospect"]
     if any(p in lower for p in prospect_patterns):
@@ -1563,6 +1570,27 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await send_message(progress.get("progress_text", "No activity data yet today."))
         except Exception as e:
             await send_message(f"❌ Could not load progress: {e}")
+        return
+
+    elif user_text.lower().startswith("/dormant") or user_text.lower() in ["dormant", "dormant leads", "dormant accounts"]:
+        # Parse optional days: /dormant 120
+        parts = user_text.strip().split()
+        days = 90
+        for p in parts[1:]:
+            try:
+                days = int(p)
+                break
+            except ValueError:
+                pass
+        await send_message(f"💤 Checking for accounts dormant {days}+ days...")
+        try:
+            loop = asyncio.get_event_loop()
+            dormant = await loop.run_in_executor(
+                None, activity_tracker.get_dormant_accounts, days)
+            output = activity_tracker.format_dormant_for_telegram(dormant)
+            await send_message(output)
+        except Exception as e:
+            await send_message(f"Dormant check failed: {e}")
         return
 
     elif user_text.lower().startswith("/sync_activities") or user_text.lower() in ["sync activities", "sync gmail"]:

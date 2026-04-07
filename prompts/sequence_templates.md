@@ -478,6 +478,33 @@ but do be clear about the timeline reality.
 
 ---
 
+---
+
+## ARCHETYPE: Pilot Offer
+
+**Target:** Any district/school contact considering CodeCombat — warm leads, signal-driven prospects,
+conference contacts, webinar attendees, or districts in evaluation mode.
+
+**Core angle:** Zero-risk pilot — give CodeCombat a real test drive with your students and teachers
+before committing. No budget needed, no contracts, no obligations.
+
+**Sequence structure (4 steps, 12 days):**
+
+| Step | Day | Label | Goal |
+|------|-----|-------|------|
+| 1 | 0 | Pilot invite | Offer the pilot: X licenses, Y weeks, zero commitment. Lead with what they get, not what it costs. Under 80 words. CTA: "Would a free pilot be useful for your team?" |
+| 2 | 3 | Social proof | Pattern framing: "Most educators I work with find that students are writing real Python code by the end of week one." Reference engagement data (99% teacher satisfaction, 850K+ lines of code per student). |
+| 3 | 7 | Implementation ease | Zero prep required — no coding background needed for teachers (2/3 of successful teachers started with zero experience). Turn-key slides, embedded guidance, auto-grading. Address the "sounds like a lot of work" objection. |
+| 4 | 12 | Deadline + booking | Friendly urgency: pilot spots are limited for this term. Direct Zoom booking link. Short — under 50 words. |
+
+**Tone:** Peer-to-peer, not salesy. Steven is offering something genuinely useful, not asking for a favor.
+Frame as "let your students try it" not "let me demo it for you." The pilot sells itself through student engagement.
+
+**Pilot details:** Steven provides specific pilot terms (license count, duration, start date) when building.
+If not specified, default to "30 licenses for 6 weeks."
+
+---
+
 # A/B TESTING GUIDANCE
 
 When building a sequence, Scout can generate A/B variants. Best candidates:

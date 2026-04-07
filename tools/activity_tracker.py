@@ -633,3 +633,109 @@ def build_brief_data_block(date_str: str = None) -> str:
             lines.append(f"  {label}: {d['actual']}/{d['target']} ({d['pct']}%)")
 
     return "\n".join(lines)
+
+
+# ─────────────────────────────────────────────
+# DORMANT LEAD DETECTION (#12)
+# ─────────────────────────────────────────────
+
+def get_dormant_accounts(days: int = 90) -> list[dict]:
+    """
+    Find accounts with Scout-tracked activity that went silent.
+    Only returns accounts that HAVE had activity (at least 1 logged event)
+    but whose most recent activity is >= `days` ago.
+    Excludes current active customers.
+
+    Returns list of dicts sorted by days_dormant descending:
+    [{account, last_date, last_type, days_dormant, activity_count}]
+    """
+    from datetime import datetime as dt
+
+    try:
+        all_rows = _load_activity_rows()  # No date filter — all history
+        if not all_rows:
+            return []
+
+        # Group by account
+        by_account = {}
+        for row in all_rows:
+            account = (row.get("District/Account") or "").strip()
+            if not account:
+                continue
+            date_str = row.get("Date", "")
+            act_type = row.get("Type", "")
+            if account not in by_account:
+                by_account[account] = {"dates": [], "types": [], "count": 0}
+            by_account[account]["dates"].append(date_str)
+            by_account[account]["types"].append(act_type)
+            by_account[account]["count"] += 1
+
+        # Build exclusion set from active customers
+        try:
+            import tools.csv_importer as csv_importer
+            active_accounts = csv_importer.get_active_accounts()
+            active_keys = set()
+            for acc in active_accounts:
+                name = (acc.get("Active Account Name", "") or acc.get("Display Name", "")).strip()
+                if name:
+                    active_keys.add(name.lower())
+                    active_keys.add(csv_importer.normalize_name(name))
+        except Exception:
+            active_keys = set()
+
+        today = dt.now().date()
+        dormant = []
+
+        for account, data in by_account.items():
+            # Skip active customers
+            if account.lower() in active_keys or csv_importer.normalize_name(account) in active_keys:
+                continue
+
+            # Find most recent activity date
+            latest_date = None
+            latest_type = ""
+            for i, d in enumerate(data["dates"]):
+                try:
+                    parsed = dt.strptime(d, "%Y-%m-%d").date()
+                    if latest_date is None or parsed > latest_date:
+                        latest_date = parsed
+                        latest_type = data["types"][i]
+                except (ValueError, TypeError):
+                    continue
+
+            if latest_date is None:
+                continue
+
+            days_dormant = (today - latest_date).days
+            if days_dormant >= days:
+                dormant.append({
+                    "account": account,
+                    "last_date": latest_date.strftime("%Y-%m-%d"),
+                    "last_type": latest_type,
+                    "days_dormant": days_dormant,
+                    "activity_count": data["count"],
+                })
+
+        dormant.sort(key=lambda x: x["days_dormant"], reverse=True)
+        return dormant
+
+    except Exception as e:
+        logger.error(f"get_dormant_accounts error: {e}", exc_info=True)
+        return []
+
+
+def format_dormant_for_telegram(dormant: list, limit: int = 20) -> str:
+    """Format dormant accounts for Telegram display."""
+    if not dormant:
+        return "No dormant accounts found."
+
+    lines = [f"💤 *Dormant Accounts* ({len(dormant)} total)\n"]
+    for i, d in enumerate(dormant[:limit], 1):
+        lines.append(
+            f"  {i}. *{d['account']}*\n"
+            f"     Last: {d['last_date']} ({d['days_dormant']}d ago) — {d['last_type']}"
+            f" | {d['activity_count']} total activities"
+        )
+    if len(dormant) > limit:
+        lines.append(f"\n  ... and {len(dormant) - limit} more")
+    return "\n".join(lines)

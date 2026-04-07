@@ -396,6 +396,10 @@ firstcocoagent/
 | `/signal_algebra` | AI Algebra campaign: find districts adopting math/algebra curriculum (~$0.03) |
 | `/signal_cyber` | Cybersecurity pre-launch: find districts with CTE cyber programs (~$0.03) |
 | `/prospect_lookalike [state]` | find districts demographically similar to best customers ($0) |
+| `/prospect_reengagement` | scan ALL Outreach sequences for finished/no-reply prospects |
+| `/signal_roles [state]` | find CS/CTE/STEM leaders via Serper (~$2.50/scan, on-demand) |
+| `/signal_csta` | find CSTA chapter leaders/members (~$1.20/scan, on-demand) |
+| `/dormant [days]` | show accounts with past activity that went silent (default 90 days) |
 | `/export_sequence [name]` | export Outreach sequence to Google Doc |
 | `/ping_gas`, `ping gas`, `test gas` | ping GAS bridge |
 | `/train_voice`, `train voice` | train voice from Gmail (24 months) |

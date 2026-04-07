@@ -42,6 +42,8 @@ activity_tracker.log_activity(activity_type, district="", contact="", notes="", 
 activity_tracker.get_activity_summary(date_str=None) -> dict
 activity_tracker.get_daily_progress(date_str=None) -> dict
 activity_tracker.sync_gmail_activities(gas_bridge) -> dict
+activity_tracker.get_dormant_accounts(days=90) -> list[dict]  # sync
+activity_tracker.format_dormant_for_telegram(dormant, limit=20) -> str
 # SYNC function — always call via run_in_executor
 ```
 
@@ -85,6 +87,7 @@ district_prospector.cleanup_prospect_queue() -> dict
 district_prospector.migrate_prospect_columns() -> dict
 district_prospector.find_lookalike_districts(state="", max_results=25, min_enrollment=500) -> dict  # sync
 district_prospector.format_lookalikes_for_telegram(result) -> str
+district_prospector.suggest_sequence_reengagement(exclude_sequence_ids=None, progress_callback=None) -> dict  # sync
 
 # Prospecting Queue: 20 columns
 # State | Account Name | Email | First Name | Last Name | Deal Level | Parent District |
@@ -221,6 +224,8 @@ signal_processor.scan_grant_opportunities(states=None, progress_callback=None) -
 signal_processor.scan_budget_cycle_signals(states=None, progress_callback=None) -> list  # sync, ~$0.03/scan, monthly
 signal_processor.scan_algebra_targets(states=None, progress_callback=None) -> list  # sync, ~$0.03/scan, on-demand
 signal_processor.scan_cybersecurity_targets(states=None, progress_callback=None) -> list  # sync, ~$0.03/scan, on-demand
+signal_processor.scan_role_targets(states=None, progress_callback=None) -> list  # sync, ~$2.50/scan, on-demand
+signal_processor.scan_csta_chapters(states=None, progress_callback=None) -> list  # sync, ~$1.20/scan, on-demand
 signal_processor.RSS_FEEDS  # list of {name, url, source_detail} — K-12 Dive, eSchool News, CSTA
 signal_processor.BOARDDOCS_DISTRICTS  # list of {state, org_code, name} — 25 territory districts
 # Signals tab: 18 columns (ID, Date, Source, Source Detail, Signal Type, Scope,
