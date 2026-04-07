@@ -1,9 +1,9 @@
 # SCOUT MASTER PLAN
-*Last updated: 2026-04-06 — Session 45*
+*Last updated: 2026-04-06 — Session 46*
 
 ---
 
-## YOU ARE HERE → Signal system expanded: RSS feeds (3), BoardDocs (25 districts), Ballotpedia bond tracking, signal-to-deal attribution all built and verified. 7 signal sources total. 3 Outreach sequences created (License Request 2026, Algebra Webinar Attendees/Non-Attendees). Sequence copy rules + send schedules fully documented. Next: leadership change monitoring, RFP monitoring, then verify Google Alert parser on ~April 9.
+## YOU ARE HERE → Signal system at 10 sources with 16 Telegram commands. Session 46 added: leadership change monitoring (8 superintendent turnovers found), RFP monitoring (CodeCombat-relevant filtering), legislative signal scanner (TX + IL CS mandates found), territory map visualization (interactive Folium HTML), BoardDocs noise filtering. Signal aggregator Phase 3 complete. Next: verify Google Alert parser ~April 9, check Tulsa bond vote, enhance territory map, start on unbuilt prospecting strategies (AI Algebra campaign, Cybersecurity pre-launch, grant-funded, budget cycle).
 
 ---
 
@@ -337,17 +337,18 @@ Surviving prospects are added to the Prospecting Queue with email, first name, l
 ### Phase plan
 - **Phase 1:** ✅ DONE (Session 44) — Process Gmail emails, subscribe DOE newsletters, enhance Google Alerts
 - **Phase 2:** ✅ DONE (Session 45) — RSS feeds (3), BoardDocs (25 districts), Ballotpedia bond tracking, signal-to-deal attribution
-- **Phase 3 (in progress):** Leadership change monitoring, RFP monitoring (state procurement portals). Signal clustering + auto-scoring already exists.
-- **Phase 4 (future):** BoardDocs noise filtering improvements, additional RSS/signal sources
+- **Phase 3:** ✅ DONE (Session 46) — Leadership change monitoring (Serper + Claude, 8 found), RFP monitoring (CodeCombat-relevant filtering), Legislative signal scanner (2 CS mandates)
+- **Phase 4:** ✅ DONE (Session 46) — BoardDocs noise filtering (_BOARD_FALSE_POSITIVE regex)
+- **Phase 5 (future):** Ballotpedia superintendent snapshots (monthly diff), state procurement portal scraping for better RFP coverage, additional RSS sources
 
 ---
 
-## UP NEXT (after aggregator)
-
-### Territory Map Visualization
-- Digital map of Steven's territory with pins for active accounts, pipeline, prospects, ESAs
-- All data already exists (lat/lon, addresses, enrollment, status)
-- Saved in memory for future implementation
+## COMPLETED: Territory Map Visualization (Session 46)
+- `tools/territory_map.py` — interactive Folium HTML map
+- 5 layers: Active Accounts (green, 18), Pipeline (orange, 12), Prospects (blue, 108), ESAs (purple), All Districts (gray clustered, 7978)
+- Clickable popups with name, state, type. Layer toggles. CartoDB positron tiles.
+- Sent as Telegram file attachment (10.3 MB). `/territory_map [state]` command.
+- **Future enhancement:** richer popups (enrollment, school count, licenses), signal heat overlay
 
 ---
 

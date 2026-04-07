@@ -1,38 +1,34 @@
 # SCOUT — Claude Code Reference
-*Last updated: 2026-04-06 — Session 45*
+*Last updated: 2026-04-06 — Session 46*
 
 ---
 
 ## CURRENT STATE — update this after each session
 
-**Session 45: Signal system expanded with 3 new sources (RSS, BoardDocs, Ballotpedia). Signal-to-deal attribution wired. 3 Outreach sequences created. Sequence copy rules + send schedules fully documented. Hourly check-ins + weekend greetings disabled. Next: leadership change monitoring, RFP monitoring, then verify Google Alert parser ~April 9.**
+**Session 46: 5 features shipped. Leadership change monitoring (8 superintendent turnovers found). RFP monitoring (CodeCombat-relevant filtering). Legislative signal scanner (2 CS mandates: TX HB 1481, IL CS mandate). Territory map visualization (interactive Folium HTML, 10.3MB, sent via Telegram). BoardDocs noise filtering (false positive rejection). Next: verify Google Alert parser ~April 9, check Tulsa PS bond vote result, enhance territory map detail, continue with unbuilt prospecting strategies.**
+
+### What was done (Session 46)
+- **Leadership change monitoring:** `scan_leadership_changes()` — Serper + Claude Haiku across 12 territory states. 8 superintendent changes found on first run (OH, MI). Weekly Monday 8 AM CST. `/signal_leadership` command. BoardDocs keyword expansion for superintendent search/resignation/appointment agenda items. Display-layer risk flagging: active customer leadership changes show "⚠️ ACCOUNT RISK" prefix.
+- **RFP monitoring:** `scan_rfp_opportunities()` — Serper + Claude Haiku with aggressive CodeCombat-relevance filtering (CS/STEM/CTE curriculum only, hard-excludes construction/food/devices). 0 results on first run (expected — RFPs are procurement postings, not news). Weekly Monday 8:15 AM CST. `/signal_rfp` command.
+- **Legislative signal scanner:** `scan_legislative_signals()` — state CS/STEM/CTE education mandates and policy changes. 2 signals found: TX HB 1481 tech mandate, IL CS education mandate. Monthly 1st Monday 8:30 AM CST. `/signal_legislation` command. Urgency: enacted/signed = urgent, passed committee = time_sensitive.
+- **Territory map visualization:** `tools/territory_map.py` — interactive Folium HTML with 5 layers: Active Accounts (green, 18), Pipeline (orange, 12), Prospects (blue, 108), ESAs (purple, 0), All Districts (gray clustered, 7978). Clickable popups. Layer toggles. Sent as Telegram file attachment (10.3 MB). `/territory_map [state]` command. `folium>=0.17.0` added.
+- **BoardDocs noise filtering:** `_BOARD_FALSE_POSITIVE` regex rejects tech matches near wheelchair, food service, janitorial, expo, fair, family night, athletic, playground. Checks 50 chars before + 150 chars after each keyword match.
+- **Permissions fix:** Global `Bash(*)` in `~/.claude/settings.json` and project `.claude/settings.local.json`. Deny list still blocks rm -rf, dd, mkfs. No more babysitting permission prompts.
 
 ### What was done (Session 45)
-- **RSS feed ingestion:** 3 feeds (K-12 Dive, eSchool News, CSTA). feedparser library. `/signal_rss` command. Verified: 220 articles, dedup working.
-- **BoardDocs scraper:** 25 territory districts. Auto-discovers committee IDs. Keyword extraction from agendas. `/signal_board` command. 17 signals on verified run. Noise reduction: capped at 3 tech + 1 bond signal per meeting. HTML entity cleanup.
-- **Ballotpedia bond tracking:** Scrapes bond election index for 12 territory states (no CA). Upcoming + passed/failed results. `/signal_bonds` command. 37 territory measures found (Tulsa PS 4 propositions, Mesquite ISD tech bond passed, etc.).
-- **Signal-to-deal attribution:** Pipeline Link column on Signals tab (18th col). Signal ID column on Prospecting Queue (19→20 cols). `/signal_act` passes signal ID through. `link_signal_to_prospect()` writes back.
-- **Signal dedup fix:** `get_processed_message_ids()` reads Message ID + Source URL for composite keys.
-- **Daily scan protection:** BoardDocs/Ballotpedia/RSS wrapped in try/except (non-fatal).
-- **Outreach sequences:** License Request 2026 (ID 1999, 7 steps), Algebra Webinar Attendees (ID 2000, 4 steps), Non-Attendees (ID 2001, 4 steps). 14 webinar prospects loaded.
-- **Outreach API:** `_api_patch()`, `export_sequence()`, `/export_sequence` command. CRITICAL: `toRecipients` must be `[]`. Re-authed with `sequenceStates.delete` scope.
-- **Send schedules:** 3 schedules created in Outreach UI (Teacher Tue-Thu, Admin Mon-Thu, Hot Lead Mon-Fri) with multi-window time slots based on cross-AI research.
-- **Sequence copy rules:** Fully updated with zero-AI-trace rule, seasonal calendar, value props, send schedules.
-- **Disabled:** Hourly check-ins, weekend greetings.
-- **CLAUDE.md trimmed:** 43k→36k chars.
+- Signal system expanded: RSS (3 feeds), BoardDocs (25 districts), Ballotpedia bonds, signal-to-deal attribution. 3 Outreach sequences. Sequence copy rules + send schedules.
 
 ### What was done (Session 44)
 - Signal Intelligence System: 18,401 signals ($0.30), enrichment ($0.002/signal), job scanner, 10 commands, daily scan, quality pass (150→40). Google Alerts 28→18. DOE newsletters 13 states.
 
 ### What still needs to be done
-- **Leadership change monitoring** — Track superintendent turnovers. Tier 1 buying signal. Next to build.
-- **RFP monitoring** — State procurement portals for K-12 tech/curriculum RFPs. After leadership.
 - **Verify Google Alert parser ~April 9** — First new digest with bond/leadership/AI policy keywords. Run `/signal_scan`.
-- **Act on STRONG signals** — Tulsa PS (bond vote Apr 7 — check result), Richardson ISD, Acton-Boxborough, Norwalk PS.
-- **Improve BoardDocs noise filtering** — Some false positives (wheelchair RFPs, STEM Expo sponsorships). Parked.
+- **Tulsa PS bond vote result** — April 7. Check result, then decide whether to act.
+- **Enhance territory map** — More detail in popups (enrollment, school count, licenses). Possibly add signal heat overlay.
+- **Unbuilt prospecting strategies** — AI Algebra launch campaign (#23), Cybersecurity pre-launch (#24), grant-funded prospecting (#20), budget cycle targeting (#21).
+- **Phase 2 deeper sources** — Ballotpedia superintendent snapshots, state procurement portal scraping for RFPs.
 - **Firecrawl paid plan** — Deferred (budget).
 - **Parse.bot integration** — Deferred (DNS).
-- **Territory map visualization** — Future.
 - See `SCOUT_PLAN.md` for full roadmap
 
 ### Current status
