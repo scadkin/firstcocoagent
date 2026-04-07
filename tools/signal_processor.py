@@ -2913,6 +2913,9 @@ EXCLUDE:
 - Assessment platform purchases
 - LMS/SIS purchases
 - Budget cuts or layoffs (unless reallocating TO CS/STEM)
+- Non-CS curriculum adoptions: health, physical education, social studies, English/ELA, foreign language, art, music
+- Sports/athletics budgets
+- Special education program budgets (unless specifically CS/STEM for special ed)
 
 Return a JSON array. Each item:
 {{
