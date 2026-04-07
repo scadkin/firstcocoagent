@@ -3402,6 +3402,371 @@ Search results:
 
 
 # ─────────────────────────────────────────────
+# ROLE/TITLE-BASED PROSPECTING (#7) — Serper + Claude
+# ─────────────────────────────────────────────
+
+def scan_role_targets(states=None, progress_callback=None) -> list:
+    """
+    Scan for K-12 contacts with specific CS/CTE/STEM leadership titles.
+    Only searches rare/specific titles — common titles (Principal, Teacher)
+    are too noisy for web search and are handled by job posting scanner.
+    Uses Serper + Claude Haiku. Returns list of signal dicts.
+    Cost: ~$2.50/scan (48 Serper queries + 1 Claude call).
+    """
+    if not SERPER_API_KEY:
+        logger.warning("SERPER_API_KEY not set — cannot scan role targets")
+        return []
+
+    import httpx
+
+    _load_nces_lookup()
+    _load_cross_references()
+
+    scan_states = states or list(TERRITORY_STATES)
+    all_snippets = []
+    seen_urls = set()
+
+    if progress_callback:
+        progress_callback(f"Searching {len(scan_states)} states for CS/CTE/STEM leaders (~$2.50)...")
+
+    for state_abbr in scan_states:
+        state_name = ABBR_TO_STATE_NAME.get(state_abbr, state_abbr)
+        queries = [
+            f'"Director of Computer Science" OR "CS Director" OR "CTE Director" OR "Director of CTE" OR "STEM Director" OR "Director of STEM" school district "{state_name}"',
+            f'"Director of Technology" OR "EdTech Director" OR "Instructional Technology Director" OR "Educational Technology Director" school district "{state_name}"',
+            f'"Curriculum Director" OR "Director of Curriculum" OR "STEM Coordinator" OR "CTE Coordinator" school district "{state_name}"',
+            f'"Cybersecurity Teacher" OR "Game Design Teacher" OR "Esports Coach" OR "Robotics Teacher" school district "{state_name}"',
+        ]
+        for query in queries:
+            try:
+                resp = httpx.post(
+                    SERPER_URL,
+                    headers={"X-API-Key": SERPER_API_KEY, "Content-Type": "application/json"},
+                    json={"q": query, "num": 10, "tbs": "qdr:y"},  # Last year — roles persist
+                    timeout=15.0,
+                )
+                data = resp.json()
+                for item in data.get("organic", [])[:10]:
+                    url = item.get("link", "")
+                    if url and url not in seen_urls:
+                        seen_urls.add(url)
+                        all_snippets.append({
+                            "title": item.get("title", ""),
+                            "snippet": item.get("snippet", ""),
+                            "url": url,
+                            "searched_state": state_abbr,
+                        })
+                time.sleep(0.5)
+            except Exception as e:
+                logger.warning(f"Serper role scan failed for {state_abbr}: {e}")
+
+    if not all_snippets:
+        logger.info("Role scan: no results found")
+        if progress_callback:
+            progress_callback("Role scan: no results found.")
+        return []
+
+    logger.info(f"Role scan: {len(all_snippets)} articles from {len(scan_states)} states")
+
+    combined_text = ""
+    for s in all_snippets:
+        combined_text += f"\n[{s['searched_state']}] {s['title']}\n{s['snippet']}\nURL: {s['url']}\n"
+    combined_text = combined_text[:15000]  # Larger context for more results
+
+    if progress_callback:
+        progress_callback(f"Extracting role targets from {len(all_snippets)} articles...")
+
+    import anthropic
+    try:
+        client = anthropic.Anthropic(timeout=90.0)
+        prompt = f"""Extract K-12 school district staff members with CS/CTE/STEM/Technology leadership roles from these search results.
+
+INCLUDE only people with these types of titles at K-12 public school districts:
+- Directors/Coordinators of: Computer Science, CTE, STEM, STEAM, Technology, EdTech, Curriculum
+- Specialized teachers: Cybersecurity, Game Design, Esports, Robotics, Computer Science
+- Any CS/CTE/STEM leadership role at a school district
+
+EXCLUDE:
+- College/university staff
+- State department of education employees (unless at a district)
+- IT infrastructure roles (network admin, help desk, sysadmin)
+- Generic "teacher" or "principal" without CS/STEM specifics
+- People at non-education organizations
+
+For each person, extract:
+{{
+  "person_name": "Full name (Dr./Mr./Mrs. if shown)",
+  "title": "Their exact job title",
+  "district": "School district name",
+  "state": "2-letter state code",
+  "headline": "[person_name], [title] at [district] ([state])"
+}}
+
+Return a JSON array. If nothing qualifies, return [].
+Return ONLY a valid JSON array — no commentary.
+
+Search results:
+{combined_text}"""
+
+        response = client.messages.create(
+            model="claude-haiku-4-5-20251001",
+            max_tokens=3000,
+            messages=[{"role": "user", "content": prompt}],
+        )
+        _track_usage(response)
+        raw_text = response.content[0].text.strip()
+    except Exception as e:
+        logger.error(f"Claude role extraction failed: {e}")
+        return []
+
+    try:
+        clean = raw_text
+        if "```" in clean:
+            clean = clean.split("```")[1]
+            if clean.startswith("json"):
+                clean = clean[4:]
+        start = clean.find("[")
+        end = clean.rfind("]")
+        if start == -1 or end == -1:
+            logger.warning("Role scan: no JSON array in response")
+            return []
+        items = json.loads(clean[start:end + 1])
+    except json.JSONDecodeError as e:
+        logger.warning(f"Role scan JSON parse failed: {e}")
+        return []
+
+    signals = []
+    dedup_seen = set()
+    year_month = datetime.now().strftime("%Y_%m")
+
+    for item in items:
+        person_name = (item.get("person_name") or "").strip()
+        title = (item.get("title") or "").strip()
+        district = (item.get("district") or "").strip()
+        state = (item.get("state") or "").strip().upper()
+        if not person_name or not district or not state or len(state) != 2:
+            continue
+
+        nces_state = lookup_district_state(district)
+        if nces_state:
+            state = nces_state
+
+        # Person-level dedup: same person at same district in same month
+        norm_person = csv_importer.normalize_name(person_name)
+        norm_district = csv_importer.normalize_name(district)
+        dedup_key = (norm_person, norm_district, year_month)
+        if dedup_key in dedup_seen:
+            continue
+        dedup_seen.add(dedup_key)
+
+        in_territory = state in TERRITORY_STATES
+        cust_status = check_customer_status(district)
+        heat = compute_heat_score("hiring", 1, in_territory, cust_status)
+
+        headline = (item.get("headline") or f"{person_name}, {title} at {district}").strip()
+        msg_id = f"role_{norm_person}_{norm_district}_{year_month}"
+
+        signals.append({
+            "date": datetime.now().strftime("%Y-%m-%d"),
+            "source": "role_scan",
+            "source_detail": f"Serper — {title[:40]}",
+            "signal_type": "hiring",
+            "scope": "district",
+            "district": district,
+            "state": state,
+            "headline": headline[:200],
+            "dollar_amount": "",
+            "tier": 1,
+            "heat_score": heat,
+            "urgency": "routine",
+            "customer_status": cust_status,
+            "url": "",
+            "message_id": msg_id,
+        })
+
+    logger.info(f"Role scan: {len(signals)} CS/CTE/STEM leaders extracted "
+                f"({len(items)} raw, {len(items) - len(signals)} filtered/deduped)")
+    if progress_callback:
+        progress_callback(f"Role scan: {len(signals)} targets found")
+    return signals
+
+
+# ─────────────────────────────────────────────
+# CSTA CHAPTER PROSPECTING (#8) — Serper + Claude
+# ─────────────────────────────────────────────
+
+def scan_csta_chapters(states=None, progress_callback=None) -> list:
+    """
+    Scan for CSTA chapter leaders and active members in territory states.
+    Uses Serper + Claude Haiku. Returns list of signal dicts.
+    Cost: ~$1.20/scan (24 Serper queries + 1 Claude call).
+    """
+    if not SERPER_API_KEY:
+        logger.warning("SERPER_API_KEY not set — cannot scan CSTA chapters")
+        return []
+
+    import httpx
+
+    _load_nces_lookup()
+    _load_cross_references()
+
+    scan_states = states or list(TERRITORY_STATES)
+    all_snippets = []
+    seen_urls = set()
+
+    if progress_callback:
+        progress_callback(f"Searching {len(scan_states)} states for CSTA chapter leaders...")
+
+    for state_abbr in scan_states:
+        state_name = ABBR_TO_STATE_NAME.get(state_abbr, state_abbr)
+        queries = [
+            f'"CSTA" chapter "{state_name}" leader OR president OR board member school district',
+            f'"computer science teachers association" "{state_name}" conference OR workshop OR event school',
+        ]
+        for query in queries:
+            try:
+                resp = httpx.post(
+                    SERPER_URL,
+                    headers={"X-API-Key": SERPER_API_KEY, "Content-Type": "application/json"},
+                    json={"q": query, "num": 10, "tbs": "qdr:y"},
+                    timeout=15.0,
+                )
+                data = resp.json()
+                for item in data.get("organic", [])[:10]:
+                    url = item.get("link", "")
+                    if url and url not in seen_urls:
+                        seen_urls.add(url)
+                        all_snippets.append({
+                            "title": item.get("title", ""),
+                            "snippet": item.get("snippet", ""),
+                            "url": url,
+                            "searched_state": state_abbr,
+                        })
+                time.sleep(0.5)
+            except Exception as e:
+                logger.warning(f"Serper CSTA scan failed for {state_abbr}: {e}")
+
+    if not all_snippets:
+        logger.info("CSTA scan: no results found")
+        if progress_callback:
+            progress_callback("CSTA scan: no results found.")
+        return []
+
+    logger.info(f"CSTA scan: {len(all_snippets)} articles from {len(scan_states)} states")
+
+    combined_text = ""
+    for s in all_snippets:
+        combined_text += f"\n[{s['searched_state']}] {s['title']}\n{s['snippet']}\nURL: {s['url']}\n"
+    combined_text = combined_text[:12000]
+
+    if progress_callback:
+        progress_callback(f"Extracting CSTA members from {len(all_snippets)} articles...")
+
+    import anthropic
+    try:
+        client = anthropic.Anthropic(timeout=90.0)
+        prompt = f"""Extract CSTA (Computer Science Teachers Association) chapter leaders, board members, conference speakers, and active K-12 CS educators from these search results.
+
+INCLUDE:
+- CSTA state/regional chapter presidents, vice presidents, board members
+- CSTA conference speakers/presenters who work at K-12 school districts
+- Active CSTA members mentioned alongside their school district
+
+EXCLUDE:
+- University/college professors
+- People at non-education organizations
+- Generic CSTA news without specific people
+- National CSTA staff (not district-level)
+
+For each person:
+{{
+  "person_name": "Full name",
+  "role": "CSTA chapter role or school title",
+  "district": "School district name (if mentioned)",
+  "state": "2-letter state code",
+  "headline": "[person_name], [role] — CSTA [state] chapter"
+}}
+
+Return a JSON array. If nothing qualifies, return [].
+Return ONLY valid JSON — no commentary.
+
+Search results:
+{combined_text}"""
+
+        response = client.messages.create(
+            model="claude-haiku-4-5-20251001",
+            max_tokens=2000,
+            messages=[{"role": "user", "content": prompt}],
+        )
+        _track_usage(response)
+        raw_text = response.content[0].text.strip()
+    except Exception as e:
+        logger.error(f"Claude CSTA extraction failed: {e}")
+        return []
+
+    try:
+        clean = raw_text
+        if "```" in clean:
+            clean = clean.split("```")[1]
+            if clean.startswith("json"):
+                clean = clean[4:]
+        start = clean.find("[")
+        end = clean.rfind("]")
+        if start == -1 or end == -1:
+            return []
+        items = json.loads(clean[start:end + 1])
+    except json.JSONDecodeError:
+        return []
+
+    signals = []
+    dedup_seen = set()
+    year_month = datetime.now().strftime("%Y_%m")
+
+    for item in items:
+        person_name = (item.get("person_name") or "").strip()
+        state = (item.get("state") or "").strip().upper()
+        district = (item.get("district") or "").strip()
+        if not person_name or not state or len(state) != 2:
+            continue
+
+        norm_person = csv_importer.normalize_name(person_name)
+        dedup_key = (norm_person, state, year_month)
+        if dedup_key in dedup_seen:
+            continue
+        dedup_seen.add(dedup_key)
+
+        in_territory = state in TERRITORY_STATES
+        cust_status = check_customer_status(district) if district else "new"
+        heat = compute_heat_score("hiring", 2, in_territory, cust_status)
+
+        headline = (item.get("headline") or f"{person_name}, CSTA {state}").strip()
+        msg_id = f"csta_{norm_person}_{state}_{year_month}"
+
+        signals.append({
+            "date": datetime.now().strftime("%Y-%m-%d"),
+            "source": "csta_scan",
+            "source_detail": f"Serper — CSTA {state}",
+            "signal_type": "hiring",
+            "scope": "district" if district else "state",
+            "district": district,
+            "state": state,
+            "headline": headline[:200],
+            "dollar_amount": "",
+            "tier": 2,
+            "heat_score": heat,
+            "urgency": "routine",
+            "customer_status": cust_status,
+            "url": "",
+            "message_id": msg_id,
+        })
+
+    logger.info(f"CSTA scan: {len(signals)} chapter leaders/members extracted")
+    if progress_callback:
+        progress_callback(f"CSTA scan: {len(signals)} targets found")
+    return signals
+
+
+# ─────────────────────────────────────────────
 # RSS FEED INGESTION
 # ─────────────────────────────────────────────
 

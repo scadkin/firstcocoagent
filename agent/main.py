@@ -3113,6 +3113,58 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await send_message(f"Cybersecurity scan failed: {e}")
         return
 
+    elif user_text.lower().startswith("/signal_roles") or user_text.lower() in ["signal roles", "scan roles"]:
+        parts = user_text.strip().split()
+        state_arg = None
+        for p in parts[1:]:
+            if len(p) == 2 and p.upper().isalpha():
+                state_arg = [p.upper()]
+                break
+        await send_message("👤 Scanning for CS/CTE/STEM leaders (~$2.50, 48 Serper queries)...")
+        try:
+            loop = asyncio.get_event_loop()
+            role_signals = await loop.run_in_executor(
+                None, signal_processor.scan_role_targets, state_arg, None)
+            if role_signals:
+                write_result = await loop.run_in_executor(
+                    None, signal_processor.write_signals, role_signals)
+                lines = [f"👤 *Role Scan Complete* — {len(role_signals)} leaders found\n"]
+                for i, sig in enumerate(role_signals[:10], 1):
+                    headline = sig.get("headline", "")[:80]
+                    lines.append(f"  {i}. {headline}")
+                if len(role_signals) > 10:
+                    lines.append(f"\n  ... and {len(role_signals) - 10} more")
+                lines.append(f"\nWritten: {write_result['written']} | Deduped: {write_result['skipped']}")
+                await send_message("\n".join(lines))
+            else:
+                await send_message("No CS/CTE/STEM leaders found.")
+        except Exception as e:
+            await send_message(f"Role scan failed: {e}")
+        return
+
+    elif user_text.lower() in ["/signal_csta", "signal csta", "scan csta"]:
+        await send_message("🎓 Scanning for CSTA chapter leaders (~$1.20)...")
+        try:
+            loop = asyncio.get_event_loop()
+            csta_signals = await loop.run_in_executor(
+                None, signal_processor.scan_csta_chapters, None, None)
+            if csta_signals:
+                write_result = await loop.run_in_executor(
+                    None, signal_processor.write_signals, csta_signals)
+                lines = [f"🎓 *CSTA Scan Complete* — {len(csta_signals)} members found\n"]
+                for i, sig in enumerate(csta_signals[:10], 1):
+                    headline = sig.get("headline", "")[:80]
+                    lines.append(f"  {i}. {headline}")
+                if len(csta_signals) > 10:
+                    lines.append(f"\n  ... and {len(csta_signals) - 10} more")
+                lines.append(f"\nWritten: {write_result['written']} | Deduped: {write_result['skipped']}")
+                await send_message("\n".join(lines))
+            else:
+                await send_message("No CSTA chapter members found.")
+        except Exception as e:
+            await send_message(f"CSTA scan failed: {e}")
+        return
+
     elif user_text.lower() in ["/signal_scan", "signal scan", "scan signals"]:
         await send_message("📬 Starting signal scan... This may take a few minutes.")
         try:
