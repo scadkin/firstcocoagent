@@ -2517,10 +2517,17 @@ def find_lookalike_districts(state: str = "", max_results: int = 25,
 
         candidates = []
         total_candidates = 0
+        # Agency Type can be stored as numeric code ("1") or full text ("Regular local school district")
+        _VALID_AGENCY_TYPES = {
+            "1", "2", "7", "9",
+            "Regular local school district",
+            "Local school district (component of supervisory union)",
+            "Charter school agency",
+            "Specialized public school district",
+        }
         for d in districts:
-            # Only regular districts (Agency Type 1, 2, 7, 9)
             agency_type = str(d.get("Agency Type", ""))
-            if agency_type not in ("1", "2", "7", "9"):
+            if agency_type not in _VALID_AGENCY_TYPES:
                 continue
 
             name_key = d.get("Name Key", "")
