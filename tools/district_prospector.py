@@ -2744,6 +2744,25 @@ def scan_sequence_for_reengagement(sequence_id, segment="engaged",
 
         excluded_keys = active_keys | prospect_keys | pipeline_keys
 
+        # International TLDs to exclude
+        _INTL_TLDS = (
+            ".ca", ".uk", ".au", ".nz", ".in", ".za", ".ng", ".ke", ".gh",
+            ".ph", ".sg", ".my", ".hk", ".jp", ".kr", ".tw", ".br", ".mx",
+            ".co", ".cl", ".ar", ".de", ".fr", ".es", ".it", ".nl", ".se",
+            ".no", ".dk", ".fi", ".ie", ".be", ".at", ".ch", ".pt", ".pl",
+            ".cz", ".hu", ".ro", ".bg", ".hr", ".rs", ".ae", ".sa", ".qa",
+            ".eg", ".pk", ".bd", ".lk", ".th", ".vn", ".id",
+        )
+        _INTL_EDU_TLDS = (
+            ".edu.cl", ".edu.au", ".edu.uk", ".edu.sg", ".edu.hk", ".edu.ph",
+            ".edu.my", ".edu.in", ".edu.pk", ".edu.ng", ".edu.za",
+            ".ac.uk", ".ac.nz", ".ac.jp", ".ac.kr", ".ac.in", ".ac.za",
+            ".gc.ca", ".on.ca", ".bc.ca", ".ab.ca", ".qc.ca",
+        )
+
+        # NCES district→state lookup for territory filtering
+        import tools.signal_processor as signal_processor
+
         # Process prospects
         all_candidates = []
         segment_counts = {"engaged": 0, "lurker": 0, "ghost": 0}
@@ -2767,16 +2786,28 @@ def scan_sequence_for_reengagement(sequence_id, segment="engaged",
             if not company and not email:
                 continue
 
+            # Exclude international emails
+            if email and "@" in email:
+                domain = email.split("@")[1].lower()
+                if any(domain.endswith(tld) for tld in _INTL_EDU_TLDS):
+                    continue
+                if any(domain.endswith(tld) for tld in _INTL_TLDS):
+                    continue
+
             name_key = csv_importer.normalize_name(company) if company else ""
 
             # Skip known
             if name_key and name_key in excluded_keys:
                 continue
 
-            # Territory check
+            # Territory check: NCES lookup on company name, then email domain patterns
             state_code = ""
-            if email and "@" in email:
+            if company:
+                state_code = signal_processor.lookup_district_state(company)
+
+            if not state_code and email and "@" in email:
                 domain = email.split("@")[1].lower()
+                # k12.STATE.us pattern
                 if ".k12." in domain:
                     parts = domain.split(".")
                     for i, p in enumerate(parts):
@@ -2785,7 +2816,16 @@ def scan_sequence_for_reengagement(sequence_id, segment="engaged",
                             if len(st) == 2:
                                 state_code = st
                                 break
-            if state_code and state_code not in _TERRITORY_STATES:
+                # .gov state domains
+                elif ".gov" in domain:
+                    parts = domain.split(".")
+                    for p in parts:
+                        if len(p) == 2 and p.upper() in _TERRITORY_STATES:
+                            state_code = p.upper()
+                            break
+
+            # Must be in territory — skip if unknown or out-of-territory
+            if not state_code or state_code not in _TERRITORY_STATES:
                 continue
 
             # Segment
