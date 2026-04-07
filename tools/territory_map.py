@@ -63,6 +63,13 @@ def generate_territory_map(state_filter: str = "") -> str:
     districts = territory_data._load_territory_districts(state_filter)
     logger.info(f"Territory districts: {len(districts)}")
 
+    # ── Build NCES lookup for enriching popups ──
+    nces_by_key = {}
+    for d in districts:
+        key = d.get("Name Key", "")
+        if key:
+            nces_by_key[key] = d
+
     # ── Build lookup sets for classification ──
     active_keys = set()
     for acc in active_accounts:
@@ -126,13 +133,19 @@ def generate_territory_map(state_filter: str = "") -> str:
         name = d.get("District Name", "Unknown")
         state = d.get("State", "")
         enrollment = d.get("Enrollment", "")
+        school_count = d.get("School Count", "")
+        city = d.get("City", "")
         agency_type = d.get("Agency Type", "")
 
         # ESAs get their own layer
         if str(agency_type) == "4":
             continue
 
-        popup_html = f"<b>{name}</b><br>{state} | Enrollment: {enrollment}"
+        enroll_str = f"{int(enrollment):,}" if enrollment and str(enrollment).isdigit() else (enrollment or "—")
+        popup_html = (f"<b>{name}</b><br>"
+                     f"{city + ', ' if city else ''}{state}<br>"
+                     f"Enrollment: {enroll_str}"
+                     f"{f' | Schools: {school_count}' if school_count else ''}")
         folium.CircleMarker(
             location=[lat, lon],
             radius=3,
@@ -163,7 +176,10 @@ def generate_territory_map(state_filter: str = "") -> str:
 
         name = d.get("District Name", "Unknown")
         state = d.get("State", "")
-        popup_html = f"<b>{name}</b><br>{state} | ESA/Service Center"
+        city = d.get("City", "")
+        popup_html = (f"<b>{name}</b><br>"
+                     f"{city + ', ' if city else ''}{state}<br>"
+                     f"ESA / Service Center")
         folium.Marker(
             location=[lat, lon],
             popup=folium.Popup(popup_html, max_width=250),
@@ -187,8 +203,21 @@ def generate_territory_map(state_filter: str = "") -> str:
         state = p.get("State", "")
         strategy = p.get("Strategy", "")
         status = p.get("Status", "")
-        popup_html = (f"<b>{name}</b><br>{state} | Strategy: {strategy}<br>"
-                     f"Status: {status}")
+        priority = p.get("Priority", "")
+        est_enrollment = p.get("Est. Enrollment", "")
+        # Enrich from NCES
+        nces = nces_by_key.get(name_key, {})
+        enrollment = est_enrollment or nces.get("Enrollment", "")
+        enroll_str = f"{int(enrollment):,}" if enrollment and str(enrollment).isdigit() else ""
+        school_count = nces.get("School Count", "")
+
+        popup_parts = [f"<b>{name}</b>", f"{state} | {strategy}"]
+        if enroll_str:
+            popup_parts.append(f"Enrollment: {enroll_str}")
+        if school_count:
+            popup_parts[-1] += f" | Schools: {school_count}"
+        popup_parts.append(f"Status: {status}" + (f" | Priority: {priority}" if priority else ""))
+        popup_html = "<br>".join(popup_parts)
         folium.Marker(
             location=[matched["lat"], matched["lon"]],
             popup=folium.Popup(popup_html, max_width=250),
@@ -210,8 +239,22 @@ def generate_territory_map(state_filter: str = "") -> str:
         name = opp.get("Account Name", "Unknown")
         stage = opp.get("Stage", "")
         amount = opp.get("Amount", "")
-        popup_html = (f"<b>{name}</b><br>Stage: {stage}<br>"
-                     f"Amount: {amount}")
+        close_date = opp.get("Close Date", "")
+        opp_name = opp.get("Opportunity Name", "")
+        # Enrich from NCES
+        nces = nces_by_key.get(name_key, {})
+        enrollment = nces.get("Enrollment", "")
+        enroll_str = f"{int(enrollment):,}" if enrollment and str(enrollment).isdigit() else ""
+
+        popup_parts = [f"<b>{name}</b>"]
+        if opp_name:
+            popup_parts.append(f"<i>{opp_name}</i>")
+        popup_parts.append(f"Stage: {stage}" + (f" | {amount}" if amount else ""))
+        if close_date:
+            popup_parts.append(f"Close: {close_date}")
+        if enroll_str:
+            popup_parts.append(f"Enrollment: {enroll_str}")
+        popup_html = "<br>".join(popup_parts)
         folium.Marker(
             location=[matched["lat"], matched["lon"]],
             popup=folium.Popup(popup_html, max_width=250),
@@ -234,7 +277,28 @@ def generate_territory_map(state_filter: str = "") -> str:
         name = acc.get("Active Account Name", "") or acc.get("Display Name", "Unknown")
         state = acc.get("State", "")
         acc_type = acc.get("Account Type", "")
-        popup_html = f"<b>{name}</b><br>{state} | Type: {acc_type}"
+        licenses = acc.get("Active Licenses", "")
+        revenue = acc.get("Lifetime Revenue", "")
+        open_renewal = acc.get("Open Renewal", "")
+        # Enrich from NCES
+        nces = nces_by_key.get(name_key, {})
+        enrollment = nces.get("Enrollment", "")
+        enroll_str = f"{int(enrollment):,}" if enrollment and str(enrollment).isdigit() else ""
+        school_count = nces.get("School Count", "")
+
+        popup_parts = [f"<b>{name}</b>", f"{state} | {acc_type}"]
+        if licenses:
+            popup_parts.append(f"Licenses: {licenses}")
+        if enroll_str:
+            line = f"Enrollment: {enroll_str}"
+            if school_count:
+                line += f" | Schools: {school_count}"
+            popup_parts.append(line)
+        if revenue:
+            popup_parts.append(f"Lifetime Rev: {revenue}")
+        if open_renewal:
+            popup_parts.append(f"Open Renewal: {open_renewal}")
+        popup_html = "<br>".join(popup_parts)
         folium.Marker(
             location=[matched["lat"], matched["lon"]],
             popup=folium.Popup(popup_html, max_width=250),

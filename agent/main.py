@@ -2950,6 +2950,110 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await send_message(f"Legislative scan failed: {e}")
         return
 
+    elif user_text.lower() in ["/signal_grants", "signal grants", "scan grants"]:
+        await send_message("💰 Scanning for CS/STEM grant-funded districts...")
+        try:
+            loop = asyncio.get_event_loop()
+            grant_signals = await loop.run_in_executor(
+                None, signal_processor.scan_grant_opportunities, None, None)
+            if grant_signals:
+                write_result = await loop.run_in_executor(
+                    None, signal_processor.write_signals, grant_signals)
+                lines = [f"💰 *Grant Scan Complete* — {len(grant_signals)} signals found\n"]
+                for i, sig in enumerate(grant_signals[:10], 1):
+                    dist = sig.get("district", "")
+                    state = sig.get("state", "")
+                    headline = sig.get("headline", "")[:80]
+                    dollar = sig.get("dollar_amount", "")
+                    amount_tag = f" {dollar}" if dollar else ""
+                    lines.append(f"  {i}. {dist} ({state}){amount_tag} — {headline}")
+                if len(grant_signals) > 10:
+                    lines.append(f"\n  ... and {len(grant_signals) - 10} more")
+                lines.append(f"\nWritten: {write_result['written']} | Deduped: {write_result['skipped']}")
+                await send_message("\n".join(lines))
+            else:
+                await send_message("No CS/STEM grant signals found.")
+        except Exception as e:
+            await send_message(f"Grant scan failed: {e}")
+        return
+
+    elif user_text.lower() in ["/signal_budget", "signal budget", "scan budget"]:
+        await send_message("📊 Scanning for CS/STEM budget and procurement signals...")
+        try:
+            loop = asyncio.get_event_loop()
+            budget_signals = await loop.run_in_executor(
+                None, signal_processor.scan_budget_cycle_signals, None, None)
+            if budget_signals:
+                write_result = await loop.run_in_executor(
+                    None, signal_processor.write_signals, budget_signals)
+                lines = [f"📊 *Budget Scan Complete* — {len(budget_signals)} signals found\n"]
+                for i, sig in enumerate(budget_signals[:10], 1):
+                    dist = sig.get("district", "")
+                    state = sig.get("state", "")
+                    headline = sig.get("headline", "")[:80]
+                    dollar = sig.get("dollar_amount", "")
+                    amount_tag = f" {dollar}" if dollar else ""
+                    lines.append(f"  {i}. {dist} ({state}){amount_tag} — {headline}")
+                if len(budget_signals) > 10:
+                    lines.append(f"\n  ... and {len(budget_signals) - 10} more")
+                lines.append(f"\nWritten: {write_result['written']} | Deduped: {write_result['skipped']}")
+                await send_message("\n".join(lines))
+            else:
+                await send_message("No CS/STEM budget/procurement signals found.")
+        except Exception as e:
+            await send_message(f"Budget scan failed: {e}")
+        return
+
+    elif user_text.lower() in ["/signal_algebra", "signal algebra", "scan algebra"]:
+        await send_message("🔢 Scanning for math/algebra curriculum targets (AI Algebra campaign)...")
+        try:
+            loop = asyncio.get_event_loop()
+            alg_signals = await loop.run_in_executor(
+                None, signal_processor.scan_algebra_targets, None, None)
+            if alg_signals:
+                write_result = await loop.run_in_executor(
+                    None, signal_processor.write_signals, alg_signals)
+                lines = [f"🔢 *AI Algebra Campaign Scan* — {len(alg_signals)} targets found\n"]
+                for i, sig in enumerate(alg_signals[:10], 1):
+                    dist = sig.get("district", "")
+                    state = sig.get("state", "")
+                    headline = sig.get("headline", "")[:80]
+                    lines.append(f"  {i}. {dist} ({state}) — {headline}")
+                if len(alg_signals) > 10:
+                    lines.append(f"\n  ... and {len(alg_signals) - 10} more")
+                lines.append(f"\nWritten: {write_result['written']} | Deduped: {write_result['skipped']}")
+                await send_message("\n".join(lines))
+            else:
+                await send_message("No math/algebra curriculum targets found.")
+        except Exception as e:
+            await send_message(f"Algebra scan failed: {e}")
+        return
+
+    elif user_text.lower() in ["/signal_cyber", "signal cyber", "scan cybersecurity"]:
+        await send_message("🛡️ Scanning for CTE cybersecurity program targets (pre-launch pipeline)...")
+        try:
+            loop = asyncio.get_event_loop()
+            cyber_signals = await loop.run_in_executor(
+                None, signal_processor.scan_cybersecurity_targets, None, None)
+            if cyber_signals:
+                write_result = await loop.run_in_executor(
+                    None, signal_processor.write_signals, cyber_signals)
+                lines = [f"🛡️ *Cybersecurity Campaign Scan* — {len(cyber_signals)} targets found\n"]
+                for i, sig in enumerate(cyber_signals[:10], 1):
+                    dist = sig.get("district", "")
+                    state = sig.get("state", "")
+                    headline = sig.get("headline", "")[:80]
+                    lines.append(f"  {i}. {dist} ({state}) — {headline}")
+                if len(cyber_signals) > 10:
+                    lines.append(f"\n  ... and {len(cyber_signals) - 10} more")
+                lines.append(f"\nWritten: {write_result['written']} | Deduped: {write_result['skipped']}")
+                await send_message("\n".join(lines))
+            else:
+                await send_message("No CTE cybersecurity program targets found.")
+        except Exception as e:
+            await send_message(f"Cybersecurity scan failed: {e}")
+        return
+
     elif user_text.lower() in ["/signal_scan", "signal scan", "scan signals"]:
         await send_message("📬 Starting signal scan... This may take a few minutes.")
         try:
@@ -3297,6 +3401,52 @@ async def _run_legislative_scan():
         logger.error(f"Monthly legislative scan failed: {e}")
 
 
+async def _run_grant_scan():
+    """Scheduled monthly grant opportunity scan — first Monday of month at 8:45 AM CST."""
+    try:
+        loop = asyncio.get_event_loop()
+        signals = await loop.run_in_executor(
+            None, signal_processor.scan_grant_opportunities, None, None)
+        if signals:
+            write_result = await loop.run_in_executor(
+                None, signal_processor.write_signals, signals)
+            lines = [f"💰 *Monthly Grant Scan* — {len(signals)} signals found\n"]
+            for i, sig in enumerate(signals[:10], 1):
+                dist = sig.get("district", "")
+                state = sig.get("state", "")
+                headline = sig.get("headline", "")[:80]
+                lines.append(f"  {i}. {dist} ({state}) — {headline}")
+            lines.append(f"\nWritten: {write_result['written']} | Deduped: {write_result['skipped']}")
+            await send_message("\n".join(lines))
+        else:
+            logger.info("Monthly grant scan: no signals found")
+    except Exception as e:
+        logger.error(f"Monthly grant scan failed: {e}")
+
+
+async def _run_budget_scan():
+    """Scheduled monthly budget cycle scan — first Monday of month at 9:00 AM CST."""
+    try:
+        loop = asyncio.get_event_loop()
+        signals = await loop.run_in_executor(
+            None, signal_processor.scan_budget_cycle_signals, None, None)
+        if signals:
+            write_result = await loop.run_in_executor(
+                None, signal_processor.write_signals, signals)
+            lines = [f"📊 *Monthly Budget Scan* — {len(signals)} signals found\n"]
+            for i, sig in enumerate(signals[:10], 1):
+                dist = sig.get("district", "")
+                state = sig.get("state", "")
+                headline = sig.get("headline", "")[:80]
+                lines.append(f"  {i}. {dist} ({state}) — {headline}")
+            lines.append(f"\nWritten: {write_result['written']} | Deduped: {write_result['skipped']}")
+            await send_message("\n".join(lines))
+        else:
+            logger.info("Monthly budget scan: no signals found")
+    except Exception as e:
+        logger.error(f"Monthly budget scan failed: {e}")
+
+
 async def send_eod_report():
     try:
         with open("prompts/eod_report.md", "r") as f:
@@ -3630,6 +3780,10 @@ async def _run_telegram_and_scheduler():
                 asyncio.create_task(_run_rfp_scan())
             elif sched_event == "legislative_scan":
                 asyncio.create_task(_run_legislative_scan())
+            elif sched_event == "grant_scan":
+                asyncio.create_task(_run_grant_scan())
+            elif sched_event == "budget_scan":
+                asyncio.create_task(_run_budget_scan())
             if gas and FIREFLIES_API_KEY:
                 asyncio.create_task(_check_precall_briefs(gas))
                 now_ts = time.time()

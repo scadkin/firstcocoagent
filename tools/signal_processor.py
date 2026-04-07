@@ -2625,6 +2625,783 @@ Search results:
 
 
 # ─────────────────────────────────────────────
+# GRANT-FUNDED PROSPECTING SCANNER (Serper + Claude)
+# ─────────────────────────────────────────────
+
+def scan_grant_opportunities(states=None, progress_callback=None) -> list:
+    """
+    Scan for K-12 districts that received or are applying for CS/STEM/CTE grants.
+    Targets: Title IV-A, Perkins V (CTE), state STEM grants, NSF awards, private foundation grants.
+    Uses Serper + Claude Haiku. Returns list of signal dicts. Cost: ~$0.03/scan.
+    """
+    if not SERPER_API_KEY:
+        logger.warning("SERPER_API_KEY not set — cannot scan grants")
+        return []
+
+    import httpx
+
+    _load_nces_lookup()
+    _load_cross_references()
+
+    scan_states = states or list(TERRITORY_STATES)
+    all_snippets = []
+    seen_urls = set()
+
+    if progress_callback:
+        progress_callback(f"Searching {len(scan_states)} states for STEM/CS grant awards...")
+
+    for state_abbr in scan_states:
+        state_name = ABBR_TO_STATE_NAME.get(state_abbr, state_abbr)
+        queries = [
+            f'"grant" ("awarded" OR "received" OR "funded") ("computer science" OR "STEM" OR "CTE") school district "{state_name}"',
+            f'("Title IV" OR "Perkins" OR "STEM grant" OR "CTE grant") school district "{state_name}" 2026',
+        ]
+        for query in queries:
+            try:
+                resp = httpx.post(
+                    SERPER_URL,
+                    headers={"X-API-Key": SERPER_API_KEY, "Content-Type": "application/json"},
+                    json={"q": query, "num": 10, "tbs": "qdr:m"},
+                    timeout=15.0,
+                )
+                data = resp.json()
+                for item in data.get("organic", [])[:10]:
+                    url = item.get("link", "")
+                    if url and url not in seen_urls:
+                        seen_urls.add(url)
+                        all_snippets.append({
+                            "title": item.get("title", ""),
+                            "snippet": item.get("snippet", ""),
+                            "url": url,
+                            "searched_state": state_abbr,
+                        })
+                time.sleep(0.5)
+            except Exception as e:
+                logger.warning(f"Serper grant scan failed for {state_abbr}: {e}")
+
+    if not all_snippets:
+        logger.info("Grant scan: no results found")
+        if progress_callback:
+            progress_callback("Grant scan: no results found.")
+        return []
+
+    logger.info(f"Grant scan: {len(all_snippets)} articles from {len(scan_states)} states")
+
+    # Build combined text for Claude
+    combined_text = ""
+    for s in all_snippets:
+        combined_text += f"\n[{s['searched_state']}] {s['title']}\n{s['snippet']}\nURL: {s['url']}\n"
+    combined_text = combined_text[:12000]
+
+    if progress_callback:
+        progress_callback(f"Extracting grant signals from {len(all_snippets)} articles...")
+
+    # Claude Haiku extraction
+    import anthropic
+    try:
+        client = anthropic.Anthropic(timeout=90.0)
+        prompt = f"""Extract K-12 school district grant awards and funding relevant to CS/STEM/CTE curriculum from these search results.
+
+INCLUDE only:
+- Districts receiving grants for computer science, coding, STEM, CTE, or technology curriculum
+- Title IV-A well-rounded education grants used for CS/STEM
+- Perkins V CTE grants for CS/tech pathways
+- State STEM/CS education grants
+- NSF or private foundation grants for K-12 CS/STEM programs
+- Districts announcing they will USE grant funds for CS/STEM/CTE
+
+EXCLUDE:
+- Construction/facilities grants (even if labeled "STEM building")
+- Device/hardware-only grants (1:1 laptop, Chromebook)
+- Generic education grants not specific to CS/STEM/CTE
+- Grants to colleges or universities
+- Grants for non-education entities
+- E-Rate (telecom/internet infrastructure)
+
+Return a JSON array. Each item:
+{{
+  "district": "Exact district name",
+  "state": "2-letter state code",
+  "grant_type": "Title IV-A | Perkins V | state_stem | nsf | private_foundation | other",
+  "dollar_amount": "$X,XXX or empty string if unknown",
+  "what_its_for": "1 sentence: what the grant funds",
+  "headline": "Grant: [district] receives [amount] for [purpose]"
+}}
+
+If nothing qualifies after filtering, return [].
+Return ONLY a valid JSON array — no commentary.
+
+Search results:
+{combined_text}"""
+
+        response = client.messages.create(
+            model="claude-haiku-4-5-20251001",
+            max_tokens=2000,
+            messages=[{"role": "user", "content": prompt}],
+        )
+        _track_usage(response)
+        raw_text = response.content[0].text.strip()
+    except Exception as e:
+        logger.error(f"Claude grant extraction failed: {e}")
+        return []
+
+    # Parse JSON
+    try:
+        clean = raw_text
+        if "```" in clean:
+            clean = clean.split("```")[1]
+            if clean.startswith("json"):
+                clean = clean[4:]
+        start = clean.find("[")
+        end = clean.rfind("]")
+        if start == -1 or end == -1:
+            logger.warning("Grant scan: no JSON array in response")
+            return []
+        items = json.loads(clean[start:end + 1])
+    except json.JSONDecodeError as e:
+        logger.warning(f"Grant scan JSON parse failed: {e}")
+        return []
+
+    # Post-process: validate, dedup, build signals
+    signals = []
+    dedup_seen = set()
+    year_month = datetime.now().strftime("%Y_%m")
+
+    for item in items:
+        district = (item.get("district") or "").strip()
+        state = (item.get("state") or "").strip().upper()
+        if not district or not state or len(state) != 2:
+            continue
+
+        # NCES validation
+        nces_state = lookup_district_state(district)
+        if nces_state:
+            state = nces_state
+
+        # Dedup by district + grant type
+        norm_district = csv_importer.normalize_name(district)
+        grant_type = (item.get("grant_type") or "other").strip().lower()
+        dedup_key = (norm_district, grant_type)
+        if dedup_key in dedup_seen:
+            continue
+        dedup_seen.add(dedup_key)
+
+        in_territory = state in TERRITORY_STATES
+        cust_status = check_customer_status(district)
+        heat = compute_heat_score("grant", 1, in_territory, cust_status)
+
+        headline = (item.get("headline") or f"Grant: {district} ({state})").strip()
+        dollar = (item.get("dollar_amount") or "").strip()
+        msg_id = f"grant_{norm_district}_{grant_type}_{year_month}"
+
+        signals.append({
+            "date": datetime.now().strftime("%Y-%m-%d"),
+            "source": "grant_scan",
+            "source_detail": f"Serper — {grant_type}",
+            "signal_type": "grant",
+            "scope": "district",
+            "district": district,
+            "state": state,
+            "headline": headline[:200],
+            "dollar_amount": dollar,
+            "tier": 1,
+            "heat_score": heat,
+            "urgency": "time_sensitive",
+            "customer_status": cust_status,
+            "url": "",
+            "message_id": msg_id,
+        })
+
+    logger.info(f"Grant scan: {len(signals)} CS/STEM grant signals extracted "
+                f"({len(items)} raw, {len(items) - len(signals)} filtered/deduped)")
+    if progress_callback:
+        progress_callback(f"Grant scan: {len(signals)} signals found")
+    return signals
+
+
+# ─────────────────────────────────────────────
+# BUDGET CYCLE TARGETING SCANNER (Serper + Claude)
+# ─────────────────────────────────────────────
+
+def scan_budget_cycle_signals(states=None, progress_callback=None) -> list:
+    """
+    Scan for K-12 districts in active budget/procurement cycles for CS/STEM/CTE.
+    Targets: budget approvals, curriculum adoption cycles, technology refresh plans,
+    board-approved spending for CS/STEM programs.
+    Uses Serper + Claude Haiku. Returns list of signal dicts. Cost: ~$0.03/scan.
+    """
+    if not SERPER_API_KEY:
+        logger.warning("SERPER_API_KEY not set — cannot scan budget cycles")
+        return []
+
+    import httpx
+
+    _load_nces_lookup()
+    _load_cross_references()
+
+    scan_states = states or list(TERRITORY_STATES)
+    all_snippets = []
+    seen_urls = set()
+
+    if progress_callback:
+        progress_callback(f"Searching {len(scan_states)} states for budget/procurement signals...")
+
+    for state_abbr in scan_states:
+        state_name = ABBR_TO_STATE_NAME.get(state_abbr, state_abbr)
+        queries = [
+            f'"budget" ("approved" OR "adopted" OR "proposed") ("computer science" OR "STEM" OR "CTE" OR "technology") school district "{state_name}" 2026',
+            f'("curriculum adoption" OR "technology plan" OR "procurement" OR "technology refresh") ("CS" OR "STEM" OR "CTE" OR "coding") school district "{state_name}"',
+        ]
+        for query in queries:
+            try:
+                resp = httpx.post(
+                    SERPER_URL,
+                    headers={"X-API-Key": SERPER_API_KEY, "Content-Type": "application/json"},
+                    json={"q": query, "num": 10, "tbs": "qdr:m"},
+                    timeout=15.0,
+                )
+                data = resp.json()
+                for item in data.get("organic", [])[:10]:
+                    url = item.get("link", "")
+                    if url and url not in seen_urls:
+                        seen_urls.add(url)
+                        all_snippets.append({
+                            "title": item.get("title", ""),
+                            "snippet": item.get("snippet", ""),
+                            "url": url,
+                            "searched_state": state_abbr,
+                        })
+                time.sleep(0.5)
+            except Exception as e:
+                logger.warning(f"Serper budget scan failed for {state_abbr}: {e}")
+
+    if not all_snippets:
+        logger.info("Budget scan: no results found")
+        if progress_callback:
+            progress_callback("Budget scan: no results found.")
+        return []
+
+    logger.info(f"Budget scan: {len(all_snippets)} articles from {len(scan_states)} states")
+
+    # Build combined text for Claude
+    combined_text = ""
+    for s in all_snippets:
+        combined_text += f"\n[{s['searched_state']}] {s['title']}\n{s['snippet']}\nURL: {s['url']}\n"
+    combined_text = combined_text[:12000]
+
+    if progress_callback:
+        progress_callback(f"Extracting budget signals from {len(all_snippets)} articles...")
+
+    # Claude Haiku extraction
+    import anthropic
+    try:
+        client = anthropic.Anthropic(timeout=90.0)
+        prompt = f"""Extract K-12 school district budget and procurement signals relevant to CS/STEM/CTE curriculum purchasing from these search results.
+
+INCLUDE only:
+- Districts approving budgets that include CS/STEM/CTE curriculum spending
+- Districts in curriculum adoption cycles for computer science, STEM, or CTE
+- Technology refresh/replacement plans that include instructional software
+- Board-approved spending for CS/STEM/CTE programs or professional development
+- Districts announcing they are evaluating or selecting CS/STEM curriculum vendors
+
+EXCLUDE:
+- General budget news without CS/STEM/CTE specifics
+- Construction/facilities budgets (even if "STEM building")
+- Device-only purchases (laptops, Chromebooks, hardware)
+- ERP/payroll/admin system purchases
+- Assessment platform purchases
+- LMS/SIS purchases
+- Budget cuts or layoffs (unless reallocating TO CS/STEM)
+
+Return a JSON array. Each item:
+{{
+  "district": "Exact district name",
+  "state": "2-letter state code",
+  "budget_signal": "budget_approved | curriculum_adoption | tech_plan | procurement | vendor_evaluation",
+  "dollar_amount": "$X,XXX or empty string if unknown",
+  "timeline": "FY2026 | Spring 2026 | Fall 2026 | unknown",
+  "what_theyre_buying": "1 sentence: what CS/STEM/CTE they are buying or planning to buy",
+  "headline": "[district]: [budget signal summary]"
+}}
+
+If nothing qualifies after filtering, return [].
+Return ONLY a valid JSON array — no commentary.
+
+Search results:
+{combined_text}"""
+
+        response = client.messages.create(
+            model="claude-haiku-4-5-20251001",
+            max_tokens=2000,
+            messages=[{"role": "user", "content": prompt}],
+        )
+        _track_usage(response)
+        raw_text = response.content[0].text.strip()
+    except Exception as e:
+        logger.error(f"Claude budget extraction failed: {e}")
+        return []
+
+    # Parse JSON
+    try:
+        clean = raw_text
+        if "```" in clean:
+            clean = clean.split("```")[1]
+            if clean.startswith("json"):
+                clean = clean[4:]
+        start = clean.find("[")
+        end = clean.rfind("]")
+        if start == -1 or end == -1:
+            logger.warning("Budget scan: no JSON array in response")
+            return []
+        items = json.loads(clean[start:end + 1])
+    except json.JSONDecodeError as e:
+        logger.warning(f"Budget scan JSON parse failed: {e}")
+        return []
+
+    # Post-process: validate, dedup, build signals
+    signals = []
+    dedup_seen = set()
+    year_month = datetime.now().strftime("%Y_%m")
+
+    for item in items:
+        district = (item.get("district") or "").strip()
+        state = (item.get("state") or "").strip().upper()
+        if not district or not state or len(state) != 2:
+            continue
+
+        # NCES validation
+        nces_state = lookup_district_state(district)
+        if nces_state:
+            state = nces_state
+
+        # Dedup by district
+        norm_district = csv_importer.normalize_name(district)
+        if norm_district in dedup_seen:
+            continue
+        dedup_seen.add(norm_district)
+
+        in_territory = state in TERRITORY_STATES
+        cust_status = check_customer_status(district)
+
+        # Budget signals use "technology" weight — districts actively spending
+        heat = compute_heat_score("technology", 1, in_territory, cust_status)
+        # Boost for vendor evaluation (hottest signal — actively shopping)
+        budget_signal = (item.get("budget_signal") or "").strip().lower()
+        if budget_signal in ("vendor_evaluation", "procurement"):
+            heat = min(heat + 10, 100)
+
+        headline = (item.get("headline") or f"{district}: budget signal").strip()
+        dollar = (item.get("dollar_amount") or "").strip()
+        timeline = (item.get("timeline") or "").strip()
+        if timeline and timeline != "unknown":
+            headline = f"{headline} ({timeline})"
+
+        msg_id = f"budget_{norm_district}_{year_month}"
+
+        signals.append({
+            "date": datetime.now().strftime("%Y-%m-%d"),
+            "source": "budget_scan",
+            "source_detail": f"Serper — {budget_signal or 'budget'}",
+            "signal_type": "technology",  # Closest existing type for budget/procurement
+            "scope": "district",
+            "district": district,
+            "state": state,
+            "headline": headline[:200],
+            "dollar_amount": dollar,
+            "tier": 1,
+            "heat_score": heat,
+            "urgency": "time_sensitive",
+            "customer_status": cust_status,
+            "url": "",
+            "message_id": msg_id,
+        })
+
+    logger.info(f"Budget scan: {len(signals)} CS/STEM budget signals extracted "
+                f"({len(items)} raw, {len(items) - len(signals)} filtered/deduped)")
+    if progress_callback:
+        progress_callback(f"Budget scan: {len(signals)} signals found")
+    return signals
+
+
+# ─────────────────────────────────────────────
+# AI ALGEBRA CAMPAIGN SCANNER (Serper + Claude)
+# ─────────────────────────────────────────────
+
+def scan_algebra_targets(states=None, progress_callback=None) -> list:
+    """
+    Scan for K-12 districts actively seeking math/algebra technology or curriculum.
+    Targets for the AI Algebra product (launched via AI Hackstack).
+    Uses Serper + Claude Haiku. Returns list of signal dicts. Cost: ~$0.03/scan.
+    """
+    if not SERPER_API_KEY:
+        logger.warning("SERPER_API_KEY not set — cannot scan algebra targets")
+        return []
+
+    import httpx
+
+    _load_nces_lookup()
+    _load_cross_references()
+
+    scan_states = states or list(TERRITORY_STATES)
+    all_snippets = []
+    seen_urls = set()
+
+    if progress_callback:
+        progress_callback(f"Searching {len(scan_states)} states for math/algebra curriculum signals...")
+
+    for state_abbr in scan_states:
+        state_name = ABBR_TO_STATE_NAME.get(state_abbr, state_abbr)
+        queries = [
+            f'("math curriculum" OR "algebra curriculum") ("adoption" OR "pilot" OR "evaluate" OR "implement") school district "{state_name}" 2026',
+            f'("math technology" OR "adaptive math" OR "game-based math" OR "math intervention") K-12 school district "{state_name}"',
+            f'("algebra" OR "mathematics") ("RFP" OR "request for proposal" OR "technology pilot") school district "{state_name}"',
+        ]
+        for query in queries:
+            try:
+                resp = httpx.post(
+                    SERPER_URL,
+                    headers={"X-API-Key": SERPER_API_KEY, "Content-Type": "application/json"},
+                    json={"q": query, "num": 10, "tbs": "qdr:m"},
+                    timeout=15.0,
+                )
+                data = resp.json()
+                for item in data.get("organic", [])[:10]:
+                    url = item.get("link", "")
+                    if url and url not in seen_urls:
+                        seen_urls.add(url)
+                        all_snippets.append({
+                            "title": item.get("title", ""),
+                            "snippet": item.get("snippet", ""),
+                            "url": url,
+                            "searched_state": state_abbr,
+                        })
+                time.sleep(0.5)
+            except Exception as e:
+                logger.warning(f"Serper algebra scan failed for {state_abbr}: {e}")
+
+    if not all_snippets:
+        logger.info("Algebra scan: no results found")
+        if progress_callback:
+            progress_callback("Algebra scan: no results found.")
+        return []
+
+    logger.info(f"Algebra scan: {len(all_snippets)} articles from {len(scan_states)} states")
+
+    combined_text = ""
+    for s in all_snippets:
+        combined_text += f"\n[{s['searched_state']}] {s['title']}\n{s['snippet']}\nURL: {s['url']}\n"
+    combined_text = combined_text[:12000]
+
+    if progress_callback:
+        progress_callback(f"Extracting algebra campaign targets from {len(all_snippets)} articles...")
+
+    import anthropic
+    try:
+        client = anthropic.Anthropic(timeout=90.0)
+        prompt = f"""Extract K-12 school districts that are actively seeking, evaluating, or implementing math/algebra technology or curriculum from these search results.
+
+INCLUDE:
+- Districts adopting or piloting math/algebra technology platforms
+- Districts posting RFPs for math curriculum or technology
+- Districts implementing game-based or adaptive math programs
+- Districts with new math initiatives, algebra intervention programs
+- Districts expanding math technology to more grades/schools
+- Districts with math curriculum adoption cycles underway
+
+EXCLUDE:
+- General math education news without a specific district taking action
+- College/university programs
+- State-level policy without district-specific action
+- Assessment-only tools (state testing, benchmarking)
+- Districts just talking about math scores without taking procurement action
+
+Return a JSON array. Each item:
+{{
+  "district": "Exact district name",
+  "state": "2-letter state code",
+  "action_type": "adoption | pilot | rfp | expansion | initiative",
+  "what_theyre_doing": "1 sentence: what math/algebra action they are taking",
+  "headline": "[district] ([state]): [action summary]"
+}}
+
+If nothing qualifies after filtering, return [].
+Return ONLY a valid JSON array — no commentary.
+
+Search results:
+{combined_text}"""
+
+        response = client.messages.create(
+            model="claude-haiku-4-5-20251001",
+            max_tokens=2000,
+            messages=[{"role": "user", "content": prompt}],
+        )
+        _track_usage(response)
+        raw_text = response.content[0].text.strip()
+    except Exception as e:
+        logger.error(f"Claude algebra extraction failed: {e}")
+        return []
+
+    try:
+        clean = raw_text
+        if "```" in clean:
+            clean = clean.split("```")[1]
+            if clean.startswith("json"):
+                clean = clean[4:]
+        start = clean.find("[")
+        end = clean.rfind("]")
+        if start == -1 or end == -1:
+            logger.warning("Algebra scan: no JSON array in response")
+            return []
+        items = json.loads(clean[start:end + 1])
+    except json.JSONDecodeError as e:
+        logger.warning(f"Algebra scan JSON parse failed: {e}")
+        return []
+
+    signals = []
+    dedup_seen = set()
+    year_month = datetime.now().strftime("%Y_%m")
+
+    for item in items:
+        district = (item.get("district") or "").strip()
+        state = (item.get("state") or "").strip().upper()
+        if not district or not state or len(state) != 2:
+            continue
+
+        nces_state = lookup_district_state(district)
+        if nces_state:
+            state = nces_state
+
+        norm_district = csv_importer.normalize_name(district)
+        if norm_district in dedup_seen:
+            continue
+        dedup_seen.add(norm_district)
+
+        in_territory = state in TERRITORY_STATES
+        cust_status = check_customer_status(district)
+        heat = compute_heat_score("curriculum", 1, in_territory, cust_status)
+        # Boost: districts actively buying math curriculum are hot targets for AI Algebra
+        action_type = (item.get("action_type") or "").strip().lower()
+        if action_type in ("rfp", "pilot", "adoption"):
+            heat = min(heat + 15, 100)
+
+        headline = (item.get("headline") or f"{district}: math/algebra signal").strip()
+        msg_id = f"algebra_{norm_district}_{year_month}"
+
+        signals.append({
+            "date": datetime.now().strftime("%Y-%m-%d"),
+            "source": "algebra_scan",
+            "source_detail": f"Serper — {action_type or 'math'}",
+            "signal_type": "curriculum",
+            "scope": "district",
+            "district": district,
+            "state": state,
+            "headline": headline[:200],
+            "dollar_amount": "",
+            "tier": 1,
+            "heat_score": heat,
+            "urgency": "time_sensitive",
+            "customer_status": cust_status,
+            "url": "",
+            "message_id": msg_id,
+        })
+
+    logger.info(f"Algebra scan: {len(signals)} math/algebra campaign targets extracted "
+                f"({len(items)} raw, {len(items) - len(signals)} filtered/deduped)")
+    if progress_callback:
+        progress_callback(f"Algebra scan: {len(signals)} targets found")
+    return signals
+
+
+# ─────────────────────────────────────────────
+# CYBERSECURITY PRE-LAUNCH SCANNER (Serper + Claude)
+# ─────────────────────────────────────────────
+
+def scan_cybersecurity_targets(states=None, progress_callback=None) -> list:
+    """
+    Scan for K-12 districts with CTE cybersecurity programs or starting new ones.
+    Pre-launch pipeline building for Cybersecurity course (fall 2026).
+    Uses Serper + Claude Haiku. Returns list of signal dicts. Cost: ~$0.03/scan.
+    """
+    if not SERPER_API_KEY:
+        logger.warning("SERPER_API_KEY not set — cannot scan cybersecurity targets")
+        return []
+
+    import httpx
+
+    _load_nces_lookup()
+    _load_cross_references()
+
+    scan_states = states or list(TERRITORY_STATES)
+    all_snippets = []
+    seen_urls = set()
+
+    if progress_callback:
+        progress_callback(f"Searching {len(scan_states)} states for CTE cybersecurity programs...")
+
+    for state_abbr in scan_states:
+        state_name = ABBR_TO_STATE_NAME.get(state_abbr, state_abbr)
+        queries = [
+            f'("cybersecurity" OR "cyber security") ("CTE" OR "career technical" OR "pathway") school district "{state_name}"',
+            f'("cybersecurity" OR "networking" OR "information technology") ("teacher" OR "instructor" OR "program") K-12 school "{state_name}"',
+            f'("cybersecurity curriculum" OR "cyber education" OR "cybersecurity certification") K-12 school district "{state_name}"',
+        ]
+        for query in queries:
+            try:
+                resp = httpx.post(
+                    SERPER_URL,
+                    headers={"X-API-Key": SERPER_API_KEY, "Content-Type": "application/json"},
+                    json={"q": query, "num": 10, "tbs": "qdr:y"},  # Wider window — pre-launch research
+                    timeout=15.0,
+                )
+                data = resp.json()
+                for item in data.get("organic", [])[:10]:
+                    url = item.get("link", "")
+                    if url and url not in seen_urls:
+                        seen_urls.add(url)
+                        all_snippets.append({
+                            "title": item.get("title", ""),
+                            "snippet": item.get("snippet", ""),
+                            "url": url,
+                            "searched_state": state_abbr,
+                        })
+                time.sleep(0.5)
+            except Exception as e:
+                logger.warning(f"Serper cybersecurity scan failed for {state_abbr}: {e}")
+
+    if not all_snippets:
+        logger.info("Cybersecurity scan: no results found")
+        if progress_callback:
+            progress_callback("Cybersecurity scan: no results found.")
+        return []
+
+    logger.info(f"Cybersecurity scan: {len(all_snippets)} articles from {len(scan_states)} states")
+
+    combined_text = ""
+    for s in all_snippets:
+        combined_text += f"\n[{s['searched_state']}] {s['title']}\n{s['snippet']}\nURL: {s['url']}\n"
+    combined_text = combined_text[:12000]
+
+    if progress_callback:
+        progress_callback(f"Extracting cybersecurity targets from {len(all_snippets)} articles...")
+
+    import anthropic
+    try:
+        client = anthropic.Anthropic(timeout=90.0)
+        prompt = f"""Extract K-12 school districts that have CTE cybersecurity programs, are starting cybersecurity pathways, or are hiring cybersecurity/networking teachers from these search results.
+
+INCLUDE:
+- Districts with existing CTE cybersecurity pathways or programs
+- Districts launching new cybersecurity/networking CTE programs
+- Districts hiring cybersecurity or networking teachers/instructors
+- Districts with IT/cybersecurity certification programs (CompTIA, Cisco, etc.)
+- Career academies or tech high schools with cybersecurity focus
+- Districts receiving grants for cybersecurity education
+
+EXCLUDE:
+- District IT security incidents (hacking, data breaches) — that's the district being attacked, not teaching cybersecurity
+- College/university cybersecurity programs
+- General CTE news without cybersecurity specifics
+- K-12 cybersecurity policy/compliance (not curriculum)
+
+Return a JSON array. Each item:
+{{
+  "district": "Exact district name",
+  "state": "2-letter state code",
+  "program_type": "existing_program | new_program | hiring | certification | grant",
+  "what_they_have": "1 sentence: what cybersecurity program or initiative they have",
+  "headline": "[district] ([state]): [cybersecurity program summary]"
+}}
+
+If nothing qualifies after filtering, return [].
+Return ONLY a valid JSON array — no commentary.
+
+Search results:
+{combined_text}"""
+
+        response = client.messages.create(
+            model="claude-haiku-4-5-20251001",
+            max_tokens=2000,
+            messages=[{"role": "user", "content": prompt}],
+        )
+        _track_usage(response)
+        raw_text = response.content[0].text.strip()
+    except Exception as e:
+        logger.error(f"Claude cybersecurity extraction failed: {e}")
+        return []
+
+    try:
+        clean = raw_text
+        if "```" in clean:
+            clean = clean.split("```")[1]
+            if clean.startswith("json"):
+                clean = clean[4:]
+        start = clean.find("[")
+        end = clean.rfind("]")
+        if start == -1 or end == -1:
+            logger.warning("Cybersecurity scan: no JSON array in response")
+            return []
+        items = json.loads(clean[start:end + 1])
+    except json.JSONDecodeError as e:
+        logger.warning(f"Cybersecurity scan JSON parse failed: {e}")
+        return []
+
+    signals = []
+    dedup_seen = set()
+    year_month = datetime.now().strftime("%Y_%m")
+
+    for item in items:
+        district = (item.get("district") or "").strip()
+        state = (item.get("state") or "").strip().upper()
+        if not district or not state or len(state) != 2:
+            continue
+
+        nces_state = lookup_district_state(district)
+        if nces_state:
+            state = nces_state
+
+        norm_district = csv_importer.normalize_name(district)
+        if norm_district in dedup_seen:
+            continue
+        dedup_seen.add(norm_district)
+
+        in_territory = state in TERRITORY_STATES
+        cust_status = check_customer_status(district)
+        heat = compute_heat_score("hiring", 1, in_territory, cust_status)  # hiring weight
+        # Boost: existing programs are ideal targets for new curriculum
+        program_type = (item.get("program_type") or "").strip().lower()
+        if program_type in ("existing_program", "certification"):
+            heat = min(heat + 10, 100)
+
+        headline = (item.get("headline") or f"{district}: cybersecurity CTE").strip()
+        msg_id = f"cybersecurity_{norm_district}_{year_month}"
+
+        signals.append({
+            "date": datetime.now().strftime("%Y-%m-%d"),
+            "source": "cybersecurity_scan",
+            "source_detail": f"Serper — {program_type or 'cybersecurity'}",
+            "signal_type": "curriculum",
+            "scope": "district",
+            "district": district,
+            "state": state,
+            "headline": headline[:200],
+            "dollar_amount": "",
+            "tier": 1,
+            "heat_score": heat,
+            "urgency": "routine",  # Pre-launch — building pipeline, not urgent
+            "customer_status": cust_status,
+            "url": "",
+            "message_id": msg_id,
+        })
+
+    logger.info(f"Cybersecurity scan: {len(signals)} CTE cybersecurity targets extracted "
+                f"({len(items)} raw, {len(items) - len(signals)} filtered/deduped)")
+    if progress_callback:
+        progress_callback(f"Cybersecurity scan: {len(signals)} targets found")
+    return signals
+
+
+# ─────────────────────────────────────────────
 # RSS FEED INGESTION
 # ─────────────────────────────────────────────
 
