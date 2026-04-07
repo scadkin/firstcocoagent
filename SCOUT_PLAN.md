@@ -1,9 +1,9 @@
 # SCOUT MASTER PLAN
-*Last updated: 2026-04-06 — Session 46*
+*Last updated: 2026-04-07 — Session 47*
 
 ---
 
-## YOU ARE HERE → Signal system at 10 sources with 16 Telegram commands. Session 46 added: leadership change monitoring (8 superintendent turnovers found), RFP monitoring (CodeCombat-relevant filtering), legislative signal scanner (TX + IL CS mandates found), territory map visualization (interactive Folium HTML), BoardDocs noise filtering. Signal aggregator Phase 3 complete. Next: verify Google Alert parser ~April 9, check Tulsa bond vote, enhance territory map, start on unbuilt prospecting strategies (AI Algebra campaign, Cybersecurity pre-launch, grant-funded, budget cycle).
+## YOU ARE HERE → Signal system at 14 sources with 22 Telegram commands. Session 47 added: territory map enriched popups (enrollment, licenses, school count, revenue), 4 new prospecting strategy scanners (#20 grant-funded, #21 budget cycle, #23 AI Algebra, #24 Cybersecurity pre-launch). All scan via Serper + Claude Haiku (~$0.03 each). Grant/budget run monthly 1st Monday; algebra/cyber are on-demand. Tulsa PS bond vote today (April 7) — results pending. Google Alert parser verification ~April 9. Next: verify Tulsa results, test new scanners live, continue with remaining unbuilt strategies or deeper signal sources.
 
 ---
 
@@ -343,12 +343,34 @@ Surviving prospects are added to the Prospecting Queue with email, first name, l
 
 ---
 
-## COMPLETED: Territory Map Visualization (Session 46)
+## COMPLETED: Territory Map Visualization (Sessions 46-47)
 - `tools/territory_map.py` — interactive Folium HTML map
 - 5 layers: Active Accounts (green, 18), Pipeline (orange, 12), Prospects (blue, 108), ESAs (purple), All Districts (gray clustered, 7978)
 - Clickable popups with name, state, type. Layer toggles. CartoDB positron tiles.
 - Sent as Telegram file attachment (10.3 MB). `/territory_map [state]` command.
-- **Future enhancement:** richer popups (enrollment, school count, licenses), signal heat overlay
+- **Session 47:** Enriched popups — Active Accounts show licenses, lifetime revenue, open renewal, NCES enrollment/school count. Pipeline shows opp name, close date, enrollment. Prospects show NCES enrollment, school count, priority score. Districts show city, formatted enrollment. ESAs show city.
+- **Future enhancement:** signal heat overlay
+
+---
+
+## COMPLETED: Prospecting Strategy Scanners (Session 47)
+
+### 4 new Serper + Claude Haiku scanners — ~$0.03/scan each
+
+| Scanner | Strategy # | Command | Schedule | What it finds |
+|---------|-----------|---------|----------|---------------|
+| `scan_grant_opportunities()` | #20 | `/signal_grants` | Monthly 1st Mon 8:45 AM | Districts receiving Title IV-A, Perkins V, state STEM, NSF grants for CS/CTE |
+| `scan_budget_cycle_signals()` | #21 | `/signal_budget` | Monthly 1st Mon 9:00 AM | Districts in procurement/adoption cycles for CS/STEM curriculum |
+| `scan_algebra_targets()` | #23 | `/signal_algebra` | On-demand | Districts piloting/adopting math/algebra technology (AI Algebra targets) |
+| `scan_cybersecurity_targets()` | #24 | `/signal_cyber` | On-demand | Districts with CTE cybersecurity programs (fall 2026 pre-launch pipeline) |
+
+### Architecture
+- Same pattern as leadership/RFP/legislative scanners: Serper web search → deduplicate URLs → Claude Haiku extraction with aggressive relevance filtering → NCES district validation → customer status check → heat scoring → write to Signals tab
+- Grant scanner: excludes construction, hardware, E-Rate. Includes Title IV-A, Perkins V, state STEM, NSF, private foundation grants
+- Budget scanner: excludes general budget news, devices, ERP/admin systems. Boosts vendor evaluation and procurement signals
+- Algebra scanner: targets curriculum adoption cycles, pilots, RFPs for math technology. Wider last-month window
+- Cybersecurity scanner: targets existing CTE cyber programs, hiring, certifications. Uses last-year window (pre-launch pipeline building)
+- Signal system now: 14 sources, 22 Telegram commands
 
 ---
 
