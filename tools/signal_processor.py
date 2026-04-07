@@ -3732,13 +3732,17 @@ Search results:
         if not person_name or not state or len(state) != 2:
             continue
 
+        # Territory filter — skip non-territory states
+        if state not in TERRITORY_STATES:
+            continue
+
         norm_person = csv_importer.normalize_name(person_name)
         dedup_key = (norm_person, state, year_month)
         if dedup_key in dedup_seen:
             continue
         dedup_seen.add(dedup_key)
 
-        in_territory = state in TERRITORY_STATES
+        in_territory = True  # Already filtered above
         cust_status = check_customer_status(district) if district else "new"
         heat = compute_heat_score("hiring", 2, in_territory, cust_status)
 
