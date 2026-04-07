@@ -69,6 +69,7 @@ _last_prospect_batch: list[dict] = []
 _last_proximity_result: dict = {}
 # Signal intelligence: last shown batch for /signal_act indexing
 _last_signal_batch: list[dict] = []
+_last_reengagement_sequences: list[dict] = []
 # Districts flagged as existing customers during approve — awaiting confirmation to proceed
 _pending_approve_force: list[dict] = []
 
@@ -1388,7 +1389,7 @@ def _parse_draft(draft_text: str) -> tuple:
 # ── Telegram message handler ───────────────────────────────────────────────────
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    global conversation_history, _pending_draft, _last_prospect_batch, _pending_approve_force, _csv_import_mode, _csv_import_state, _pipeline_import_mode, _closed_lost_import_mode, _pending_csv_intent, _leads_import_mode, _last_proximity_result, _last_signal_batch
+    global conversation_history, _pending_draft, _last_prospect_batch, _pending_approve_force, _csv_import_mode, _csv_import_state, _pipeline_import_mode, _closed_lost_import_mode, _pending_csv_intent, _leads_import_mode, _last_proximity_result, _last_signal_batch, _last_reengagement_sequences
 
     if str(update.effective_chat.id) != str(TELEGRAM_CHAT_ID):
         return
@@ -2408,32 +2409,65 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await send_message(f"Lookalike search error: {e}")
         return
 
-    elif user_text.lower() in ["/prospect_reengagement", "/reengagement", "reengagement", "re-engagement"]:
-        await send_message("🔄 Scanning Outreach sequences for unresponsive prospects... This may take a few minutes.")
+    elif user_text.lower().startswith("/prospect_reengagement") or user_text.lower() in ["/reengagement", "reengagement", "re-engagement"]:
         try:
+            parts = user_text.strip().split()
+            # Parse args: optional sequence selector + optional segment
+            seq_selector = None
+            segment = "engaged"
+            for p in parts[1:]:
+                pl = p.lower()
+                if pl in ("engaged", "lurker", "ghost", "all"):
+                    segment = pl
+                else:
+                    try:
+                        seq_selector = int(p)
+                    except ValueError:
+                        pass
+
             loop = asyncio.get_event_loop()
-            result = await loop.run_in_executor(
-                None, district_prospector.suggest_sequence_reengagement)
-            if not result.get("success"):
-                await send_message(f"⚠️ {result.get('error', 'Unknown error')}")
+
+            if seq_selector is None:
+                # Mode 1: Overview — list all sequences with est. no-reply counts
+                await send_message("🔄 Loading Outreach sequences...")
+                result = await loop.run_in_executor(
+                    None, district_prospector.get_sequence_reengagement_overview)
+                if not result.get("success"):
+                    await send_message(f"⚠️ {result.get('error', 'Unknown error')}")
+                else:
+                    _last_reengagement_sequences = result.get("sequences", [])
+                    output = district_prospector.format_reengagement_overview(result)
+                    await send_message(output)
             else:
-                segs = result.get("segments", {})
-                lines = [
-                    f"🔄 *Sequence Re-Engagement Scan Complete*\n",
-                    f"Scanned {result['total_scanned']:,} prospects across {result['sequences_scanned']} sequences\n",
-                    f"✅ *{result['new_added']}* new re-engagement targets added\n",
-                    f"  🟢 Engaged (opens>=3 or clicks): {segs.get('engaged', 0)}",
-                    f"  🟡 Lurkers (opened, no reply): {segs.get('lurker', 0)}",
-                    f"  ⚪ Ghosts (never opened): {segs.get('ghost', 0)}",
-                ]
-                await send_message("\n".join(lines))
-                # Set last batch for /prospect_approve
-                pending = await loop.run_in_executor(None, district_prospector.get_pending, 5)
-                if pending:
-                    _last_prospect_batch = pending
-                    await send_message(district_prospector.format_batch_for_telegram(pending))
+                # Mode 2: Scan specific sequence
+                # Resolve: <=100 = index into last overview, >100 = direct sequence ID
+                if seq_selector <= 100:
+                    if not _last_reengagement_sequences:
+                        await send_message("Run `/prospect_reengagement` first to see available sequences.")
+                        return
+                    idx = seq_selector - 1
+                    if idx < 0 or idx >= len(_last_reengagement_sequences):
+                        await send_message(f"Invalid index. Choose 1-{len(_last_reengagement_sequences)}.")
+                        return
+                    sequence_id = _last_reengagement_sequences[idx]["id"]
+                else:
+                    sequence_id = seq_selector
+
+                await send_message(f"🔄 Scanning sequence {sequence_id} for {segment} prospects...")
+                result = await loop.run_in_executor(
+                    None, district_prospector.scan_sequence_for_reengagement,
+                    sequence_id, segment, None)
+                if not result.get("success"):
+                    await send_message(f"⚠️ {result.get('error', 'Unknown error')}")
+                else:
+                    output = district_prospector.format_reengagement_scan(result)
+                    await send_message(output)
+                    # Set _last_prospect_batch for /prospect_approve
+                    candidates = result.get("candidates", [])
+                    if candidates:
+                        _last_prospect_batch = candidates
         except Exception as e:
-            await send_message(f"Re-engagement scan error: {e}")
+            await send_message(f"Re-engagement error: {e}")
         return
 
     elif user_text.lower() in ["/prospect_cold_requests", "/cold_requests", "/c4"]:
