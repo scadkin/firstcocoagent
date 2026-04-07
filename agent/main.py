@@ -1785,28 +1785,20 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await send_message(f"🗺 Generating territory map{label}... This may take a minute.")
         try:
             import tools.territory_map as territory_map
+            import tempfile
+            from telegram import Bot
             loop = asyncio.get_event_loop()
-            html = await loop.run_in_executor(
-                None, territory_map.generate_territory_map, state_filter)
-            # Upload HTML to Google Drive
-            from tools.gas_bridge import GASBridge
-            gas_bridge = GASBridge(
-                webhook_url=os.environ.get("GAS_WEBHOOK_URL", ""),
-                secret_token=os.environ.get("GAS_SECRET_TOKEN", ""))
-            title = f"Scout Territory Map{label} — {datetime.now().strftime('%Y-%m-%d')}"
-            doc_result = gas_bridge.create_google_doc(title, html,
-                folder_id=os.environ.get("SEQUENCES_FOLDER_ID", ""))
-            if doc_result.get("success"):
-                await send_message(f"🗺 *Territory Map Generated*{label}\n\n"
-                                   f"📄 {doc_result['url']}")
-            else:
-                # Fallback: save to temp file and report
-                import tempfile
-                path = os.path.join(tempfile.gettempdir(), "scout_territory_map.html")
-                with open(path, "w") as f:
-                    f.write(html)
-                await send_message(f"🗺 Map generated but Google Drive upload failed. "
-                                   f"Saved locally at {path}")
+            map_path = await loop.run_in_executor(
+                None, territory_map.generate_territory_map_file, "", state_filter)
+            # Send HTML file via Telegram — Steven opens in browser
+            bot = Bot(token=config.TELEGRAM_BOT_TOKEN)
+            async with bot:
+                with open(map_path, "rb") as f:
+                    await bot.send_document(
+                        chat_id=config.TELEGRAM_CHAT_ID,
+                        document=f,
+                        filename=f"scout_territory_map{'_' + state_filter if state_filter else ''}.html",
+                        caption=f"🗺 Territory Map{label} — open in browser for interactive view")
         except Exception as e:
             await send_message(f"❌ Territory map error: {e}")
         return
