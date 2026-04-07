@@ -131,17 +131,35 @@ class GASBridge:
             "page_start":  page_start,
         })
 
-    def create_draft(self, to: str, subject: str, body: str) -> dict:
+    def create_draft(
+        self,
+        to: str,
+        subject: str,
+        body: str,
+        thread_id: str = "",
+        cc: str = "",
+        content_type: str = "",
+    ) -> dict:
         """
         Creates a Gmail draft. Does NOT send.
+        thread_id: reply in existing thread (threaded draft).
+        cc: comma-separated CC recipients.
+        content_type: "text/html" for HTML body with clickable links.
         Returns {success, draft_id, to, subject, link}
         """
-        result = self._call("create_draft", {
+        params = {
             "to":      to,
             "subject": subject,
             "body":    body,
-        })
-        logger.info(f"Draft created via GAS bridge | Subject: {subject} | To: {to}")
+        }
+        if thread_id:
+            params["thread_id"] = thread_id
+        if cc:
+            params["cc"] = cc
+        if content_type:
+            params["content_type"] = content_type
+        result = self._call("create_draft", params)
+        logger.info(f"Draft created via GAS bridge | Subject: {subject} | To: {to} | Thread: {thread_id or 'new'}")
         return result
 
     def search_inbox(self, query: str, max_results: int = 10) -> list[dict]:

@@ -147,14 +147,41 @@ function getSentEmails(params) {
 
 /**
  * Creates a Gmail draft.
- * params: { to (str), subject (str), body (str) }
+ * params: { to (str), subject (str), body (str),
+ *           thread_id (str, optional — reply in existing thread),
+ *           cc (str, optional — comma-separated),
+ *           content_type (str, optional — "text/html" for HTML body) }
  */
 function createDraft(params) {
   var to = params.to || "";
   var subject = params.subject || "(no subject)";
   var body = params.body || "";
+  var threadId = params.thread_id || "";
+  var cc = params.cc || "";
+  var contentType = params.content_type || "";
 
-  var draft = GmailApp.createDraft(to, subject, body);
+  var options = {};
+  if (cc) options.cc = cc;
+  if (contentType === "text/html") options.htmlBody = body;
+
+  var draft;
+  if (threadId) {
+    // Create reply draft in existing thread
+    var thread = GmailApp.getThreadById(threadId);
+    if (!thread) {
+      return { success: false, error: "Thread not found: " + threadId };
+    }
+    draft = thread.createDraftReply("", {
+      to: to,
+      subject: subject,
+      cc: cc || undefined,
+      htmlBody: (contentType === "text/html") ? body : undefined,
+      body: (contentType !== "text/html") ? body : undefined
+    });
+  } else {
+    draft = GmailApp.createDraft(to, subject, body, options);
+  }
+
   var draftId = draft.getId();
 
   return {

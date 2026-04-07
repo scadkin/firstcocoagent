@@ -1,42 +1,18 @@
 # SCOUT — Claude Code Reference
-*Last updated: 2026-04-07 — Session 48*
+*Last updated: 2026-04-08 — Session 49*
 
 ---
 
 ## CURRENT STATE — update this after each session
 
-**Session 48: Email Reply Drafting system built + tested. Gmail MCP creates threaded HTML drafts in Steven's voice directly in Gmail. Response playbook (14 categories from 150+ real emails), voice profile updated (drafting rules, anti-AI-tell checklist, 10 learned corrections). GAS bridge `delete_draft` function added. Known issue: Outreach browser extension strips draft body for contacts in Outreach system. Next: check Tulsa bond results (April 7 vote), verify Google Alert parser ~April 9, act on 4 STRONG signals (Tulsa PS, Richardson ISD, Acton-Boxborough, Norwalk PS), shift to operating mode.**
+**Session 49 (in progress): Checking Tulsa bond results, acting on STRONG signals, operating mode.**
 
-### What was done (Session 48)
-- **Email Reply Drafting system (Claude Code workflow).** Gmail MCP reads unread inbox → classifies DRAFT/FLAG/SKIP → drafts replies in Steven's voice → creates threaded HTML drafts in Gmail. Steven opens email, tweaks, sends.
-- **Response playbook** (`memory/response_playbook.md`) — 14 categories with real snippets from 150+ sent emails.
-- **Voice profile updated** — Drafting Rules (pricing, fabrication, tone), Anti-AI-Tell Checklist (banned phrases/patterns), 10 Learned Corrections from live testing.
-- **Workflow instructions** (`prompts/reply_draft.md`) — full drafting process for any Claude Code session.
-- **GAS bridge `delete_draft`** — added to Code.gs + deployed. Deletes orphaned drafts via GAS bridge Python requests.
-- **Draft log** (`memory/draft_log.md`) — for future "learn from my sends" learning loop.
-- **Known issue:** Outreach browser extension strips API-created draft body for contacts in Outreach. Workaround: standalone "COPY THIS" draft.
-- **Files created:** `memory/response_playbook.md`, `memory/draft_log.md`, `prompts/reply_draft.md`, `Desktop/Code_gs_PASTE_THIS.txt`.
-- **Files modified:** `memory/voice_profile.md`, `CLAUDE.md`, `gas/Code.gs`.
-
-### What was done (Session 47)
-- **Territory map enriched popups + signal heat overlay.** Active Accounts show licenses, revenue, enrollment. Pipeline shows opp name, close date. HeatMap layer shows signal density (togglable).
-- **6 new signal scanners:** grant (#20 `/signal_grants`), budget (#21 `/signal_budget`), AI Algebra (#23 `/signal_algebra`), Cybersecurity (#24 `/signal_cyber`), role/title (#7 `/signal_roles`, ~$2.50/scan), CSTA (#8 `/signal_csta`, ~$1.20/scan).
-- **Cohort/lookalike prospecting (#22):** `/prospect_lookalike` — NCES districts demographically similar to best customers. $0.
-- **Sequence re-engagement (#11):** `/prospect_reengagement` redesigned as report-then-act. Mode 1 (no args): overview of all sequences with est. no-reply counts. Mode 2 (`/prospect_reengagement 2 [engaged|lurker|ghost|all]`): scan one sequence, show prospects by segment, use `/prospect_approve` to queue. Nothing auto-queued.
-- **Dormant lead detection (#12):** `/dormant [days]` — accounts with past activity that went silent. Requires >= 1 prior activity.
-- **Webinar campaign tags (#14):** CSV routing recognizes "webinar"/"attendee"/"registrant".
-- **Pilot sequence template (#15):** 4-step, 12-day pilot offer archetype.
-- **Fuzzy name matching:** Token subset + Jaccard for territory cross-check and map coords.
-- **District Administration RSS:** Only verified working feed of 6 tested. EdWeek/THE Journal/GovTech broken XML.
-
-### What was done (Session 46)
-- Leadership change monitoring, RFP monitoring, legislative scanner, territory map visualization, BoardDocs noise filtering.
-
-### What was done (Session 45)
-- Signal system expanded: RSS (3 feeds), BoardDocs (25 districts), Ballotpedia bonds, signal-to-deal attribution. 3 Outreach sequences. Sequence copy rules + send schedules.
-
-### What was done (Session 44)
-- Signal Intelligence System: 18,401 signals ($0.30), enrichment ($0.002/signal), job scanner, 10 commands, daily scan, quality pass (150→40). Google Alerts 28→18. DOE newsletters 13 states.
+### Recent sessions (details in SCOUT_PLAN.md)
+- **Session 48:** Email Reply Drafting system — Gmail MCP threaded drafts in Steven's voice. Response playbook, voice profile updated, GAS `delete_draft`.
+- **Session 47:** Territory map enriched popups + signal heat overlay. 6 new scanners (grants, budget, algebra, cyber, roles, CSTA). Lookalike, re-engagement, dormant detection. Fuzzy matching.
+- **Session 46:** Leadership/RFP/legislative scanners. Territory map visualization. BoardDocs noise filtering.
+- **Session 45:** RSS + BoardDocs + Ballotpedia + signal attribution. 3 Outreach sequences. Send schedules.
+- **Session 44:** Signal Intelligence System: 18,401 signals, enrichment, daily scan, quality pass.
 
 ### What still needs to be done
 - **Check Tulsa PS bond results** — Vote was April 7. If Prop 3 ($104M tech) passed, act on Robert F. Burton (Exec Dir IT).
@@ -55,65 +31,26 @@
 - Outreach sequences: ✅ — IDs 1995-2001 (C4 x4, License Request, Webinar x2). 3 send schedules.
 - Sequence copy rules: ✅ — Comprehensive rules in memory. Seasonal calendar. Send schedules.
 
-### Other completed features
-- **Lead row coloring (A3):** Auto-colors by confidence after research. `/color_leads` for manual recolor.
-
-### SF Leads & Contacts import (B2, Sessions 24-28) — VERIFIED
-- Tabs: SF Leads, SF Contacts (separate from research Leads). Separate sheet: `GOOGLE_SHEETS_SF_ID` env var.
-- `/import_leads`, `/import_contacts`, `/enrich_leads`, `/clear_leads`, `/clear_contacts`
-- Cross-checks against Active Accounts (email domain, name, district). Math filter tabs for math-related titles.
-- Mutually exclusive routing: math+active → math active, math only → math, active only → assoc active, neither → main.
-- `lead_importer` is a flat module imported at top of main.py (NOT lazy). Chunked at 2,000 rows.
-- Cross-check rules: school-level active accounts only block SAME school. District-level blocks whole district.
-- `clear_tab()` uses `values().clear()` + `updateSheetProperties` grid resize (NOT `deleteDimension`).
+### Completed features (details in SCOUT_PLAN.md)
+- **A3 Lead row coloring**, **B2 SF Leads/Contacts import**, **C1 Territory Master List**, **C3 Closed-Lost Winback**, **C4 Cold License Requests**, **C5 Proximity + ESA**, **SoCal CSV Filtering** — all verified and documented in SCOUT_PLAN.md.
+- `lead_importer` is a flat module imported at top of main.py (NOT lazy). `clear_tab()` uses `values().clear()` + `updateSheetProperties` grid resize (NOT `deleteDimension`).
 - "Leads from Research" = renamed research Leads tab. `TAB_LEADS` constant.
+- Cross-check rules: school-level active accounts only block SAME school. District-level blocks whole district.
 
-### C1 Territory Master List (Sessions 31-32) — VERIFIED
-- NCES CCD 2023 data via Urban Institute API. 13 states + CA (SoCal counties only). 8,133 districts, 40,317 schools.
-- Separate sheet: `GOOGLE_SHEETS_TERRITORY_ID`. Tabs: Territory Districts, Territory Schools.
-- `/territory_sync`, `/territory_stats`, `/territory_gaps`. Cached in `/tmp/` with 7-day TTL.
-- **API returns county_code as strings** (e.g., `"6037"`), not integers.
-- Gap coverage: only district-level deals = "covered". School account = "upward opportunity".
+### Outreach.io API (key gotchas — full details in SCOUT_PLAN.md + memory)
+- Steven's user ID: **11**. Write access for sequences/steps/templates/prospects only.
+- **Interval is in SECONDS** (not minutes). 5 min=300, 4 days=345600, 6 days=518400.
+- **`toRecipients` MUST be `[]` (empty).** Never `["{{toRecipient}}"]` — causes all emails to fail.
+- Creation flow: create sequence → steps → templates → link → Steven activates in UI → THEN add prospects.
+- Use `<br><br>` between paragraphs in bodyHtml, NOT `<p>` tags.
+- Schedules: UI-only (no API scopes). Three standard: "Teacher Tue-Thu Multi-Window", "Admin Mon-Thurs Multi-Window", "Hot Lead Mon-Fri".
+- C4 sequences: IDs 1995-1998. Schedule: "C4 Tue-Thu Morning" (ID 50). Steven's template: ID 43784.
 
-### C3 Closed-Lost Winback (Session 33) — VERIFIED
-- Separate "Closed Lost" tab (NOT Pipeline). `/import_closed_lost`, `/prospect_winback`.
-- Date window: `buffer_months=6` + `lookback_months=18`. Strategy: "winback", Source: "pipeline_closed".
-- **Why deals close lost:** 61% Unresponsive, 19% Budget, 5% Not using, 4% Turnover, 2% Competitor.
-- All sequences are DRAFTS → Google Doc → Steven reviews. Status includes "draft".
-
-### SoCal CSV Filtering (Sessions 25-27) — COMPLETE
-- Offline scripts in `scripts/socal_filter*.py`. SoCal counties: LA, SD, Orange, Riverside, San Bernardino, Kern, Ventura, Santa Barbara, SLO, Imperial.
-
-### Outreach.io API (Sessions 34, 38, 43)
-- Steven's user ID: **11**. OAuth app: "AI Coco Automation" (Development mode).
-- **Write access enabled (Session 38)** for: sequences, sequenceSteps, sequenceStates, sequenceTemplates, templates, prospects. Scoped to sequence creation — do not write to other resources without Steven's approval.
-- Tokens persist via GitHub (`memory/outreach_tokens.json`). Railway env vars: `OUTREACH_CLIENT_ID`, `OUTREACH_CLIENT_SECRET`, `OUTREACH_REDIRECT_URI`.
-- JSON:API format required. Content-Type: `application/vnd.api+json`.
-- **Sequence step interval is in SECONDS** (not minutes). 5 min=300, 4 days=345600, 6 days=518400.
-- **Outreach template `toRecipients` MUST be `[]` (empty).** Never set to `["{{toRecipient}}"]` — causes ALL emails to fail with "Invalid recipients." Failed states cannot be retried via API. Steven has to manually click "Try again" on every prospect in the UI.
-- Sequence creation flow: create sequence → create steps → create templates → link via sequenceTemplates → Steven activates in UI → Steven toggles templates active → THEN add prospects.
-- `enabled` is a private attribute — cannot activate sequences via API. Steven must toggle in UI.
-- `sequenceStates` cannot be PATCHed (no resume via API). `sequenceSteps` need delete scope to remove.
-- Use `<br><br>` between paragraphs in bodyHtml, NOT `<p>` tags (Outreach renders `<p>` with no spacing).
-- Default settings for all sequences: owner=Steven (ID 11), sharing=private, throttleMaxAddsPerDay=150, throttleCapacity=200, maxActivations=200.
-- **Can PATCH sequences to change schedule** (Session 43). Set `relationships.schedule.data` to `{type: "schedule", id: <int>}`.
-- **Prospect timezone field is `timeZone`** (camelCase), not `timezone`. Can be PATCHed.
-- **Cannot read/write schedules via API** (scopes don't exist). Steven creates/edits schedules in the Outreach UI. Three standard schedules: "Teacher Tue-Thu Multi-Window" (teachers), "Admin Mon-Thurs Multi-Window" (admins/district), "Hot Lead Mon-Fri" (inbound/speed). Always assign one to every sequence.
-- **C4 sequences:** IDs 1995 (Teachers, 6 steps), 1996 (District/Admin, 5 steps), 1997 (School General, 6 steps), 1998 (District General, 5 steps). Schedule: "C4 Tue-Thu Morning" (ID 50).
-- **Steven's info dump template:** ID 43784 ("New referral/info dump email 2026 DRAFT"). Reuse via existing template ID when creating sequence steps.
-- **Steven's mailbox for sending:** steven@codecombat.com (ID 11).
-
-### C4 Cold License Requests (Sessions 34-37) — VERIFIED
-- Strategy: "cold_license_request" — inbound license requests that went cold. 1,274 targets, $1.38/run.
-- `/c4`, `/c4_clear`, `/cleanup_queue`, `/fix_queue`. C4 Audit tab for spot-checking.
-- **Email domain ranks higher than company name** (`email_priority=True`). Student emails excluded.
-- **Deterministic international detection:** TLDs, foreign edu domains, company name keywords. Do NOT use ambiguous signals ("india" matches "Indiana").
-- **Claude JSON preamble fix:** Strip text before `[` and after `]` before json.loads().
-
-### Email Reply Drafting (Claude Code workflow)
-When Steven says "draft my emails" or "check my inbox": load and follow `prompts/reply_draft.md`.
+### Email Reply Drafting (auto + manual)
+**Auto-drafting (Railway):** `tools/email_drafter.py` polls unread inbox every 5 min during business hours (7 AM - 6 PM CST, weekdays). Classifies via Claude Haiku (DRAFT/FLAG/SKIP), drafts via Claude Sonnet with voice profile + playbook, creates threaded HTML drafts via GAS bridge. Notifies Steven in Telegram. Manual trigger: `/draft_emails` or "draft my emails".
+**Claude Code workflow:** When Steven says "draft my emails" in Claude Code, load and follow `prompts/reply_draft.md`.
 Voice rules in `memory/voice_profile.md`. Response patterns in `memory/response_playbook.md`.
-Draft log in `memory/draft_log.md`. See prompts/reply_draft.md for the full workflow.
+Draft log in `memory/draft_log.md`. Known issue: Outreach browser extension strips draft body for contacts in Outreach.
 
 ---
 
@@ -168,31 +105,15 @@ Draft log in `memory/draft_log.md`. See prompts/reply_draft.md for the full work
 
 **Salesforce CSV: Parent Account = always the district.** Account Name can be district/school/library/company. Parent Account filled → sub-unit under that district. Empty → standalone or top-level. One level deep: district → schools.
 
-**CSV import default mode is MERGE (non-destructive).** Matches by Name Key: updates existing rows, appends new ones, leaves unmatched rows untouched. `/import_clear` switches to clear-and-rewrite mode for the next upload only — but still respects auto-detect routing (accounts vs pipeline). `/import_merge` switches back explicitly. `/import_replace_state CA` replaces only rows matching that state — all other states untouched (always routes to Active Accounts).
+**CSV import default mode is MERGE (non-destructive).** `/import_clear` switches to clear-and-rewrite for next upload only. `/import_replace_state CA` replaces only that state's rows. `/dedup_accounts` uses Name Key + State composite key.
 
-**`/dedup_accounts` uses Name Key + State as composite key (fixed Session 18).** Safe to use — will not merge same-named schools from different states.
+**`get_districts_with_schools()` state key is `"State"` (capital S).** Active Accounts use capital-S. `s.get("state")` returns empty — always use `s.get("State")`.
 
-**`merge_accounts()` auto-deduplicates existing rows before merging.** If multiple rows share the same Name Key, keeps only the last one. Prevents duplicate buildup from repeated uploads (fixed Session 21).
+**CSV importer preserves ALL columns.** Known columns mapped via `_SF_COL_MAP`/`_OPP_COL_MAP`, unknown pass through. Pipeline uses REPLACE ALL (point-in-time snapshot). Always normalize names to sentence case preserving acronyms (ISD, HS, STEM). CSV uploads decode with utf-8-sig.
 
-**`cleanup_and_format_sheets()` runs on startup.** Deletes unused tabs (Sheet1, Salesforce Import), applies alternating row banding (white/light gray-blue) to all tabs. Safe to call repeatedly — skips already-banded tabs.
+**Auto-detect CSV routing by headers.** Priority: pipeline > sf_leads > sf_contacts > accounts. Natural language description or caption overrides auto-detect. Slash commands override everything.
 
-**`get_districts_with_schools()` state key is `"State"` (capital S).** Active Accounts sheet rows use capital-S key. Using `s.get("state")` returns empty string — always use `s.get("State")`. Fixed Session 19.
-
-**CSV importer preserves ALL columns from the Salesforce export.** Known columns are mapped to internal keys via `_SF_COL_MAP`. Unknown columns pass through with their original CSV header name. The sheet header row extends dynamically.
-
-**Always normalize Salesforce/Outreach names to sentence case.** Account names, opp names, contact names, and parent accounts often come in ALL CAPS. Convert to natural title case ("ARLINGTON ISD" → "Arlington ISD") while preserving known acronyms (ISD, HS, STEM, etc.). Applies to any import, display, or use in sequences/emails.
-
-**CSV uploads decode with utf-8-sig.** Strips BOM from Salesforce/Excel exports.
-
-**Pipeline tab uses REPLACE ALL on import — not merge.** Pipeline is a point-in-time snapshot. Every opp CSV upload clears and rewrites the entire Pipeline tab.
-
-**Pipeline importer preserves ALL CSV columns.** Known columns mapped via `_OPP_COL_MAP`, unknown columns pass through with original header name. Same dynamic header pattern as csv_importer.
-
-**Auto-detect CSV routing by headers.** Priority: pipeline > sf_leads > sf_contacts > accounts. Pipeline: 2+ of {Stage, Close Date, Opportunity Name} without account-only columns. SF Leads: 2+ of {Lead Source, Lead Status, Company} without account-only columns. SF Contacts: 2+ of {Account Name, Department, Contact Owner} + name columns without account-only columns. Everything else → Active Accounts. `/import_replace_state` overrides auto-detect and forces account import. `/import_clear` sets clear mode but still respects auto-detect routing. `/import_leads` and `/import_contacts` force SF Leads/Contacts routing.
-
-**Natural language CSV description overrides auto-detect.** Steven can describe what a CSV is before uploading (or as a caption on the file). `_parse_csv_intent()` detects keywords: pipeline/opportunity → Pipeline tab; lead/salesforce lead → SF Leads tab; contact/salesforce contact → SF Contacts tab; account/customer → Active Accounts; prospect → Active Accounts. Priority: slash commands > caption > pre-message description > auto-detect.
-
-**Pipeline uses 3-tier stale alerts.** 🟠 Needs Update (14+ days), 🟡 Needs Check-In / Going Stale (30+ days), 🔴 Risk Going Cold! (45+ days). Past-due Close Date also triggers. Empty Last Activity is NOT flagged (no data ≠ stale). Thresholds are constants in pipeline_tracker.py (TIER_NEEDS_UPDATE, TIER_GOING_STALE, TIER_GOING_COLD).
+**Pipeline uses 3-tier stale alerts.** 🟠 14+ days, 🟡 30+ days, 🔴 45+ days. Empty Last Activity is NOT flagged.
 
 **Active Accounts "Account Type" column: district | school | library | company.** Old boolean "Is District" column is gone. Do not reintroduce TRUE/FALSE logic.
 
@@ -216,15 +137,9 @@ Draft log in `memory/draft_log.md`. See prompts/reply_draft.md for the full work
 
 **Contact extractor max_tokens is 4000 (not 2000).** School directory pages with 15+ contacts were causing JSON truncation. Fixed Session 40.
 
-**`proximity_engine.py` is a flat module imported at top of main.py.** Two modes: targeted (`proximity Leander ISD` — near one account) and state sweep (`proximity Texas all` — all accounts). `add nearby 1,4,8` queues from last results. ESA mapping via `esa Texas`. All direct dispatch, no Claude routing.
+**`proximity_engine.py` is a flat module imported at top of main.py.** Targeted + state sweep modes. `add nearby` queues from last results. ESA mapping via `esa [state]`. All direct dispatch. `_last_proximity_result` is in-memory only — lost on bot restart.
 
-**ESA mapping uses NCES Agency Type 4 data.** True ESCs have 0 schools + 0 enrollment (administrative entities). Career-tech centers have enrolled students (JVSDs, career campuses). Both are Agency Type 4 but classified separately. ESCs used for regional mapping; career-tech shown as separate prospecting targets.
-
-**`_last_proximity_result` is in-memory only — lost on bot restart.** Run `proximity [account]` before `add nearby` in a new session.
-
-**ESA_PATTERNS in target_roles.py has 78 entity name variations.** From Steven's ROLES and KEYWORDS doc. Covers ESC, BOCES, IU, COE, ROE, ISC, ESU, AEA, CESA, SELPA, JPA, SSA, and dozens more.
-
-**`signal_processor.py` is a flat module imported at top of main.py.** 19 signal sources: Google Alerts (regex), Burbio (Claude), DOE (Claude), RSS (4 feeds, feedparser), BoardDocs (HTTP scraping), Ballotpedia (HTTP scraping), Job postings (JobSpy), Leadership scan (Serper + Claude), RFP scan (Serper + Claude), Legislative scan (Serper + Claude), Grant scan (Serper + Claude), Budget scan (Serper + Claude), Algebra scan (Serper + Claude), Cybersecurity scan (Serper + Claude), Role/title scan (Serper + Claude, ~$2.50), CSTA scan (Serper + Claude, ~$1.20). Signals Database tab (18 columns including Pipeline Link). 31 Telegram commands, all direct-dispatch. Daily scan at 7:45 AM CST. Weekly Monday: leadership 8 AM + RFP 8:15 AM. Monthly 1st Monday: legislation 8:30 AM + grants 8:45 AM + budget 9:00 AM. On-demand: algebra, cyber, roles, CSTA. BoardDocs/Ballotpedia/RSS wrapped in try/except (non-fatal). `_last_signal_batch` is in-memory — run `/signals` before `/signal_act` or `/signal_info` in a new session.
+**`signal_processor.py` is a flat module imported at top of main.py.** 19 signal sources, 31 Telegram commands, all direct-dispatch. Daily 7:45 AM CST. Weekly Monday: leadership + RFP. Monthly 1st Monday: legislation + grants + budget. On-demand: algebra, cyber, roles, CSTA. BoardDocs/Ballotpedia/RSS wrapped in try/except (non-fatal). `_last_signal_batch` is in-memory — run `/signals` before `/signal_act` or `/signal_info`.
 
 **Signal enrichment must run before acting on signals.** Never queue a district based on a headline alone. `enrich_signal()` does Serper web search + Claude Haiku analysis for CodeCombat relevance (strong/moderate/weak/none). A $6.2B bond can be WEAK if it's all devices. A no-dollar STEAM coordinator hire can be STRONG. Auto-runs on Tier 1 during daily scans; manual via `/signal_enrich N`.
 
@@ -250,17 +165,11 @@ Draft log in `memory/draft_log.md`. See prompts/reply_draft.md for the full work
 
 **`global` declarations go at the TOP of `handle_message()`, not in elif blocks.** Python SyntaxError if `global` appears after first use of the variable. All globals in one line: `global conversation_history, _pending_draft, _last_prospect_batch, _pending_approve_force, _csv_import_mode, _csv_import_state, _pipeline_import_mode, _pending_csv_intent, _last_proximity_result`.
 
-**`_on_prospect_research_complete` is the auto-pipeline callback.** Runs `_on_research_complete` first (standard flow), then auto-builds a strategy-aware sequence, writes Google Doc, marks prospect complete. Uses `sequence_builder` (lazy import inside the callback). If sequence fails, prospect is still marked complete.
+**`_on_prospect_research_complete` is the auto-pipeline callback.** Standard flow → strategy-aware sequence → Google Doc → mark complete. `sequence_builder` lazy imported.
 
-**`sequence_builder.build_sequence()` uses max_tokens=6000 and retries once on JSON parse failure.** First attempt uses A/B variants. If JSON parse fails, retries with `ab_variants=False` (simpler, smaller response). Large districts (LAUSD etc.) can produce malformed JSON on first attempt due to long email bodies.
+**`/prospect_approve` checks Active Accounts before queuing.** Warns on existing district customers. `_pending_approve_force` + `_last_prospect_batch` are in-memory only — lost on restart.
 
-**`/prospect_approve` checks Active Accounts before queuing research.** If any approved district is already an active customer (Account Type == "district"), Scout warns and asks yes/no. `_pending_approve_force` global holds flagged districts awaiting confirmation. Replying "yes"/"confirm"/"proceed" queues them anyway; "no"/"skip"/"cancel" clears them. Clean districts (not active customers) are queued immediately without interruption.
-
-**`_last_prospect_batch` is in-memory only — lost on bot restart.** Always run `/prospect` before `/prospect_approve` or `/prospect_skip` in a new session or after any Railway redeploy. The batch is not persisted to disk or Sheets.
-
-**Two prospecting strategies — upward and cold.** Upward = districts with active school accounts, no district deal. Cold = no CodeCombat presence. Strategy column tracks this. Sequences differ by strategy.
-
-**Prospecting priority tiers (8 levels).** Tier 1 (900+): upward 3+ schools. Tier 2 (800+): upward highest licenses. Tier 3 (700+): cold small/medium. Tier 4 (600+): upward 1 school large district. Tiers 5-7: deferred. Tier 8 (300+): cold large. Small/medium always above large in same tier.
+**Two prospecting strategies — upward and cold.** Upward = school accounts, no district deal. Cold = no presence. 8 priority tiers (900+ to 300+). Small/medium above large in same tier.
 
 **No Salesforce or Outreach API access.** All data enters Scout via CSV export or Gmail notification parsing. Never design features assuming API access to Salesforce, Outreach, PandaDoc, or Dialpad.
 
@@ -335,6 +244,7 @@ firstcocoagent/
 │   ├── lead_importer.py        ← MODULE not class. import_leads(), import_contacts(), enrich
 │   ├── proximity_engine.py     ← MODULE not class. C5: proximity search, ESA mapping
 │   ├── signal_processor.py     ← MODULE not class. Signal intelligence: Gmail parsing, classification, scoring
+│   ├── email_drafter.py        ← MODULE not class. Auto-draft Gmail replies in Steven's voice
 │   └── fireflies.py            ← FirefliesClient, FirefliesError
 ├── gas/
 │   ├── CLAUDE.md               ← GAS deployment checklist and gotchas
@@ -343,11 +253,14 @@ firstcocoagent/
 │   ├── system.md
 │   ├── morning_brief.md
 │   ├── eod_report.md
-│   └── sequence_templates.md   ← 18 archetypes
+│   ├── sequence_templates.md   ← 18 archetypes
+│   └── reply_draft.md          ← Email drafting workflow instructions
 ├── memory/
 │   ├── preferences.md
 │   ├── context_summary.md
 │   ├── voice_profile.md
+│   ├── response_playbook.md    ← 14 reply categories from 150+ emails
+│   ├── draft_log.md            ← Draft tracking for learning loop
 │   └── sequence_building_rules.md
 └── docs/
     ├── CHANGELOG.md
@@ -442,6 +355,7 @@ firstcocoagent/
 | `/call_list [N]` | generate daily call list (default 10, max 50) |
 | `/color_leads` | recolor Leads tab rows by email confidence |
 | `/eod` | manually trigger end-of-day report (useful on weekends) |
+| `/draft_emails`, `draft my emails` | manually trigger email auto-drafting (also runs every 5 min during business hours) |
 | `/prospect_discover [state]` | cold district search via Serper |
 | `/prospect_upward` | upward targets from active accounts |
 | `/prospect` | show next 5 pending districts |

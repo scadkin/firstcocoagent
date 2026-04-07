@@ -35,6 +35,7 @@ import tools.territory_data as territory_data
 import tools.todo_manager as todo_manager
 import tools.proximity_engine as proximity_engine
 import tools.signal_processor as signal_processor
+import tools.email_drafter as email_drafter
 from tools.telegram_bot import send_message
 # Phase 4/5 modules imported lazily inside execute_tool() — safe to boot without them
 
@@ -1559,6 +1560,24 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     elif user_text.lower() in ["/eod", "eod", "end of day", "eod report"]:
         asyncio.create_task(send_eod_report())
+        return
+
+    elif user_text.lower() in ["/draft_emails", "/draft", "draft my emails", "draft emails", "check my inbox", "draft replies"]:
+        if not gas:
+            await send_message("❌ GAS bridge not configured — can't access Gmail.")
+            return
+        await send_message("📧 Checking inbox for new emails to draft...")
+        try:
+            loop = asyncio.get_event_loop()
+            result = await loop.run_in_executor(None, email_drafter.process_new_emails, gas)
+            summary = email_drafter.format_draft_summary(result)
+            if summary:
+                await send_message(summary)
+            else:
+                msg = result.get("message", "No new emails to draft.")
+                await send_message(f"📧 {msg}")
+        except Exception as e:
+            await send_message(f"❌ Email drafting failed: {e}")
         return
 
     # ── Phase 6C commands ──────────────────────────────────────────────────────
@@ -3649,6 +3668,14 @@ async def send_eod_report():
         except Exception as pipe_err:
             logger.warning(f"Could not load pipeline alerts for EOD: {pipe_err}")
 
+        # Email drafting daily summary
+        try:
+            draft_summary = email_drafter.get_daily_summary()
+            if draft_summary:
+                prompt = f"{prompt}\n\n{draft_summary}"
+        except Exception as draft_err:
+            logger.warning(f"Could not load email draft summary for EOD: {draft_err}")
+
         text, _, _ = process_message(prompt, conversation_history, memory)
         await send_message(f"🌙 *EOD Report*\n\n{text}")
 
@@ -3797,6 +3824,21 @@ async def _check_fireflies_gmail(gas):
         logger.warning(f"[Fireflies Gmail check] {e}")
 
 
+async def _check_email_drafts(gas):
+    """
+    Auto-draft replies for new unread emails.
+    Runs every 5 min during business hours (7 AM - 6 PM CST, weekdays).
+    """
+    try:
+        loop = asyncio.get_event_loop()
+        result = await loop.run_in_executor(None, email_drafter.process_new_emails, gas)
+        summary = email_drafter.format_draft_summary(result)
+        if summary:
+            await send_message(summary)
+    except Exception as e:
+        logger.error(f"[Email Drafter] Auto-draft check failed: {e}")
+
+
 async def _process_latest_fireflies_transcript(meeting_name: str):
     """
     Polls the Fireflies API for the newest unprocessed external transcript.
@@ -3933,6 +3975,15 @@ async def _run_telegram_and_scheduler():
     )
 
     fireflies_gmail_last_check: float = 0.0
+    email_draft_last_check: float = 0.0
+
+    # Seed email drafter on startup (marks existing emails as seen)
+    if gas:
+        try:
+            loop = asyncio.get_event_loop()
+            await loop.run_in_executor(None, email_drafter.seed_processed_emails, gas)
+        except Exception as e:
+            logger.warning(f"Email drafter seeding failed (non-fatal): {e}")
 
     try:
         while True:
@@ -3963,6 +4014,17 @@ async def _run_telegram_and_scheduler():
                 if now_ts - fireflies_gmail_last_check >= 60:
                     fireflies_gmail_last_check = now_ts
                     asyncio.create_task(_check_fireflies_gmail(gas))
+            # Auto-draft email replies every 5 min during business hours (7 AM - 6 PM CST, weekdays)
+            if gas:
+                now_ts = time.time()
+                now_cst = datetime.now(pytz.timezone("America/Chicago"))
+                is_business_hours = (
+                    now_cst.weekday() < 5
+                    and 7 <= now_cst.hour < 18
+                )
+                if is_business_hours and now_ts - email_draft_last_check >= 300:
+                    email_draft_last_check = now_ts
+                    asyncio.create_task(_check_email_drafts(gas))
             await asyncio.sleep(30)
     finally:
         await app.updater.stop()

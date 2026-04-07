@@ -9,7 +9,7 @@ Reference for all modules in `tools/`. Read this before editing any file that im
 gas = GASBridge(webhook_url=GAS_WEBHOOK_URL, secret_token=GAS_SECRET_TOKEN)
 gas.ping() -> dict
 gas.get_sent_emails(months_back=6, max_results=200, page_start=0, page_size=200) -> list[dict]
-gas.create_draft(to, subject, body) -> dict
+gas.create_draft(to, subject, body, thread_id="", cc="", content_type="") -> dict
 gas.search_inbox(query, max_results=10) -> list[dict]
 gas.get_calendar_events(days_ahead=7) -> list[dict]
 gas.log_call(contact_name, title, district, date_iso, duration_minutes, notes, outcome, next_steps) -> dict
@@ -237,6 +237,21 @@ signal_processor.BOARDDOCS_DISTRICTS  # list of {state, org_code, name} — 25 t
 # Status: new → surfaced → acted → expired
 # Uses: territory_data._load_territory_districts(), csv_importer (get_active_accounts, normalize_name),
 #   district_prospector (get_all_prospects), Claude Haiku for Burbio/DOE extraction, feedparser for RSS
+```
+
+## email_drafter — MODULE not class
+```python
+import tools.email_drafter as email_drafter
+email_drafter.seed_processed_emails(gas) -> int  # sync, call on startup — marks existing emails as seen
+email_drafter.process_new_emails(gas) -> dict  # sync, main entry point — classify + draft + create Gmail drafts
+email_drafter.format_draft_summary(result) -> str  # format for Telegram notification
+email_drafter.get_daily_summary() -> str  # daily stats for EOD report
+# Polls unread inbox via GAS search_inbox_full, classifies via Claude Haiku (DRAFT/FLAG/SKIP),
+# drafts replies via Claude Sonnet with voice_profile.md + response_playbook.md,
+# creates threaded HTML drafts via GAS bridge create_draft.
+# Auto-runs every 5 min during business hours (7 AM - 6 PM CST, weekdays).
+# Manual trigger: /draft_emails or "draft my emails" in Telegram.
+# _processed_message_ids is in-memory — seeded on startup, lost on restart.
 ```
 
 ## CallProcessor — lazy import

@@ -1,9 +1,9 @@
 # SCOUT MASTER PLAN
-*Last updated: 2026-04-07 — Session 47*
+*Last updated: 2026-04-08 — Session 49*
 
 ---
 
-## YOU ARE HERE → Email Reply Drafting system built + tested (Session 48). Gmail MCP creates threaded drafts in Steven's voice. Response playbook (14 categories), voice profile updated with anti-AI-tell rules + 10 learned corrections, workflow documented. Known issue: Outreach browser extension strips draft body for contacts in Outreach system (workaround: standalone "COPY THIS" draft). GAS bridge `delete_draft` function added. Still need to: check Tulsa bond results, verify Google Alert parser ~April 9, act on 4 STRONG signals, shift to operating mode.
+## YOU ARE HERE → Session 49: Auto-drafting email replies on Railway. Scout polls inbox every 5 min during business hours, classifies via Claude Haiku, drafts via Claude Sonnet with voice profile + playbook, creates threaded HTML drafts via GAS bridge. Manual trigger: `/draft_emails`. GAS `createDraft` upgraded (threadId, cc, HTML). Tulsa bond vote was today (April 7) — results pending. Still need to: check Tulsa results, verify Google Alert parser ~April 9, act on 4 STRONG signals.
 
 ---
 
