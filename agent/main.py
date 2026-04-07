@@ -2349,6 +2349,37 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await send_message(f"Winback scan error: {e}")
         return
 
+    elif user_text.lower().startswith("/prospect_lookalike") or user_text.lower() in ["/lookalike", "lookalike", "lookalike districts", "find lookalikes"]:
+        try:
+            # Parse optional state filter: /prospect_lookalike TX
+            parts = user_text.strip().split()
+            state_filter = ""
+            for p in parts[1:]:
+                if len(p) == 2 and p.upper().isalpha():
+                    state_filter = p.upper()
+                    break
+            await send_message("🔍 Analyzing customer profile and finding lookalike districts...")
+            loop = asyncio.get_event_loop()
+            result = await loop.run_in_executor(
+                None, lambda: district_prospector.find_lookalike_districts(state=state_filter))
+            output = district_prospector.format_lookalikes_for_telegram(result)
+            await send_message(output)
+            if result.get("success") and result.get("lookalikes"):
+                _last_prospect_batch = [
+                    {"Account Name": la["name"], "State": la["state"],
+                     "Name Key": la["name_key"], "Est. Enrollment": str(la["enrollment"]),
+                     "School Count": str(la["school_count"]),
+                     "Strategy": "cold", "Source": "lookalike"}
+                    for la in result["lookalikes"][:10]
+                ]
+                await send_message(
+                    "Use `/prospect_approve 1,3,5` to add specific districts to the queue, "
+                    "or `/prospect_approve all` to add all 10."
+                )
+        except Exception as e:
+            await send_message(f"Lookalike search error: {e}")
+        return
+
     elif user_text.lower() in ["/prospect_cold_requests", "/cold_requests", "/c4"]:
         async def _run_c4_scan():
             """Run C4 scan as a background task so it doesn't block the event loop."""

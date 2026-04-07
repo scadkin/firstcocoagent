@@ -395,6 +395,7 @@ firstcocoagent/
 | `/signal_budget` | manual budget cycle/procurement signal scan (Serper + Claude, ~$0.03) |
 | `/signal_algebra` | AI Algebra campaign: find districts adopting math/algebra curriculum (~$0.03) |
 | `/signal_cyber` | Cybersecurity pre-launch: find districts with CTE cyber programs (~$0.03) |
+| `/prospect_lookalike [state]` | find districts demographically similar to best customers ($0) |
 | `/export_sequence [name]` | export Outreach sequence to Google Doc |
 | `/ping_gas`, `ping gas`, `test gas` | ping GAS bridge |
 | `/train_voice`, `train voice` | train voice from Gmail (24 months) |

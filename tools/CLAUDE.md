@@ -82,6 +82,8 @@ district_prospector.clear_queue()
 district_prospector.clear_by_strategy(strategy) -> dict
 district_prospector.cleanup_prospect_queue() -> dict
 district_prospector.migrate_prospect_columns() -> dict
+district_prospector.find_lookalike_districts(state="", max_results=25, min_enrollment=500) -> dict  # sync
+district_prospector.format_lookalikes_for_telegram(result) -> str
 
 # Prospecting Queue: 20 columns
 # State | Account Name | Email | First Name | Last Name | Deal Level | Parent District |

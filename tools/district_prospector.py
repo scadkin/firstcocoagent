@@ -2380,3 +2380,248 @@ def format_all_for_telegram(districts: list[dict]) -> str:
     total = len(districts)
     lines.append(f"Total: {total} districts in queue")
     return "\n".join(lines)
+
+
+# ─────────────────────────────────────────────
+# COHORT / LOOKALIKE PROSPECTING (#22)
+# ─────────────────────────────────────────────
+
+def find_lookalike_districts(state: str = "", max_results: int = 25,
+                             min_enrollment: int = 500) -> dict:
+    """
+    Find districts demographically similar to Steven's best active customers.
+
+    Algorithm:
+    1. Profile active accounts: enrollment distribution, median/mean school count
+    2. Filter NCES districts to same enrollment bracket
+    3. Exclude existing customers, pipeline, and prospects
+    4. Score by similarity to customer profile
+    5. Return top N matches sorted by similarity score
+
+    Args:
+        state: Optional state filter (2-letter code). Empty = all territory states.
+        max_results: Max districts to return. Default 25.
+        min_enrollment: Minimum district enrollment. Default 500.
+
+    Returns:
+        {success, lookalikes: [{name, state, enrollment, school_count, similarity, reason}],
+         profile: {enrollment_range, median_enrollment, median_schools, account_count},
+         total_candidates}
+    """
+    try:
+        # Step 1: Profile active customers
+        active_accounts = csv_importer.get_active_accounts()
+        if not active_accounts:
+            return {"success": False, "error": "No active accounts found."}
+
+        # Load NCES districts to get enrollment data for active accounts
+        all_districts = territory_data._load_territory_districts()
+        nces_by_key = {}
+        for d in all_districts:
+            key = d.get("Name Key", "")
+            if key:
+                nces_by_key[key] = d
+
+        # Build profile from district-level active accounts
+        customer_enrollments = []
+        customer_schools = []
+        customer_licenses = []
+        for acc in active_accounts:
+            acc_type = (acc.get("Account Type") or "").lower()
+            if acc_type != "district":
+                continue
+            name_key = acc.get("Name Key", "") or csv_importer.normalize_name(
+                acc.get("Active Account Name", "") or acc.get("Display Name", ""))
+            nces = nces_by_key.get(name_key, {})
+            try:
+                enroll = int(nces.get("Enrollment") or 0)
+                if enroll > 0:
+                    customer_enrollments.append(enroll)
+            except (ValueError, TypeError):
+                pass
+            try:
+                schools = int(nces.get("School Count") or 0)
+                if schools > 0:
+                    customer_schools.append(schools)
+            except (ValueError, TypeError):
+                pass
+            try:
+                lic = int(acc.get("Active Licenses") or 0)
+                if lic > 0:
+                    customer_licenses.append(lic)
+            except (ValueError, TypeError):
+                pass
+
+        if not customer_enrollments:
+            return {"success": False, "error": "No district-level active accounts with NCES enrollment data."}
+
+        # Compute profile stats
+        customer_enrollments.sort()
+        customer_schools.sort()
+        n = len(customer_enrollments)
+        median_enrollment = customer_enrollments[n // 2]
+        mean_enrollment = sum(customer_enrollments) // n
+        p25_enrollment = customer_enrollments[max(0, n // 4)]
+        p75_enrollment = customer_enrollments[min(n - 1, 3 * n // 4)]
+        # Expand the bracket for matching — ±50% of the 25-75th percentile range
+        bracket_low = max(min_enrollment, int(p25_enrollment * 0.5))
+        bracket_high = int(p75_enrollment * 1.5)
+
+        median_schools = customer_schools[len(customer_schools) // 2] if customer_schools else 0
+
+        profile = {
+            "account_count": n,
+            "enrollment_range": f"{bracket_low:,}–{bracket_high:,}",
+            "median_enrollment": median_enrollment,
+            "mean_enrollment": mean_enrollment,
+            "p25_enrollment": p25_enrollment,
+            "p75_enrollment": p75_enrollment,
+            "median_schools": median_schools,
+        }
+
+        # Step 2: Build exclusion sets
+        active_keys = set()
+        for acc in active_accounts:
+            key = acc.get("Name Key", "") or csv_importer.normalize_name(
+                acc.get("Active Account Name", "") or acc.get("Display Name", ""))
+            if key:
+                active_keys.add(key)
+
+        pipeline_keys = set()
+        try:
+            opps = pipeline_tracker.get_open_opps()
+            for o in opps:
+                key = csv_importer.normalize_name(o.get("Account Name", ""))
+                if key:
+                    pipeline_keys.add(key)
+        except Exception:
+            pass
+
+        prospect_keys = set()
+        try:
+            prospects = _load_all_prospects()
+            for p in prospects:
+                key = p.get("Name Key", "")
+                if key:
+                    prospect_keys.add(key)
+        except Exception:
+            pass
+
+        excluded = active_keys | pipeline_keys | prospect_keys
+
+        # Step 3: Filter NCES districts
+        if state:
+            districts = territory_data._load_territory_districts(state.upper())
+        else:
+            districts = all_districts
+
+        candidates = []
+        total_candidates = 0
+        for d in districts:
+            # Only regular districts (Agency Type 1, 2, 7, 9)
+            agency_type = str(d.get("Agency Type", ""))
+            if agency_type not in ("1", "2", "7", "9"):
+                continue
+
+            name_key = d.get("Name Key", "")
+            if not name_key or name_key in excluded:
+                continue
+
+            try:
+                enrollment = int(d.get("Enrollment") or 0)
+            except (ValueError, TypeError):
+                continue
+            if enrollment < min_enrollment or enrollment < bracket_low or enrollment > bracket_high:
+                continue
+
+            try:
+                school_count = int(d.get("School Count") or 0)
+            except (ValueError, TypeError):
+                school_count = 0
+
+            total_candidates += 1
+
+            # Step 4: Score by similarity to customer profile
+            # Enrollment similarity (closer to median = higher score)
+            enroll_diff = abs(enrollment - median_enrollment) / max(median_enrollment, 1)
+            enroll_score = max(0, 100 - int(enroll_diff * 100))
+
+            # School count similarity
+            if median_schools > 0 and school_count > 0:
+                school_diff = abs(school_count - median_schools) / max(median_schools, 1)
+                school_score = max(0, 100 - int(school_diff * 100))
+            else:
+                school_score = 50  # Neutral if no data
+
+            # In-territory bonus
+            d_state = d.get("State", "").upper()
+            territory_bonus = 20 if d_state in _TERRITORY_STATES else 0
+
+            similarity = int(enroll_score * 0.5 + school_score * 0.3 + territory_bonus)
+
+            candidates.append({
+                "name": d.get("District Name", "Unknown"),
+                "state": d_state,
+                "enrollment": enrollment,
+                "school_count": school_count,
+                "similarity": similarity,
+                "name_key": name_key,
+                "city": d.get("City", ""),
+                "lat": d.get("Lat", ""),
+                "lon": d.get("Lon", ""),
+            })
+
+        # Step 5: Sort by similarity, return top N
+        candidates.sort(key=lambda x: x["similarity"], reverse=True)
+        lookalikes = candidates[:max_results]
+
+        # Generate reason text
+        for la in lookalikes:
+            parts = []
+            e = la["enrollment"]
+            if p25_enrollment <= e <= p75_enrollment:
+                parts.append(f"enrollment ({e:,}) in customer sweet spot")
+            else:
+                parts.append(f"enrollment ({e:,}) near customer median ({median_enrollment:,})")
+            if la["school_count"] and median_schools:
+                parts.append(f"{la['school_count']} schools (customer median: {median_schools})")
+            la["reason"] = "; ".join(parts)
+
+        return {
+            "success": True,
+            "lookalikes": lookalikes,
+            "profile": profile,
+            "total_candidates": total_candidates,
+        }
+
+    except Exception as e:
+        logger.error(f"Lookalike search failed: {e}", exc_info=True)
+        return {"success": False, "error": str(e)}
+
+
+def format_lookalikes_for_telegram(result: dict) -> str:
+    """Format lookalike results for Telegram display."""
+    if not result.get("success"):
+        return f"Lookalike search failed: {result.get('error', 'Unknown error')}"
+
+    profile = result["profile"]
+    lookalikes = result["lookalikes"]
+    total = result["total_candidates"]
+
+    lines = [
+        "🔍 *Lookalike District Analysis*\n",
+        f"*Customer Profile* ({profile['account_count']} district accounts):",
+        f"  Enrollment bracket: {profile['enrollment_range']}",
+        f"  Median enrollment: {profile['median_enrollment']:,}",
+        f"  Median schools: {profile['median_schools']}",
+        f"\n*Top {len(lookalikes)} Lookalikes* ({total:,} total candidates)\n",
+    ]
+
+    for i, la in enumerate(lookalikes, 1):
+        lines.append(
+            f"  {i}. *{la['name']}* ({la['state']})\n"
+            f"     Enrollment: {la['enrollment']:,} | Schools: {la['school_count']}"
+            f" | Score: {la['similarity']}"
+        )
+
+    return "\n".join(lines)
