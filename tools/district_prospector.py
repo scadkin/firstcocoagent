@@ -178,7 +178,7 @@ def migrate_prospect_columns() -> dict:
     Safe to run multiple times — detects which rows need migration.
     Returns {migrated, total, already_correct, errors}.
     """
-    _KNOWN_STRATEGIES = {"upward", "cold", "winback", "cold_license_request", "trigger"}
+    _KNOWN_STRATEGIES = {"upward", "cold", "winback", "cold_license_request", "trigger", "sequence_reengagement", "webinar_attendee", "webinar_missed"}
     num_cols = len(PROSPECT_COLUMNS)  # 20
 
     try:
@@ -334,7 +334,7 @@ def clear_by_strategy(strategy: str) -> dict:
     return {"cleared": cleared, "total_before": total_before, "total_after": len(kept_rows) - 1}
 
 
-_KNOWN_STRATEGIES = {"upward", "cold", "winback", "cold_license_request"}
+_KNOWN_STRATEGIES = {"upward", "cold", "winback", "cold_license_request", "sequence_reengagement", "webinar_attendee", "webinar_missed"}
 
 
 def cleanup_prospect_queue() -> dict:
@@ -2625,3 +2625,235 @@ def format_lookalikes_for_telegram(result: dict) -> str:
         )
 
     return "\n".join(lines)
+
+
+# ─────────────────────────────────────────────
+# STRATEGY #11: SEQUENCE RE-ENGAGEMENT
+# ─────────────────────────────────────────────
+
+# Default sequences to exclude (C4 already handled separately)
+_C4_SEQUENCE_IDS = {1995, 1996, 1997, 1998}
+
+
+def suggest_sequence_reengagement(exclude_sequence_ids=None,
+                                  progress_callback=None) -> dict:
+    """
+    Scan ALL Outreach sequences for prospects who finished without replying.
+    Segments by engagement: engaged (opens>=3 or clicks>0), lurker (opens>0), ghost (0 opens).
+
+    Returns {success, total_scanned, segments: {engaged, lurker, ghost},
+             new_added, already_known, skipped_territory, error}
+    """
+    try:
+        import tools.outreach_client as outreach_client
+        if not outreach_client.is_authenticated():
+            return {"success": False, "error": "Outreach not authenticated.", "new_added": 0}
+
+        exclude = _C4_SEQUENCE_IDS.copy()
+        if exclude_sequence_ids:
+            exclude.update(exclude_sequence_ids)
+
+        # Step 1: List all sequences
+        if progress_callback:
+            progress_callback("Loading Outreach sequences...")
+        sequences = outreach_client.get_sequences()
+        if not sequences:
+            return {"success": False, "error": "No sequences found in Outreach.", "new_added": 0}
+
+        # Filter: skip excluded, skip sequences with 0 contacted
+        active_seqs = [s for s in sequences
+                      if int(s.get("id", 0)) not in exclude
+                      and int(s.get("num_contacted", 0) or 0) > 0]
+        logger.info(f"Reengagement: scanning {len(active_seqs)} sequences "
+                    f"({len(sequences)} total, {len(exclude)} excluded)")
+
+        if progress_callback:
+            progress_callback(f"Scanning {len(active_seqs)} sequences for unresponsive prospects...")
+
+        # Step 2: Load exclusion sets
+        active_accounts = csv_importer.get_active_accounts()
+        active_keys = set()
+        for acc in active_accounts:
+            key = acc.get("Name Key", "") or csv_importer.normalize_name(
+                acc.get("Active Account Name", "") or acc.get("Display Name", ""))
+            if key:
+                active_keys.add(key)
+
+        existing_prospects = _load_all_prospects()
+        prospect_keys = {p.get("Name Key", "") for p in existing_prospects if p.get("Name Key")}
+
+        try:
+            pipeline_keys = set()
+            opps = pipeline_tracker.get_open_opps()
+            for o in opps:
+                key = csv_importer.normalize_name(o.get("Account Name", ""))
+                if key:
+                    pipeline_keys.add(key)
+            closed = pipeline_tracker.get_closed_lost_opps(buffer_months=0, lookback_months=0)
+            for o in closed:
+                key = csv_importer.normalize_name(o.get("Account Name", ""))
+                if key:
+                    pipeline_keys.add(key)
+        except Exception:
+            pipeline_keys = set()
+
+        excluded_keys = active_keys | prospect_keys | pipeline_keys
+
+        # Step 3: Scan each sequence for finished, no-reply prospects
+        all_candidates = {}  # keyed by prospect email to dedup across sequences
+        total_scanned = 0
+
+        for seq in active_seqs:
+            seq_id = seq.get("id")
+            seq_name = seq.get("name", f"Seq {seq_id}")
+            try:
+                states = outreach_client.get_sequence_states(seq_id, include_prospect=True)
+            except Exception as e:
+                logger.warning(f"Failed to get states for sequence {seq_id}: {e}")
+                continue
+
+            for entry in states:
+                total_scanned += 1
+                state_val = entry.get("state", "")
+                reply_count = int(entry.get("reply_count", 0) or 0)
+
+                # Only finished prospects with no replies
+                if state_val != "finished" or reply_count > 0:
+                    continue
+
+                prospect = entry.get("prospect", {})
+                if not prospect:
+                    continue
+
+                emails = prospect.get("emails", [])
+                email = emails[0] if emails else ""
+                company = (prospect.get("company") or "").strip()
+                first_name = (prospect.get("first_name") or "").strip()
+                last_name = (prospect.get("last_name") or "").strip()
+
+                if not company and not email:
+                    continue  # Can't identify this prospect
+
+                name_key = csv_importer.normalize_name(company) if company else ""
+
+                # Skip if already known
+                if name_key and name_key in excluded_keys:
+                    continue
+
+                # Territory check via email domain
+                state_code = ""
+                if email and "@" in email:
+                    domain = email.split("@")[1].lower()
+                    # Quick k12 state extraction
+                    if ".k12." in domain:
+                        parts = domain.split(".")
+                        for i, p in enumerate(parts):
+                            if p == "k12" and i + 1 < len(parts):
+                                st = parts[i + 1].upper()
+                                if len(st) == 2:
+                                    state_code = st
+                                    break
+
+                # Skip non-territory if we can determine state
+                if state_code and state_code not in _TERRITORY_STATES:
+                    continue
+
+                # Segment by engagement
+                open_count = int(entry.get("open_count", 0) or 0)
+                click_count = int(entry.get("click_count", 0) or 0)
+
+                if open_count >= 3 or click_count > 0:
+                    segment = "engaged"
+                    priority = 750
+                elif open_count > 0:
+                    segment = "lurker"
+                    priority = 700
+                else:
+                    segment = "ghost"
+                    priority = 600
+
+                # Dedup across sequences — keep highest engagement
+                dedup_key = email.lower() if email else f"{first_name}|{last_name}|{name_key}"
+                if dedup_key in all_candidates:
+                    existing = all_candidates[dedup_key]
+                    if priority <= existing["priority"]:
+                        continue  # Keep the higher-engagement entry
+
+                all_candidates[dedup_key] = {
+                    "state": state_code,
+                    "company": company,
+                    "email": email,
+                    "first_name": first_name,
+                    "last_name": last_name,
+                    "name_key": name_key,
+                    "segment": segment,
+                    "priority": priority,
+                    "seq_name": seq_name,
+                    "open_count": open_count,
+                    "click_count": click_count,
+                }
+
+            # Rate limit between sequences
+            import time
+            time.sleep(0.3)
+
+        # Step 4: Write to Prospecting Queue
+        service, sheet_id = _ensure_prospect_tab()
+        now = datetime.now().strftime("%Y-%m-%d %H:%M")
+        rows_to_write = []
+        segments = {"engaged": 0, "lurker": 0, "ghost": 0}
+
+        for cand in all_candidates.values():
+            segments[cand["segment"]] = segments.get(cand["segment"], 0) + 1
+            notes = (f"Segment: {cand['segment']}, Seq: {cand['seq_name']}, "
+                    f"Opens: {cand['open_count']}, Clicks: {cand['click_count']}")
+            row = [
+                cand["state"],          # State
+                cand["company"],        # Account Name
+                cand["email"],          # Email
+                cand["first_name"],     # First Name
+                cand["last_name"],      # Last Name
+                "district",             # Deal Level
+                "",                     # Parent District
+                cand["name_key"],       # Name Key
+                "sequence_reengagement",  # Strategy
+                "outreach",             # Source
+                "pending",              # Status
+                str(cand["priority"]),   # Priority
+                now,                    # Date Added
+                "",                     # Date Approved
+                "",                     # Sequence Doc URL
+                "",                     # Est. Enrollment
+                "",                     # School Count
+                "",                     # Total Licenses
+                "",                     # Signal ID
+                notes,                  # Notes
+            ]
+            rows_to_write.append(row)
+
+        new_added = 0
+        if rows_to_write:
+            last_col = chr(ord("A") + len(PROSPECT_COLUMNS) - 1)
+            service.spreadsheets().values().append(
+                spreadsheetId=sheet_id,
+                range=f"'{TAB_PROSPECT_QUEUE}'!A:{last_col}",
+                valueInputOption="RAW",
+                insertDataOption="INSERT_ROWS",
+                body={"values": rows_to_write},
+            ).execute()
+            new_added = len(rows_to_write)
+
+        logger.info(f"Reengagement: {new_added} added from {total_scanned} scanned across {len(active_seqs)} sequences")
+
+        return {
+            "success": True,
+            "total_scanned": total_scanned,
+            "sequences_scanned": len(active_seqs),
+            "segments": segments,
+            "new_added": new_added,
+            "already_known": total_scanned - new_added - sum(1 for _ in []),
+        }
+
+    except Exception as e:
+        logger.error(f"Sequence reengagement failed: {e}", exc_info=True)
+        return {"success": False, "error": str(e), "new_added": 0}

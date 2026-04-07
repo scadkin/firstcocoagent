@@ -2380,6 +2380,34 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await send_message(f"Lookalike search error: {e}")
         return
 
+    elif user_text.lower() in ["/prospect_reengagement", "/reengagement", "reengagement", "re-engagement"]:
+        await send_message("🔄 Scanning Outreach sequences for unresponsive prospects... This may take a few minutes.")
+        try:
+            loop = asyncio.get_event_loop()
+            result = await loop.run_in_executor(
+                None, district_prospector.suggest_sequence_reengagement)
+            if not result.get("success"):
+                await send_message(f"⚠️ {result.get('error', 'Unknown error')}")
+            else:
+                segs = result.get("segments", {})
+                lines = [
+                    f"🔄 *Sequence Re-Engagement Scan Complete*\n",
+                    f"Scanned {result['total_scanned']:,} prospects across {result['sequences_scanned']} sequences\n",
+                    f"✅ *{result['new_added']}* new re-engagement targets added\n",
+                    f"  🟢 Engaged (opens>=3 or clicks): {segs.get('engaged', 0)}",
+                    f"  🟡 Lurkers (opened, no reply): {segs.get('lurker', 0)}",
+                    f"  ⚪ Ghosts (never opened): {segs.get('ghost', 0)}",
+                ]
+                await send_message("\n".join(lines))
+                # Set last batch for /prospect_approve
+                pending = await loop.run_in_executor(None, district_prospector.get_pending, 5)
+                if pending:
+                    _last_prospect_batch = pending
+                    await send_message(district_prospector.format_batch_for_telegram(pending))
+        except Exception as e:
+            await send_message(f"Re-engagement scan error: {e}")
+        return
+
     elif user_text.lower() in ["/prospect_cold_requests", "/cold_requests", "/c4"]:
         async def _run_c4_scan():
             """Run C4 scan as a background task so it doesn't block the event loop."""
