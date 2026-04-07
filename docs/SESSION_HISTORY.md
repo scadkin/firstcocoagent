@@ -656,3 +656,31 @@ Built Scout's complete signal intelligence system from scratch. Processes Gmail 
 - BoardDocs uses `urllib.request` (not httpx) since signal_processor already imports it
 - RSS uses `feedparser` library (new dependency)
 - Ballotpedia parses raw HTML with regex (no API available)
+
+---
+
+## Session 46 (2026-04-06)
+
+### What was built
+1. **Leadership change monitoring** — `scan_leadership_changes()` in signal_processor.py. Serper web search across 12 territory states for superintendent hires/resignations/retirements/searches. Claude Haiku extracts structured data. 8 changes found on first run (OH: Wilmington, Twinsburg, Sebring, Middletown, Poland; MI: Grosse Pointe, Okemos, Whitefish). Weekly Monday 8 AM CST via scheduler. `/signal_leadership` command. BoardDocs `_BOARD_LEADERSHIP_KEYWORDS` regex added for superintendent search/resignation/appointment agenda items. Display-layer risk flagging: active customer leadership changes show "⚠️ ACCOUNT RISK" in format_hot_signals and format_signal_detail.
+2. **RFP monitoring** — `scan_rfp_opportunities()` in signal_processor.py. Serper + Claude Haiku with aggressive CodeCombat-relevance filtering. Prompt has explicit include list (CS/STEM/CTE curriculum, game-based learning, math, cybersecurity) and hard-exclude list (construction, devices, food, LMS, assessment). 0 results on first run (expected — RFPs are procurement postings, not news articles). Weekly Monday 8:15 AM CST. `/signal_rfp` command.
+3. **Legislative signal scanner** — `scan_legislative_signals()` in signal_processor.py. State CS/STEM/CTE education mandates, bills, and policy changes. 2 signals found: TX HB 1481 tech mandate, IL CS education mandate. Monthly 1st Monday 8:30 AM CST (legislation moves slowly). `/signal_legislation` command. Urgency: enacted/signed = urgent, passed committee = time_sensitive. Heat score override: territory legislation gets minimum 30, enacted gets +15 bonus.
+4. **Territory map visualization** — `tools/territory_map.py` (new file). Interactive Folium HTML map with 5 layers: Active Accounts (green, 18), Pipeline (orange, 12), Prospects (blue, 108), ESAs (purple, 0), All Districts (gray clustered, 7978). Clickable popups. Layer toggles. CartoDB positron tiles. Sent as Telegram file attachment (10.3 MB). `/territory_map [state]` command. `folium>=0.17.0` added to requirements.txt.
+5. **BoardDocs noise filtering** — `_BOARD_FALSE_POSITIVE` regex in signal_processor.py. Rejects tech keyword matches when nearby context contains false positive words (wheelchair, food service, janitorial, expo, fair, family night, athletic, playground). Checks 50 chars before + 150 after each match.
+6. **Permissions fix** — Global `Bash(*)` in `~/.claude/settings.json` and project `.claude/settings.local.json`. Replaced 50+ individual Bash command rules with single wildcard. Deny list still blocks rm -rf, dd, mkfs.
+
+### Key decisions
+- url="" for all Serper-based scanners (leadership, RFP, legislative). Same RFP/change gets indexed by multiple sources → different URLs → different composite dedup keys → duplicates. Empty url makes dedup key fall back to msg_id only. Full URL preserved in source_detail field.
+- RFP urgency: all "time_sensitive" regardless of deadline. Deadline data from search snippets is unreliable. Deadline included in headline when Claude finds one.
+- Legislative scan uses TERRITORY_STATES_WITH_CA (not just TERRITORY_STATES). A CS mandate in any territory state creates opportunity.
+- Territory map sent as Telegram file (not GAS bridge). Folium HTML is 10+ MB — too large for GAS bridge POST, and Google Docs can't render interactive HTML anyway.
+- BoardDocs false positive filter uses context window (50 chars before + 150 after) to catch phrases like "wheelchair accessible RFP" or "STEM Expo sponsorship" without blocking legitimate STEM/RFP signals.
+
+### Bugs fixed during session
+- territory_map: `gas` variable not in scope → created local GASBridge instance → then switched to Telegram file attachment entirely
+- territory_map: `config.TELEGRAM_BOT_TOKEN` → should be direct import `TELEGRAM_BOT_TOKEN`
+
+### Architectural patterns
+- All three new scanners (leadership, RFP, legislative) follow identical pattern: Serper queries → URL dedup → single Claude Haiku batch call → JSON parse with fence stripping → post-process with NCES/customer status lookups → in-scan dedup → return signal list with url=""
+- Scheduler now has 3 weekly/monthly events staggered by 15 min: leadership 8:00, RFP 8:15, legislative 8:30 (1st Monday only)
+- territory_map.py is a lazy import (folium is heavy), only loaded when /territory_map command is used
