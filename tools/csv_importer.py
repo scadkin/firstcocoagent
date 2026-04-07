@@ -292,6 +292,66 @@ def normalize_name(name: str) -> str:
     return key
 
 
+def fuzzy_match_name(query_key: str, candidate_keys: dict, threshold: float = 0.7) -> str | None:
+    """
+    Fuzzy match a normalized name key against a dict of {name_key: value}.
+    Uses token overlap scoring. Returns best matching key or None.
+
+    Matching strategies (in order):
+    1. Exact match
+    2. Containment: one name is a substring of the other
+    3. Token overlap: Jaccard similarity on word tokens
+
+    Args:
+        query_key: Normalized name to search for
+        candidate_keys: Dict of {normalized_key: any_value}
+        threshold: Minimum similarity score (0-1). Default 0.7.
+
+    Returns: Best matching key from candidate_keys, or None
+    """
+    if not query_key or not candidate_keys:
+        return None
+
+    if query_key in candidate_keys:
+        return query_key
+
+    query_tokens = set(query_key.split())
+    if not query_tokens:
+        return None
+
+    best_key = None
+    best_score = threshold
+
+    for cand_key in candidate_keys:
+        if not cand_key:
+            continue
+
+        # Containment check
+        if query_key in cand_key or cand_key in query_key:
+            shorter = min(len(query_key), len(cand_key))
+            longer = max(len(query_key), len(cand_key))
+            score = shorter / longer if longer > 0 else 0
+            if score > best_score:
+                best_score = score
+                best_key = cand_key
+            continue
+
+        # Token overlap (Jaccard similarity)
+        cand_tokens = set(cand_key.split())
+        if not cand_tokens:
+            continue
+        intersection = query_tokens & cand_tokens
+        union = query_tokens | cand_tokens
+        if not union:
+            continue
+        jaccard = len(intersection) / len(union)
+        if jaccard > best_score:
+            best_score = jaccard
+            best_key = cand_key
+
+    return best_key
+
+
 # ─────────────────────────────────────────────
 # ACCOUNT CLASSIFICATION
 # ─────────────────────────────────────────────

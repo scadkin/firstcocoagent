@@ -822,6 +822,7 @@ def get_territory_gaps(state: str) -> dict:
                 school_to_district_key[s_key] = csv_importer.normalize_name(d_name)
 
         # Districts with active school accounts (through territory school lookup)
+        # Use fuzzy matching to handle NCES vs Salesforce naming differences
         districts_with_active_schools = set()
         matched_schools = []
         unmatched_schools = []
@@ -831,7 +832,14 @@ def get_territory_gaps(state: str) -> dict:
                 districts_with_active_schools.add(district_key)
                 matched_schools.append(school_key)
             else:
-                unmatched_schools.append(school_key)
+                # Fuzzy match: try token overlap against NCES school names
+                fuzzy_key = csv_importer.fuzzy_match_name(
+                    school_key.lower(), school_to_district_key, threshold=0.7)
+                if fuzzy_key:
+                    districts_with_active_schools.add(school_to_district_key[fuzzy_key])
+                    matched_schools.append(school_key)
+                else:
+                    unmatched_schools.append(school_key)
         # Also add districts from Parent Account field
         districts_with_active_schools.update(school_parent_keys)
 

@@ -56,6 +56,7 @@ csv_importer.classify_account(account_name, parent_account, sf_type) -> str
 csv_importer.get_active_accounts(state_filter="") -> list[dict]
 csv_importer.get_districts_with_schools() -> list[dict]
 csv_importer.normalize_name(name) -> str
+csv_importer.fuzzy_match_name(query_key, candidate_keys, threshold=0.7) -> str | None  # token overlap / containment matching
 ```
 
 ## daily_call_list — MODULE not class

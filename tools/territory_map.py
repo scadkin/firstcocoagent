@@ -345,9 +345,11 @@ def generate_territory_map_file(output_path: str = "", state_filter: str = "") -
 
 
 def _find_district_coords(districts: list, name_key: str) -> dict | None:
-    """Find lat/lon for a district by name key. Returns {lat, lon} or None."""
+    """Find lat/lon for a district by name key. Falls back to fuzzy match."""
     if not name_key:
         return None
+
+    # Exact match first
     for d in districts:
         if d.get("Name Key", "") == name_key:
             try:
@@ -357,4 +359,23 @@ def _find_district_coords(districts: list, name_key: str) -> dict | None:
                     return {"lat": lat, "lon": lon}
             except (ValueError, TypeError):
                 continue
+
+    # Fuzzy match fallback
+    import tools.csv_importer as csv_importer
+    candidate_map = {}
+    for d in districts:
+        dk = d.get("Name Key", "")
+        if dk:
+            candidate_map[dk] = d
+    fuzzy_key = csv_importer.fuzzy_match_name(name_key, candidate_map, threshold=0.7)
+    if fuzzy_key:
+        d = candidate_map[fuzzy_key]
+        try:
+            lat = float(d.get("Lat", 0))
+            lon = float(d.get("Lon", 0))
+            if lat and lon:
+                return {"lat": lat, "lon": lon}
+        except (ValueError, TypeError):
+            pass
+
     return None
