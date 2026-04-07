@@ -1791,11 +1791,11 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             map_path = await loop.run_in_executor(
                 None, territory_map.generate_territory_map_file, "", state_filter)
             # Send HTML file via Telegram — Steven opens in browser
-            bot = Bot(token=config.TELEGRAM_BOT_TOKEN)
+            bot = Bot(token=TELEGRAM_BOT_TOKEN)
             async with bot:
                 with open(map_path, "rb") as f:
                     await bot.send_document(
-                        chat_id=config.TELEGRAM_CHAT_ID,
+                        chat_id=TELEGRAM_CHAT_ID,
                         document=f,
                         filename=f"scout_territory_map{'_' + state_filter if state_filter else ''}.html",
                         caption=f"🗺 Territory Map{label} — open in browser for interactive view")
