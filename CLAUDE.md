@@ -5,13 +5,13 @@
 
 ## CURRENT STATE — update this after each session
 
-**Session 47: 15 features shipped. 22 of 24 prospecting strategies now built. Signal system: 19 sources, 31 commands. New scanners: grant (#20), budget (#21), AI Algebra (#23), Cybersecurity (#24), role/title (#7), CSTA (#8). Prospecting: lookalike (#22), sequence re-engagement (#11). Territory map: enriched popups + signal heat overlay. Dormant detection (#12), webinar tags (#14), pilot template (#15), fuzzy matching, District Administration RSS. Next: live-test on Railway, check Tulsa bond results, verify Google Alert parser ~April 9, shift to operating mode.**
+**Session 47: 15 features shipped + all live-tested on Railway. 22 of 24 prospecting strategies built. Signal system: 19 sources, 31 commands. All scanners verified producing real results. Sequence re-engagement redesigned as report-then-act (not auto-queue). Fixes applied during testing: Agency Type text matching, dormant name dedup, reengagement territory filter (NCES + intl exclusion), budget prompt (exclude Health/PE), CSTA territory filter. Next: check Tulsa bond results (April 7 vote), verify Google Alert parser ~April 9, shift to operating mode — act on signals, build campaigns.**
 
 ### What was done (Session 47)
 - **Territory map enriched popups + signal heat overlay.** Active Accounts show licenses, revenue, enrollment. Pipeline shows opp name, close date. HeatMap layer shows signal density (togglable).
 - **6 new signal scanners:** grant (#20 `/signal_grants`), budget (#21 `/signal_budget`), AI Algebra (#23 `/signal_algebra`), Cybersecurity (#24 `/signal_cyber`), role/title (#7 `/signal_roles`, ~$2.50/scan), CSTA (#8 `/signal_csta`, ~$1.20/scan).
 - **Cohort/lookalike prospecting (#22):** `/prospect_lookalike` — NCES districts demographically similar to best customers. $0.
-- **Sequence re-engagement (#11):** `/prospect_reengagement` — scans ALL Outreach sequences for finished/no-reply prospects. Segments: engaged/lurker/ghost.
+- **Sequence re-engagement (#11):** `/prospect_reengagement` redesigned as report-then-act. Mode 1 (no args): overview of all sequences with est. no-reply counts. Mode 2 (`/prospect_reengagement 2 [engaged|lurker|ghost|all]`): scan one sequence, show prospects by segment, use `/prospect_approve` to queue. Nothing auto-queued.
 - **Dormant lead detection (#12):** `/dormant [days]` — accounts with past activity that went silent. Requires >= 1 prior activity.
 - **Webinar campaign tags (#14):** CSV routing recognizes "webinar"/"attendee"/"registrant".
 - **Pilot sequence template (#15):** 4-step, 12-day pilot offer archetype.
@@ -28,11 +28,10 @@
 - Signal Intelligence System: 18,401 signals ($0.30), enrichment ($0.002/signal), job scanner, 10 commands, daily scan, quality pass (150→40). Google Alerts 28→18. DOE newsletters 13 states.
 
 ### What still needs to be done
-- **Live-test all Session 47 features on Railway** — deploy, run each scanner via Telegram, validate output quality.
-- **Verify Google Alert parser ~April 9** — First new digest with bond/leadership/AI policy keywords. Run `/signal_scan`.
 - **Check Tulsa PS bond results** — Vote was April 7. If Prop 3 ($104M tech) passed, act on Robert F. Burton (Exec Dir IT).
-- **Act on 4 STRONG enriched signals** — Tulsa PS, Richardson ISD, Acton-Boxborough, Norwalk PS.
-- **Shift to operating mode** — system is built. Run signals → prospects → research → sequences → outreach.
+- **Verify Google Alert parser ~April 9** — First new digest with bond/leadership/AI policy keywords. Run `/signal_scan`.
+- **Act on 4 STRONG enriched signals** — Tulsa PS, Richardson ISD, Acton-Boxborough, Norwalk PS. Research contacts + draft outreach.
+- **Shift to operating mode** — system is built. Act on signals, build campaigns, run outreach sequences.
 - **#2 Usage-based prospecting** — Blocked on CodeCombat internal data from Steven's team.
 - **Firecrawl paid plan** — Deferred (budget). Was #1 research tool.
 - **Parse.bot integration** — Deferred (DNS).

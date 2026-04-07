@@ -684,3 +684,49 @@ Built Scout's complete signal intelligence system from scratch. Processes Gmail 
 - All three new scanners (leadership, RFP, legislative) follow identical pattern: Serper queries → URL dedup → single Claude Haiku batch call → JSON parse with fence stripping → post-process with NCES/customer status lookups → in-scan dedup → return signal list with url=""
 - Scheduler now has 3 weekly/monthly events staggered by 15 min: leadership 8:00, RFP 8:15, legislative 8:30 (1st Monday only)
 - territory_map.py is a lazy import (folium is heavy), only loaded when /territory_map command is used
+
+---
+
+## Session 47 (2026-04-07) — 15 Features Shipped + All Live-Tested
+
+### Session Summary
+Massive build session: 22 of 24 prospecting strategies now built. Signal system expanded from 10→19 sources, 16→31 commands. All features live-tested on Railway with Steven via Telegram. Core prospecting infrastructure is now COMPLETE — shifting to operating mode.
+
+### Features Built (Phase 1 — before plan)
+1. **Territory map enriched popups** — Active Accounts show licenses, revenue, enrollment, school count. Pipeline shows opp name, close date. Prospects show enrollment, priority. Districts show city.
+2. **Signal heat overlay** — HeatMap layer on territory map showing signal density by district. Togglable.
+3. **Grant-funded prospecting (#20)** — `scan_grant_opportunities()`. Monthly 1st Mon 8:45 AM. `/signal_grants`. ~$0.03/scan.
+4. **Budget cycle targeting (#21)** — `scan_budget_cycle_signals()`. Monthly 1st Mon 9:00 AM. `/signal_budget`. ~$0.03/scan.
+5. **AI Algebra campaign (#23)** — `scan_algebra_targets()`. On-demand. `/signal_algebra`. ~$0.03/scan.
+6. **Cybersecurity pre-launch (#24)** — `scan_cybersecurity_targets()`. On-demand. `/signal_cyber`. ~$0.03/scan.
+7. **Cohort/lookalike prospecting (#22)** — `find_lookalike_districts()`. $0. `/prospect_lookalike`.
+8. **Fuzzy name matching** — `fuzzy_match_name()` with token subset + Jaccard. Applied to territory gap analysis + map.
+9. **District Administration RSS** — only verified working feed of 6 tested.
+
+### Features Built (Phase 2 — from plan v3)
+10. **Role/title-based prospecting (#7)** — `scan_role_targets()`. Serper for rare titles only (CS/CTE/STEM directors, specialized teachers). ~$2.50/scan. On-demand. `/signal_roles [state]`.
+11. **CSTA chapter prospecting (#8)** — `scan_csta_chapters()`. ~$1.20/scan. On-demand. `/signal_csta`.
+12. **Sequence re-engagement (#11)** — `get_sequence_reengagement_overview()` + `scan_sequence_for_reengagement()`. Report-then-act: Mode 1 shows sequence list, Mode 2 scans one sequence by segment. `/prospect_reengagement`.
+13. **Dormant lead detection (#12)** — `get_dormant_accounts()`. Requires >= 1 prior activity. `/dormant [days]`.
+14. **Webinar campaign tags (#14)** — `_parse_csv_intent()` recognizes webinar keywords. Routes to Prospecting Queue.
+15. **Pilot sequence template (#15)** — 4-step, 12-day pilot offer archetype in sequence_templates.md.
+
+### Bugs Fixed During Live Testing
+- **Lookalike Agency Type mismatch** — NCES stores full text ("Regular local school district") not numeric codes ("1"). Filter matched both.
+- **Dormant name dedup** — "Los Angeles Unified School District" and "Los Angeles Unified" merged via normalize_name().
+- **Reengagement territory filter** — was only checking .k12. domains, missing 95% of prospects. Added NCES district lookup + international TLD exclusion + territory-only filter.
+- **Budget scanner false positive** — Cincinnati Health/PE curriculum adoption slipped through. Added exclusions for non-CS subjects.
+- **CSTA territory filter** — Miami (FL) was showing up. Added territory state check before dedup.
+
+### Key Decisions
+- **Role/title scanning: Serper for rare titles only.** Common titles (Principal, Teacher, Math Teacher) are NOT searchable via Serper — too noisy, too expensive ($550/scan for one common title). Found through existing research engine + job scanner instead.
+- **Sequence re-engagement: report-then-act, not auto-queue.** Different sequences have different contexts (CUE booth vs license request vs webinar). Auto-queuing into one bucket lost that context.
+- **RSS feeds: only 1 of 6 tested works.** District Administration is valid. EdWeek, THE Journal, GovTech, EdSurge, SmartBrief all return malformed XML.
+- **Cut from plan:** State procurement portal scrapers (fragile, marginal over Serper), Ballotpedia superintendent snapshots (marginal over existing leadership scan), Active Accounts column rename (zero user value), sequence copy audit (Steven's manual task).
+
+### Architectural Patterns
+- All new scanners follow same pattern: Serper queries → URL dedup → Claude Haiku extraction → NCES validation → customer status check → heat scoring → write signals
+- Scheduler now has 5 monthly 1st Monday events: legislation 8:30, grants 8:45, budget 9:00 (+ weekly leadership 8:00, RFP 8:15)
+- `fuzzy_match_name()` uses token subset (2+ token containment = 0.95 score) + Jaccard similarity with 0.7 threshold
+- Reengagement overview uses single `get_sequences()` API call (no per-prospect scanning) for fast display
+- `_last_reengagement_sequences` global caches overview for Mode 2 index lookup
