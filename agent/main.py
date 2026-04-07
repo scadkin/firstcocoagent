@@ -1788,9 +1788,13 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             loop = asyncio.get_event_loop()
             html = await loop.run_in_executor(
                 None, territory_map.generate_territory_map, state_filter)
-            # Upload HTML to Google Drive as a Doc (HTML content renders)
+            # Upload HTML to Google Drive
+            from tools.gas_bridge import GASBridge
+            gas_bridge = GASBridge(
+                webhook_url=os.environ.get("GAS_WEBHOOK_URL", ""),
+                secret_token=os.environ.get("GAS_SECRET_TOKEN", ""))
             title = f"Scout Territory Map{label} — {datetime.now().strftime('%Y-%m-%d')}"
-            doc_result = gas.create_google_doc(title, html,
+            doc_result = gas_bridge.create_google_doc(title, html,
                 folder_id=os.environ.get("SEQUENCES_FOLDER_ID", ""))
             if doc_result.get("success"):
                 await send_message(f"🗺 *Territory Map Generated*{label}\n\n"
