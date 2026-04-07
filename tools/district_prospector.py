@@ -2849,23 +2849,36 @@ def scan_sequence_for_reengagement(sequence_id, segment="engaged",
         return {"success": False, "error": str(e)}
 
 
-def format_reengagement_overview(result: dict) -> str:
-    """Format sequence overview for Telegram."""
+def format_reengagement_overview(result: dict, min_no_reply: int = 20,
+                                  max_display: int = 15) -> str:
+    """Format sequence overview for Telegram. Only shows sequences with meaningful volume."""
     if not result.get("success"):
         return f"Reengagement overview failed: {result.get('error', 'Unknown error')}"
 
-    seqs = result.get("sequences", [])
-    if not seqs:
+    all_seqs = result.get("sequences", [])
+    if not all_seqs:
         return "No sequences with contacted prospects found."
 
-    lines = [f"🔄 *Sequence Re-Engagement Overview* ({len(seqs)} sequences)\n"]
-    for i, s in enumerate(seqs, 1):
+    # Filter to sequences worth scanning
+    seqs = [s for s in all_seqs if s["est_no_reply"] >= min_no_reply]
+    hidden = len(all_seqs) - len(seqs)
+
+    if not seqs:
+        return (f"No sequences with {min_no_reply}+ unresponsive prospects.\n"
+                f"({len(all_seqs)} sequences checked, all below threshold)")
+
+    lines = [f"🔄 *Sequences with {min_no_reply}+ unresponsive prospects*\n"]
+    for i, s in enumerate(seqs[:max_display], 1):
         lines.append(
-            f"  {i}. *{s['name']}* (ID {s['id']})\n"
-            f"     Contacted: {s['num_contacted']} | Est. no-reply: ~{s['est_no_reply']}"
-            f" | Reply rate: {s['reply_rate_pct']}%"
+            f"  {i}. *{s['name']}*\n"
+            f"     Contacted: {s['num_contacted']:,} | Est. no-reply: ~{s['est_no_reply']:,}"
         )
-    lines.append(f"\nPick one: `/prospect_reengagement 2`")
+    if len(seqs) > max_display:
+        lines.append(f"\n  ... and {len(seqs) - max_display} more above threshold")
+    if hidden:
+        lines.append(f"  ({hidden} sequences with <{min_no_reply} no-reply hidden)")
+
+    lines.append(f"\nScan one: `/prospect_reengagement 2`")
     lines.append(f"With segment: `/prospect_reengagement 2 lurker`")
     return "\n".join(lines)
 
