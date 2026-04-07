@@ -14,6 +14,7 @@ class Scheduler:
         self._last_signal_scan_date = None
         self._last_leadership_scan_date = None
         self._last_rfp_scan_date = None
+        self._last_legislative_scan_date = None
         self._user_active_today = False
         self._user_active_date = None
 
@@ -56,6 +57,12 @@ class Scheduler:
             if now.weekday() == 0 and self._last_rfp_scan_date != today:
                 self._last_rfp_scan_date = today
                 return "rfp_scan"
+
+        if hour == 8 and minute == 30:
+            # Monthly: first Monday only (day 1-7)
+            if now.weekday() == 0 and today.day <= 7 and self._last_legislative_scan_date != today:
+                self._last_legislative_scan_date = today
+                return "legislative_scan"
 
         if hour == 9 and minute == 15:
             if self._last_morning_brief_date != today:

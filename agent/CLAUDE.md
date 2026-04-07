@@ -20,9 +20,9 @@ memory_manager.extract_memory_update(response) -> tuple  # static
 ## Scheduler (`agent/scheduler.py`)
 ```python
 scheduler = Scheduler()  # NO arguments
-event = scheduler.check()  # returns "morning_brief" | "eod_report" | "checkin" | "weekend_greeting" | "leadership_scan" | "rfp_scan" | None
+event = scheduler.check()  # returns "morning_brief" | "eod_report" | "checkin" | "weekend_greeting" | "leadership_scan" | "rfp_scan" | "legislative_scan" | None
 scheduler.mark_user_active_today()  # suppresses weekend greeting if Steven messages first
-# Weekdays: signal_scan 7:45am, leadership_scan Mon 8:00am, rfp_scan Mon 8:15am, morning_brief 9:15am, eod_report 4:30pm
+# Weekdays: signal_scan 7:45am, leadership_scan Mon 8:00am, rfp_scan Mon 8:15am, legislative_scan 1st Mon 8:30am, morning_brief 9:15am, eod_report 4:30pm
 # Saturday: weekend_greeting at 11am (if not already active)
 # Sunday: weekend_greeting at 1pm (if not already active)
 # NO .run() method

@@ -2415,6 +2415,216 @@ Search results:
 
 
 # ─────────────────────────────────────────────
+# LEGISLATIVE SIGNAL SCANNER (Serper + Claude)
+# ─────────────────────────────────────────────
+
+def scan_legislative_signals(states=None, progress_callback=None) -> list:
+    """
+    Scan for state-level CS/STEM/CTE education legislation that creates district-wide demand.
+    New CS mandates = every district in that state needs curriculum.
+    Returns list of signal dicts. Cost: ~$0.03/scan. Run monthly.
+    """
+    if not SERPER_API_KEY:
+        logger.warning("SERPER_API_KEY not set — cannot scan legislative signals")
+        return []
+
+    import httpx
+
+    _load_nces_lookup()
+    _load_cross_references()
+
+    # Scan ALL 50 states for legislation (not just territory — a new mandate in
+    # a non-territory state could mean CodeCombat expansion opportunity)
+    scan_states = states or list(TERRITORY_STATES_WITH_CA)
+    all_snippets = []
+    seen_urls = set()
+
+    if progress_callback:
+        progress_callback(f"Searching {len(scan_states)} states for CS/STEM legislation...")
+
+    for state_abbr in scan_states:
+        state_name = ABBR_TO_STATE_NAME.get(state_abbr, state_abbr)
+        queries = [
+            f'"computer science" ("mandate" OR "requirement" OR "legislation" OR "bill") K-12 school "{state_name}" 2026',
+            f'"CTE" OR "STEM" ("legislation" OR "mandate" OR "state law" OR "requirement") education "{state_name}" 2026',
+        ]
+        for query in queries:
+            try:
+                resp = httpx.post(
+                    SERPER_URL,
+                    headers={"X-API-Key": SERPER_API_KEY, "Content-Type": "application/json"},
+                    json={"q": query, "num": 10, "tbs": "qdr:m"},
+                    timeout=15.0,
+                )
+                data = resp.json()
+                for item in data.get("organic", [])[:10]:
+                    url = item.get("link", "")
+                    if url and url not in seen_urls:
+                        seen_urls.add(url)
+                        all_snippets.append({
+                            "title": item.get("title", ""),
+                            "snippet": item.get("snippet", ""),
+                            "url": url,
+                            "searched_state": state_abbr,
+                        })
+                time.sleep(0.5)
+            except Exception as e:
+                logger.warning(f"Serper legislative search failed for {state_abbr}: {e}")
+
+    if not all_snippets:
+        logger.info("Legislative scan: no search results found")
+        if progress_callback:
+            progress_callback("No CS/STEM legislation found.")
+        return []
+
+    logger.info(f"Legislative scan: {len(all_snippets)} unique articles from {len(scan_states)} states")
+
+    # Build combined text for Claude extraction
+    combined_text = ""
+    for s in all_snippets:
+        combined_text += f"\n[{s['searched_state']}] {s['title']}\n{s['snippet']}\nURL: {s['url']}\n"
+    combined_text = combined_text[:12000]
+
+    if progress_callback:
+        progress_callback(f"Extracting legislative signals from {len(all_snippets)} articles...")
+
+    import anthropic
+    try:
+        client = anthropic.Anthropic(timeout=90.0)
+        prompt = f"""Extract K-12 CS/STEM/CTE education legislation and policy changes from these search results.
+
+INCLUDE:
+- New state mandates requiring CS education in K-12 schools
+- Bills expanding CS/CTE graduation requirements
+- State funding allocations for CS/STEM curriculum
+- State-level AI education policy or requirements
+- Executive orders or state board decisions on CS education
+- State CS standards adoption or revision
+
+EXCLUDE:
+- Federal-level legislation (unless directly affecting K-12 CS)
+- General education funding not specific to CS/STEM/CTE
+- University/higher-ed policy
+- Opinions, editorials, or advocacy articles (not actual legislation)
+- Old/expired legislation from prior years
+
+For each legislative signal, extract:
+{{
+  "state": "XX",
+  "bill_or_policy": "HB 1035 or State Board Decision or Executive Order",
+  "status": "introduced|passed_committee|passed_house|passed_senate|signed|enacted|proposed",
+  "what_it_does": "1 sentence: what this legislation requires or funds",
+  "headline": "[state] [bill]: [summary]"
+}}
+
+If no CS/STEM/CTE legislation found, return [].
+Return ONLY a valid JSON array — no commentary.
+
+Search results:
+{combined_text}"""
+
+        response = client.messages.create(
+            model="claude-haiku-4-5-20251001",
+            max_tokens=2000,
+            messages=[{"role": "user", "content": prompt}],
+        )
+        _track_usage(response)
+        raw_text = response.content[0].text.strip()
+    except Exception as e:
+        logger.error(f"Claude legislative extraction failed: {e}")
+        return []
+
+    # Parse JSON
+    try:
+        clean = raw_text
+        if "```" in clean:
+            clean = clean.split("```")[1]
+            if clean.startswith("json"):
+                clean = clean[4:]
+        start = clean.find("[")
+        end = clean.rfind("]")
+        if start == -1 or end == -1:
+            logger.warning("Legislative extraction: no JSON array found in response")
+            return []
+        items = json.loads(clean[start:end + 1])
+    except json.JSONDecodeError as e:
+        logger.warning(f"Legislative extraction JSON parse failed: {e}")
+        return []
+
+    # Post-process
+    signals = []
+    dedup_seen = set()
+    year_month = datetime.now().strftime("%Y_%m")
+
+    # URL lookup
+    url_by_state = {}
+    for s in all_snippets:
+        state_abbr = s["searched_state"]
+        if state_abbr not in url_by_state:
+            url_by_state[state_abbr] = s["url"]
+
+    for item in items:
+        state = item.get("state", "").strip().upper()
+        bill = item.get("bill_or_policy", "").strip()
+        status = item.get("status", "").strip().lower()
+        headline = item.get("headline", "").strip()
+
+        if not state or not headline:
+            continue
+
+        # Dedup within scan by (state, bill)
+        dedup_key = (state, bill.lower()[:30] if bill else headline.lower()[:30])
+        if dedup_key in dedup_seen:
+            continue
+        dedup_seen.add(dedup_key)
+
+        # Legislative signals are state-scope (affect all districts in the state)
+        in_territory = state in TERRITORY_STATES_WITH_CA
+
+        # Urgency based on status
+        if status in ("signed", "enacted"):
+            urgency = "urgent"  # Law is active — districts must comply
+        elif status in ("passed_house", "passed_senate", "passed_committee"):
+            urgency = "time_sensitive"  # Moving through legislature
+        else:
+            urgency = "routine"  # Early stage
+
+        heat = compute_heat_score("ai_policy", 2, in_territory, "new")
+        # Override: legislation is higher value than ai_policy base weight
+        if in_territory:
+            heat = max(heat, 30)
+        if status in ("signed", "enacted"):
+            heat = min(heat + 15, 100)
+
+        msg_id = f"legislation_{state}_{year_month}"
+        best_url = url_by_state.get(state, "")
+
+        signals.append({
+            "date": datetime.now().strftime("%Y-%m-%d"),
+            "source": "legislative_scan",
+            "source_detail": f"Serper — {best_url}" if best_url else "Serper — web search",
+            "signal_type": "ai_policy",  # Closest existing type
+            "scope": "state",
+            "district": "",  # State-level, not district-specific
+            "state": state,
+            "headline": headline[:200],
+            "dollar_amount": "",
+            "tier": 1 if status in ("signed", "enacted") else 2,
+            "heat_score": heat,
+            "urgency": urgency,
+            "customer_status": "new",
+            "url": "",
+            "message_id": msg_id,
+        })
+
+    logger.info(f"Legislative scan: {len(signals)} CS/STEM legislative signals extracted "
+                f"({len(items)} raw, {len(items) - len(signals)} filtered/deduped)")
+    if progress_callback:
+        progress_callback(f"Legislative scan: {len(signals)} signals found")
+    return signals
+
+
+# ─────────────────────────────────────────────
 # RSS FEED INGESTION
 # ─────────────────────────────────────────────
 

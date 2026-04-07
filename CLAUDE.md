@@ -37,7 +37,7 @@
 
 ### Current status
 - All prior phases + enhancements: ✅
-- Signal Intelligence System: ✅ (Session 44-46) — 9 sources (Google Alerts, Burbio, DOE, RSS, BoardDocs, Ballotpedia, Job postings, Leadership scan, RFP scan). 15 Telegram commands. Daily 7:45 AM scan + weekly Monday 8 AM leadership + 8:15 AM RFP scans. Signal-to-deal attribution wired.
+- Signal Intelligence System: ✅ (Session 44-46) — 10 sources (Google Alerts, Burbio, DOE, RSS, BoardDocs, Ballotpedia, Job postings, Leadership scan, RFP scan, Legislative scan). 16 Telegram commands. Daily 7:45 AM scan + weekly Monday (leadership 8 AM, RFP 8:15 AM) + monthly 1st Monday (legislation 8:30 AM). Signal-to-deal attribution wired.
 - Outreach sequences: ✅ — IDs 1995-2001 (C4 x4, License Request, Webinar x2). 3 send schedules.
 - Sequence copy rules: ✅ — Comprehensive rules in memory. Seasonal calendar. Send schedules.
 
@@ -205,7 +205,7 @@
 
 **ESA_PATTERNS in target_roles.py has 78 entity name variations.** From Steven's ROLES and KEYWORDS doc. Covers ESC, BOCES, IU, COE, ROE, ISC, ESU, AEA, CESA, SELPA, JPA, SSA, and dozens more.
 
-**`signal_processor.py` is a flat module imported at top of main.py.** 9 signal sources: Google Alerts (regex), Burbio (Claude), DOE (Claude), RSS (feedparser), BoardDocs (HTTP scraping), Ballotpedia (HTTP scraping), Job postings (JobSpy), Leadership scan (Serper + Claude), RFP scan (Serper + Claude). Signals Database tab (18 columns including Pipeline Link). 15 Telegram commands, all direct-dispatch. Daily scan at 7:45 AM CST. Weekly Monday: leadership 8 AM + RFP 8:15 AM (~$0.03/scan each). BoardDocs/Ballotpedia/RSS wrapped in try/except (non-fatal). `_last_signal_batch` is in-memory — run `/signals` before `/signal_act` or `/signal_info` in a new session.
+**`signal_processor.py` is a flat module imported at top of main.py.** 10 signal sources: Google Alerts (regex), Burbio (Claude), DOE (Claude), RSS (feedparser), BoardDocs (HTTP scraping), Ballotpedia (HTTP scraping), Job postings (JobSpy), Leadership scan (Serper + Claude), RFP scan (Serper + Claude), Legislative scan (Serper + Claude). Signals Database tab (18 columns including Pipeline Link). 16 Telegram commands, all direct-dispatch. Daily scan at 7:45 AM CST. Weekly Monday: leadership 8 AM + RFP 8:15 AM. Monthly 1st Monday: legislation 8:30 AM. All ~$0.03/scan each. BoardDocs/Ballotpedia/RSS wrapped in try/except (non-fatal). `_last_signal_batch` is in-memory — run `/signals` before `/signal_act` or `/signal_info` in a new session.
 
 **Signal enrichment must run before acting on signals.** Never queue a district based on a headline alone. `enrich_signal()` does Serper web search + Claude Haiku analysis for CodeCombat relevance (strong/moderate/weak/none). A $6.2B bond can be WEAK if it's all devices. A no-dollar STEAM coordinator hire can be STRONG. Auto-runs on Tier 1 during daily scans; manual via `/signal_enrich N`.
 
@@ -394,6 +394,7 @@ firstcocoagent/
 | `/signal_bonds` | manual Ballotpedia bond measure scan |
 | `/signal_leadership` | manual superintendent change scan (Serper + Claude, ~$0.03) |
 | `/signal_rfp` | manual CS/STEM RFP opportunity scan (Serper + Claude, ~$0.03) |
+| `/signal_legislation` | manual CS/STEM education legislation scan (Serper + Claude, ~$0.03) |
 | `/export_sequence [name]` | export Outreach sequence to Google Doc |
 | `/ping_gas`, `ping gas`, `test gas` | ping GAS bridge |
 | `/train_voice`, `train voice` | train voice from Gmail (24 months) |
