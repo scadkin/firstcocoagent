@@ -656,23 +656,30 @@ def get_dormant_accounts(days: int = 90) -> list[dict]:
         if not all_rows:
             return []
 
-        # Group by account
-        by_account = {}
+        # Group by normalized account name (dedup variants like "LAUSD" vs "Los Angeles Unified")
+        import tools.csv_importer as csv_importer
+        by_account = {}  # keyed by normalized name
+        display_names = {}  # normalized → best display name (longest variant)
         for row in all_rows:
             account = (row.get("District/Account") or "").strip()
             if not account:
                 continue
+            key = csv_importer.normalize_name(account)
+            if not key:
+                continue
             date_str = row.get("Date", "")
             act_type = row.get("Type", "")
-            if account not in by_account:
-                by_account[account] = {"dates": [], "types": [], "count": 0}
-            by_account[account]["dates"].append(date_str)
-            by_account[account]["types"].append(act_type)
-            by_account[account]["count"] += 1
+            if key not in by_account:
+                by_account[key] = {"dates": [], "types": [], "count": 0}
+                display_names[key] = account
+            elif len(account) > len(display_names[key]):
+                display_names[key] = account  # Keep the most descriptive name
+            by_account[key]["dates"].append(date_str)
+            by_account[key]["types"].append(act_type)
+            by_account[key]["count"] += 1
 
         # Build exclusion set from active customers
         try:
-            import tools.csv_importer as csv_importer
             active_accounts = csv_importer.get_active_accounts()
             active_keys = set()
             for acc in active_accounts:
@@ -686,9 +693,10 @@ def get_dormant_accounts(days: int = 90) -> list[dict]:
         today = dt.now().date()
         dormant = []
 
-        for account, data in by_account.items():
+        for key, data in by_account.items():
+            account = display_names.get(key, key)
             # Skip active customers
-            if account.lower() in active_keys or csv_importer.normalize_name(account) in active_keys:
+            if key in active_keys:
                 continue
 
             # Find most recent activity date
