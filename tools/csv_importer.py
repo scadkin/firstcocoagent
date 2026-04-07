@@ -320,26 +320,40 @@ def fuzzy_match_name(query_key: str, candidate_keys: dict, threshold: float = 0.
         return None
 
     best_key = None
-    best_score = threshold
+    best_score = 0.0
 
     for cand_key in candidate_keys:
         if not cand_key:
             continue
 
-        # Containment check
-        if query_key in cand_key or cand_key in query_key:
-            shorter = min(len(query_key), len(cand_key))
-            longer = max(len(query_key), len(cand_key))
-            score = shorter / longer if longer > 0 else 0
+        cand_tokens = set(cand_key.split())
+        if not cand_tokens:
+            continue
+
+        # Token subset: all tokens of the shorter name appear in the longer
+        # e.g., {"huntington", "beach"} ⊂ {"huntington", "beach", "senior"}
+        shorter_tokens = query_tokens if len(query_tokens) <= len(cand_tokens) else cand_tokens
+        longer_tokens = cand_tokens if len(query_tokens) <= len(cand_tokens) else query_tokens
+        if shorter_tokens and len(shorter_tokens) >= 2 and shorter_tokens <= longer_tokens:
+            # Full token containment with 2+ tokens — strong match
+            score = 0.95
             if score > best_score:
                 best_score = score
                 best_key = cand_key
             continue
 
+        # Single-token containment: one name starts with or contains the other
+        if len(query_tokens) == 1 and len(cand_tokens) == 1:
+            if query_key in cand_key or cand_key in query_key:
+                shorter = min(len(query_key), len(cand_key))
+                longer = max(len(query_key), len(cand_key))
+                score = shorter / longer if longer > 0 else 0
+                if score > best_score:
+                    best_score = score
+                    best_key = cand_key
+                continue
+
         # Token overlap (Jaccard similarity)
-        cand_tokens = set(cand_key.split())
-        if not cand_tokens:
-            continue
         intersection = query_tokens & cand_tokens
         union = query_tokens | cand_tokens
         if not union:
@@ -349,7 +363,7 @@ def fuzzy_match_name(query_key: str, candidate_keys: dict, threshold: float = 0.
             best_score = jaccard
             best_key = cand_key
 
-    return best_key
+    return best_key if best_score >= threshold else None
 
 
 # ─────────────────────────────────────────────
