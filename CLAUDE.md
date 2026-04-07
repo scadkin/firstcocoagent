@@ -5,7 +5,18 @@
 
 ## CURRENT STATE — update this after each session
 
-**Session 47: 15 features shipped + all live-tested on Railway. 22 of 24 prospecting strategies built. Signal system: 19 sources, 31 commands. All scanners verified producing real results. Sequence re-engagement redesigned as report-then-act (not auto-queue). Fixes applied during testing: Agency Type text matching, dormant name dedup, reengagement territory filter (NCES + intl exclusion), budget prompt (exclude Health/PE), CSTA territory filter. Next: check Tulsa bond results (April 7 vote), verify Google Alert parser ~April 9, shift to operating mode — act on signals, build campaigns.**
+**Session 48: Email Reply Drafting system built + tested. Gmail MCP creates threaded HTML drafts in Steven's voice directly in Gmail. Response playbook (14 categories from 150+ real emails), voice profile updated (drafting rules, anti-AI-tell checklist, 10 learned corrections). GAS bridge `delete_draft` function added. Known issue: Outreach browser extension strips draft body for contacts in Outreach system. Next: check Tulsa bond results (April 7 vote), verify Google Alert parser ~April 9, act on 4 STRONG signals (Tulsa PS, Richardson ISD, Acton-Boxborough, Norwalk PS), shift to operating mode.**
+
+### What was done (Session 48)
+- **Email Reply Drafting system (Claude Code workflow).** Gmail MCP reads unread inbox → classifies DRAFT/FLAG/SKIP → drafts replies in Steven's voice → creates threaded HTML drafts in Gmail. Steven opens email, tweaks, sends.
+- **Response playbook** (`memory/response_playbook.md`) — 14 categories with real snippets from 150+ sent emails.
+- **Voice profile updated** — Drafting Rules (pricing, fabrication, tone), Anti-AI-Tell Checklist (banned phrases/patterns), 10 Learned Corrections from live testing.
+- **Workflow instructions** (`prompts/reply_draft.md`) — full drafting process for any Claude Code session.
+- **GAS bridge `delete_draft`** — added to Code.gs + deployed. Deletes orphaned drafts via GAS bridge Python requests.
+- **Draft log** (`memory/draft_log.md`) — for future "learn from my sends" learning loop.
+- **Known issue:** Outreach browser extension strips API-created draft body for contacts in Outreach. Workaround: standalone "COPY THIS" draft.
+- **Files created:** `memory/response_playbook.md`, `memory/draft_log.md`, `prompts/reply_draft.md`, `Desktop/Code_gs_PASTE_THIS.txt`.
+- **Files modified:** `memory/voice_profile.md`, `CLAUDE.md`, `gas/Code.gs`.
 
 ### What was done (Session 47)
 - **Territory map enriched popups + signal heat overlay.** Active Accounts show licenses, revenue, enrollment. Pipeline shows opp name, close date. HeatMap layer shows signal density (togglable).
@@ -98,6 +109,11 @@
 - **Email domain ranks higher than company name** (`email_priority=True`). Student emails excluded.
 - **Deterministic international detection:** TLDs, foreign edu domains, company name keywords. Do NOT use ambiguous signals ("india" matches "Indiana").
 - **Claude JSON preamble fix:** Strip text before `[` and after `]` before json.loads().
+
+### Email Reply Drafting (Claude Code workflow)
+When Steven says "draft my emails" or "check my inbox": load and follow `prompts/reply_draft.md`.
+Voice rules in `memory/voice_profile.md`. Response patterns in `memory/response_playbook.md`.
+Draft log in `memory/draft_log.md`. See prompts/reply_draft.md for the full workflow.
 
 ---
 

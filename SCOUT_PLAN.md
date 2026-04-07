@@ -3,7 +3,7 @@
 
 ---
 
-## YOU ARE HERE → 22 of 24 prospecting strategies built + all live-tested. Signal system: 19 sources, 31 commands. Session 47 shipped 15 features, all verified on Railway. Core infrastructure is COMPLETE. Shifting to operating mode: act on signals, build outreach campaigns, close deals. Check Tulsa bond results + Google Alert parser ~April 9. Only #2 (usage-based, blocked on CodeCombat data) remains unbuilt.
+## YOU ARE HERE → Email Reply Drafting system built + tested (Session 48). Gmail MCP creates threaded drafts in Steven's voice. Response playbook (14 categories), voice profile updated with anti-AI-tell rules + 10 learned corrections, workflow documented. Known issue: Outreach browser extension strips draft body for contacts in Outreach system (workaround: standalone "COPY THIS" draft). GAS bridge `delete_draft` function added. Still need to: check Tulsa bond results, verify Google Alert parser ~April 9, act on 4 STRONG signals, shift to operating mode.
 
 ---
 
@@ -371,6 +371,28 @@ Surviving prospects are added to the Prospecting Queue with email, first name, l
 - Algebra scanner: targets curriculum adoption cycles, pilots, RFPs for math technology. Wider last-month window
 - Cybersecurity scanner: targets existing CTE cyber programs, hiring, certifications. Uses last-year window (pre-launch pipeline building)
 - Signal system now: 14 sources, 22 Telegram commands
+
+---
+
+## COMPLETED: Email Reply Drafting System (Session 48)
+
+### What was built
+- **Gmail MCP workflow** — Claude Code reads unread inbox, classifies (DRAFT/FLAG/SKIP), drafts replies in Steven's voice, creates threaded Gmail drafts. Steven opens inbox, tweaks, sends.
+- **Response playbook** (`memory/response_playbook.md`) — 14 categories with real snippets from 150+ sent emails: pricing, budget constraints, scheduling, pilots, support routing, procurement, grants, etc.
+- **Voice profile updated** (`memory/voice_profile.md`) — added Drafting Rules, Anti-AI-Tell Checklist, and 10 Learned Corrections from live testing
+- **Workflow instructions** (`prompts/reply_draft.md`) — full step-by-step for any Claude Code session
+- **GAS bridge `delete_draft`** — added to Code.gs for cleaning up orphaned drafts
+- **Draft log** (`memory/draft_log.md`) — for future "learn from my sends" learning loop
+
+### Known issues
+- **Outreach browser extension** strips API-created draft body for contacts in Outreach's database. Workaround: create standalone "COPY THIS" draft for copy-paste.
+- Always use `contentType="text/html"` for clickable links
+- Never create duplicate drafts on same thread (causes persistent "Draft" label)
+
+### Testing results
+- 5 emails drafted during testing, 3 sent successfully. Voice was accurate, content corrections captured as learnings.
+- Banned phrase: "Want to hop on a quick call" — replaced with "Want to connect via Zoom this week?"
+- Pricing rule: push for Zoom first, send pricing after pushback or for international leads
 
 ---
 

@@ -730,3 +730,52 @@ Massive build session: 22 of 24 prospecting strategies now built. Signal system 
 - `fuzzy_match_name()` uses token subset (2+ token containment = 0.95 score) + Jaccard similarity with 0.7 threshold
 - Reengagement overview uses single `get_sequences()` API call (no per-prospect scanning) for fast display
 - `_last_reengagement_sequences` global caches overview for Mode 2 index lookup
+
+---
+
+## Session 48 (2026-04-07): Email Reply Drafting System
+
+### What was built
+- **Email Reply Drafting system** — Claude Code workflow using Gmail MCP (`gmail_search_messages`, `gmail_read_thread`, `gmail_create_draft` with `threadId` + `contentType="text/html"`). Reads unread inbox, classifies emails (DRAFT/FLAG/SKIP), drafts replies in Steven's voice, creates threaded HTML drafts directly in Gmail. Steven's workflow: open inbox → see draft → tweak → send → next.
+- **Response playbook** (`memory/response_playbook.md`) — 14 categories extracted from 150+ real sent emails (100 replies + 50 outbound). Categories: pricing, budget constraints, not ready yet, info gathering, scheduling, free trial/pilot, no-pressure follow-up, brief acknowledgments, procurement/PO, support routing, unsubscribe, product info, grant funding, referral/handoff. Plus "No Reply Needed" skip list.
+- **Voice profile updated** (`memory/voice_profile.md`) — 3 new sections added: Drafting Rules (pricing call-first preference, no feature fabrication, no combative tone, budget strategy, drive toward calls), Anti-AI-Tell Checklist (13 banned patterns), Learned Corrections (10 specific fixes from live testing).
+- **Workflow instructions** (`prompts/reply_draft.md`) — complete step-by-step for any Claude Code session. Includes classification rules, energy matching, CC handling, draft log format, and "learn from my sends" workflow.
+- **GAS bridge `delete_draft`** — new `deleteDraft()` function in Code.gs + `case "delete_draft"` route. Uses `GmailApp.getDrafts()` to find by ID, then `.deleteDraft()`. Deployed as new version. Called via Python `requests.Session().post()` (curl doesn't handle GAS redirects).
+- **Draft log** (`memory/draft_log.md`) — rolling 14-day log of drafted replies (thread_id, sender, subject, category, full draft text) for future learning loop comparisons.
+
+### Key decisions
+- **Gmail MCP over GAS bridge for drafting** — Gmail MCP supports `threadId` for proper threading + `contentType="text/html"` for clickable links. GAS bridge `create_draft` doesn't support threading.
+- **No Python modules needed** — this is a Claude Code workflow, not a Scout/Railway feature. All intelligence lives in memory files (voice profile, playbook) and prompt file (workflow instructions).
+- **Drafts go directly to Gmail** — Steven explicitly requested this. No showing drafts in Claude Code for approval first. Create in Gmail immediately, show brief summary.
+- **Static playbook over dynamic few-shot retrieval** — Steven's inbound categories are predictable (8-10 types cover 90%+ of emails). Static playbook is faster, more reliable, and simpler than searching Gmail for similar past replies at draft time.
+
+### Testing results (5 emails)
+1. Kate Grow (AI question) — DRAFT, sent successfully
+2. Anthony Pollina (locked out of levels) — FLAG, Outreach extension stripped body, used copy-paste workaround
+3. Krista Farris ("wasn't me") — DRAFT, sent successfully
+4. Kirk Ellern (budget constraint) — DRAFT, sent successfully
+5. Maree Pascall (library use case) — DRAFT, created in Gmail
+
+### Learned corrections (saved to voice profile)
+- Ask specific budget questions, not generic ("under a specific amount?" vs "What does your budget look like?")
+- Add encouragement for budget-constrained prospects ("Don't give up yet!")
+- Mention grant writing specialist when budget is the issue
+- Frame CTAs with incentives ("we'll go over options AND I can set you up with trial licenses")
+- Use "Let's connect via Zoom" not "Want to hop on a quick call" (BANNED — too salesy)
+- Always say "Zoom" not "call" for meetings
+- Keep free license offers flexible ("for a little while" not specific timeframes)
+- Ask scoping questions on separate lines
+- Acknowledge time gaps ("A lot has likely changed since we last connected")
+- Never fabricate product features — use frames if unsure
+- Default to pushing for Zoom before sending pricing (send pricing after pushback or for international)
+
+### Known issues
+- **Outreach browser extension conflict** — for contacts in Outreach's database, the extension takes over Gmail compose and strips API-created draft body. Workaround: create standalone draft with "COPY THIS" subject for copy-paste. After sending, delete orphaned threaded draft via GAS bridge.
+- **Never create duplicate drafts on same thread** — causes persistent "Draft" label that requires GAS bridge deletion to fix.
+- Gmail MCP has no `delete_draft` tool — must use GAS bridge for cleanup.
+
+### Implementation notes
+- Two-pass playbook building: Pass 1 surveyed 150 subjects/snippets (lightweight). Pass 2 read 50-70 full threads across key categories.
+- Quality gate: 3+ of 5 test drafts must be usable with minor tweaks before proceeding to learning loop.
+- GAS bridge `delete_draft` iterates all drafts with `GmailApp.getDrafts()` and matches by ID string. Returns `{success, deleted}` or `{success: false, error}`.
+- Python `requests.Session()` handles GAS redirects properly. `urllib` and `curl` do not (302 redirect drops POST body or returns 405).

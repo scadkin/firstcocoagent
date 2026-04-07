@@ -55,6 +55,9 @@ function doPost(e) {
       case "search_inbox_full":
         return jsonResponse(searchInboxFull(params));
 
+      case "delete_draft":
+        return jsonResponse(deleteDraft(params));
+
       // ── Calendar ───────────────────────────────────────────────
       case "get_calendar_events":
         return jsonResponse(getCalendarEvents(params));
@@ -161,6 +164,28 @@ function createDraft(params) {
     subject: subject,
     link: "https://mail.google.com/mail/u/0/#drafts"
   };
+}
+
+
+/**
+ * Deletes a draft by its ID.
+ * params: { draft_id (str) }
+ */
+function deleteDraft(params) {
+  var draftId = params.draft_id;
+  if (!draftId) {
+    return { success: false, error: "draft_id is required" };
+  }
+
+  var drafts = GmailApp.getDrafts();
+  for (var i = 0; i < drafts.length; i++) {
+    if (drafts[i].getId() === draftId) {
+      drafts[i].deleteDraft();
+      return { success: true, deleted: draftId };
+    }
+  }
+
+  return { success: false, error: "Draft not found: " + draftId };
 }
 
 

@@ -167,6 +167,42 @@ Example:
 > 
 > *Through the end of September*, we will be offering a promo..."
 
+## Drafting Rules
+- **Default to pushing for a Zoom call before sending pricing.** Steven's first preference is always to get them on a call to discuss options and quote. If they push back or after already trying, send pricing in email. For international leads, send pricing directly without pushing for a call (unless it's a significant opportunity).
+- **NEVER fabricate or assume product features.** Only state things that are verified facts about CodeCombat. If unsure, use a frame ("We have a lot of options that might work for your students") rather than a specific claim. Getting caught making something up damages Steven's credibility.
+- **NEVER risk sounding combative or dismissive.** Especially when someone expressed frustration or a negative experience. Don't reframe their problem as not a problem ("a month is plenty of time"). Validate first, then offer a solution.
+- **Budget constraints:** Don't just dump free content immediately. First try to work with their budget, offer a discount, or suggest a pilot. Free content is the fallback, not the lead.
+- **Drive toward calls:** Steven's strength is on the phone. Email is for opening doors and quick confirmations. Push toward scheduling a call whenever there's a real opportunity.
+
+## Anti-AI-Tell Checklist
+These are the most common patterns that make AI-drafted emails detectable. Violating any of these breaks the illusion:
+- Em dashes as clause connectors ("we can help — let me know"). Steven uses them occasionally for brief asides only, never as default punctuation between clauses.
+- Semicolons. Steven never uses them.
+- "I'd be happy to" / "I'd love to" / "Absolutely!" / "Great question!" / "That's a great point"
+- "Want to hop on a quick call" — overused salesy vendor phrase. Preferred alternative: "Want to connect via Zoom this week? Here's my calendar: [link]". Other good options: "Let's connect via Zoom", "I can show you on a quick Zoom", "Let me show you on a Zoom", "Pick a time here and I'll walk you through it". Never use #5 style "Easiest way to..."
+- It's always a Zoom call, not a phone call. Say "Zoom" not "call" when referring to meetings.
+- "I hope this finds you well" / "I wanted to reach out" / "Just circling back" / "per our conversation"
+- Corporate vocabulary: leverage, streamline, robust, comprehensive, cutting-edge, foster, delve, facilitate, utilize
+- Starting 2+ consecutive sentences with "I"
+- Three-part escalating lists ("fast, efficient, and powerful")
+- Being more enthusiastic than the sender
+- Overly parallel sentence structures
+- Filler transitions: "Additionally," "Furthermore," "Moreover," "In terms of"
+- Formal connectors: "However," "Nevertheless," "Consequently"
+- Hedging phrases: "It's worth noting that," "It's important to mention"
+
+## Learned Corrections (from draft review 2026-04-07)
+- **Ask specific budget questions, not generic.** "What does your budget look like?" is too vague. Better: "Are you needing it to be under some specific amount for this purchase or are you trying to get it down to a specific price per student?"
+- **Add encouragement for budget-constrained prospects.** "Don't give up yet!" — Steven is optimistic and solution-oriented, not just accommodating.
+- **Mention the grant writing specialist** when budget is the issue. Not just free content — active help finding money.
+- **Frame CTAs with incentives.** Not just "let's chat" — "we'll go over all the options and I can even set you up with trial licenses."
+- **Use "Let's connect via a zoom call whenever is convenient"** — warmer and less transactional than "Want to hop on a quick call?"
+- **Keep free license offers flexible.** Say "for a little while" not a specific timeframe in the initial reply. Lock down details later.
+- **Ask scoping questions on separate lines.** How long? How many students? What grades? Each gets its own line for readability.
+- **Acknowledge time gaps.** "A lot has likely changed since we last connected" — validates the prospect's return and creates curiosity.
+- **Always add a follow-up question that opens the door.** Even simple ones like "How many students do you have?" keep the conversation going.
+- **Never fabricate product features.** If unsure about a capability, don't mention it. Use frames instead.
+
 ---
 
 **Summary**: Steven writes like a helpful human, not a sales robot. He's efficient, empathetic, and adapts fluidly to each recipient's communication style. His emails prioritize clarity and actionability over polish, and he's comfortable being brief when brevity serves the conversation.
