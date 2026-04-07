@@ -75403,4 +75403,2212 @@ n______n
  ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────── leadership-change-monitoring ── n______n
  ❯  ( ✦ ✦ )
 
- ───────────────────────────────────────────────────────────────────────�
+ ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────── ( oo )
+
+ Raw: 562,076 lines / 10,002,629 chars
+ Clean: 75,403 lines / 2,204,305 chars
+
+ leadership-change-monitoring n______n
+ ❯  ( ✦ ✦ )
+ ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────── ( oo )
+
+ dl ng
+
+ ✻ 2 0s · ↑ 2.7k tokens)
+
+ ⏺ Bash (git add CLAUDE.md SCOUT_PLAN.md docs/sessions/session_47.md && git commit -m "$(cat <<'EOF'
+ Add Session 46 transcript (auto-saved on exit)…)
+ ⎿  Running…
+
+ ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────── leadership-change-monitoring ── n______n
+
+ ❯  ( ✦ ✦ )
+
+ ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────── ( oo )
+
+ [main fd97019] Add Session 46 transcript (auto-saved on exit)
+ 3 files changed, 75432 insertions(+), 29 deletions(-)
+ create mode 100644 docs/sessions/session_47.md
+ … +2 lines (ctrl+o to expand)
+
+ ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────── leadership-change-monitoring ── n______n
+ ❯  ( ✦ ✦ )
+
+ ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────── ( oo )
+
+ 10s · ↑ 2.9k tokens)
+
+ ⏺ Session 46 wrapped. 5 features shipped:
+
+ 1. Leadership change monitoring — 8 superintendent changes found, weekly Monday 8 AM
+
+ leadership-change-monitoring n______n
+ ❯  ( ✦ ✦ )
+ ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────── ( oo )
+
+ 2. RFP monitoring — CodeCombat-relevant filtering, weekly Monday 8:15 AM
+
+ ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────── leadership-change-monitoring ── n______n
+ ❯  ✦ ✦
+ ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────── ( oo )
+
+ [<u[>1u[>4;2m
+
+ 3. Legislative signal scanner — 2 CS mandates (TX, IL), monthly 1st Monday 8:30 AM
+
+ ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────── leadership-change-monitoring ── n______n
+ ❯  ✦ ✦
+ ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────── ( oo )
+
+ 4. Territory map — interactive Folium HTML with 5 layers, 10.3 MB, /territory_map
+
+ ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────── leadership-change-monitoring ── n______n
+ ❯  ✦ ✦
+ ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────── ( oo )
+
+ 5. BoardDocs noise filtering — false positive rejection for wheelchair/food/expo/etc.
+
+ ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────── leadership-change-monitoring ── n______n
+ ❯  ✦ ✦
+ ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────── ( oo )
+
+ Signal system now at 10 sources, 16 commands . Automated schedule fully wired.
+
+ ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────── leadership-change-monitoring ── n______n
+
+ ❯  ( ✦ ✦ )
+
+ ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────── ( oo )
+
+ ~ ~
+
+ ╭────────────────────────────────╮
+ │ *eyes dart at 75k │
+ │ insertions* │
+ leadership-change-monitoring │ │─ n______n
+ ❯  │ Transcripts │ ( ✦ ✦ )
+ ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────── │ bloating faster than my water │ ( Oo )
+
+ ~ ~
+
+ ~ ~
+
+ ~ ~
+
+ ~ ~
+
+ ~ ~
+
+ ~ ~
+
+ ~ ~
+
+ ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────── leadership-change-monitoring ── n______n
+ ❯  ( ✦ ✦ )
+ ────────────────────────────── ──────────────────────────────────── ( oo )
+
+ - -
+
+ ✦ ✦
+
+ ~ ~
+
+ - -
+
+ ✦ ✦
+
+ ~ ~
+
+ - -
+
+ ✦ ✦
+
+ ~ ~
+
+ [<u[>1u[>4;2m
+
+ [<u[>1u[>4;2m
+
+ ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────── leadership-change-monitoring ──
+
+ ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────── leadership-change-monitoring ──
+ ❯ [Pasted text #10 +24 lines]
+
+ [ P
+
+ - -
+
+ S [ Pasted text #10 +24 lines]
+
+ O [ Pasted text #10 +24 lines]
+
+ ✦ ✦
+
+ m [ Pasted text #10 +24 lines]
+
+ e [ Pasted text #10 +24 lines]
+
+ [ Pasted text #10 +24 lines]
+
+ o [ Pasted text #10 +24 lines]
+
+ f [ Pasted text #10 +24 lines]
+
+ [ Pasted text #10 +24 lines]
+
+ t [ Pasted text #10 +24 lines]
+
+ ~ ~
+
+ h [ Pasted text #10 +24 lines]
+
+ i [ Pasted text #10 +24 lines]
+
+ s [ Pasted text #10 +24 lines]
+
+ [ Pasted text #10 +24 lines]
+
+ y [ Pasted text #10 +24 lines]
+
+ o [ Pasted text #10 +24 lines]
+
+ u [ Pasted text #10 +24 lines]
+
+ [ Pasted text #10 +24 lines]
+
+ m [ Pasted text #10 +24 lines]
+
+ a [ Pasted text #10 +24 lines]
+
+ y [ Pasted text #10 +24 lines]
+
+ [ Pasted text #10 +24 lines]
+
+ h [ Pasted text #10 +24 lines]
+
+ a [ Pasted text #10 +24 lines]
+
+ v [ Pasted text #10 +24 lines]
+
+ e [ Pasted text #10 +24 lines]
+
+ [ Pasted text #10 +24 lines]
+
+ a [ Pasted text #10 +24 lines]
+
+ l [ Pasted text #10 +24 lines]
+
+ r [ Pasted text #10 +24 lines]
+
+ e [ Pasted text #10 +24 lines]
+
+ a [ Pasted text #10 +24 lines]
+
+ d [ Pasted text #10 +24 lines]
+
+ y [ Pasted text #10 +24 lines]
+
+ [ Pasted text #10 +24 lines]
+
+ d [ Pasted text #10 +24 lines]
+
+ o [ Pasted text #10 +24 lines]
+
+ n [ Pasted text #10 +24 lines]
+
+ e [ Pasted text #10 +24 lines]
+
+ [ Pasted text #10 +24 lines]
+
+ b [ Pasted text #10 +24 lines]
+
+ u [ Pasted text #10 +24 lines]
+
+ t [ Pasted text #10 +24 lines]
+
+ [ Pasted text #10 +24 lines]
+
+ i [ Pasted text #10 +24 lines]
+
+ m [ Pasted text #10 +24 lines]
+
+ [ Pasted text #10 +24 lines]
+
+ g [ Pasted text #10 +24 lines]
+
+ o [ Pasted text #10 +24 lines]
+
+ i [ Pasted text #10 +24 lines]
+
+ n [ Pasted text #10 +24 lines]
+
+ g [ Pasted text #10 +24 lines] - -
+
+ [ Pasted text #10 +24 lines]
+
+ ✦ ✦
+
+ t [ Pasted text #10 +24 lines]
+
+ o [ Pasted text #10 +24 lines]
+
+ [ Pasted text #10 +24 lines]
+
+ s [ Pasted text #10 +24 lines]
+
+ e [ Pasted text #10 +24 lines]
+
+ n [ Pasted text #10 +24 lines]
+
+ d [ Pasted text #10 +24 lines]
+
+ ~ ~
+
+ [ Pasted text #10 +24 lines]
+
+ m [ Pasted text #10 +24 lines]
+
+ y [ Pasted text #10 +24 lines]
+
+ [ Pasted text #10 +24 lines]
+
+ e [ Pasted text #10 +24 lines]
+
+ n [ Pasted text #10 +24 lines]
+
+ d [ Pasted text #10 +24 lines]
+
+ [ Pasted text #10 +24 lines]
+
+ o [ Pasted text #10 +24 lines]
+
+ f [ Pasted text #10 +24 lines]
+
+ [ Pasted text #10 +24 lines]
+
+ s [ Pasted text #10 +24 lines]
+
+ e [ Pasted text #10 +24 lines]
+
+ s [ Pasted text #10 +24 lines]
+
+ s [ Pasted text #10 +24 lines]
+
+ i [ Pasted text #10 +24 lines]
+
+ o [ Pasted text #10 +24 lines]
+
+ n [ Pasted text #10 +24 lines]
+
+ [ Pasted text #10 +24 lines]
+
+ p [ Pasted text #10 +24 lines]
+
+ r [ Pasted text #10 +24 lines]
+
+ o [ Pasted text #10 +24 lines]
+
+ m [ Pasted text #10 +24 lines]
+
+ p [ Pasted text #10 +24 lines]
+
+ t [ Pasted text #10 +24 lines]
+
+ [ Pasted text #10 +24 lines]
+
+ a [ Pasted text #10 +24 lines]
+
+ n [ Pasted text #10 +24 lines]
+
+ y [ Pasted text #10 +24 lines]
+
+ w [ Pasted text #10 +24 lines]
+
+ a [ Pasted text #10 +24 lines]
+
+ y [ Pasted text #10 +24 lines]
+
+ s [ Pasted text #10 +24 lines]
+
+ [ Pasted text #10 +24 lines]
+
+ ❯ SOme of this you may have already done but im going to send my end of session prompt anyways We're approaching context limits. Before I clear, do the following in order:
+
+ 1. Save any feedback, preferences, or user context learned this session to memory
+
+ 2. Update the project plan file (e.g. SCOUT_PLAN.md):
+
+ - Mark completed items as done
+
+ - Add any new tasks or additions that came up this session
+
+ - Update 'Current Focus' to reflect exactly where we are
+
+ - If we're mid-task, note precisely what was being attempted and what state it's in
+
+ 3. Maintain CLAUDE.md:
+
+ - Add any new rules, conventions, or architectural decisions from this session
+
+ - Update 'Current State' with: what's working, what's broken or in-progress, and the exact next step to take
+
+ - Note any uncommitted or in-progress code changes that the next session needs to be aware of
+
+ - Review for content that is no longer actively relevant to ongoing work (e.g. completed features, resolved decisions, old state). If found, move it IN FULL to the project history
+
+ file — do not summarize or lose detail. If everything in CLAUDE.md is still relevant, don't trim anything.
+
+ 4. Update the project history file (e.g. SCOUT_HISTORY.md):
+
+ - Append a numbered session entry (e.g. "## Session 14") with: what changed, why, key decisions, and anything archived from CLAUDE.md
+
+ 5. Commit and push all changes
+
+ 6. Read back CLAUDE.md and the plan file to verify everything is captured correctly. If anything is missing or inaccurate, fix it before proceeding. Then give me:
+
+ - A brief summary of what we accomplished this session
+
+ - The exact prompt to paste in the next session, which should tell Claude to read the plan file and continue from the Current State in CLAUDE.md
+
+ ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────── leadership-change-monitoring ── n______n
+
+ ❯  ( ✦ ✦ )
+
+ ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────── ( oo )
+
+ - -
+
+ ✦ ✦
+
+ ~ ~
+
+ Most of this is already done from my end-of-session routine. Let me check what's missing and fill gaps.
+
+ ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────── leadership-change-monitoring ── n______n
+
+ ❯  ( ✦ ✦ )
+
+ ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────── ( oo )
+
+ ⎿ CLAUDE.md
+
+ ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────── leadership-change-monitoring ── n______n
+ ❯  ✦ ✦
+ ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────── ( oo )
+
+ [<u[>1u[>4;2m
+
+ Read 1 file (ctrl+o to expand)
+
+ ⏺ CLAUDE.md is already updated. Let me add the new module rules for territory_map and the new scanners, then update SCOUT_HISTORY.md.
+
+ ⏺ Searching for 1 pattern… (ctrl+o to expand)
+
+ ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────── leadership-change-monitoring ── n______n
+ ❯  ( ✦ ✦ )
+
+ ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────── ( oo )
+
+ ⎿ "territory_map"
+
+ ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────── leadership-change-monitoring ── n______n
+ ❯  ✦ ✦
+ ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────── ( oo )
+
+ ⏺ Let me fix the command table description (it says Google Drive but we changed to Telegram file).
+
+ ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────── leadership-change-monitoring ── n______n
+ ❯  ✦ ✦
+ ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────── ( oo )
+
+ ⏺ Update ( CLAUDE.md )
+
+ leadership-change-monitoring n______n
+ ❯  ( ✦ ✦ )
+ ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────── ( oo )
+
+ ⎿   Added 1 line, removed 1 line
+ 431 | `/territory_sync [state]` | download NCES territory data for one state or all |
+ 432 | `/territory_stats [state]` | territory coverage summary (districts, schools, enrollment) |
+ 433 | `/territory_gaps <state>` | gap analysis: cross-ref territory vs Active Accounts + Prospecting Queue |
+ 434 - | `/territory_map [state]` | generate interactive Folium territory map → Google Drive link |
+ 434 + | `/territory_map [state]` | generate interactive Folium territory map → Telegram file attachment |
+ 435 | `/pipeline` | show open pipeline summary with stale alerts |
+ 436 | `/pipeline_import` | next CSV upload imports as opportunities (Pipeline tab) |
+
+ 437 | `/import_closed_lost` | next CSV upload imports as closed-lost opps (Closed Lost tab) |
+
+ ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────── leadership-change-monitoring ── n______n
+
+ ❯  ( ✦ ✦ )
+
+ ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────── ( oo )
+
+ ⏺ Now add the new module rules to the critical rules section.
+
+ ⏺ Searching for 1 pattern… (ctrl+o to expand)
+
+ ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────── leadership-change-monitoring ── n______n
+
+ ❯  ( ✦ ✦ )
+
+ ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────── ( oo )
+
+ ⏺ Update ( tools/CLAUDE.md )
+
+ ⎿   Added 1 line, removed 1 line
+
+ 221 # Status, Customer Status, Source URL, Message ID, Pipeline Link)
+
+ 222 # Signal types: bond, leadership, board_meeting, rfp, hiring, grant, ai_policy,
+
+ 223 # technology, curriculum, enrollment, market_intel
+
+ 224 - # Sources: google_alert, burbio, doe_newsletter, rss_feed, job_posting, boarddocs, leadership_scan, rfp_scan, manual
+
+ 224 + # Sources: google_alert, burbio, doe_newsletter, rss_feed, job_posting, boarddocs, leadership_scan, rfp_scan, legislative_scan, manual
+
+ 225 # Status: new → surfaced → acted → expired
+
+ 226 # Uses: territory_data._load_territory_districts(), csv_importer (get_active_accounts, normalize_name),
+
+ 227 # district_prospector (get_all_prospects), Claude Haiku for Burbio/DOE extraction, feedparser for RSS
+
+ ⏺ Update ( agent/CLAUDE.md )
+
+ ⎿   Added 2 lines, removed 2 lines
+
+ 20 ## Scheduler (`agent/scheduler.py`)
+
+ 21 ```python
+
+ 22 scheduler = Scheduler() # NO arguments
+
+ 23 - event = scheduler.check() # returns "morning_brief" | "eod_report" | "checkin" | "weekend_greeting" | "leadership_scan" | "rfp_scan" | None
+
+ 23 + event = scheduler.check() # returns "morning_brief" | "eod_report" | "checkin" | "weekend_greeting" | "leadership_scan" | "rfp_scan" | "legislative_scan" | None
+
+ 24 scheduler.mark_user_active_today() # suppresses weekend greeting if Steven messages first
+
+ 25 - # Weekdays: signal_scan 7:45am, leadership_scan Mon 8:00am, rfp_scan Mon 8:15am, morning_brief 9:15am, eod_report 4:30pm
+
+ 25 + # Weekdays: signal_scan 7:45am, leadership_scan Mon 8:00am, rfp_scan Mon 8:15am, legislative_scan 1st Mon 8:30am, morning_brief 9:15am, eod_report 4:30pm
+
+ 26 # Saturday: weekend_greeting at 11am (if not already active)
+
+ 27 # Sunday: weekend_greeting at 1pm (if not already active)
+
+ 28 # NO .run() method
+
+ ⏺ Update ( CLAUDE.md )
+
+ ⎿   Added 1 line
+
+ 394 | `/signal_bonds` | manual Ballotpedia bond measure scan |
+
+ 395 | `/signal_leadership` | manual superintendent change scan (Serper + Claude, ~$0.03) |
+
+ 396 | `/signal_rfp` | manual CS/STEM RFP opportunity scan (Serper + Claude, ~$0.03) |
+
+ 397 + | `/signal_legislation` | manual CS/STEM education legislation scan (Serper + Claude, ~$0.03) |
+
+ 398 | `/export_sequence [name]` | export Outreach sequence to Google Doc |
+
+ 399 | `/ping_gas`, `ping gas`, `test gas` | ping GAS bridge |
+
+ 400 | `/train_voice`, `train voice` | train voice from Gmail (24 months) |
+
+ ⏺ Update ( CLAUDE.md )
+
+ ⎿   Added 1 line, removed 1 line
+
+ 38 ### Current status
+
+ 39 - All prior phases + enhancements: ✅
+
+ 40 - - Signal Intelligence System: ✅ (Session 44-46) — 9 sources (Google Alerts, Burbio, DOE, RSS, BoardDocs, Ballotpedia, Job postings, Leadership scan, RFP scan). 15 Telegram commands. Daily 7:45
+
+ - AM scan + weekly Monday 8 AM leadership + 8:15 AM RFP scans . Signal-to-deal attribution wired.
+
+ 40 + - Signal Intelligence System: ✅ (Session 44-46) — 10 sources (Google Alerts, Burbio, DOE, RSS, BoardDocs, Ballotpedia, Job postings, Leadership scan, RFP scan , Legislative scan ). 16 Telegram co
+
+ + mmands. Daily 7:45 AM scan + weekly Monday (leadership 8 AM , RFP 8:15 AM ) + monthly 1st Monday (legislation 8:30 AM) . Signal-to-deal attribution wired.
+
+ 41 - Outreach sequences: ✅ — IDs 1995-2001 (C4 x4, License Request, Webinar x2). 3 send schedules.
+
+ 42 - Sequence copy rules: ✅ — Comprehensive rules in memory. Seasonal calendar. Send schedules.
+
+ ⏺ Update ( CLAUDE.md )
+
+ ⎿   Added 1 line, removed 1 line
+
+ 206 **ESA_PATTERNS in target_roles.py has 78 entity name variations.** From Steven's ROLES and KEYWORDS doc. Covers ESC, BOCES, IU, COE, ROE, ISC, ESU, AEA, CESA, SELPA, JPA, SSA, and dozens more.
+
+ 208 - **`signal_processor.py` is a flat module imported at top of main.py.** 9 signal sources: Google Alerts (regex), Burbio (Claude), DOE (Claude), RSS (feedparser), BoardDocs (HTTP scraping), Ballo
+
+ - tpedia (HTTP scraping), Job postings (JobSpy), Leadership scan (Serper + Claude), RFP scan (Serper + Claude). Signals Database tab (18 columns including Pipeline Link). 15 Telegram commands, al
+
+ - l direct-dispatch. Daily scan at 7:45 AM CST. Weekly Monday: leadership 8 AM + RFP 8:15 AM ( ~$0.03/scan each ) . BoardDocs/Ballotpedia/RSS wrapped in try/except (non-fatal). `_last_signal_batch`
+
+ - is in-memory — run `/signals` before `/signal_act` or `/signal_info` in a new session.
+
+ 208 + **`signal_processor.py` is a flat module imported at top of main.py.** 10 signal sources: Google Alerts (regex), Burbio (Claude), DOE (Claude), RSS (feedparser), BoardDocs (HTTP scraping), Ball
+
+ + otpedia (HTTP scraping), Job postings (JobSpy), Leadership scan (Serper + Claude), RFP scan (Serper + Claude) , Legislative scan (Serper + Claude) . Signals Database tab (18 columns including Pip
+
+ + eline Link). 16 Telegram commands, all direct-dispatch. Daily scan at 7:45 AM CST. Weekly Monday: leadership 8 AM + RFP 8:15 AM . Monthly 1st Monday: legislation 8:30 AM. All ~$0.03/scan each. B
+
+ + oardDocs/Ballotpedia/RSS wrapped in try/except (non-fatal). `_last_signal_batch` is in-memory — run `/signals` before `/signal_act` or `/signal_info` in a new session.
+
+ 210 **Signal enrichment must run before acting on signals.** Never queue a district based on a headline alone. `enrich_signal()` does Serper web search + Claude Haiku analysis for CodeCombat releva
+
+ nce (strong/moderate/weak/none). A $6.2B bond can be WEAK if it's all devices. A no-dollar STEAM coordinator hire can be STRONG. Auto-runs on Tier 1 during daily scans; manual via `/signal_enri
+
+ ch N`.
+
+ ⏺ Syntax check, commit, push.
+
+ ⏺ Bash (python3 -c "import ast; ast.parse(open('tools/signal_processor.py').read()); print('signal_processor: OK')" && python3 -c "import ast; ast.parse(open('agent/sch…)
+
+ ⎿   signal_processor: OK
+
+ scheduler: OK
+
+ main: OK
+
+ ⏺ Bash (git add tools/signal_processor.py agent/scheduler.py agent/main.py tools/CLAUDE.md agent/CLAUDE.md CLAUDE.md && git commit -m "$(cat <<'EOF'
+
+ Add legislative sig…)
+
+ ⎿   [main 2a4d4bd] Add legislative signal scanner (CS/STEM education mandates)
+
+ 6 files changed, 276 insertions(+), 5 deletions(-)
+
+ To https://github.com/scadkin/firstcocoagent.git
+
+ e94815e..2a4d4bd main -> main
+
+ ⏺ Bash (export $(grep RAILWAY_TOKEN .env) && curl -s -X POST "https://backboard.railway.app/graphql/v2" -H "Authorization: Bearer $RAILWAY_TOKEN" -H "Content-Type: appl…)
+
+ ⎿   {
+
+ "data": {
+
+ "service Instance Redeploy": true
+
+ … +2 lines (ctrl+o to expand)
+
+ ⏺ Session 46 progress so far — 5 features shipped:
+
+ 1. Leadership change monitoring — 8 superintendent changes found on first run. Weekly Monday 8 AM.
+
+ 2. RFP monitoring — CS/STEM/CTE RFP scanner with CodeCombat-relevance filtering. Weekly Monday 8:15 AM.
+
+ 3. Territory map visualization — Interactive Folium map with 5 layers (active/pipeline/prospects/ESAs/all districts). /territory_map command.
+
+ 4. BoardDocs noise filtering — False positive regex rejects wheelchair RFPs, STEM Expo sponsorships, food service bids.
+
+ 5. Legislative signal scanner — State CS/STEM education mandates and policy changes. Monthly 1st Monday 8:30 AM.
+
+ Signal system now has 10 sources and 16 Telegram commands . Automated schedule: daily 7:45 AM full scan, weekly Monday leadership + RFP, monthly 1st Monday legislation.
+
+ Test commands when Scout is online: /signal_rfp , /signal_legislation , /territory_map .
+
+ ❯ test them one at a time?
+
+ ⏺ Bash (sleep 30 && export $(grep RAILWAY_TOKEN .env); curl -s -X POST "https://backboard.railway.app/graphql/v2" -H "Authorization: Bearer $RAILWAY_TOKEN" -H "Content-…)
+
+ ⎿  Interrupted · What should Claude do instead?
+
+ ❯ OK are you telling me to test those commands one at a time?
+
+ ⏺ Yes — send /signal_rfp to Scout in Telegram first. Once we see those results, send /signal_legislation , then /territory_map .
+
+ ❯ ok sent [Image #1]
+
+ ⎿   [Image #1]
+
+ ⏺ Working as expected — 0 results is normal for RFPs (procurement postings aren't well-indexed by Google, as we discussed). The filter is doing its job rejecting irrelevant results. Volume will build over time
+
+ and improve dramatically with Phase 2 procurement portal scraping.
+
+ Send /signal_legislation next.
+
+ ❯ "📜 Scanning for CS/STEM education legislation...
+
+ 📜 *Legislative Scan Complete* — 2 signals found
+
+ 🔴1. (TX) — Texas HB 1481: Technology mandate for K-12 schools
+
+ 🔴2. (IL) — Illinois: New Computer Science Education Mandate for K-12 Schools
+
+ Written: 2 | Deduped: 0"
+
+ ⏺ Two legislative signals found — both in territory states, both marked urgent (red). Texas HB 1481 tech mandate and Illinois CS education mandate. These are exactly the kind of state-level signals that create
+
+ district-wide demand.
+
+ Send /territory_map next.
+
+ ❯ [Image #3]
+
+ ⎿   [Image #3]
+
+ ⏺ The gas variable isn't in scope where the /territory_map handler is placed. Let me check the context.
+
+ ⏺ The handler is in the territory commands section (line 1781), which is outside the function scope where gas is defined. The signal commands section (line 2850+) has gas available. Let me check how gas is
+
+ accessed in this area.
+
+ ⏺ Line 1766 — the gas instance is created locally inside the /territory_gaps handler. It's not available at line 1793 where /territory_map tries to use it. I need to create a local gas instance.
+
+ ⏺ Update ( agent/main.py )
+
+ ⎿   Added 6 lines, removed 2 lines
+
+ 1788 loop = asyncio.get_event_loop()
+
+ 1789 html = await loop.run_in_executor(
+
+ 1790 None , territory_map.generate_territory_map, state_filter)
+
+ 1791 - # Upload HTML to Google Drive as a Doc (HTML content renders)
+
+ 1791 + # Upload HTML to Google Drive
+
+ 1792 + from tools.gas_bridge import GASBridge
+
+ 1793 + gas_bridge = GASBridge(
+
+ 1794 + webhook_url=os.environ.get( "GAS_WEBHOOK_URL" , "" ),
+
+ 1795 + secret_token=os.environ.get( "GAS_SECRET_TOKEN" , "" ))
+
+ 1796 title = f"Scout Territory Map {label} — {datetime.now().strftime( '%Y-%m-%d' )} "
+
+ 1793 - doc_result = gas .create_google_doc(title, html,
+
+ 1797 + doc_result = gas_bridge .create_google_doc(title, html,
+
+ 1798 folder_id=os.environ.get( "SEQUENCES_FOLDER_ID" , "" ))
+
+ 1799 if doc_result.get( "success" ):
+
+ 1800 await send_message( f"🗺 *Territory Map Generated* {label} \n\n"
+
+ ⏺ Bash (python3 -c "import ast; ast.parse(open('agent/main.py').read()); print('OK')" && git add agent/main.py && git commit -m "$(cat <<'EOF'
+
+ Fix territory_map: create…)
+
+ ⎿   OK
+
+ [main 0602b59] Fix territory_map: create local GASBridge instance
+
+ 1 file changed, 6 insertions(+), 2 deletions(-)
+
+ … +2 lines (ctrl+o to expand)
+
+ ⏺ Bash (export $(grep RAILWAY_TOKEN .env) && curl -s -X POST "https://backboard.railway.app/graphql/v2" -H "Authorization: Bearer $RAILWAY_TOKEN" -H "Content-Type: appl…)
+
+ ⎿   {
+
+ "data": {
+
+ "service Instance Redeploy": true
+
+ … +2 lines (ctrl+o to expand)
+
+ ⏺ Fixed — was using a gas variable that didn't exist in that scope. Created a local GASBridge instance like the neighboring /territory_gaps handler does. Try /territory_map again once Scout is back online.
+
+ ❯ ok it said "🗺 Generating territory map... This may take a minute.
+
+ ❌ Territory map error: GAS bridge timed out on action 'create Google Doc'. It may be cold-starting — try again."
+
+ ⏺ GAS cold start — the Google Apps Script web app takes a moment to wake up. Try /territory_map again, it should work on the second attempt.
+
+ ❯ nope still says "🗺 Generating territory map... This may take a minute.
+
+ ❌ Territory map error: GAS bridge timed out on action 'create Google Doc'. It may be cold-starting — try again."
+
+ ⏺ The problem is the Folium HTML is too large for the GAS bridge — a full territory map with thousands of markers generates a multi-MB HTML string. Google Docs can't render interactive maps anyway.
+
+ Better approach: send the HTML as a Telegram file attachment that Steven opens in browser.
+
+ ⏺ Simple — I'll use the Telegram Bot API's send_document to send the HTML file directly. Let me update the territory_map handler.
+
+ Read 1 file (ctrl+o to expand)
+
+ ⏺ Update ( agent/main.py )
+
+ ⎿   Added 13 lines, removed 21 lines
+
+ 1785 await send_message( f"🗺 Generating territory map {label} ... This may take a minute." )
+
+ 1786 try :
+
+ 1787 import tools.territory_map as territory_map
+
+ 1788 + import tempfile
+
+ 1789 + from telegram import Bot
+
+ 1790 loop = asyncio.get_event_loop()
+
+ 1789 - html = await loop.run_in_executor(
+
+ 1790 - None, territory_map. generate_territory_map , state_filter)
+
+ 1791 - # Upload HTML to Google Drive
+
+ 1792 - from tools.gas_bridge import GASBridge
+
+ 1793 - gas_bridge = GASBridge(
+
+ 1794 - webhook_url=os.environ.get("GAS_WEBHOOK_URL", ""),
+
+ 1795 - secret_token=os.environ.get("GAS_SECRET_TOKEN", ""))
+
+ 1796 - title = f"Scout Territory Map{label} — {datetime.now().strftime('%Y-%m-%d')}"
+
+ 1797 - doc_result = gas_bridge.create_google_doc(title, html,
+
+ 1798 - folder_id=os.environ.get("SEQUENCES_FOLDER_ID", ""))
+
+ 1799 - if doc_result.get("success"):
+
+ 1800 - await send_message(f"🗺 *Territory Map Generated*{label}\n\n"
+
+ 1801 - f"📄 {doc_result['url']}")
+
+ 1802 - else:
+
+ 1803 - # Fallback: save to temp file and report
+
+ 1804 - import tempfile
+
+ 1805 - path = os.path.join(tempfile.gettempdir(), "scout_territory_map.html")
+
+ 1806 - with open(path, "w") as f:
+
+ 1807 - f.write(html)
+
+ 1808 - await send_message(f"🗺 Map generated but Google Drive upload failed. "
+
+ 1809 - f"Saved locally at {path}")
+
+ 1791 + map_path = await loop.run_in_executor(
+
+ 1792 + None , territory_map. generate_territory_map_file , "" , state_filter)
+
+ 1793 + # Send HTML file via Telegram — Steven opens in browser
+
+ 1794 + bot = Bot(token=config.TELEGRAM_BOT_TOKEN)
+
+ 1795 + async with bot:
+
+ 1796 + with open (map_path, "rb" ) as f:
+
+ 1797 + await bot.send_document(
+
+ 1798 + chat_id=config.TELEGRAM_CHAT_ID,
+
+ 1799 + document=f,
+
+ 1800 + filename= f"scout_territory_map { '_' + state_filter if state_filter else '' } .html" ,
+
+ 1801 + caption= f"🗺 Territory Map {label} — open in browser for interactive view" )
+
+ 1802 except Exception as e:
+
+ 1803 await send_message( f"❌ Territory map error: {e} " )
+
+ 1804 return
+
+ ⏺ Bash (python3 -c "import ast; ast.parse(open('agent/main.py').read()); print('OK')" && git add agent/main.py && git commit -m "$(cat <<'EOF'
+
+ Fix territory_map: send H…)
+
+ ⎿   OK
+
+ [main 807a6c6] Fix territory_map: send HTML as Telegram file instead of GAS bridge
+
+ 1 file changed, 13 insertions(+), 21 deletions(-)
+
+ … +2 lines (ctrl+o to expand)
+
+ ⏺ Bash (export $(grep RAILWAY_TOKEN .env) && curl -s -X POST "https://backboard.railway.app/graphql/v2" -H "Authorization: Bearer $RAILWAY_TOKEN" -H "Content-Type: appl…)
+
+ ⎿   {
+
+ "data": {
+
+ "service Instance Redeploy": true
+
+ … +2 lines (ctrl+o to expand)
+
+ ⏺ Fixed — now sends the HTML as a Telegram file attachment instead of trying to push through GAS bridge. You'll download it and open in browser for the interactive map with clickable pins and layer toggles. Try
+
+ /territory_map again once Scout is online.
+
+ ❯ [Image #7]
+
+ ⎿   [Image #7]
+
+ ⏺ The config module isn't imported in the scope where the territory_map handler runs. Let me check what's available there.
+
+ ⏺ They're imported directly — TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID , not config.TELEGRAM_BOT_TOKEN .
+
+ ⏺ Update ( agent/main.py )
+
+ ⎿   Added 2 lines, removed 2 lines
+
+ 1791 map_path = await loop.run_in_executor(
+
+ 1792 None , territory_map.generate_territory_map_file, "" , state_filter)
+
+ 1793 # Send HTML file via Telegram — Steven opens in browser
+
+ 1794 - bot = Bot(token= config. TELEGRAM_BOT_TOKEN)
+
+ 1794 + bot = Bot(token=TELEGRAM_BOT_TOKEN)
+
+ 1795 async with bot:
+
+ 1796 with open (map_path, "rb" ) as f:
+
+ 1797 await bot.send_document(
+
+ 1798 - chat_id= config. TELEGRAM_CHAT_ID,
+
+ 1798 + chat_id=TELEGRAM_CHAT_ID,
+
+ 1799 document=f,
+
+ 1800 filename= f"scout_territory_map { '_' + state_filter if state_filter else '' } .html" ,
+
+ 1801 caption= f"🗺 Territory Map {label} — open in browser for interactive view" )
+
+ ⏺ Bash (python3 -c "import ast; ast.parse(open('agent/main.py').read()); print('OK')" && git add agent/main.py && git commit -m "$(cat <<'EOF'
+
+ Fix territory_map: use di…)
+
+ ⎿   OK
+
+ [main e8f073c] Fix territory_map: use direct imports not config module
+
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+ … +2 lines (ctrl+o to expand)
+
+ ⏺ Bash (export $(grep RAILWAY_TOKEN .env) && curl -s -X POST "https://backboard.railway.app/graphql/v2" -H "Authorization: Bearer $RAILWAY_TOKEN" -H "Content-Type: appl…)
+
+ ⎿   {
+
+ "data": {
+
+ "service Instance Redeploy": true
+
+ … +2 lines (ctrl+o to expand)
+
+ ⏺ Fixed. Was using config.TELEGRAM_BOT_TOKEN but they're imported directly as TELEGRAM_BOT_TOKEN . Try /territory_map again once Scout is online.
+
+ ❯ ok it worked. map could use a little more detail but we can make a note to do that later. [Image #8] [Image #9]
+
+ ⎿   [Image #8]
+
+ ⎿   [Image #9]
+
+ ⏺ That's looking good — 18 active accounts (green), 12 pipeline (orange), 108 prospects (blue), 7,978 districts in the background. The layer toggles and clickable popups are working. Noted to add more detail to
+
+ the popups and map later.
+
+ I need to end the session here and do the end-of-session routine. Let me update CLAUDE.md and SCOUT_PLAN.md with everything we built.
+
+ Read 1 file (ctrl+o to expand)
+
+ ⏺ Update ( CLAUDE.md )
+
+ ⎿   Added 15 lines, removed 19 lines
+
+ 1 # SCOUT — Claude Code Reference
+
+ 2 - *Last updated: 2026-04-06 — Session 45 *
+
+ 2 + *Last updated: 2026-04-06 — Session 46 *
+
+ 4 ---
+
+ 6 ## CURRENT STATE — update this after each session
+
+ 8 - **Session 45: Signal system expanded with 3 new sources (RSS, BoardDocs, Ballotpedia). Signal-to-deal attribution wired. 3 Outreach sequences created. Sequence copy rules + send schedules fully
+
+ - documented. Hourly check-ins + weekend greetings disabled. Next: leadership change monitoring, RFP monitoring, then verify Google Alert parser ~April 9.**
+
+ 8 + **Session 46: 5 features shipped. Leadership change monitoring (8 superintendent turnovers found). RFP monitoring (CodeCombat-relevant filtering). Legislative signal scanner (2 CS mandates: TX H
+
+ + B 1481, IL CS mandate). Territory map visualization (interactive Folium HTML, 10.3MB, sent via Telegram). BoardDocs noise filtering (false positive rejection). Next: verify Google Alert parser ~
+
+ + April 9, check Tulsa PS bond vote result, enhance territory map detail, continue with unbuilt prospecting strategies.**
+
+ 10 + ### What was done (Session 46)
+
+ 11 + - **Leadership change monitoring:** `scan_leadership_changes()` — Serper + Claude Haiku across 12 territory states. 8 superintendent changes found on first run (OH, MI). Weekly Monday 8 AM CST.
+
+ + `/signal_leadership` command. BoardDocs keyword expansion for superintendent search/resignation/appointment agenda items. Display-layer risk flagging: active customer leadership changes show " ⚠️
+
+ + ACCOUNT RISK" prefix.
+
+ 12 + - **RFP monitoring:** `scan_rfp_opportunities()` — Serper + Claude Haiku with aggressive CodeCombat-relevance filtering (CS/STEM/CTE curriculum only, hard-excludes construction/food/devices). 0
+
+ + results on first run (expected — RFPs are procurement postings, not news). Weekly Monday 8:15 AM CST. `/signal_rfp` command.
+
+ 13 + - **Legislative signal scanner:** `scan_legislative_signals()` — state CS/STEM/CTE education mandates and policy changes. 2 signals found: TX HB 1481 tech mandate, IL CS education mandate. Month
+
+ + ly 1st Monday 8:30 AM CST. `/signal_legislation` command. Urgency: enacted/signed = urgent, passed committee = time_sensitive.
+
+ 14 + - **Territory map visualization:** `tools/territory_map.py` — interactive Folium HTML with 5 layers: Active Accounts (green, 18), Pipeline (orange, 12), Prospects (blue, 108), ESAs (purple, 0),
+
+ + All Districts (gray clustered, 7978). Clickable popups. Layer toggles. Sent as Telegram file attachment (10.3 MB). `/territory_map [state]` command. `folium>=0.17.0` added.
+
+ 15 + - **BoardDocs noise filtering:** `_BOARD_FALSE_POSITIVE` regex rejects tech matches near wheelchair, food service, janitorial, expo, fair, family night, athletic, playground. Checks 50 chars bef
+
+ + ore + 150 chars after each keyword match.
+
+ 16 + - **Permissions fix:** Global `Bash(*)` in `~/.claude/settings.json` and project `.claude/settings.local.json`. Deny list still blocks rm -rf, dd, mkfs. No more babysitting permission prompts.
+
+ 17 +
+
+ 18 ### What was done (Session 45)
+
+ 11 - - **RSS feed ingestion:** 3 feeds (K-12 Dive, eSchool News, CSTA). feedparser library. `/signal_rss` command. Verified: 220 articles, dedup working.
+
+ 12 - - **BoardDocs scraper:** 25 territory districts. Auto-discovers committee IDs. Keyword extraction from agendas. `/signal_board` command. 17 signals on verified run. Noise reduction: capped at 3
+
+ - tech + 1 bond signal per meeting. HTML entity cleanup.
+
+ 13 - - **Ballotpedia bond tracking:** Scrapes bond election index for 12 territory states (no CA). Upcoming + passed/failed results. `/signal_bonds` command. 37 territory measures found (Tulsa PS 4 p
+
+ - ropositions, Mesquite ISD tech bond passed, etc.).
+
+ 14 - - **Signal-to-deal attribution:** Pipeline Link column on Signals tab (18th col). Signal ID column on Prospecting Queue (19→20 cols). `/signal_act` passes signal ID through. `link_signal_to_pros
+
+ - pect()` writes back.
+
+ 15 - - **Signal dedup fix:** `get_processed_message_ids()` reads Message ID + Source URL for composite keys.
+
+ 16 - - **Daily scan protection:** BoardDocs/Ballotpedia/RSS wrapped in try/except (non-fatal).
+
+ 17 - - **Outreach sequences:** License Request 2026 (ID 1999, 7 steps), Algebra Webinar Attendees (ID 2000, 4 steps), Non-Attendees (ID 2001, 4 steps). 14 webinar prospects loaded.
+
+ 18 - - **Outreach API:** `_api_patch()`, `export_sequence()`, `/export_sequence` command. CRITICAL: `to Recipients` must be `[]`. Re-authed with `sequence States.delete` scope.
+
+ 19 - - **Send schedules:** 3 schedules created in Outreach UI (Teacher Tue-Thu, Admin Mon-Thu, Hot Lead Mon-Fri) with multi-window time slots based on cross-AI research.
+
+ 20 - - **Sequence copy rules:** Fully updated with zero-AI-trace rule, seasonal calendar, value props, send schedules.
+
+ 21 - - **Disabled:** Hourly check-ins, weekend greetings.
+
+ 22 - - **CLAUDE.md trimmed:** 43k→36k chars.
+
+ 19 + - Signal system expanded: RSS (3 feeds), BoardDocs (25 districts), Ballotpedia bonds, signal-to-deal attribution. 3 Outreach sequences. Sequence copy rules + send schedules.
+
+ 21 ### What was done (Session 44)
+
+ 22 - Signal Intelligence System: 18,401 signals ($0.30), enrichment ($0.002/signal), job scanner, 10 commands, daily scan, quality pass (150→40). Google Alerts 28→18. DOE newsletters 13 states.
+
+ 24 ### What still needs to be done
+
+ 28 - - **Leadership change monitoring** — Track superintendent turnovers. Tier 1 buying signal. Next to build.
+
+ 29 - - **RFP monitoring** — State procurement portals for K-12 tech/curriculum RFPs. After leadership.
+
+ 25 - **Verify Google Alert parser ~April 9** — First new digest with bond/leadership/AI policy keywords. Run `/signal_scan`.
+
+ 31 - - **Act on STRONG signals** — Tulsa PS (bond vote Apr 7 — check result), Richardson ISD, Acton-Boxborough, Norwalk PS.
+
+ 32 - - **Improve BoardDocs noise filtering** — Some false positives (wheelchair RFPs, STEM Expo sponsorships). Parked.
+
+ 26 + - **Tulsa PS bond vote result** — April 7. Check result, then decide whether to act.
+
+ 27 + - **Enhance territory map** — More detail in popups (enrollment, school count, licenses). Possibly add signal heat overlay.
+
+ 28 + - **Unbuilt prospecting strategies** — AI Algebra launch campaign (#23), Cybersecurity pre-launch (#24), grant-funded prospecting (#20), budget cycle targeting (#21).
+
+ 29 + - **Phase 2 deeper sources** — Ballotpedia superintendent snapshots, state procurement portal scraping for RFPs.
+
+ 30 - **Firecrawl paid plan** — Deferred (budget).
+
+ 31 - **Parse.bot integration** — Deferred (DNS).
+
+ 35 - - **Territory map visualization** — Future.
+
+ 32 - See `SCOUT_PLAN.md` for full roadmap
+
+ 34 ### Current status
+
+ ⏺ Now update SCOUT_PLAN.md.
+
+ Read 1 file (ctrl+o to expand)
+
+ ⏺ Update ( SCOUT_PLAN.md )
+
+ ⎿   Added 2 lines, removed 2 lines
+
+ 1 # SCOUT MASTER PLAN
+
+ 2 - *Last updated: 2026-04-06 — Session 45 *
+
+ 2 + *Last updated: 2026-04-06 — Session 46 *
+
+ 4 ---
+
+ 6 - ## YOU ARE HERE → Signal system expanded: RSS feeds (3), BoardDocs (25 districts), Ballotpedia bond tracking, signal-to-deal attribution all built and verified. 7 signal sources total. 3 Outreach
+
+ - sequences created (License Request 2026, Algebra Webinar Attendees/Non-Attendees). Sequence copy rules + send schedules fully documented. Next: leadership change monitoring, RFP monitoring, then
+
+ - verify Google Alert parser on ~April 9.
+
+ 6 + ## YOU ARE HERE → Signal system at 10 sources with 16 Telegram commands. Session 46 added: leadership change monitoring (8 superintendent turnovers found), RFP monitoring (CodeCombat-relevant fil
+
+ + tering), legislative signal scanner (TX + IL CS mandates found), territory map visualization (interactive Folium HTML), BoardDocs noise filtering. Signal aggregator Phase 3 complete. Next: verify
+
+ + Google Alert parser ~April 9, check Tulsa bond vote, enhance territory map, start on unbuilt prospecting strategies (AI Algebra campaign, Cybersecurity pre-launch, grant-funded, budget cycle).
+
+ 8 ---
+
+ Read 1 file (ctrl+o to expand)
+
+ ⏺ Update ( SCOUT_PLAN.md )
+
+ ⎿   Added 9 lines, removed 8 lines
+
+ 337 ### Phase plan
+
+ 338 - **Phase 1:** ✅ DONE (Session 44) — Process Gmail emails, subscribe DOE newsletters, enhance Google Alerts
+
+ 339 - **Phase 2:** ✅ DONE (Session 45) — RSS feeds (3), BoardDocs (25 districts), Ballotpedia bond tracking, signal-to-deal attribution
+
+ 340 - - **Phase 3 (in progress):** Leadership change monitoring, RFP monitoring (state procurement portals). Signal clustering + auto-scoring already exists.
+
+ 341 - - **Phase 4 (future):** BoardDocs noise filtering improvements, additional RSS/signal sources
+
+ 340 + - **Phase 3:** ✅ DONE (Session 46) — Leadership change monitoring (Serper + Claude, 8 found), RFP monitoring (CodeCombat-relevant filtering), Legislative signal scanner (2 CS mandates)
+
+ 341 + - **Phase 4:** ✅ DONE (Session 46) — BoardDocs noise filtering (_BOARD_FALSE_POSITIVE regex)
+
+ 342 + - **Phase 5 (future):** Ballotpedia superintendent snapshots (monthly diff), state procurement portal scraping for better RFP coverage, additional RSS sources
+
+ 344 ---
+
+ 345 - ## UP NEXT (after aggregator)
+
+ 346 + ## COMPLETED: Territory Map Visualization (Session 46)
+
+ 347 + - `tools/territory_map.py` — interactive Folium HTML map
+
+ 348 + - 5 layers: Active Accounts (green, 18), Pipeline (orange, 12), Prospects (blue, 108), ESAs (purple), All Districts (gray clustered, 7978)
+
+ 349 + - Clickable popups with name, state, type. Layer toggles. CartoDB positron tiles.
+
+ 350 + - Sent as Telegram file attachment (10.3 MB). `/territory_map [state]` command.
+
+ 351 + - **Future enhancement:** richer popups (enrollment, school count, licenses), signal heat overlay
+
+ 347 - ### Territory Map Visualization
+
+ 348 - - Digital map of Steven's territory with pins for active accounts, pipeline, prospects, ESAs
+
+ 349 - - All data already exists (lat/lon, addresses, enrollment, status)
+
+ 350 - - Saved in memory for future implementation
+
+ 351 -
+
+ 353 ---
+
+ 355 ## PARKED FOR LATER (Steven asked to revisit at a future time)
+
+ ⏺ Now clean the transcript and commit everything.
+
+ ⏺ Bash (echo "Session: $SCOUT_SESSION_NUM | Raw: $SCOUT_RAW_TRANSCRIPT | Clean: $SCOUT_CLEAN_TRANSCRIPT")
+
+ ⎿   Session: 47 | Raw: /Users/stevenadkins/Code/Scout/docs/sessions/.raw/session_47_raw.txt | Clean: /Users/stevenadkins/Code/Scout/docs/sessions/session_47.md
+
+ ⏺ Bash (python3 scripts/clean_transcript.py "$SCOUT_RAW_TRANSCRIPT" "$SCOUT_CLEAN_TRANSCRIPT" 2>&1 | tail -3)
+
+ ⎿   Raw: 562,076 lines / 10,002,629 chars
+
+ Clean: 75,403 lines / 2,204,305 chars
+
+ ⏺ Bash (git add CLAUDE.md SCOUT_PLAN.md docs/sessions/session_47.md && git commit -m "$(cat <<'EOF'
+
+ Add Session 46 transcript (auto-saved on exit)…)
+
+ ⎿   [main fd97019] Add Session 46 transcript (auto-saved on exit)
+
+ 3 files changed, 75432 insertions(+), 29 deletions(-)
+
+ create mode 100644 docs/sessions/session_47.md
+
+ … +2 lines (ctrl+o to expand)
+
+ ⏺ Session 46 wrapped. 5 features shipped:
+
+ 1. Leadership change monitoring — 8 superintendent changes found, weekly Monday 8 AM
+
+ 2. RFP monitoring — CodeCombat-relevant filtering, weekly Monday 8:15 AM
+
+ 3. Legislative signal scanner — 2 CS mandates (TX, IL), monthly 1st Monday 8:30 AM
+
+ 4. Territory map — interactive Folium HTML with 5 layers, 10.3 MB, /territory_map
+
+ 5. BoardDocs noise filtering — false positive rejection for wheelchair/food/expo/etc.
+
+ Signal system now at 10 sources, 16 commands . Automated schedule fully wired.
+
+ ❯ SOme of this you may have already done but im going to send my end of session prompt anyways We're approaching context limits. Before I clear, do the following in order:
+
+ 1. Save any feedback, preferences, or user context learned this session to memory
+
+ 2. Update the project plan file (e.g. SCOUT_PLAN.md):
+
+ - Mark completed items as done
+
+ - Add any new tasks or additions that came up this session
+
+ - Update 'Current Focus' to reflect exactly where we are
+
+ - If we're mid-task, note precisely what was being attempted and what state it's in
+
+ 3. Maintain CLAUDE.md:
+
+ - Add any new rules, conventions, or architectural decisions from this session
+
+ - Update 'Current State' with: what's working, what's broken or in-progress, and the exact next step to take
+
+ - Note any uncommitted or in-progress code changes that the next session needs to be aware of
+
+ - Review for content that is no longer actively relevant to ongoing work (e.g. completed features, resolved decisions, old state). If found, move it IN FULL to the project history
+
+ file — do not summarize or lose detail. If everything in CLAUDE.md is still relevant, don't trim anything.
+
+ 4. Update the project history file (e.g. SCOUT_HISTORY.md):
+
+ - Append a numbered session entry (e.g. "## Session 14") with: what changed, why, key decisions, and anything archived from CLAUDE.md
+
+ 5. Commit and push all changes
+
+ 6. Read back CLAUDE.md and the plan file to verify everything is captured correctly. If anything is missing or inaccurate, fix it before proceeding. Then give me:
+
+ - A brief summary of what we accomplished this session
+
+ - The exact prompt to paste in the next session, which should tell Claude to read the plan file and continue from the Current State in CLAUDE.md
+
+ ⏺ Most of this is already done from my end-of-session routine. Let me check what's missing and fill gaps.
+
+ Read 1 file (ctrl+o to expand)
+
+ ⏺ CLAUDE.md is already updated. Let me add the new module rules for territory_map and the new scanners, then update SCOUT_HISTORY.md.
+
+ ⏺ Let me fix the command table description (it says Google Drive but we changed to Telegram file).
+
+ ⏺ Update ( CLAUDE.md )
+
+ ⎿   Added 1 line, removed 1 line
+
+ 431 | `/territory_sync [state]` | download NCES territory data for one state or all |
+
+ 432 | `/territory_stats [state]` | territory coverage summary (districts, schools, enrollment) |
+
+ 433 | `/territory_gaps <state>` | gap analysis: cross-ref territory vs Active Accounts + Prospecting Queue |
+
+ 434 - | `/territory_map [state]` | generate interactive Folium territory map → Google Drive link |
+
+ 434 + | `/territory_map [state]` | generate interactive Folium territory map → Telegram file attachment |
+
+ 435 | `/pipeline` | show open pipeline summary with stale alerts |
+
+ 436 | `/pipeline_import` | next CSV upload imports as opportunities (Pipeline tab) |
+
+ 437 | `/import_closed_lost` | next CSV upload imports as closed-lost opps (Closed Lost tab) |
+
+ ⏺ Now add the new module rules to the critical rules section.
+
+ ⏺ Searching for 1 pattern… (ctrl+o to expand)
+
+ ⎿ "territory_map.*flat module|territory_map.*lazy"
+
+ ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────── leadership-change-monitoring ── n______n
+
+ ❯  ( ✦ ✦ )
+
+ ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────── ( oo )
+
+ re ti
+
+ 2 s… (ctrl+o to expand)
+
+ d ta.*flat module"
+
+ * (30s · ↑ 289 tokens)
+
+ ⏺ Territory_map is a lazy import (only imported inside the /territory_map handler), which is correct since it pulls in folium. No new critical rule needed — the existing patterns cover it.
+
+ ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────── leadership-change-monitoring ── n______n
+ ❯  ( ✦ ✦ )
+ ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────── oo
+
+ Now update SCOUT_HISTORY.md.
+
+ ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────── leadership-change-monitoring ── n______n
+
+ ❯  ( ✦ ✦ )
+
+ ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────── ( oo )
+
+ ⏺ Listing 1 directory… (ctrl+o to expand)
+ ⎿ $ ls /Users/stevenadkins/Code/Scout/docs/SESSION_HISTORY.md 2>/dev/null && echo "exists" || echo "not found"
+
+ ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────── leadership-change-monitoring ── n______n
+ ❯  ( ✦ ✦ )
+
+ ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────── ( oo )
+
+ it er 6
+
+ it er
+
+ rb gg
+
+ Read f l , listing 1 directory… (ctrl+o to expand)
+
+ tail -5 /U ers/steve adkins Code/Sc ut docs/SESS ON_HISTORY.m
+
+ rb gg 4
+
+ ug in
+
+ 2 s, listing 1 directory… (ctrl+o to expand)
+
+ docs/SESSION_HISTORY.md
+
+ te bu
+
+ ✶ 1m 0s · ↑ 442 tokens)
+
+ ✢ 10s · ↑ 42 tokens)
+
+ $ at >> /Users/stevenadkins/Code/Scout/docs/SESSION_HISTORY.md << 'ENDOFENTRY'
+ ---
+ ## Session 46 (20 6-04-06)
+ ### What was built
+ 1. **Leadership change monitoring** — `scan_leadership_changes()` in signal_processor.py. Serper web search across 12 territory states for superintendent hires/resignati…
+
+ ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────── leadership-change-monitoring ── n______n
+
+ ❯  ( ✦ ✦ )
+
+ ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────── ( oo )
+
+ t r 1.0k tokens)
+
+ ug in 1
+
+ er ug
+
+ Read 2 files, listed 1 directory (ctrl+o to expand)
+
+ ⏺ Now commit and push everything.
+
+ ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────── leadership-change-monitoring ── n______n
+ ❯  ( ✦ ✦ )
+ ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────── ( oo )
+
+ ⏺ Bash (git add CLAUDE.md SCOUT_PLAN.md docs/SESSION_HISTORY.md && git commit -m "$(cat <<'EOF'
+ Session 46 end-of-session: update CLAUDE.md, SCOUT_PLAN.md, SESSION_HIST…)
+ ⎿  Running…
+
+ ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────── leadership-change-monitoring ── n______n
+
+ ❯  ( ✦ ✦ )
+
+ ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────── ( oo )
+
+ [main 95c7334] Session 46 end-of-session: update CLAUDE.md, SCOUT_PLAN.md, SESSION_HISTORY
+ 2 files changed, 29 insertions(+), 1 deletion(-)
+ To https://github.com/scadkin/firstcocoagent.git
+ fd97019..95c7334 main -> main
+
+ ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────── leadership-change-monitoring ── n______n
+ ❯  ( ✦ ✦ )
+
+ ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────── ( oo )
+
+ rb gg
+
+ it er
+
+ ⏺ Syntax check, commit, push.
+
+ ⏺ Bash (python3 -c "import ast; ast.parse(open('tools/signal_processor.py').read()); print('signal_processor: OK')" && python3 -c "import ast; ast.parse(open('agent/sch…)
+
+ ⎿   signal_processor: OK
+
+ scheduler: OK
+
+ main: OK
+
+ ⏺ Bash (git add tools/signal_processor.py agent/scheduler.py agent/main.py tools/CLAUDE.md agent/CLAUDE.md CLAUDE.md && git commit -m "$(cat <<'EOF'
+
+ Add legislative sig…)
+
+ ⎿   [main 2a4d4bd] Add legislative signal scanner (CS/STEM education mandates)
+
+ 6 files changed, 276 insertions(+), 5 deletions(-)
+
+ To https://github.com/scadkin/firstcocoagent.git
+
+ e94815e..2a4d4bd main -> main
+
+ ⏺ Bash (export $(grep RAILWAY_TOKEN .env) && curl -s -X POST "https://backboard.railway.app/graphql/v2" -H "Authorization: Bearer $RAILWAY_TOKEN" -H "Content-Type: appl…)
+
+ ⎿   {
+
+ "data": {
+
+ "service Instance Redeploy": true
+
+ … +2 lines (ctrl+o to expand)
+
+ ⏺ Session 46 progress so far — 5 features shipped:
+
+ 1. Leadership change monitoring — 8 superintendent changes found on first run. Weekly Monday 8 AM.
+
+ 2. RFP monitoring — CS/STEM/CTE RFP scanner with CodeCombat-relevance filtering. Weekly Monday 8:15 AM.
+
+ 3. Territory map visualization — Interactive Folium map with 5 layers (active/pipeline/prospects/ESAs/all districts). /territory_map command.
+
+ 4. BoardDocs noise filtering — False positive regex rejects wheelchair RFPs, STEM Expo sponsorships, food service bids.
+
+ 5. Legislative signal scanner — State CS/STEM education mandates and policy changes. Monthly 1st Monday 8:30 AM.
+
+ Signal system now has 10 sources and 16 Telegram commands . Automated schedule: daily 7:45 AM full scan, weekly Monday leadership + RFP, monthly 1st Monday legislation.
+
+ Test commands when Scout is online: /signal_rfp , /signal_legislation , /territory_map .
+
+ ❯ test them one at a time?
+
+ ⏺ Bash (sleep 30 && export $(grep RAILWAY_TOKEN .env); curl -s -X POST "https://backboard.railway.app/graphql/v2" -H "Authorization: Bearer $RAILWAY_TOKEN" -H "Content-…)
+
+ ⎿  Interrupted · What should Claude do instead?
+
+ ❯ OK are you telling me to test those commands one at a time?
+
+ ⏺ Yes — send /signal_rfp to Scout in Telegram first. Once we see those results, send /signal_legislation , then /territory_map .
+
+ ❯ ok sent [Image #1]
+
+ ⎿   [Image #1]
+
+ ⏺ Working as expected — 0 results is normal for RFPs (procurement postings aren't well-indexed by Google, as we discussed). The filter is doing its job rejecting irrelevant results. Volume will build over time
+
+ and improve dramatically with Phase 2 procurement portal scraping.
+
+ Send /signal_legislation next.
+
+ ❯ "📜 Scanning for CS/STEM education legislation...
+
+ 📜 *Legislative Scan Complete* — 2 signals found
+
+ 🔴1. (TX) — Texas HB 1481: Technology mandate for K-12 schools
+
+ 🔴2. (IL) — Illinois: New Computer Science Education Mandate for K-12 Schools
+
+ Written: 2 | Deduped: 0"
+
+ ⏺ Two legislative signals found — both in territory states, both marked urgent (red). Texas HB 1481 tech mandate and Illinois CS education mandate. These are exactly the kind of state-level signals that create
+
+ district-wide demand.
+
+ Send /territory_map next.
+
+ ❯ [Image #3]
+
+ ⎿   [Image #3]
+
+ ⏺ The gas variable isn't in scope where the /territory_map handler is placed. Let me check the context.
+
+ ⏺ The handler is in the territory commands section (line 1781), which is outside the function scope where gas is defined. The signal commands section (line 2850+) has gas available. Let me check how gas is
+
+ accessed in this area.
+
+ ⏺ Line 1766 — the gas instance is created locally inside the /territory_gaps handler. It's not available at line 1793 where /territory_map tries to use it. I need to create a local gas instance.
+
+ ⏺ Update ( agent/main.py )
+
+ ⎿   Added 6 lines, removed 2 lines
+
+ 1788 loop = asyncio.get_event_loop()
+
+ 1789 html = await loop.run_in_executor(
+
+ 1790 None , territory_map.generate_territory_map, state_filter)
+
+ 1791 - # Upload HTML to Google Drive as a Doc (HTML content renders)
+
+ 1791 + # Upload HTML to Google Drive
+
+ 1792 + from tools.gas_bridge import GASBridge
+
+ 1793 + gas_bridge = GASBridge(
+
+ 1794 + webhook_url=os.environ.get( "GAS_WEBHOOK_URL" , "" ),
+
+ 1795 + secret_token=os.environ.get( "GAS_SECRET_TOKEN" , "" ))
+
+ 1796 title = f"Scout Territory Map {label} — {datetime.now().strftime( '%Y-%m-%d' )} "
+
+ 1793 - doc_result = gas .create_google_doc(title, html,
+
+ 1797 + doc_result = gas_bridge .create_google_doc(title, html,
+
+ 1798 folder_id=os.environ.get( "SEQUENCES_FOLDER_ID" , "" ))
+
+ 1799 if doc_result.get( "success" ):
+
+ 1800 await send_message( f"🗺 *Territory Map Generated* {label} \n\n"
+
+ ⏺ Bash (python3 -c "import ast; ast.parse(open('agent/main.py').read()); print('OK')" && git add agent/main.py && git commit -m "$(cat <<'EOF'
+
+ Fix territory_map: create…)
+
+ ⎿   OK
+
+ [main 0602b59] Fix territory_map: create local GASBridge instance
+
+ 1 file changed, 6 insertions(+), 2 deletions(-)
+
+ … +2 lines (ctrl+o to expand)
+
+ ⏺ Bash (export $(grep RAILWAY_TOKEN .env) && curl -s -X POST "https://backboard.railway.app/graphql/v2" -H "Authorization: Bearer $RAILWAY_TOKEN" -H "Content-Type: appl…)
+
+ ⎿   {
+
+ "data": {
+
+ "service Instance Redeploy": true
+
+ … +2 lines (ctrl+o to expand)
+
+ ⏺ Fixed — was using a gas variable that didn't exist in that scope. Created a local GASBridge instance like the neighboring /territory_gaps handler does. Try /territory_map again once Scout is back online.
+
+ ❯ ok it said "🗺 Generating territory map... This may take a minute.
+
+ ❌ Territory map error: GAS bridge timed out on action 'create Google Doc'. It may be cold-starting — try again."
+
+ ⏺ GAS cold start — the Google Apps Script web app takes a moment to wake up. Try /territory_map again, it should work on the second attempt.
+
+ ❯ nope still says "🗺 Generating territory map... This may take a minute.
+
+ ❌ Territory map error: GAS bridge timed out on action 'create Google Doc'. It may be cold-starting — try again."
+
+ ⏺ The problem is the Folium HTML is too large for the GAS bridge — a full territory map with thousands of markers generates a multi-MB HTML string. Google Docs can't render interactive maps anyway.
+
+ Better approach: send the HTML as a Telegram file attachment that Steven opens in browser.
+
+ ⏺ Simple — I'll use the Telegram Bot API's send_document to send the HTML file directly. Let me update the territory_map handler.
+
+ Read 1 file (ctrl+o to expand)
+
+ ⏺ Update ( agent/main.py )
+
+ ⎿   Added 13 lines, removed 21 lines
+
+ 1785 await send_message( f"🗺 Generating territory map {label} ... This may take a minute." )
+
+ 1786 try :
+
+ 1787 import tools.territory_map as territory_map
+
+ 1788 + import tempfile
+
+ 1789 + from telegram import Bot
+
+ 1790 loop = asyncio.get_event_loop()
+
+ 1789 - html = await loop.run_in_executor(
+
+ 1790 - None, territory_map. generate_territory_map , state_filter)
+
+ 1791 - # Upload HTML to Google Drive
+
+ 1792 - from tools.gas_bridge import GASBridge
+
+ 1793 - gas_bridge = GASBridge(
+
+ 1794 - webhook_url=os.environ.get("GAS_WEBHOOK_URL", ""),
+
+ 1795 - secret_token=os.environ.get("GAS_SECRET_TOKEN", ""))
+
+ 1796 - title = f"Scout Territory Map{label} — {datetime.now().strftime('%Y-%m-%d')}"
+
+ 1797 - doc_result = gas_bridge.create_google_doc(title, html,
+
+ 1798 - folder_id=os.environ.get("SEQUENCES_FOLDER_ID", ""))
+
+ 1799 - if doc_result.get("success"):
+
+ 1800 - await send_message(f"🗺 *Territory Map Generated*{label}\n\n"
+
+ 1801 - f"📄 {doc_result['url']}")
+
+ 1802 - else:
+
+ 1803 - # Fallback: save to temp file and report
+
+ 1804 - import tempfile
+
+ 1805 - path = os.path.join(tempfile.gettempdir(), "scout_territory_map.html")
+
+ 1806 - with open(path, "w") as f:
+
+ 1807 - f.write(html)
+
+ 1808 - await send_message(f"🗺 Map generated but Google Drive upload failed. "
+
+ 1809 - f"Saved locally at {path}")
+
+ 1791 + map_path = await loop.run_in_executor(
+
+ 1792 + None , territory_map. generate_territory_map_file , "" , state_filter)
+
+ 1793 + # Send HTML file via Telegram — Steven opens in browser
+
+ 1794 + bot = Bot(token=config.TELEGRAM_BOT_TOKEN)
+
+ 1795 + async with bot:
+
+ 1796 + with open (map_path, "rb" ) as f:
+
+ 1797 + await bot.send_document(
+
+ 1798 + chat_id=config.TELEGRAM_CHAT_ID,
+
+ 1799 + document=f,
+
+ 1800 + filename= f"scout_territory_map { '_' + state_filter if state_filter else '' } .html" ,
+
+ 1801 + caption= f"🗺 Territory Map {label} — open in browser for interactive view" )
+
+ 1802 except Exception as e:
+
+ 1803 await send_message( f"❌ Territory map error: {e} " )
+
+ 1804 return
+
+ ⏺ Bash (python3 -c "import ast; ast.parse(open('agent/main.py').read()); print('OK')" && git add agent/main.py && git commit -m "$(cat <<'EOF'
+
+ Fix territory_map: send H…)
+
+ ⎿   OK
+
+ [main 807a6c6] Fix territory_map: send HTML as Telegram file instead of GAS bridge
+
+ 1 file changed, 13 insertions(+), 21 deletions(-)
+
+ … +2 lines (ctrl+o to expand)
+
+ ⏺ Bash (export $(grep RAILWAY_TOKEN .env) && curl -s -X POST "https://backboard.railway.app/graphql/v2" -H "Authorization: Bearer $RAILWAY_TOKEN" -H "Content-Type: appl…)
+
+ ⎿   {
+
+ "data": {
+
+ "service Instance Redeploy": true
+
+ … +2 lines (ctrl+o to expand)
+
+ ⏺ Fixed — now sends the HTML as a Telegram file attachment instead of trying to push through GAS bridge. You'll download it and open in browser for the interactive map with clickable pins and layer toggles. Try
+
+ /territory_map again once Scout is online.
+
+ ❯ [Image #7]
+
+ ⎿   [Image #7]
+
+ ⏺ The config module isn't imported in the scope where the territory_map handler runs. Let me check what's available there.
+
+ ⏺ They're imported directly — TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID , not config.TELEGRAM_BOT_TOKEN .
+
+ ⏺ Update ( agent/main.py )
+
+ ⎿   Added 2 lines, removed 2 lines
+
+ 1791 map_path = await loop.run_in_executor(
+
+ 1792 None , territory_map.generate_territory_map_file, "" , state_filter)
+
+ 1793 # Send HTML file via Telegram — Steven opens in browser
+
+ 1794 - bot = Bot(token= config. TELEGRAM_BOT_TOKEN)
+
+ 1794 + bot = Bot(token=TELEGRAM_BOT_TOKEN)
+
+ 1795 async with bot:
+
+ 1796 with open (map_path, "rb" ) as f:
+
+ 1797 await bot.send_document(
+
+ 1798 - chat_id= config. TELEGRAM_CHAT_ID,
+
+ 1798 + chat_id=TELEGRAM_CHAT_ID,
+
+ 1799 document=f,
+
+ 1800 filename= f"scout_territory_map { '_' + state_filter if state_filter else '' } .html" ,
+
+ 1801 caption= f"🗺 Territory Map {label} — open in browser for interactive view" )
+
+ ⏺ Bash (python3 -c "import ast; ast.parse(open('agent/main.py').read()); print('OK')" && git add agent/main.py && git commit -m "$(cat <<'EOF'
+
+ Fix territory_map: use di…)
+
+ ⎿   OK
+
+ [main e8f073c] Fix territory_map: use direct imports not config module
+
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+ … +2 lines (ctrl+o to expand)
+
+ ⏺ Bash (export $(grep RAILWAY_TOKEN .env) && curl -s -X POST "https://backboard.railway.app/graphql/v2" -H "Authorization: Bearer $RAILWAY_TOKEN" -H "Content-Type: appl…)
+
+ ⎿   {
+
+ "data": {
+
+ "service Instance Redeploy": true
+
+ … +2 lines (ctrl+o to expand)
+
+ ⏺ Fixed. Was using config.TELEGRAM_BOT_TOKEN but they're imported directly as TELEGRAM_BOT_TOKEN . Try /territory_map again once Scout is online.
+
+ ❯ ok it worked. map could use a little more detail but we can make a note to do that later. [Image #8] [Image #9]
+
+ ⎿   [Image #8]
+
+ ⎿   [Image #9]
+
+ ⏺ That's looking good — 18 active accounts (green), 12 pipeline (orange), 108 prospects (blue), 7,978 districts in the background. The layer toggles and clickable popups are working. Noted to add more detail to
+
+ the popups and map later.
+
+ I need to end the session here and do the end-of-session routine. Let me update CLAUDE.md and SCOUT_PLAN.md with everything we built.
+
+ Read 1 file (ctrl+o to expand)
+
+ ⏺ Update ( CLAUDE.md )
+
+ ⎿   Added 15 lines, removed 19 lines
+
+ 1 # SCOUT — Claude Code Reference
+
+ 2 - *Last updated: 2026-04-06 — Session 45 *
+
+ 2 + *Last updated: 2026-04-06 — Session 46 *
+
+ 4 ---
+
+ 6 ## CURRENT STATE — update this after each session
+
+ 8 - **Session 45: Signal system expanded with 3 new sources (RSS, BoardDocs, Ballotpedia). Signal-to-deal attribution wired. 3 Outreach sequences created. Sequence copy rules + send schedules fully
+
+ - documented. Hourly check-ins + weekend greetings disabled. Next: leadership change monitoring, RFP monitoring, then verify Google Alert parser ~April 9.**
+
+ 8 + **Session 46: 5 features shipped. Leadership change monitoring (8 superintendent turnovers found). RFP monitoring (CodeCombat-relevant filtering). Legislative signal scanner (2 CS mandates: TX H
+
+ + B 1481, IL CS mandate). Territory map visualization (interactive Folium HTML, 10.3MB, sent via Telegram). BoardDocs noise filtering (false positive rejection). Next: verify Google Alert parser ~
+
+ + April 9, check Tulsa PS bond vote result, enhance territory map detail, continue with unbuilt prospecting strategies.**
+
+ 10 + ### What was done (Session 46)
+
+ 11 + - **Leadership change monitoring:** `scan_leadership_changes()` — Serper + Claude Haiku across 12 territory states. 8 superintendent changes found on first run (OH, MI). Weekly Monday 8 AM CST.
+
+ + `/signal_leadership` command. BoardDocs keyword expansion for superintendent search/resignation/appointment agenda items. Display-layer risk flagging: active customer leadership changes show " ⚠️
+
+ + ACCOUNT RISK" prefix.
+
+ 12 + - **RFP monitoring:** `scan_rfp_opportunities()` — Serper + Claude Haiku with aggressive CodeCombat-relevance filtering (CS/STEM/CTE curriculum only, hard-excludes construction/food/devices). 0
+
+ + results on first run (expected — RFPs are procurement postings, not news). Weekly Monday 8:15 AM CST. `/signal_rfp` command.
+
+ 13 + - **Legislative signal scanner:** `scan_legislative_signals()` — state CS/STEM/CTE education mandates and policy changes. 2 signals found: TX HB 1481 tech mandate, IL CS education mandate. Month
+
+ + ly 1st Monday 8:30 AM CST. `/signal_legislation` command. Urgency: enacted/signed = urgent, passed committee = time_sensitive.
+
+ 14 + - **Territory map visualization:** `tools/territory_map.py` — interactive Folium HTML with 5 layers: Active Accounts (green, 18), Pipeline (orange, 12), Prospects (blue, 108), ESAs (purple, 0),
+
+ + All Districts (gray clustered, 7978). Clickable popups. Layer toggles. Sent as Telegram file attachment (10.3 MB). `/territory_map [state]` command. `folium>=0.17.0` added.
+
+ 15 + - **BoardDocs noise filtering:** `_BOARD_FALSE_POSITIVE` regex rejects tech matches near wheelchair, food service, janitorial, expo, fair, family night, athletic, playground. Checks 50 chars bef
+
+ + ore + 150 chars after each keyword match.
+
+ 16 + - **Permissions fix:** Global `Bash(*)` in `~/.claude/settings.json` and project `.claude/settings.local.json`. Deny list still blocks rm -rf, dd, mkfs. No more babysitting permission prompts.
+
+ 17 +
+
+ 18 ### What was done (Session 45)
+
+ 11 - - **RSS feed ingestion:** 3 feeds (K-12 Dive, eSchool News, CSTA). feedparser library. `/signal_rss` command. Verified: 220 articles, dedup working.
+
+ 12 - - **BoardDocs scraper:** 25 territory districts. Auto-discovers committee IDs. Keyword extraction from agendas. `/signal_board` command. 17 signals on verified run. Noise reduction: capped at 3
+
+ - tech + 1 bond signal per meeting. HTML entity cleanup.
+
+ 13 - - **Ballotpedia bond tracking:** Scrapes bond election index for 12 territory states (no CA). Upcoming + passed/failed results. `/signal_bonds` command. 37 territory measures found (Tulsa PS 4 p
+
+ - ropositions, Mesquite ISD tech bond passed, etc.).
+
+ 14 - - **Signal-to-deal attribution:** Pipeline Link column on Signals tab (18th col). Signal ID column on Prospecting Queue (19→20 cols). `/signal_act` passes signal ID through. `link_signal_to_pros
+
+ - pect()` writes back.
+
+ 15 - - **Signal dedup fix:** `get_processed_message_ids()` reads Message ID + Source URL for composite keys.
+
+ 16 - - **Daily scan protection:** BoardDocs/Ballotpedia/RSS wrapped in try/except (non-fatal).
+
+ 17 - - **Outreach sequences:** License Request 2026 (ID 1999, 7 steps), Algebra Webinar Attendees (ID 2000, 4 steps), Non-Attendees (ID 2001, 4 steps). 14 webinar prospects loaded.
+
+ 18 - - **Outreach API:** `_api_patch()`, `export_sequence()`, `/export_sequence` command. CRITICAL: `to Recipients` must be `[]`. Re-authed with `sequence States.delete` scope.
+
+ 19 - - **Send schedules:** 3 schedules created in Outreach UI (Teacher Tue-Thu, Admin Mon-Thu, Hot Lead Mon-Fri) with multi-window time slots based on cross-AI research.
+
+ 20 - - **Sequence copy rules:** Fully updated with zero-AI-trace rule, seasonal calendar, value props, send schedules.
+
+ 21 - - **Disabled:** Hourly check-ins, weekend greetings.
+
+ 22 - - **CLAUDE.md trimmed:** 43k→36k chars.
+
+ 19 + - Signal system expanded: RSS (3 feeds), BoardDocs (25 districts), Ballotpedia bonds, signal-to-deal attribution. 3 Outreach sequences. Sequence copy rules + send schedules.
+
+ 21 ### What was done (Session 44)
+
+ 22 - Signal Intelligence System: 18,401 signals ($0.30), enrichment ($0.002/signal), job scanner, 10 commands, daily scan, quality pass (150→40). Google Alerts 28→18. DOE newsletters 13 states.
+
+ 24 ### What still needs to be done
+
+ 28 - - **Leadership change monitoring** — Track superintendent turnovers. Tier 1 buying signal. Next to build.
+
+ 29 - - **RFP monitoring** — State procurement portals for K-12 tech/curriculum RFPs. After leadership.
+
+ 25 - **Verify Google Alert parser ~April 9** — First new digest with bond/leadership/AI policy keywords. Run `/signal_scan`.
+
+ 31 - - **Act on STRONG signals** — Tulsa PS (bond vote Apr 7 — check result), Richardson ISD, Acton-Boxborough, Norwalk PS.
+
+ 32 - - **Improve BoardDocs noise filtering** — Some false positives (wheelchair RFPs, STEM Expo sponsorships). Parked.
+
+ 26 + - **Tulsa PS bond vote result** — April 7. Check result, then decide whether to act.
+
+ 27 + - **Enhance territory map** — More detail in popups (enrollment, school count, licenses). Possibly add signal heat overlay.
+
+ 28 + - **Unbuilt prospecting strategies** — AI Algebra launch campaign (#23), Cybersecurity pre-launch (#24), grant-funded prospecting (#20), budget cycle targeting (#21).
+
+ 29 + - **Phase 2 deeper sources** — Ballotpedia superintendent snapshots, state procurement portal scraping for RFPs.
+
+ 30 - **Firecrawl paid plan** — Deferred (budget).
+
+ 31 - **Parse.bot integration** — Deferred (DNS).
+
+ 35 - - **Territory map visualization** — Future.
+
+ 32 - See `SCOUT_PLAN.md` for full roadmap
+
+ 34 ### Current status
+
+ ⏺ Now update SCOUT_PLAN.md.
+
+ Read 1 file (ctrl+o to expand)
+
+ ⏺ Update ( SCOUT_PLAN.md )
+
+ ⎿   Added 2 lines, removed 2 lines
+
+ 1 # SCOUT MASTER PLAN
+
+ 2 - *Last updated: 2026-04-06 — Session 45 *
+
+ 2 + *Last updated: 2026-04-06 — Session 46 *
+
+ 4 ---
+
+ 6 - ## YOU ARE HERE → Signal system expanded: RSS feeds (3), BoardDocs (25 districts), Ballotpedia bond tracking, signal-to-deal attribution all built and verified. 7 signal sources total. 3 Outreach
+
+ - sequences created (License Request 2026, Algebra Webinar Attendees/Non-Attendees). Sequence copy rules + send schedules fully documented. Next: leadership change monitoring, RFP monitoring, then
+
+ - verify Google Alert parser on ~April 9.
+
+ 6 + ## YOU ARE HERE → Signal system at 10 sources with 16 Telegram commands. Session 46 added: leadership change monitoring (8 superintendent turnovers found), RFP monitoring (CodeCombat-relevant fil
+
+ + tering), legislative signal scanner (TX + IL CS mandates found), territory map visualization (interactive Folium HTML), BoardDocs noise filtering. Signal aggregator Phase 3 complete. Next: verify
+
+ + Google Alert parser ~April 9, check Tulsa bond vote, enhance territory map, start on unbuilt prospecting strategies (AI Algebra campaign, Cybersecurity pre-launch, grant-funded, budget cycle).
+
+ 8 ---
+
+ Read 1 file (ctrl+o to expand)
+
+ ⏺ Update ( SCOUT_PLAN.md )
+
+ ⎿   Added 9 lines, removed 8 lines
+
+ 337 ### Phase plan
+
+ 338 - **Phase 1:** ✅ DONE (Session 44) — Process Gmail emails, subscribe DOE newsletters, enhance Google Alerts
+
+ 339 - **Phase 2:** ✅ DONE (Session 45) — RSS feeds (3), BoardDocs (25 districts), Ballotpedia bond tracking, signal-to-deal attribution
+
+ 340 - - **Phase 3 (in progress):** Leadership change monitoring, RFP monitoring (state procurement portals). Signal clustering + auto-scoring already exists.
+
+ 341 - - **Phase 4 (future):** BoardDocs noise filtering improvements, additional RSS/signal sources
+
+ 340 + - **Phase 3:** ✅ DONE (Session 46) — Leadership change monitoring (Serper + Claude, 8 found), RFP monitoring (CodeCombat-relevant filtering), Legislative signal scanner (2 CS mandates)
+
+ 341 + - **Phase 4:** ✅ DONE (Session 46) — BoardDocs noise filtering (_BOARD_FALSE_POSITIVE regex)
+
+ 342 + - **Phase 5 (future):** Ballotpedia superintendent snapshots (monthly diff), state procurement portal scraping for better RFP coverage, additional RSS sources
+
+ 344 ---
+
+ 345 - ## UP NEXT (after aggregator)
+
+ 346 + ## COMPLETED: Territory Map Visualization (Session 46)
+
+ 347 + - `tools/territory_map.py` — interactive Folium HTML map
+
+ 348 + - 5 layers: Active Accounts (green, 18), Pipeline (orange, 12), Prospects (blue, 108), ESAs (purple), All Districts (gray clustered, 7978)
+
+ 349 + - Clickable popups with name, state, type. Layer toggles. CartoDB positron tiles.
+
+ 350 + - Sent as Telegram file attachment (10.3 MB). `/territory_map [state]` command.
+
+ 351 + - **Future enhancement:** richer popups (enrollment, school count, licenses), signal heat overlay
+
+ 347 - ### Territory Map Visualization
+
+ 348 - - Digital map of Steven's territory with pins for active accounts, pipeline, prospects, ESAs
+
+ 349 - - All data already exists (lat/lon, addresses, enrollment, status)
+
+ 350 - - Saved in memory for future implementation
+
+ 351 -
+
+ 353 ---
+
+ 355 ## PARKED FOR LATER (Steven asked to revisit at a future time)
+
+ ⏺ Now clean the transcript and commit everything.
+
+ ⏺ Bash (echo "Session: $SCOUT_SESSION_NUM | Raw: $SCOUT_RAW_TRANSCRIPT | Clean: $SCOUT_CLEAN_TRANSCRIPT")
+
+ ⎿   Session: 47 | Raw: /Users/stevenadkins/Code/Scout/docs/sessions/.raw/session_47_raw.txt | Clean: /Users/stevenadkins/Code/Scout/docs/sessions/session_47.md
+
+ ⏺ Bash (python3 scripts/clean_transcript.py "$SCOUT_RAW_TRANSCRIPT" "$SCOUT_CLEAN_TRANSCRIPT" 2>&1 | tail -3)
+
+ ⎿   Raw: 562,076 lines / 10,002,629 chars
+
+ Clean: 75,403 lines / 2,204,305 chars
+
+ ⏺ Bash (git add CLAUDE.md SCOUT_PLAN.md docs/sessions/session_47.md && git commit -m "$(cat <<'EOF'
+
+ Add Session 46 transcript (auto-saved on exit)…)
+
+ ⎿   [main fd97019] Add Session 46 transcript (auto-saved on exit)
+
+ 3 files changed, 75432 insertions(+), 29 deletions(-)
+
+ create mode 100644 docs/sessions/session_47.md
+
+ … +2 lines (ctrl+o to expand)
+
+ ⏺ Session 46 wrapped. 5 features shipped:
+
+ 1. Leadership change monitoring — 8 superintendent changes found, weekly Monday 8 AM
+
+ 2. RFP monitoring — CodeCombat-relevant filtering, weekly Monday 8:15 AM
+
+ 3. Legislative signal scanner — 2 CS mandates (TX, IL), monthly 1st Monday 8:30 AM
+
+ 4. Territory map — interactive Folium HTML with 5 layers, 10.3 MB, /territory_map
+
+ 5. BoardDocs noise filtering — false positive rejection for wheelchair/food/expo/etc.
+
+ Signal system now at 10 sources, 16 commands . Automated schedule fully wired.
+
+ ❯ SOme of this you may have already done but im going to send my end of session prompt anyways We're approaching context limits. Before I clear, do the following in order:
+
+ 1. Save any feedback, preferences, or user context learned this session to memory
+
+ 2. Update the project plan file (e.g. SCOUT_PLAN.md):
+
+ - Mark completed items as done
+
+ - Add any new tasks or additions that came up this session
+
+ - Update 'Current Focus' to reflect exactly where we are
+
+ - If we're mid-task, note precisely what was being attempted and what state it's in
+
+ 3. Maintain CLAUDE.md:
+
+ - Add any new rules, conventions, or architectural decisions from this session
+
+ - Update 'Current State' with: what's working, what's broken or in-progress, and the exact next step to take
+
+ - Note any uncommitted or in-progress code changes that the next session needs to be aware of
+
+ - Review for content that is no longer actively relevant to ongoing work (e.g. completed features, resolved decisions, old state). If found, move it IN FULL to the project history
+
+ file — do not summarize or lose detail. If everything in CLAUDE.md is still relevant, don't trim anything.
+
+ 4. Update the project history file (e.g. SCOUT_HISTORY.md):
+
+ - Append a numbered session entry (e.g. "## Session 14") with: what changed, why, key decisions, and anything archived from CLAUDE.md
+
+ 5. Commit and push all changes
+
+ 6. Read back CLAUDE.md and the plan file to verify everything is captured correctly. If anything is missing or inaccurate, fix it before proceeding. Then give me:
+
+ - A brief summary of what we accomplished this session
+
+ - The exact prompt to paste in the next session, which should tell Claude to read the plan file and continue from the Current State in CLAUDE.md
+
+ ⏺ Most of this is already done from my end-of-session routine. Let me check what's missing and fill gaps.
+
+ Read 1 file (ctrl+o to expand)
+
+ ⏺ CLAUDE.md is already updated. Let me add the new module rules for territory_map and the new scanners, then update SCOUT_HISTORY.md.
+
+ ⏺ Let me fix the command table description (it says Google Drive but we changed to Telegram file).
+
+ ⏺ Update ( CLAUDE.md )
+
+ ⎿   Added 1 line, removed 1 line
+
+ 431 | `/territory_sync [state]` | download NCES territory data for one state or all |
+
+ 432 | `/territory_stats [state]` | territory coverage summary (districts, schools, enrollment) |
+
+ 433 | `/territory_gaps <state>` | gap analysis: cross-ref territory vs Active Accounts + Prospecting Queue |
+
+ 434 - | `/territory_map [state]` | generate interactive Folium territory map → Google Drive link |
+
+ 434 + | `/territory_map [state]` | generate interactive Folium territory map → Telegram file attachment |
+
+ 435 | `/pipeline` | show open pipeline summary with stale alerts |
+
+ 436 | `/pipeline_import` | next CSV upload imports as opportunities (Pipeline tab) |
+
+ 437 | `/import_closed_lost` | next CSV upload imports as closed-lost opps (Closed Lost tab) |
+
+ ⏺ Now add the new module rules to the critical rules section.
+
+ ⏺ Territory_map is a lazy import (only imported inside the /territory_map handler), which is correct since it pulls in folium. No new critical rule needed — the existing patterns cover it.
+
+ Now update SCOUT_HISTORY.md.
+
+ Read 2 files, listed 1 directory (ctrl+o to expand)
+
+ ⏺ Now commit and push everything.
+
+ ⏺ Bash (git add CLAUDE.md SCOUT_PLAN.md docs/SESSION_HISTORY.md && git commit -m "$(cat <<'EOF'
+
+ Session 46 end-of-session: update CLAUDE.md, SCOUT_PLAN.md, SESSION_HIST…)
+
+ ⎿   [main 95c7334] Session 46 end-of-session: update CLAUDE.md, SCOUT_PLAN.md, SESSION_HISTORY
+
+ 2 files changed, 29 insertions(+), 1 deletion(-)
+
+ To https://github.com/scadkin/firstcocoagent.git
+
+ fd97019..95c7334 main -> main
+
+ ⏺ Now let me verify by reading back the key files.
+
+ ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────── leadership-change-monitoring ── n______n
+
+ ❯  ( ✦ ✦ )
+
+ ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────── ( oo )
+
+ ⎿ CLAUDE.md
+
+ ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────── leadership-change-monitoring ── n______n
+ ❯  ✦ ✦
+ ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────── ( oo )
+
+ 2 s… (ctrl+o to expand)
+
+ SCO T_PLAN.md
+
+ gg ng
+
+ gg ng
+
+ Read 2 files (ctrl+o to expand)
+
+ ⏺ Everything is captured correctly. Here's the summary:
+
+ ---
+
+ Session 46 Summary
+
+ ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────── leadership-change-monitoring ── n______n
+ ❯  ( ✦ ✦ )
+
+ ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────── ( oo )
+
+ Session 46 Summary
+
+ 5 features shipped:
+
+ ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────── leadership-change-monitoring ── n______n
+ ❯  ✦ ✦
+ ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────── ( oo )
+
+ 1. Leadership change monitoring — Serper + Claude scanner, 8 superintendent turnovers found (OH, MI). Weekly Monday 8 AM. /signal_leadership
+
+ leadership-change-monitoring n______n
+ ❯  ( ✦ ✦ )
+ ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────── ( oo )
+
+ 2. RFP monitoring — CodeCombat-relevant filtering for CS/STEM/CTE procurement. Weekly Monday 8:15 AM. /signal_rfp
+
+ ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────── leadership-change-monitoring ── n______n
+ ❯  ✦ ✦
+ ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────── ( oo )
+
+ 3. Legislative signal scanner — State CS education mandates. Found TX HB 1481 + IL CS mandate. Monthly 1st Monday 8:30 AM. /signal_legislation
+
+ ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────── leadership-change-monitoring ── n______n
+ ❯  ✦ ✦
+ ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────── ( oo )
+
+ 4. Territory map visualization — Interactive Folium HTML (10.3 MB), 5 layers, clickable popups, sent as Telegram file. /territory_map
+
+ ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────── leadership-change-monitoring ── n______n
+ ❯  ✦ ✦
+ ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────── ( oo )
+
+ 5. BoardDocs noise filtering — False positive rejection for wheelchair/food/expo/athletic agenda items
+
+ ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────── leadership-change-monitoring ── n______n
+ ❯  ✦ ✦
+ ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────── ( oo )
+
+ 1. Leadership change monitoring — Serper + Claude scanner, 8 superintendent turnovers found (OH, MI). Weekly Monday 8 AM. /signal_leadership
+ 2 RFP monitoring — CodeCombat-relevant filtering for CS/STEM/CTE procur men . Weekly M nday 8:15 AM /signal_rfp
+ 3 Legislative signal scanner — State CS education mandates. Found TX HB 1481 + IL CS ma te. Monthly 1st Monday 8:30 AM. /signal_legislation
+ 4 T rritory map visualization — In ractive Folium HTML (10.3 MB), 5 layers, clickable popups, sent as Telegram file. /territory_map
+ 5 Boa dD cs noise filtering — False positive rejection for wheelchair/food/expo/athletic agenda items
+
+ Also: Global Bash(*) permissions to stop babysitting prompt approvals.
+
+ ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────── leadership-change-monitoring ── n______n
+ ❯  ✦ ✦
+ ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────── ( oo )
+
+ Signal system now at 10 sources, 16 commands with fully automated daily + weekly + monthly schedule.
+
+ ---
+
+ Next Session Prompt
+
+ ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────── leadership-change-monitoring ── n______n
+
+ ❯  ( ✦ ✦ )
+
+ ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────── ( oo )
+
+ Next Session Prompt
+
+ Continue Session 47 for Scout. Read SCOUT_PLAN.md and CLAUDE.md for current state. Last session (46) we shipped 5 features: leadership change monitoring (8 superintendent turnovers found), RFP monitoring
+ (Code Combat-relevant filtering), legislative signal scanner (TX + IL CS mandates), territory map visualization (Folium HTML), and Board Docs noise filtering. Signal system is at 10 sources, 16 commands. Next:
+ check Tulsa PS bond vote result (April 7 — should have results now), verify Google Alert parser handles new keyword sections (~April 9 digest), enhance territory map with richer popups (enrollment, school
+ count, licenses), then continue building unbuilt prospecting strategies — AI Algebra launch campaign (#23), Cybersecurity pre-launch (#24), grant-funded prospecting (#20), budget cycle targeting (#21).
+
+ ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────── leadership-change-monitoring ── n______n
+
+ ❯  ( ✦ ✦ )
+
+ ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────── ( oo )
+
+ running stop hooks… 0/2 · 1m 54s · ↓ 2.2k tokens)
+
+ ╭────────────────────────────────╮
+ │ *gnaws nervously at │
+ │ documentation* │
+ leadership-change-monitoring │ │─ n______n
+ ❯  │ Ten sources, │ ( ✦ ✦ )
+ ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────── │ sixteen commands—hydra code │ ( oo )
+
+ ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────── leadership-change-monitoring ── n______n
+ ❯  ( ✦ ✦ )
+ ────────────────────────────── ──────────────────────────────────── ( oo )
+
+ [<u[>1u[>4;2m
+
+ - -
+
+ ✦ ✦
+
+ ~ ~
+
+ [<u[>1u[>4;2m
+ /
+
+ /update-config Use this skill to configure the Claude Code harness via settings.json. Automated behaviors ("from now on when X", "each time X", "whenever X", "befor…
+ /claude-api Build apps with the Claude API or Anthropic SDK. TRIGGER when: code imports `anthropic`/`@anthropic-ai/sdk`/`claude_agent_sdk`, or user asks to use C… n______n
+
+ /add-dir Add a new working directory ( ✦ ✦ )
+
+ /agents Manage agent configurations ( oo )
+
+ /branch Create a branch of the current conversation at this point `------´
+
+ /btw Ask a quick side question without interrupting the main conversation Knurlburst
+
+ exit Exit the REPL
+ effort Set effort level for model usage
+ export Export the current conversation to a file or clipboard
+ extra-usage Co figure extra usage o keep working when limits are hit
+ executing-plans (superpowe s) Use when you have a written implementatio plan to execute in a separate session with review checkpoints
+ update-config U e this s ill to conf gure e Claud Code harness v a settings.json. Automated behaviors ("from now on when X", "each time X", "whenever X", "befor…
+
+ xp Export the current conversation to a file or clipboard
+ tra-usage Configure ext a usage to keep working wh n limits are hit
+ ecuting-plans (superpowers) Use wh n you have a written implementation plan to execute in a separate session with review checkpoints
+ update-config U e this skill to configure th Claude Code harn ss v a settings.json. Autom ted behavior ("from now on hen X", "each time X", "whenever X", "befor…
+ superpowers:execute-plan ( uperpowers) Deprecated - use the superpowers:execut ng-plans kill instead
+
+ n______n
+ ( ✦ ✦ )
+ skill-creator (skill-cr ato ) Create new skills, mod fy and im r ve existing skills, and measure skill performance. Use when users want to create a skill from scra… ( oo )
+ commit-commands:clean_gone (commit-commands) Cl ans up all git branches arked as [gone] (branches that have been deleted on the remote but still exist locally), including remo… `------´
+ writing-ski ls creating ne skills, editi g existing skills, or verifying skill work before deployment Knurlburst
+
+ /exit
+
+ extra usage Configure ext a usage to keep working when lim ts ar hit n______n
+ ntext Visualize current context us ge as a color d grid ( ✦ ✦ )
+ ( oo )
+
+ /skill-creator (skill-creator) Create new skills, modify and improve existing skills, and measure skill performance. Use when users want to create a skill from scra… `------´
+
+ /commit-commands:clean_gone (commit-commands) Cleans up all git branches marked as [gone] (branches that have been deleted on the remote but still exist locally), including remo… Knurlburst
+
+ Resume this session with:
+ claude --resume "leadership-change-monitoring"
