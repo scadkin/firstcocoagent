@@ -1562,11 +1562,16 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         asyncio.create_task(send_eod_report())
         return
 
-    elif user_text.lower() in ["/draft_emails", "/draft", "draft my emails", "draft emails", "check my inbox", "draft replies"]:
+    elif user_text.lower().startswith("/draft") or user_text.lower() in ["draft my emails", "draft emails", "check my inbox", "draft replies"]:
         if not gas:
             await send_message("❌ GAS bridge not configured — can't access Gmail.")
             return
-        await send_message("📧 Checking inbox for new emails to draft...")
+        force = "force" in user_text.lower()
+        if force:
+            cleared = email_drafter.clear_processed_cache()
+            await send_message(f"🔄 Force scan — cleared {cleared} seen email(s). Rechecking inbox...")
+        else:
+            await send_message("📧 Checking inbox for new emails to draft...")
         try:
             loop = asyncio.get_event_loop()
             result = await loop.run_in_executor(None, email_drafter.process_new_emails, gas)

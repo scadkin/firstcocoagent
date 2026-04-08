@@ -231,6 +231,20 @@ Write ONLY the reply body (HTML). No subject line, no signature, no explanation.
         return ""
 
 
+def clear_processed_cache() -> int:
+    """
+    Force-clear the in-memory processed message ID set and re-enable seeding.
+    Returns the count of IDs that were cleared.
+    Used by /draft force to re-scan emails that were seeded-out or previously skipped.
+    """
+    global _processed_message_ids, _seeded
+    count = len(_processed_message_ids)
+    _processed_message_ids = set()
+    _seeded = True  # keep seeded=True so process_new_emails doesn't re-seed on this call
+    logger.info(f"[Email Drafter] Force-cleared processed cache ({count} IDs)")
+    return count
+
+
 def seed_processed_emails(gas) -> int:
     """
     On first run after startup, mark all existing unread emails as already-seen
