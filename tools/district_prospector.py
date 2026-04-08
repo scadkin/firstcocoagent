@@ -1272,7 +1272,6 @@ def suggest_intra_district_expansion(max_per_district: int = 5) -> dict:
         # Build coverage maps from active accounts
         district_account_keys: set[str] = set()
         covered_school_keys_by_district: dict[str, set[str]] = {}
-        district_health: dict[str, bool] = {}
 
         for acct in accounts:
             atype = acct.get("Account Type", "").lower()
@@ -1293,10 +1292,6 @@ def suggest_intra_district_expansion(max_per_district: int = 5) -> dict:
                     continue
                 school_key = csv_importer.normalize_name(display_name).lower()
                 covered_school_keys_by_district.setdefault(parent, set()).add(school_key)
-                last_activity = acct.get("Last Activity", "")
-                is_healthy = _is_recent_activity(last_activity, days=180)
-                # OR semantics: a district is healthy if ANY school account is healthy
-                district_health[parent] = district_health.get(parent, False) or is_healthy
 
         # Load existing queue for dedup
         existing_prospects = _load_all_prospects()
@@ -1322,12 +1317,6 @@ def suggest_intra_district_expansion(max_per_district: int = 5) -> dict:
             # district-level deals, but check anyway
             if parent_key in district_account_keys:
                 skipped_district_covered += 1
-                continue
-
-            # Healthy account filter — at least one school account on this district
-            # must have activity in the last 180 days
-            if not district_health.get(parent_display, False):
-                skipped_dead += 1
                 continue
 
             eligible_count += 1
@@ -1451,7 +1440,6 @@ def suggest_intra_district_expansion(max_per_district: int = 5) -> dict:
             f"suggest_intra_district_expansion: {eligible_count} districts eligible, "
             f"{len(new_rows)} schools queued, "
             f"{skipped_district_covered} skipped (district covered), "
-            f"{skipped_dead} skipped (no healthy account), "
             f"{skipped_already_queued} skipped (already queued)"
         )
 
@@ -1460,7 +1448,7 @@ def suggest_intra_district_expansion(max_per_district: int = 5) -> dict:
             "eligible_districts": eligible_count,
             "queued": len(new_rows),
             "skipped_district_covered": skipped_district_covered,
-            "skipped_dead": skipped_dead,
+            "skipped_dead": 0,  # filter removed in v1
             "skipped_already_queued": skipped_already_queued,
             "districts": list({r[6] for r in new_rows}),  # unique parent districts
             "error": "",
