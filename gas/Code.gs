@@ -159,6 +159,7 @@ function createDraft(params) {
   var threadId = params.thread_id || "";
   var cc = params.cc || "";
   var contentType = params.content_type || "";
+  var skipIfDraftExists = params.skip_if_draft_exists === true;
 
   var options = {};
   if (cc) options.cc = cc;
@@ -171,6 +172,17 @@ function createDraft(params) {
     if (!thread) {
       return { success: false, error: "Thread not found: " + threadId };
     }
+
+    // Dedup: skip if this thread already has a draft
+    if (skipIfDraftExists && threadHasDraft(threadId)) {
+      return {
+        success: false,
+        already_drafted: true,
+        thread_id: threadId,
+        error: "Thread already has a draft"
+      };
+    }
+
     draft = thread.createDraftReply("", {
       to: to,
       subject: subject,
@@ -191,6 +203,32 @@ function createDraft(params) {
     subject: subject,
     link: "https://mail.google.com/mail/u/0/#drafts"
   };
+}
+
+
+/**
+ * Returns true if the given thread already has at least one draft.
+ * Iterates GmailApp.getDrafts() (cheap for Scout's volume).
+ */
+function threadHasDraft(threadId) {
+  if (!threadId) return false;
+  try {
+    var drafts = GmailApp.getDrafts();
+    for (var i = 0; i < drafts.length; i++) {
+      try {
+        var msg = drafts[i].getMessage();
+        if (msg && msg.getThread().getId() === threadId) {
+          return true;
+        }
+      } catch (inner) {
+        // Skip malformed drafts
+      }
+    }
+  } catch (e) {
+    // Fail open — don't block draft creation on a lookup error
+    return false;
+  }
+  return false;
 }
 
 

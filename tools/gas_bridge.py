@@ -139,13 +139,19 @@ class GASBridge:
         thread_id: str = "",
         cc: str = "",
         content_type: str = "",
+        skip_if_draft_exists: bool = True,
     ) -> dict:
         """
         Creates a Gmail draft. Does NOT send.
         thread_id: reply in existing thread (threaded draft).
         cc: comma-separated CC recipients.
         content_type: "text/html" for HTML body with clickable links.
+        skip_if_draft_exists: when True (default), GAS skips creation if
+            the thread already has any draft. Returns
+            {success: False, already_drafted: True}. Only checked for
+            threaded drafts (thread_id present).
         Returns {success, draft_id, to, subject, link}
+               or {success: False, already_drafted: True, thread_id}
         """
         params = {
             "to":      to,
@@ -158,8 +164,13 @@ class GASBridge:
             params["cc"] = cc
         if content_type:
             params["content_type"] = content_type
+        if skip_if_draft_exists and thread_id:
+            params["skip_if_draft_exists"] = True
         result = self._call("create_draft", params)
-        logger.info(f"Draft created via GAS bridge | Subject: {subject} | To: {to} | Thread: {thread_id or 'new'}")
+        if result.get("already_drafted"):
+            logger.info(f"Draft skipped — thread already has draft | Subject: {subject}")
+        else:
+            logger.info(f"Draft created via GAS bridge | Subject: {subject} | To: {to} | Thread: {thread_id or 'new'}")
         return result
 
     def search_inbox(self, query: str, max_results: int = 10) -> list[dict]:

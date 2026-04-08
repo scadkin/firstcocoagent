@@ -371,7 +371,7 @@ def process_new_emails(gas) -> dict:
             logger.error(f"[Email Drafter] Invalid sender email: {from_addr}")
             continue
 
-        # Create threaded draft via GAS bridge
+        # Create threaded draft via GAS bridge (skip_if_draft_exists=True by default)
         try:
             result = gas.create_draft(
                 to=sender_email,
@@ -394,6 +394,11 @@ def process_new_emails(gas) -> dict:
                 else:
                     _daily_stats["drafted"] += 1
                 logger.info(f"[Email Drafter] {'FLAG' if is_flag else 'DRAFT'}: {sender_name} — {subject}")
+            elif result.get("already_drafted"):
+                # Thread already has a draft — treat as skipped, not error
+                skipped += 1
+                _daily_stats["skipped"] += 1
+                logger.info(f"[Email Drafter] SKIP (already drafted): {sender_name} — {subject}")
             else:
                 errors += 1
                 _daily_stats["errors"] += 1
