@@ -378,3 +378,75 @@
 | 2026-04-04 | Session 43: Gmail signal inventory — 29 Google Alerts (359 emails), 41 Burbio newsletters, 118 DOE/newsletter emails. Only OK + TN subscribed (11 states missing). | Discovery |
 | 2026-04-04 | Session 43: Railway API access configured — team token for pulling env vars programmatically. Project/env/service IDs saved to memory. | Feature |
 | 2026-04-04 | Session 43: Sequence copy rules saved to memory — Steven's detailed feedback on tone, length, CTAs, subject lines, pacing, anti-fabrication. | Context |
+
+---
+
+## Session 49 (2026-04-08) — Email Auto-Drafter, 5 Parked Features, Lead Gen Tier A
+
+### Email Reply Auto-Drafter (Railway production)
+- **NEW:** `tools/email_drafter.py` — polls unread inbox every 5 min during business hours (7 AM-6 PM CST weekdays). Classifies via Claude Haiku (DRAFT/FLAG/SKIP), drafts via Claude Sonnet 4.6 with `memory/voice_profile.md` + `memory/response_playbook.md`, creates threaded HTML drafts via GAS bridge. Daily summary in EOD report. Manual trigger: `/draft_emails`. Force re-scan after redeploy: `/draft force`.
+- **GAS upgrade:** `Code.gs createDraft()` now accepts `thread_id`, `cc`, `content_type`. New `threadHasDraft()` helper iterates `GmailApp.getDrafts()` and returns true if any draft exists on that thread. New `skip_if_draft_exists` flag (default true from Python) prevents duplicate drafts. Returns `{success: false, already_drafted: true}` which `gas_bridge._call()` passes through without raising.
+- **Startup seeding:** First run after deploy marks all existing unread emails as already-seen so Scout doesn't draft for the entire backlog. `clear_processed_cache()` resets the in-memory set for `/draft force`.
+
+### 5 Parked Features Shipped (Tier A from inherited plan)
+- **F1 Fuzzy matching for winback + call list:** Added `csv_importer.fuzzy_match_name()` fallback in `suggest_closed_lost_targets()` and `daily_call_list._match_priority_leads()` after exact key match fails. Production result: 30/93 schools resolved (12 exact + 18 fuzzy) vs 17/93 baseline.
+- **F2 Contact extractor improvements:** Content window 12K→20K chars (covers longer staff directory pages), known-contacts dedup injection (loads existing leads from district, injects "DO NOT re-extract these people" into prompt). Module-level cache `_known_contacts_cache` keyed by normalized district name.
+- **F3a Procurement queries in RFP scanner:** Added `site:bidnet.com` and `site:bonfirehub.com` queries to `scan_rfp_opportunities()`.
+- **F3b RSS feeds expanded:** Added EdSurge (`articles_rss`) and CoSN to RSS_FEEDS list. Both tested via feedparser and verified returning entries.
+- **F3c Persistent superintendent directory:** New `memory/superintendent_directory.json` in GitHub memory. `update_superintendent_directory()` upserts from leadership scan results, detects real person-name changes (logs as change events), `get_superintendent(district)` lookup ready for future email personalization. Persisted via `github_pusher.push_file()`.
+- **F4 Unanswered outreach tracker:** New `get_unanswered_emails(days, gas_bridge, max_recipients)` in `tools/activity_tracker.py`. Fetches sent emails, dedups by recipient (most recent only), splits comma-separated `to` field, checks inbox for replies via `gas.search_inbox(f"from:{addr}")`, returns sorted by days_since. tz-aware date parsing via `dateutil.parser`. New `/unanswered [days]` Telegram command. 30-recipient cap.
+- **F5 Tool eval:** New `docs/tool_evaluation_2026_04.md`. Documents Serper/Exa/Firecrawl/Jina/Crawl4AI/Tavily landscape. Recommendation: Hobby plan ($16/yr or ~$19/mo). Untested but worth: Jina Reader (free), Claude PDF input. Comment added to `tools/research_engine.py` line 1.
+
+### Lead Generation Expansion — Tier A Complete
+**Plan:** `/Users/stevenadkins/.claude/plans/inherited-munching-sunrise.md` (rebuilt twice via Steven's pressure-test prompt)
+
+- **F3 Curriculum Adoption Queries (20 min):** Added 6 new queries to `scan_rfp_opportunities()`. Nov-Jan committee formation primary (RFI, "curriculum evaluation committee", "seeking computer science curriculum"), Feb-May committee meetings secondary. No new function — extends existing scanner.
+- **F1 Second Buyer Expansion (60 min):** New `suggest_intra_district_expansion(max_per_district=5)` in `tools/district_prospector.py`. Logic: load Active Accounts → group by parent district → filter out district-level deals → load Territory Schools → exclude covered schools → exclude already-queued → sort by enrollment desc → cap per district. Fuzzy district matching fallback. New strategy tag `intra_district`, source `expansion_auto`. New `/prospect_expansion [max_per_district]` command. **First production run: 98 districts eligible, 384 schools queued, 56 dedups.**
+- **F4 State CS Funding Scanner (75 min):** New `scan_cs_funding_awards()` in `tools/signal_processor.py`. Tier 1 generic queries always run (4 per state), Tier 2 state-specific program hints in `STATE_CS_PROGRAMS` dict (TX, IL, MA, PA, OH). 1-year Serper window (`qdr:y`). Claude Haiku extraction with HIGH/MEDIUM/LOW confidence routing: HIGH → auto-queue via `add_district()` with strategy `cs_funding_recipient`, MEDIUM/LOW → Signals tab only, active customer → `customer_intel` log only. New signal type `cs_funding_award`. New `/signal_funding` command. Kill switch: `ENABLE_FUNDING_SCAN`. **First production run: 9 raw, 1 HIGH auto-queued (Educational Service Center of the Western Reserve, OH).**
+- **F2 Competitor Displacement Scanner (90 min + iteration):** New `scan_competitor_displacement()` in `tools/signal_processor.py`. `COMPETITORS` list: Tynker, CodeHS, Replit for Education, Khan Academy CS, Code.org Express, Tinkercad. Source priority: job postings (primary, "experience with X"), RFP replacement language (secondary, "replacing X"), vendor case studies (tertiary, `site:domain.com`). Same HIGH/MEDIUM/LOW routing as F4. New signal type `competitor_usage`, new strategy `competitor_displacement`. New `/signal_competitors` command. Kill switch: `ENABLE_COMPETITOR_SCAN`. **First production run: 1/59 (Claude over-filtering). Loosened extraction prompt (removed aggressive EXCLUDE list, made permissive with confidence-tier filtering). Second run: 8 raw, 4 HIGH auto-queued (Carlinville CUSD#1 IL, Effingham CUSD 40 IL, School District U-46 IL, Azusa USD CA — all Code.org Express or CodeHS).**
+
+### `_calculate_priority()` extended with 3 new strategy branches
+- `intra_district`: 750-849 (warmest non-customer leads, sibling-school expansion)
+- `cs_funding_recipient`: 800-899 (pre-funded, ready to spend)
+- `competitor_displacement`: 650-749 (pre-sold, may be approaching renewal)
+
+### Bug fixes
+- **F1 healthy filter killing all 98 districts:** First production run reported 0 queued, 98 skipped as "no healthy account." Root cause: Salesforce CSV exports often have empty Last Activity field, so `_is_recent_activity()` returned False for almost everything. Fix: removed the filter from v1. Even an "old" school relationship is a credible reference point. `_is_recent_activity()` helper kept for future use.
+- **`/draft force` UnboundLocalError:** `handle_message()` assigns `gas = get_gas_bridge()` later in the function (line ~1687 for `/call_list`), making Python treat `gas` as local throughout. Any earlier reference raised `UnboundLocalError`. Latent bug — `/draft_emails` block had it from creation but the auto 5-min scanner uses `_check_email_drafts(gas)` which receives gas as a parameter. Steven's `/draft force` was the first Telegram invocation that hit it. Fix: call `get_gas_bridge()` into a `draft_gas` local variable.
+- **`_run_daily_signal_scan` `name 'gas' is not defined`:** Same scoping issue but in async task spawned via `asyncio.create_task()` from the scheduler — function doesn't inherit the outer `gas` local. Fix: call `get_gas_bridge()` into `scan_gas` local at function entry.
+- **GAS `already_drafted` raised as exception:** `gas_bridge._call()` raised `GASBridgeError` on any `success: false` response, converting the intentional `{already_drafted: true}` GAS response into an exception before `create_draft()` could inspect it. Fix: `_call()` now passes through `{success: false, already_drafted: true}` without raising. `email_drafter` also catches "already has a draft" in exception messages as defense-in-depth fallback.
+- **F2 first-run extracted 1/59:** Serper returned 59 articles but Claude Haiku extracted only 1. EXCLUDE list in extraction prompt was too aggressive ("Generic vendor marketing pages without a named district" killed `site:tynker.com` results, "Mentions where district uses competitor as a complement" rejected ambiguous cases). Fix: rewrote prompt to be permissive — extract ALL plausible K-12 district mentions, let confidence tiers convey uncertainty instead of pre-excluding. Reduced EXCLUDE to only universities and out-of-state. Second run: 8 extracted from same query results.
+
+### Architecture decisions / new patterns
+- **Per-feature commits:** Each feature shipped as its own commit for surgical rollback. Session 49 has 16+ commits.
+- **Kill switches for new scanners:** `ENABLE_FUNDING_SCAN` and `ENABLE_COMPETITOR_SCAN` constants near `SERPER_API_KEY` in `tools/signal_processor.py`. Each scanner checks at function entry and returns empty if disabled.
+- **Signal vs Prospect routing:** HIGH confidence → Prospecting Queue as `pending`. MEDIUM/LOW → Signals tab. Active customer match → customer_intel log only (don't sell, don't discard). Established in F4 + F2 scanners as the canonical pattern.
+- **All queue writes are `pending`:** No auto-elevation logic — Steven manually approves via `/prospect_approve`. Simpler than confidence-gated dual-path routing.
+- **Pressure-test pattern documented:** Steven uses 7-step ruthless pressure-test prompt for plans, often runs it twice. First pass exposes weak foundations. Second pass surfaces highest-leverage rewrites. Memory saved as `feedback_pressure_test_pattern.md`.
+
+### Tier B + C of Lead Gen Expansion deferred
+Stubs in plan file:
+- F5 CSTA Chapter Partnership (~60 min) — strategy tag + sequence template
+- F6 Charter School CMO Seed List (~90 min) — `memory/charter_cmos.json` + prospecting module
+- F7 CTE Center Directory (~90 min) — same pattern
+- F8 Private School Data via NCES PSS (~120 min) — Urban Institute API
+- F9 CS Graduation Compliance Gap PILOT (~120 min) — Claude PDF input approach for CA/IL/MA. Exit criterion: ≥60% validation rate
+- F10 Homeschool Co-op Discovery (~45 min) — Serper-only command
+
+### Not built (blocked or covered)
+- F11 Usage Decline Early Warning: blocked on CodeCombat product usage data
+- F12 Teacher-to-Admin Referral Chain: covered by F1 + existing C5 upward prospecting
+
+### Files modified
+- NEW: `tools/email_drafter.py`, `docs/tool_evaluation_2026_04.md`, `memory/superintendent_directory.json` (auto-created on first leadership scan)
+- `agent/main.py` — email drafter integration, `/draft_emails`, `/draft force`, `/unanswered`, `/prospect_expansion`, `/signal_funding`, `/signal_competitors`, two scope bug fixes
+- `tools/signal_processor.py` — F3 RFP queries, F3c superintendent directory, F4 funding scanner, F2 competitor scanner, kill switches, all bug fixes
+- `tools/district_prospector.py` — F1 winback fuzzy, F1 second buyer expansion, `_calculate_priority` 3 new strategies, `_is_recent_activity` helper
+- `tools/daily_call_list.py` — F1 fuzzy fallback (Path 1 + Path 2)
+- `tools/contact_extractor.py` — content window + known-contacts dedup
+- `tools/activity_tracker.py` — `get_unanswered_emails()` + `format_unanswered_for_telegram()`
+- `tools/gas_bridge.py` — `create_draft()` signature extension, `_call()` already_drafted passthrough
+- `tools/research_engine.py` — eval timestamp comment
+- `gas/Code.gs` — `createDraft` thread/cc/HTML, `threadHasDraft` helper, `skip_if_draft_exists`
+- `CLAUDE.md`, `SCOUT_PLAN.md` — updated session state and architecture rules
+

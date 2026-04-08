@@ -1,9 +1,17 @@
 # SCOUT MASTER PLAN
-*Last updated: 2026-04-08 — Session 49*
+*Last updated: 2026-04-08 — End of Session 49*
 
 ---
 
-## YOU ARE HERE → Session 49: Auto-drafting email replies on Railway. Scout polls inbox every 5 min during business hours, classifies via Claude Haiku, drafts via Claude Sonnet with voice profile + playbook, creates threaded HTML drafts via GAS bridge. Manual trigger: `/draft_emails`. GAS `createDraft` upgraded (threadId, cc, HTML). Tulsa bond vote was today (April 7) — results pending. Still need to: check Tulsa results, verify Google Alert parser ~April 9, act on 4 STRONG signals.
+## YOU ARE HERE → Session 49 COMPLETE. Massive session: cleaned up CLAUDE.md, built email auto-drafter on Railway with thread-dedup + force flag, shipped 5 parked features (fuzzy matching, extraction improvements, signal expansions, unanswered outreach tracker, tool eval), and shipped Tier A of Lead Generation Expansion: F1 Second Buyer Expansion (384 schools queued), F2 Competitor Displacement Scanner (4 HIGH auto-queued), F3 Curriculum Adoption Queries, F4 State CS Funding Scanner (1 HIGH auto-queued — Western Reserve ESC). Email drafter dedup via GAS threadHasDraft. Two scope bugs fixed (UnboundLocalError in /draft handler + _run_daily_signal_scan).
+
+**Next session starts with:**
+1. Spot-check the Tier A scanner outputs (Western Reserve ESC funding lead, 4 IL/CA competitor displacement leads)
+2. Approve 384 F1 intra-district expansion prospects in batches of 5-10 via `/prospect_approve` (don't bulk-approve — research queue is sequential)
+3. Tulsa bond results check (April 7 vote) — if Prop 3 passed, act on Robert F. Burton
+4. Verify Google Alert parser ~April 9 with first new digest
+5. Continue with Tier B + C of Lead Generation Expansion: CSTA Chapter Partnership (F5), Charter CMO seed list (F6), CTE Center directory (F7), Private School Data via NCES PSS (F8), CS Graduation Compliance Gap PDF pilot (F9 — Claude PDF input approach), Homeschool Co-op discovery (F10)
+6. Plan file: `/Users/stevenadkins/.claude/plans/inherited-munching-sunrise.md`
 
 ---
 
@@ -393,6 +401,62 @@ Surviving prospects are added to the Prospecting Queue with email, first name, l
 - 5 emails drafted during testing, 3 sent successfully. Voice was accurate, content corrections captured as learnings.
 - Banned phrase: "Want to hop on a quick call" — replaced with "Want to connect via Zoom this week?"
 - Pricing rule: push for Zoom first, send pricing after pushback or for international leads
+
+---
+
+## COMPLETED: Session 49 — Massive session
+
+### Email Auto-Drafter on Railway
+- `tools/email_drafter.py` (NEW) — polls unread inbox every 5 min during business hours (7 AM-6 PM CST weekdays), classifies via Claude Haiku (DRAFT/FLAG/SKIP), drafts via Claude Sonnet 4.6 with `memory/voice_profile.md` + `memory/response_playbook.md`, creates threaded HTML drafts via GAS bridge
+- `gas/Code.gs` upgraded — `createDraft()` accepts `thread_id`, `cc`, `content_type` params; new `threadHasDraft()` helper + `skip_if_draft_exists` flag prevents duplicate drafts on same thread
+- `tools/gas_bridge.py` — `create_draft()` signature extended; `_call()` passes through `already_drafted: true` responses without raising
+- `agent/main.py` — startup seeding, 5-min poll loop, `/draft_emails` and `/draft force` commands, EOD daily summary
+- Daily summary in EOD report
+- 5 emails drafted in production during session
+
+### 5 Parked Features Shipped (from previous sessions' backlog)
+- **F1 (Session 49 first batch):** Fuzzy matching for winback (`tools/district_prospector.py:suggest_closed_lost_targets`) and call list (`tools/daily_call_list.py`). Resolved 30/93 schools instead of 17/93 baseline (12 exact + 18 fuzzy)
+- **F2:** Contact extractor improvements — content window 12K→20K chars, known-contacts dedup injection via module-level cache (`tools/contact_extractor.py`)
+- **F3a:** Added bidnet.com + bonfirehub.com queries to RFP scanner
+- **F3b:** Added EdSurge + CoSN to RSS_FEEDS list (verified working)
+- **F3c:** Persistent superintendent directory in `memory/superintendent_directory.json` via github_pusher. `update_superintendent_directory()` upserts from leadership scans, detects real person-name changes, `get_superintendent()` lookup ready for personalization
+- **F4:** `get_unanswered_emails()` in `tools/activity_tracker.py` — finds people Steven emailed who never replied. Comma-split recipient handling, tz-aware date parsing, 30-recipient cap. New `/unanswered [days]` command
+- **F5:** Tool eval — `docs/tool_evaluation_2026_04.md` documents Serper/Exa/Firecrawl/Jina/Crawl4AI/Tavily landscape. Recommendation: Hobby plan ($16/yr or $19/mo), Jina Reader as untested cheap preprocessor, Claude PDF input as Firecrawl alternative for course catalogs
+
+### Bug fixes
+- `/draft force` UnboundLocalError — `gas` was being treated as local because `handle_message` assigns `gas = get_gas_bridge()` later in the function. Fixed by calling `get_gas_bridge()` into `draft_gas` local
+- `_run_daily_signal_scan` `name 'gas' is not defined` — same scoping issue but in async task spawned from scheduler. Fixed by calling `get_gas_bridge()` into `scan_gas` local
+- GAS `already_drafted` was being raised as exception by `_call()` instead of returned as dict. Fixed `_call()` to pass through known-benign responses
+- F2 first run extracted 1/59 articles — Claude prompt EXCLUDE list too aggressive. Loosened to permissive extraction with confidence tiers handling filtering
+
+### Lead Generation Expansion — Tier A Complete
+**Plan:** `/Users/stevenadkins/.claude/plans/inherited-munching-sunrise.md` (after 2 ruthless pressure-test passes)
+
+| F# | Feature | Status | Yield |
+|----|---------|--------|-------|
+| F3 | Curriculum Adoption Queries | ✅ Shipped | 6 new queries on existing RFP scanner — Nov-Jan committee formation primary, Feb-May secondary |
+| F1 | Second Buyer Expansion (intra_district) | ✅ Shipped + Verified | **384 schools queued** from 98 eligible parent districts. 56 dedup catches. New `/prospect_expansion [max_per_district]` command. |
+| F4 | State CS Funding Scanner | ✅ Shipped + Verified | 9 raw, **1 HIGH auto-queued (Educational Service Center of the Western Reserve, OH)**. ~$0.10/scan. New `/signal_funding` command. |
+| F2 | Competitor Displacement Scanner | ✅ Shipped + Verified | 8 raw, **4 HIGH auto-queued (Carlinville CUSD#1 IL, Effingham CUSD 40 IL, School District U-46 IL, Azusa USD CA)** — all on Code.org Express or CodeHS. ~$0.20/scan. New `/signal_competitors` command. |
+
+### Architecture decisions
+- **Kill switches:** New scanners ship with `ENABLE_FUNDING_SCAN`/`ENABLE_COMPETITOR_SCAN` constants at top of `tools/signal_processor.py` for one-line disable
+- **Confidence routing:** HIGH → auto-queue via `add_district()` as `pending`. MEDIUM/LOW → Signals tab only. Active customer match → `customer_intel` log only (don't sell, don't discard)
+- **Per-feature commits:** Each feature shipped as separate commit for surgical rollback. Session 49 has 16+ commits
+- **`_calculate_priority()` extended** with 3 new strategy branches: `intra_district` (750-849), `cs_funding_recipient` (800-899), `competitor_displacement` (650-749)
+- **F1 healthy filter REMOVED** in v1 — was too aggressive (98 districts skipped). Salesforce CSV often has empty Last Activity field. Re-add later with verified data
+
+### Tier B + C deferred (in plan file as one-line stubs)
+- F5 CSTA Chapter Partnership — strategy tag + sequence template (~60 min)
+- F6 Charter School CMO Seed List — `memory/charter_cmos.json` + prospecting module (~90 min)
+- F7 CTE Center Directory — similar pattern (~90 min)
+- F8 Private School Data — NCES PSS sync via Urban Institute API (~120 min)
+- F9 CS Graduation Compliance Gap — Claude PDF input pilot for CA/IL/MA (~120 min). Exit criterion: ≥60% validation rate
+- F10 Homeschool Co-op Discovery — lightweight Serper-only command (~45 min)
+
+### Not built (blocked or covered)
+- **F11 Usage Decline Early Warning:** Blocked on CodeCombat product usage data. Coordinate with CodeCombat team. ~2h once data available
+- **F12 Teacher-to-Admin Referral Chain:** Covered by F1 + existing C5 upward prospecting
 
 ---
 

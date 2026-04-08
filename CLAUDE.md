@@ -1,34 +1,43 @@
 # SCOUT — Claude Code Reference
-*Last updated: 2026-04-08 — Session 49*
+*Last updated: 2026-04-08 — End of Session 49*
 
 ---
 
 ## CURRENT STATE — update this after each session
 
-**Session 49 (in progress): Checking Tulsa bond results, acting on STRONG signals, operating mode.**
+**Session 49 (COMPLETE): Massive session. Email auto-drafter on Railway with thread dedup. 5 parked features shipped. Tier A of Lead Generation Expansion shipped (F1+F2+F3+F4). 384 schools queued for intra-district expansion, 4 competitor displacement leads, 1 CS funding lead.**
 
-### Recent sessions (details in SCOUT_PLAN.md)
+### Recent sessions (details in SCOUT_PLAN.md + SCOUT_HISTORY.md)
+- **Session 49:** Email auto-drafter, 5 parked features, Lead Gen Tier A (F1 second buyer, F2 competitor, F3 curriculum adoption, F4 funding scanner). 16+ commits. Plan: `/Users/stevenadkins/.claude/plans/inherited-munching-sunrise.md`
 - **Session 48:** Email Reply Drafting system — Gmail MCP threaded drafts in Steven's voice. Response playbook, voice profile updated, GAS `delete_draft`.
-- **Session 47:** Territory map enriched popups + signal heat overlay. 6 new scanners (grants, budget, algebra, cyber, roles, CSTA). Lookalike, re-engagement, dormant detection. Fuzzy matching.
+- **Session 47:** Territory map enriched popups + signal heat overlay. 6 new scanners (grants, budget, algebra, cyber, roles, CSTA). Lookalike, re-engagement, dormant detection.
 - **Session 46:** Leadership/RFP/legislative scanners. Territory map visualization. BoardDocs noise filtering.
 - **Session 45:** RSS + BoardDocs + Ballotpedia + signal attribution. 3 Outreach sequences. Send schedules.
-- **Session 44:** Signal Intelligence System: 18,401 signals, enrichment, daily scan, quality pass.
 
-### What still needs to be done
-- **Check Tulsa PS bond results** — Vote was April 7. If Prop 3 ($104M tech) passed, act on Robert F. Burton (Exec Dir IT).
-- **Verify Google Alert parser ~April 9** — First new digest with bond/leadership/AI policy keywords. Run `/signal_scan`.
-- **Act on 4 STRONG enriched signals** — Tulsa PS, Richardson ISD, Acton-Boxborough, Norwalk PS. Research contacts + draft outreach.
-- **Shift to operating mode** — system is built. Act on signals, build campaigns, run outreach sequences.
-- **#2 Usage-based prospecting** — Blocked on CodeCombat internal data from Steven's team.
-- **Firecrawl paid plan** — Deferred (budget). Was #1 research tool.
-- **Parse.bot integration** — Deferred (DNS).
-- See `SCOUT_PLAN.md` for full roadmap
+### What still needs to be done (next session — start here)
+1. **Spot-check Tier A scanner outputs:**
+   - F4 result: Educational Service Center of the Western Reserve (OH) — Western Reserve ESC is an ESA that buys curriculum for multiple member districts. High leverage if real.
+   - F2 results: Carlinville CUSD#1 (IL), Effingham CUSD 40 (IL), School District U-46 (IL), Azusa USD (CA) — all using Code.org Express or CodeHS. Verify via Google before acting.
+2. **Approve F1 prospects in batches of 5-10** via `/prospect_approve` — 384 intra-district schools queued. Research queue is sequential (~3-5 min each), so don't bulk-approve.
+3. **Tulsa PS bond results** — Vote was April 7. If Prop 3 ($104M tech) passed, act on Robert F. Burton (Exec Dir IT).
+4. **Verify Google Alert parser ~April 9** — First new digest with bond/leadership/AI policy keywords. Run `/signal_scan`.
+5. **Act on 4 STRONG enriched signals** — Tulsa PS, Richardson ISD, Acton-Boxborough, Norwalk PS.
+6. **Lead Generation Expansion Tier B + C** (in plan file as one-line stubs, ~7 hours total split across sessions):
+   - F5 CSTA Chapter Partnership (~60 min)
+   - F6 Charter School CMO Seed List (~90 min)
+   - F7 CTE Center Directory (~90 min)
+   - F8 Private School Data via NCES PSS (~120 min)
+   - F9 CS Graduation Compliance Gap PILOT — Claude PDF input approach for CA/IL/MA (~120 min)
+   - F10 Homeschool Co-op Discovery (~45 min)
+7. **Deferred:** #2 Usage-based prospecting (blocked on CodeCombat data), Firecrawl paid plan (budget), Parse.bot (DNS)
+8. See `SCOUT_PLAN.md` for full roadmap and `SCOUT_HISTORY.md` for Session 49 details
 
 ### Current status
 - All prior phases + enhancements: ✅
-- Signal Intelligence System: ✅ (Session 44-47) — 19 sources. 31 Telegram commands. Daily 7:45 AM + weekly Monday (leadership/RFP) + monthly 1st Monday (legislation/grants/budget). On-demand: roles, CSTA, algebra, cyber. Signal-to-deal attribution wired.
-- Prospecting strategies: ✅ 22 of 24 built. Only #2 (usage-based, blocked on CodeCombat data) remains.
+- Signal Intelligence System: ✅ — **21 sources** (Session 49 added F4 cs_funding_award + F2 competitor_usage). **33 Telegram commands** (added /signal_funding, /signal_competitors, /prospect_expansion, /unanswered, /draft, /draft force). Daily 7:45 AM + weekly Monday (leadership/RFP) + monthly 1st Monday (legislation/grants/budget). On-demand: roles, CSTA, algebra, cyber, funding, competitors.
+- Prospecting strategies: ✅ **23 of 24 built** (Session 49 added intra_district + competitor_displacement + cs_funding_recipient strategy tags). Only #2 (usage-based, blocked on CodeCombat data) remains.
 - Outreach sequences: ✅ — IDs 1995-2001 (C4 x4, License Request, Webinar x2). 3 send schedules.
+- Email auto-drafter: ✅ — runs every 5 min during business hours, dedup via GAS `threadHasDraft`, manual `/draft_emails` and `/draft force` triggers.
 - Sequence copy rules: ✅ — Comprehensive rules in memory. Seasonal calendar. Send schedules.
 
 ### Completed features (details in SCOUT_PLAN.md)
@@ -82,6 +91,18 @@ Draft log in `memory/draft_log.md`. Known issue: Outreach browser extension stri
 **Never use `requests` or `time.sleep()` inside async functions.** Use `httpx.AsyncClient` for HTTP and `await asyncio.sleep()` for delays. Both synchronous versions freeze the asyncio event loop.
 
 **Synchronous code called from async context must use `run_in_executor`.** Wrap blocking I/O in `await loop.run_in_executor(None, fn, args...)`. Never call blocking functions directly from async methods.
+
+**`handle_message()` and async tasks must call `get_gas_bridge()` locally — never reference `gas` as a free variable.** `handle_message()` assigns `gas = get_gas_bridge()` later in the function (line ~1687 for `/call_list`). Python treats `gas` as local throughout the entire function — so any earlier reference raises `UnboundLocalError`. Same applies to `_run_*_scan()` functions spawned via `asyncio.create_task()` from the scheduler — they don't inherit the outer `gas` local. ALWAYS call `get_gas_bridge()` into a local variable like `draft_gas` or `scan_gas` at the top of any new branch or scheduled function. Two latent bugs from this pattern shipped in Session 49.
+
+**New scanners ship with kill switches.** Add an `ENABLE_X_SCAN = True` constant near the top of `tools/signal_processor.py` (next to `SERPER_API_KEY`). Scanner checks the flag at function entry and returns empty if disabled. One-line commit to disable in production without removing code. Examples: `ENABLE_FUNDING_SCAN`, `ENABLE_COMPETITOR_SCAN`.
+
+**Multi-feature sessions ship one commit per feature.** Don't bundle features into one big commit at session end. Separate commits enable surgical `git revert` if a feature causes production issues. Session 49 shipped F3 → F1 → F4 → F2 as separate commits + small fix commits.
+
+**Signal vs. Prospect routing for new lead-gen scanners.** HIGH confidence → auto-queue via `district_prospector.add_district()` as `pending`. MEDIUM/LOW → Signals tab only via `write_signals()`. Active customer match → `customer_intel` log only (don't sell, don't discard). Pattern established in F4 + F2 scanners (Session 49). All queue writes are `pending` — Steven manually approves via `/prospect_approve`. No auto-elevation logic.
+
+**GAS `createDraft` always passes `skip_if_draft_exists=True`.** This prevents duplicate drafts on threads that already have one. GAS-side check via `threadHasDraft(threadId)` iterates `GmailApp.getDrafts()`. Returns `{success: false, already_drafted: true}` which `gas_bridge._call()` passes through (does NOT raise). Email drafter treats `already_drafted` as a soft-skip, not an error.
+
+**`_calculate_priority()` strategies as of Session 49:** `upward` (600-999), `winback` (550-749), `proximity` (400-699), `esa_cluster` (450-599), `intra_district` (750-849), `cs_funding_recipient` (800-899), `competitor_displacement` (650-749), and falls through to `cold` (300-799 by enrollment) for anything unknown. Add new branches for new strategies — falling through to cold gives wrong sort order for warm leads.
 
 **Explicit slash commands bypass Claude and call execute_tool() directly.** `/brief`, `/call`, `/recent_calls`, `/progress`, `/sync_activities`, `/call_list`, `/pipeline`, `/pipeline_import`, `/import_closed_lost`, `/import_leads`, `/import_contacts`, `/enrich_leads`, and all `/prospect_*` commands call execute_tool() directly and return. Direct dispatch is the only reliable pattern — when conversation history is long, Claude responds with descriptive text instead of calling tools.
 
