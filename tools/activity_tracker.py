@@ -732,6 +732,171 @@ def get_dormant_accounts(days: int = 90) -> list[dict]:
         return []
 
 
+def get_unanswered_emails(days: int = 30, gas_bridge=None, max_recipients: int = 30) -> dict:
+    """
+    Find people Steven emailed in the last N days who never replied.
+    Checks Gmail sent → dedupes by recipient → searches inbox for replies.
+
+    Returns {unanswered: [...], total_checked: int, total_unanswered: int}
+    """
+    if gas_bridge is None:
+        return {"unanswered": [], "total_checked": 0, "total_unanswered": 0,
+                "error": "gas_bridge required"}
+
+    try:
+        from dateutil import parser as date_parser
+    except ImportError:
+        return {"unanswered": [], "total_checked": 0, "total_unanswered": 0,
+                "error": "dateutil not installed"}
+
+    # Fetch sent emails
+    try:
+        sent = gas_bridge.get_sent_emails(months_back=2, max_results=200)
+    except Exception as e:
+        logger.error(f"get_unanswered_emails: sent fetch failed: {e}")
+        return {"unanswered": [], "total_checked": 0, "total_unanswered": 0,
+                "error": f"sent fetch failed: {e}"}
+
+    cutoff = datetime.now().astimezone()
+    cutoff_days = days
+
+    # Dedupe by recipient, keeping MOST RECENT sent email per address
+    by_recipient: dict[str, dict] = {}
+    for email in sent:
+        to_field = (email.get("to") or "").strip()
+        subject = email.get("subject", "")
+        date_str = email.get("date", "")
+        if not to_field or not date_str:
+            continue
+
+        try:
+            sent_dt = date_parser.parse(date_str)
+        except (ValueError, TypeError) as e:
+            logger.debug(f"Skipping unparseable sent date '{date_str}': {e}")
+            continue
+
+        # Filter by age
+        try:
+            age_days = (cutoff - sent_dt).days
+        except TypeError:
+            # tz mismatch — normalize both
+            if sent_dt.tzinfo is None:
+                sent_dt = sent_dt.replace(tzinfo=cutoff.tzinfo)
+            age_days = (cutoff - sent_dt).days
+        if age_days > cutoff_days or age_days < 0:
+            continue
+
+        # Split on commas — to field can contain multiple recipients
+        for raw_addr in to_field.split(","):
+            addr = raw_addr.strip().lower()
+            # Strip "Name <email>" format
+            match = re.search(r'<([^>]+)>', addr)
+            if match:
+                addr = match.group(1).strip().lower()
+            if not addr or "@" not in addr:
+                continue
+            if addr.endswith("@codecombat.com"):
+                continue
+
+            existing = by_recipient.get(addr)
+            if not existing or sent_dt > existing["sent_dt"]:
+                by_recipient[addr] = {
+                    "to": addr,
+                    "subject": subject,
+                    "sent_dt": sent_dt,
+                    "date_str": date_str,
+                }
+
+    # Cap at max_recipients (most recent first)
+    recipients = sorted(by_recipient.values(), key=lambda r: r["sent_dt"], reverse=True)
+    recipients = recipients[:max_recipients]
+
+    unanswered = []
+    checked = 0
+
+    for rec in recipients:
+        checked += 1
+        addr = rec["to"]
+        sent_dt = rec["sent_dt"]
+
+        # Search inbox for replies from this address
+        try:
+            results = gas_bridge.search_inbox(f"from:{addr}", max_results=3)
+        except Exception as e:
+            logger.warning(f"Inbox search failed for {addr}: {e}")
+            results = []
+
+        replied = False
+        for r in results:
+            r_date = r.get("date", "")
+            if not r_date:
+                continue
+            try:
+                reply_dt = date_parser.parse(r_date)
+            except (ValueError, TypeError):
+                continue
+            try:
+                if reply_dt > sent_dt:
+                    replied = True
+                    break
+            except TypeError:
+                if reply_dt.tzinfo is None and sent_dt.tzinfo is not None:
+                    reply_dt = reply_dt.replace(tzinfo=sent_dt.tzinfo)
+                elif sent_dt.tzinfo is None and reply_dt.tzinfo is not None:
+                    sent_dt = sent_dt.replace(tzinfo=reply_dt.tzinfo)
+                if reply_dt > sent_dt:
+                    replied = True
+                    break
+
+        if replied:
+            continue
+
+        try:
+            days_since = (cutoff - sent_dt).days
+        except TypeError:
+            days_since = 0
+
+        unanswered.append({
+            "to": addr,
+            "subject": rec["subject"],
+            "sent_date": sent_dt.strftime("%Y-%m-%d"),
+            "days_since": days_since,
+        })
+
+    unanswered.sort(key=lambda r: r["days_since"], reverse=True)
+
+    return {
+        "unanswered": unanswered,
+        "total_checked": checked,
+        "total_unanswered": len(unanswered),
+    }
+
+
+def format_unanswered_for_telegram(result: dict, limit: int = 15) -> str:
+    """Format unanswered emails result for Telegram display."""
+    if result.get("error"):
+        return f"⚠️ Unanswered scan failed: {result['error']}"
+
+    unanswered = result.get("unanswered", [])
+    checked = result.get("total_checked", 0)
+
+    if not unanswered:
+        return f"📭 No unanswered emails found (checked {checked} recipients)."
+
+    lines = [
+        f"📭 *Unanswered Outreach* ({len(unanswered)}/{checked} recipients)\n"
+    ]
+    for i, u in enumerate(unanswered[:limit], 1):
+        subj = u["subject"][:55]
+        lines.append(
+            f"  {i}. `{u['to']}` — {u['days_since']}d ago\n"
+            f"     _{subj}_"
+        )
+    if len(unanswered) > limit:
+        lines.append(f"\n  ... and {len(unanswered) - limit} more")
+    return "\n".join(lines)
+
+
 def format_dormant_for_telegram(dormant: list, limit: int = 20) -> str:
     """Format dormant accounts for Telegram display."""
     if not dormant:

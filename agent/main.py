@@ -1613,6 +1613,27 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await send_message(f"Dormant check failed: {e}")
         return
 
+    elif user_text.lower().startswith("/unanswered") or user_text.lower() in ["unanswered", "unanswered emails", "no reply"]:
+        # Parse optional days: /unanswered 45
+        parts = user_text.strip().split()
+        days = 30
+        for p in parts[1:]:
+            try:
+                days = int(p)
+                break
+            except ValueError:
+                pass
+        await send_message(f"📭 Checking for unanswered emails in last {days} days (up to 30 recipients)...")
+        try:
+            loop = asyncio.get_event_loop()
+            result = await loop.run_in_executor(
+                None, activity_tracker.get_unanswered_emails, days, gas, 30)
+            output = activity_tracker.format_unanswered_for_telegram(result)
+            await send_message(output)
+        except Exception as e:
+            await send_message(f"Unanswered check failed: {e}")
+        return
+
     elif user_text.lower().startswith("/sync_activities") or user_text.lower() in ["sync activities", "sync gmail"]:
         result = await execute_tool("sync_gmail_activities", {})
         if result:

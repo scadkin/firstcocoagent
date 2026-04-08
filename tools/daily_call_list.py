@@ -138,6 +138,12 @@ def _match_leads_to_districts(leads: list[dict], districts: list[dict]) -> list[
             lead_district_key = csv_importer.normalize_name(lead_district)
             if lead_district_key in district_by_key:
                 district_info = district_by_key[lead_district_key]
+            else:
+                fuzzy_key = csv_importer.fuzzy_match_name(
+                    lead_district_key, district_by_key, threshold=0.7
+                )
+                if fuzzy_key:
+                    district_info = district_by_key[fuzzy_key]
 
         # Path 2: lead's Account matches a school under a priority district
         if not district_info:
@@ -146,6 +152,12 @@ def _match_leads_to_districts(leads: list[dict], districts: list[dict]) -> list[
                 account_key = csv_importer.normalize_name(lead_account)
                 if account_key in school_to_district:
                     district_info = school_to_district[account_key]
+                else:
+                    fuzzy_key = csv_importer.fuzzy_match_name(
+                        account_key, school_to_district, threshold=0.7
+                    )
+                    if fuzzy_key:
+                        district_info = school_to_district[fuzzy_key]
 
         if district_info:
             seen_emails.add(email)

@@ -1,3 +1,4 @@
+# Last tool evaluation: 2026-04-08 Session 49 — see docs/tool_evaluation_2026_04.md
 """
 research_engine.py — Scout's multi-tool K-12 lead research engine.
 

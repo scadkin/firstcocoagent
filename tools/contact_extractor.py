@@ -9,9 +9,44 @@ import logging
 from datetime import date
 from anthropic import Anthropic
 
+import tools.sheets_writer as sheets_writer
+import tools.csv_importer as csv_importer
+
 logger = logging.getLogger(__name__)
 
 client = Anthropic()
+
+# Module-level cache: district_key → formatted known-contacts string
+_known_contacts_cache: dict[str, str] = {}
+
+
+def _get_known_contacts_for_district(district_name: str) -> str:
+    """Load existing contacts for district from Leads tab. Cached per module lifetime."""
+    if not district_name:
+        return ""
+    cache_key = csv_importer.normalize_name(district_name)
+    if cache_key in _known_contacts_cache:
+        return _known_contacts_cache[cache_key]
+
+    try:
+        leads = sheets_writer.get_leads()
+    except Exception as e:
+        logger.warning(f"Failed to load known contacts for dedup: {e}")
+        _known_contacts_cache[cache_key] = ""
+        return ""
+
+    matches = []
+    for lead in leads:
+        lead_district = csv_importer.normalize_name(lead.get("District Name", ""))
+        if lead_district == cache_key:
+            name = f"{lead.get('First Name', '')} {lead.get('Last Name', '')}".strip()
+            title = lead.get("Title", "")
+            if name:
+                matches.append(f"- {name}, {title}" if title else f"- {name}")
+
+    result = "\n".join(matches[:30]) if matches else ""
+    _known_contacts_cache[cache_key] = result
+    return result
 
 # ─────────────────────────────────────────────
 # EXTRACTION PROMPT
@@ -80,12 +115,20 @@ def extract_contacts(raw_content: str, source_url: str, district_name: str) -> l
     if not raw_content or len(raw_content.strip()) < 50:
         return []
 
-    # Truncate to avoid token limits — 12k chars is plenty for extraction
-    content_chunk = raw_content[:12000]
+    # Truncate to avoid token limits — 20k chars covers longer staff directories
+    content_chunk = raw_content[:20000]
+
+    known = _get_known_contacts_for_district(district_name)
+    dedup_note = ""
+    if known:
+        dedup_note = (
+            f"\n\nAlready known contacts for this district (DO NOT re-extract these people):\n"
+            f"{known}\n"
+        )
 
     prompt = f"""District: {district_name}
 Source URL: {source_url}
-
+{dedup_note}
 Raw content to extract contacts from:
 ---
 {content_chunk}

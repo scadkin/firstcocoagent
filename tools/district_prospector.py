@@ -1246,6 +1246,7 @@ def suggest_closed_lost_targets(buffer_months: int = 6, lookback_months: int = 1
         # Parent Account is stored as context, not used for grouping.
         account_opps: dict[str, list[dict]] = {}
         territory_resolved = 0
+        territory_fuzzy_resolved = 0
         for opp in closed_lost:
             account = opp.get("Account Name", "").strip()
             if not account:
@@ -1256,6 +1257,13 @@ def suggest_closed_lost_targets(buffer_months: int = 6, lookback_months: int = 1
             if not parent and territory_school_to_district:
                 acct_key = csv_importer.normalize_name(account).lower()
                 matched_district = territory_school_to_district.get(acct_key)
+                if not matched_district:
+                    fuzzy_key = csv_importer.fuzzy_match_name(
+                        acct_key, territory_school_to_district, threshold=0.7
+                    )
+                    if fuzzy_key:
+                        matched_district = territory_school_to_district[fuzzy_key]
+                        territory_fuzzy_resolved += 1
                 if matched_district:
                     opp["_resolved_parent"] = matched_district
                     territory_resolved += 1
@@ -1263,7 +1271,10 @@ def suggest_closed_lost_targets(buffer_months: int = 6, lookback_months: int = 1
             account_opps.setdefault(account, []).append(opp)
 
         if territory_resolved:
-            logger.info(f"Winback: resolved {territory_resolved} school opps → parent district via territory data")
+            logger.info(
+                f"Winback: resolved {territory_resolved} school opps → parent district "
+                f"via territory data ({territory_fuzzy_resolved} via fuzzy match)"
+            )
 
         # Load existing data for dedup
         active_accounts = csv_importer.get_active_accounts()

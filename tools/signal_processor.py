@@ -1987,6 +1987,121 @@ def scan_ballotpedia(progress_callback=None) -> list:
 # LEADERSHIP CHANGE SCANNER (Serper + Claude)
 # ─────────────────────────────────────────────
 
+# ─────────────────────────────────────────────
+# SUPERINTENDENT DIRECTORY (persistent in GitHub memory)
+# ─────────────────────────────────────────────
+
+_SUPERINTENDENT_DIR_PATH = "memory/superintendent_directory.json"
+_superintendent_directory: dict | None = None
+
+
+def _load_superintendent_directory() -> dict:
+    """Load superintendent directory from GitHub memory. Cached in module."""
+    global _superintendent_directory
+    if _superintendent_directory is not None:
+        return _superintendent_directory
+    try:
+        import tools.github_pusher as github_pusher
+        raw = github_pusher.get_file_content(_SUPERINTENDENT_DIR_PATH)
+        if raw:
+            _superintendent_directory = json.loads(raw)
+        else:
+            _superintendent_directory = {}
+    except Exception as e:
+        logger.warning(f"Superintendent directory load failed: {e}")
+        _superintendent_directory = {}
+    return _superintendent_directory
+
+
+def _save_superintendent_directory() -> bool:
+    """Persist directory to GitHub memory."""
+    global _superintendent_directory
+    if _superintendent_directory is None:
+        return False
+    try:
+        import tools.github_pusher as github_pusher
+        content = json.dumps(_superintendent_directory, indent=2, sort_keys=True)
+        github_pusher.push_file(
+            _SUPERINTENDENT_DIR_PATH,
+            content,
+            commit_message="Update superintendent directory",
+        )
+        return True
+    except Exception as e:
+        logger.error(f"Superintendent directory save failed: {e}")
+        return False
+
+
+def get_superintendent(district_name: str) -> dict | None:
+    """Lookup superintendent by district name. Returns entry dict or None."""
+    if not district_name:
+        return None
+    directory = _load_superintendent_directory()
+    key = csv_importer.normalize_name(district_name)
+    return directory.get(key)
+
+
+def update_superintendent_directory(items: list[dict]) -> dict:
+    """
+    Upsert district→superintendent entries from leadership scan results.
+    Detects real person-name changes (logs a change event in returned dict).
+    Returns {added, updated, changed, total}.
+    """
+    directory = _load_superintendent_directory()
+    added = 0
+    updated = 0
+    changed = []
+    today = datetime.now().strftime("%Y-%m-%d")
+
+    for item in items:
+        district = (item.get("district") or "").strip()
+        person = (item.get("person_name") or "").strip()
+        state = (item.get("state") or "").strip().upper()
+        change_type = (item.get("change_type") or "").strip().lower()
+
+        if not district or not person:
+            continue
+
+        key = csv_importer.normalize_name(district)
+        existing = directory.get(key)
+
+        if not existing:
+            directory[key] = {
+                "name": person,
+                "state": state,
+                "change_type": change_type,
+                "updated": today,
+                "source": "leadership_scan",
+            }
+            added += 1
+        else:
+            existing_name_norm = existing.get("name", "").strip().lower()
+            if existing_name_norm and existing_name_norm != person.lower():
+                changed.append({
+                    "district": district,
+                    "previous": existing.get("name", ""),
+                    "current": person,
+                })
+            directory[key] = {
+                "name": person,
+                "state": state or existing.get("state", ""),
+                "change_type": change_type or existing.get("change_type", ""),
+                "updated": today,
+                "source": "leadership_scan",
+            }
+            updated += 1
+
+    if added or updated:
+        _save_superintendent_directory()
+
+    return {
+        "added": added,
+        "updated": updated,
+        "changed": changed,
+        "total": len(directory),
+    }
+
+
 def scan_leadership_changes(states=None, progress_callback=None) -> list:
     """
     Scan for K-12 superintendent changes across territory states via Serper web search.
@@ -2185,6 +2300,18 @@ Search results:
 
     logger.info(f"Leadership scan: {len(signals)} superintendent changes extracted "
                 f"({len(items)} raw, {len(items) - len(signals)} filtered/deduped)")
+
+    # Persist to superintendent directory (GitHub memory)
+    try:
+        dir_result = update_superintendent_directory(items)
+        logger.info(
+            f"Superintendent directory: +{dir_result['added']} added, "
+            f"{dir_result['updated']} updated, {len(dir_result['changed'])} real changes, "
+            f"{dir_result['total']} total"
+        )
+    except Exception as e:
+        logger.warning(f"Superintendent directory update failed: {e}")
+
     if progress_callback:
         progress_callback(f"Leadership scan: {len(signals)} superintendent changes found")
     return signals
@@ -2221,6 +2348,8 @@ def scan_rfp_opportunities(states=None, progress_callback=None) -> list:
         queries = [
             f'"RFP" OR "request for proposal" "computer science" OR "coding" OR "programming" curriculum school "{state_name}"',
             f'"RFP" OR "request for proposal" "STEM" OR "CTE" software OR curriculum school district "{state_name}"',
+            f'site:bidnet.com "computer science" OR "coding" OR "STEM" curriculum "{state_name}"',
+            f'site:bonfirehub.com school district "computer science" OR "coding" "{state_name}"',
         ]
         for query in queries:
             try:
@@ -3797,6 +3926,16 @@ RSS_FEEDS = [
         "name": "District Administration",
         "url": "https://www.districtadministration.com/feed",
         "source_detail": "District Administration",
+    },
+    {
+        "name": "EdSurge",
+        "url": "https://www.edsurge.com/articles_rss",
+        "source_detail": "EdSurge",
+    },
+    {
+        "name": "CoSN",
+        "url": "https://www.cosn.org/feed/",
+        "source_detail": "CoSN",
     },
 ]
 
