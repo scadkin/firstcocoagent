@@ -2253,6 +2253,46 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await send_message(f"Upward targets error: {e}")
         return
 
+    elif user_text.lower().startswith("/prospect_expansion"):
+        # F1: Second buyer expansion — sibling schools in covered districts
+        # Optional arg: max per district (default 5)
+        args = user_text[len("/prospect_expansion"):].strip()
+        max_per_district = 5
+        if args:
+            try:
+                max_per_district = max(0, int(args.split()[0]))
+            except (ValueError, IndexError):
+                pass
+        await send_message(
+            f"🏫 Finding sibling schools in your covered districts (cap: {max_per_district}/district)..."
+        )
+        try:
+            loop = asyncio.get_event_loop()
+            result = await loop.run_in_executor(
+                None, district_prospector.suggest_intra_district_expansion, max_per_district
+            )
+            if not result["success"]:
+                await send_message(f"Error: {result['error']}")
+                return
+            msg = (
+                f"🏫 *Intra-District Expansion*\n"
+                f"Eligible parent districts: {result['eligible_districts']}\n"
+                f"Schools queued: {result['queued']}\n"
+                f"Skipped (district fully covered): {result['skipped_district_covered']}\n"
+                f"Skipped (no healthy account): {result['skipped_dead']}\n"
+                f"Skipped (already in queue): {result['skipped_already_queued']}"
+            )
+            if result["queued"]:
+                msg += "\n\n_Approve in batches of 5-10 with `/prospect_approve` so research catches up._"
+            await send_message(msg)
+            pending = await loop.run_in_executor(None, district_prospector.get_pending, 5)
+            if pending:
+                _last_prospect_batch = pending
+                await send_message(district_prospector.format_batch_for_telegram(pending))
+        except Exception as e:
+            await send_message(f"Expansion error: {e}")
+        return
+
     elif user_text.lower().startswith("/prospect_approve"):
         args = user_text[len("/prospect_approve"):].strip()
         if not args or not _last_prospect_batch:

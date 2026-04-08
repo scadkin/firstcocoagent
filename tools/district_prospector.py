@@ -527,6 +527,21 @@ def _calculate_priority(strategy: str, school_count: int, total_licenses: int,
         base = 450 + min(active_in_esa * 30, 100)
         enrollment_bonus = min(int(est_enrollment / 500), 49) if est_enrollment > 0 else 0
         return base + enrollment_bonus
+    elif strategy == "intra_district":
+        # F1 Second Buyer Expansion: sibling schools in covered districts.
+        # Highest-warm leads — same district as existing customer.
+        # Tier 1.5 (750-849): higher than upward tier 4, lower than upward tier 1-2.
+        return 750 + min(int(est_enrollment / 100), 99)
+    elif strategy == "cs_funding_recipient":
+        # F4 State CS Funding: district just received CS-specific funding.
+        # Pre-qualified — they have budget allocated.
+        # Tier 1.2 (800-899): very high. Above winback, below upward tier 1.
+        return 800 + min(int(est_enrollment / 200), 99)
+    elif strategy == "competitor_displacement":
+        # F2 Competitor Displacement: district uses a competitor.
+        # Pre-sold on CS, may be approaching renewal.
+        # Tier 2.5 (650-749): moderate-warm. Similar to winback range.
+        return 650 + min(int(est_enrollment / 250), 99)
     else:
         # Cold strategy
         if est_enrollment <= 0:
@@ -1201,6 +1216,262 @@ def suggest_upward_targets() -> dict:
         return {
             "success": False, "new_added": 0, "already_known": 0,
             "districts": [], "error": str(e),
+        }
+
+
+def _is_recent_activity(date_str: str, days: int = 180) -> bool:
+    """
+    Returns True if a Salesforce date string is within the last N days.
+    Empty/unparseable dates → False (treat as inactive).
+    """
+    if not date_str or not date_str.strip():
+        return False
+    try:
+        from dateutil import parser as date_parser
+        activity_dt = date_parser.parse(date_str.strip())
+        if activity_dt.tzinfo is None:
+            from datetime import timezone
+            activity_dt = activity_dt.replace(tzinfo=timezone.utc)
+        from datetime import datetime, timezone, timedelta
+        cutoff = datetime.now(timezone.utc) - timedelta(days=days)
+        return activity_dt >= cutoff
+    except Exception:
+        return False
+
+
+def suggest_intra_district_expansion(max_per_district: int = 5) -> dict:
+    """
+    F1 Second Buyer Expansion: queue sibling schools within districts where
+    CodeCombat already has at least one healthy school account.
+
+    Logic:
+      1. Load Active Accounts. Build coverage maps:
+         - district_account_keys: districts that ARE accounts (skip — already covered)
+         - covered_school_keys_by_district: schools already on CodeCombat per district
+         - district_health: parent district -> bool (any healthy school account)
+      2. For each parent district with >=1 school account:
+         a. Skip if district itself is an Active Account (full coverage already)
+         b. Skip if all school accounts in that district are dead (>180d inactive)
+         c. Load Territory Schools for that state, filter to this district
+         d. Exclude already-covered schools and already-queued schools
+         e. Sort by enrollment desc, take top max_per_district
+         f. Append rows with strategy=intra_district, source=expansion_auto
+
+    Returns: {success, eligible_districts, queued, skipped_district_covered,
+              skipped_dead, skipped_already_queued, error}
+    """
+    try:
+        accounts = csv_importer.get_active_accounts()
+        if not accounts:
+            return {
+                "success": True, "eligible_districts": 0, "queued": 0,
+                "skipped_district_covered": 0, "skipped_dead": 0,
+                "skipped_already_queued": 0, "districts": [], "error": "",
+            }
+
+        # Build coverage maps from active accounts
+        district_account_keys: set[str] = set()
+        covered_school_keys_by_district: dict[str, set[str]] = {}
+        district_health: dict[str, bool] = {}
+
+        for acct in accounts:
+            atype = acct.get("Account Type", "").lower()
+            display_name = (
+                acct.get("Active Account Name", "")
+                or acct.get("Display Name", "")
+            )
+            if not display_name:
+                continue
+
+            if atype == "district":
+                district_account_keys.add(csv_importer.normalize_name(display_name))
+                continue
+
+            if atype == "school":
+                parent = acct.get("Parent Account", "").strip()
+                if not parent:
+                    continue
+                school_key = csv_importer.normalize_name(display_name).lower()
+                covered_school_keys_by_district.setdefault(parent, set()).add(school_key)
+                last_activity = acct.get("Last Activity", "")
+                is_healthy = _is_recent_activity(last_activity, days=180)
+                # OR semantics: a district is healthy if ANY school account is healthy
+                district_health[parent] = district_health.get(parent, False) or is_healthy
+
+        # Load existing queue for dedup
+        existing_prospects = _load_all_prospects()
+        prospect_keys = {p.get("Name Key", "") for p in existing_prospects}
+
+        # Use existing helper to enumerate districts with at least one school account
+        districts_with_schools = csv_importer.get_districts_with_schools()
+
+        new_rows = []
+        eligible_count = 0
+        skipped_district_covered = 0
+        skipped_dead = 0
+        skipped_already_queued = 0
+
+        now = datetime.now().strftime("%Y-%m-%d %H:%M")
+
+        for dist in districts_with_schools:
+            parent_display = dist["display_name"]
+            parent_key = dist["name_key"]
+            state = dist.get("state", "")
+
+            # Defense in depth — get_districts_with_schools already filters
+            # district-level deals, but check anyway
+            if parent_key in district_account_keys:
+                skipped_district_covered += 1
+                continue
+
+            # Healthy account filter — at least one school account on this district
+            # must have activity in the last 180 days
+            if not district_health.get(parent_display, False):
+                skipped_dead += 1
+                continue
+
+            eligible_count += 1
+
+            # Load territory schools for this state and filter to this district
+            try:
+                territory_schools = territory_data._load_territory_schools(state)
+            except Exception as e:
+                logger.warning(f"intra_district: territory load failed for {state}: {e}")
+                continue
+
+            if not territory_schools:
+                continue
+
+            parent_key_norm = parent_key.lower() if parent_key else ""
+            sibling_schools = []
+            for ts in territory_schools:
+                ts_district = ts.get("District Name", "").strip()
+                if not ts_district:
+                    continue
+                ts_district_key = csv_importer.normalize_name(ts_district).lower()
+                if ts_district_key == parent_key_norm:
+                    sibling_schools.append(ts)
+
+            # Fuzzy fallback if exact match returns nothing
+            if not sibling_schools and parent_key_norm:
+                ts_keys = {
+                    csv_importer.normalize_name(t.get("District Name", "")).lower(): t
+                    for t in territory_schools
+                    if t.get("District Name", "").strip()
+                }
+                fuzzy_key = csv_importer.fuzzy_match_name(
+                    parent_key_norm, ts_keys, threshold=0.7
+                )
+                if fuzzy_key:
+                    # Pull every territory school whose normalized district key matches
+                    fuzzy_district_name = ts_keys[fuzzy_key].get("District Name", "")
+                    sibling_schools = [
+                        t for t in territory_schools
+                        if csv_importer.normalize_name(
+                            t.get("District Name", "")
+                        ).lower() == fuzzy_key
+                    ]
+
+            if not sibling_schools:
+                continue
+
+            covered_keys_here = covered_school_keys_by_district.get(parent_display, set())
+
+            # Filter out covered + already-queued, sort by enrollment desc
+            candidates = []
+            for ts in sibling_schools:
+                school_name = ts.get("School Name", "").strip()
+                if not school_name:
+                    continue
+                school_key = csv_importer.normalize_name(school_name).lower()
+                if school_key in covered_keys_here:
+                    continue
+                if school_key in prospect_keys:
+                    skipped_already_queued += 1
+                    continue
+                try:
+                    enrollment = int(ts.get("Enrollment", 0) or 0)
+                except (ValueError, TypeError):
+                    enrollment = 0
+                candidates.append({
+                    "name": school_name,
+                    "key": school_key,
+                    "state": ts.get("State", state),
+                    "enrollment": enrollment,
+                })
+
+            candidates.sort(key=lambda c: c["enrollment"], reverse=True)
+            candidates = candidates[:max_per_district]
+
+            # Pick a representative covered school for the note
+            covered_sample = ""
+            for s in dist.get("schools", []):
+                covered_sample = s.get("display_name", "")
+                if covered_sample:
+                    break
+
+            for cand in candidates:
+                priority = _calculate_priority(
+                    "intra_district", 0, 0, cand["enrollment"]
+                )
+                note = (
+                    f"Sibling-school expansion. Parent district: {parent_display}. "
+                    f"District has {dist['school_count']} active CodeCombat school(s)"
+                    + (f" (e.g., {covered_sample})." if covered_sample else ".")
+                )
+                row = [
+                    cand["state"],          # State
+                    cand["name"],           # Account Name
+                    "",                     # Email
+                    "",                     # First Name
+                    "",                     # Last Name
+                    "school",               # Deal Level
+                    parent_display,         # Parent District
+                    cand["key"],            # Name Key
+                    "intra_district",       # Strategy
+                    "expansion_auto",       # Source
+                    "pending",              # Status
+                    str(priority),          # Priority
+                    now,                    # Date Added
+                    "",                     # Date Approved
+                    "",                     # Sequence Doc URL
+                    str(cand["enrollment"]),# Est. Enrollment
+                    "",                     # School Count
+                    "",                     # Total Licenses
+                    "",                     # Signal ID
+                    note,                   # Notes (always last)
+                ]
+                new_rows.append(row)
+                prospect_keys.add(cand["key"])
+
+        if new_rows:
+            _write_rows(new_rows)
+
+        logger.info(
+            f"suggest_intra_district_expansion: {eligible_count} districts eligible, "
+            f"{len(new_rows)} schools queued, "
+            f"{skipped_district_covered} skipped (district covered), "
+            f"{skipped_dead} skipped (no healthy account), "
+            f"{skipped_already_queued} skipped (already queued)"
+        )
+
+        return {
+            "success": True,
+            "eligible_districts": eligible_count,
+            "queued": len(new_rows),
+            "skipped_district_covered": skipped_district_covered,
+            "skipped_dead": skipped_dead,
+            "skipped_already_queued": skipped_already_queued,
+            "districts": list({r[6] for r in new_rows}),  # unique parent districts
+            "error": "",
+        }
+
+    except Exception as e:
+        logger.error(f"suggest_intra_district_expansion error: {e}")
+        return {
+            "success": False, "eligible_districts": 0, "queued": 0,
+            "skipped_district_covered": 0, "skipped_dead": 0,
+            "skipped_already_queued": 0, "districts": [], "error": str(e),
         }
 
 
