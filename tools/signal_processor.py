@@ -3380,31 +3380,39 @@ def scan_competitor_displacement(states=None, progress_callback=None) -> dict:
         client = anthropic.Anthropic(timeout=90.0)
         prompt = f"""Extract K-12 school district mentions of competitor curriculum platforms from these search results.
 
+Be PERMISSIVE in extraction. The downstream system uses confidence tiers
+to filter, so include ALL plausible K-12 district mentions and let the
+confidence field convey uncertainty. Do NOT pre-filter aggressively.
+
 For each mention, return JSON:
 {{
-  "district": "Exact district name",
+  "district": "District or school name (best guess from snippet)",
   "state": "2-letter state code",
   "competitor": "Tynker | CodeHS | Replit for Education | Khan Academy CS | Code.org Express | Tinkercad",
-  "evidence_type": "job_posting | rfp_replacement | case_study | other",
-  "first_mention_date": "YYYY-MM or empty if unknown",
+  "evidence_type": "job_posting | rfp_replacement | case_study | press_release | other",
+  "first_mention_date": "YYYY-MM or empty",
   "confidence": "HIGH | MEDIUM | LOW",
   "headline": "one-sentence summary"
 }}
 
-CONFIDENCE RULES:
-- HIGH: district named clearly, competitor named clearly, K-12 context confirmed,
-        evidence_type is specific (job_posting or rfp_replacement), date present
-- MEDIUM: entity clear but context or date ambiguous, OR case_study evidence
-- LOW: partial entity match or unclear context
+INCLUDE (be generous):
+- Any K-12 district, school, or school system mention paired with a competitor name
+- Job postings at K-12 schools mentioning competitor experience
+- Vendor case studies, customer lists, press releases naming K-12 customers
+- News articles mentioning a school/district using a competitor
+- Board meeting minutes referencing competitor adoption or evaluation
+- If snippet says "school district" without naming one, still include with confidence=LOW
 
-EXCLUDE:
-- Universities, community colleges, coding bootcamps
-- Adult learners, summer camps, private tutoring
-- Out-of-state results
-- Generic vendor marketing pages without a named district
-- Mentions where the district uses the competitor as a complement (not displacement target)
+CONFIDENCE TIERS:
+- HIGH: district named clearly + competitor named clearly + clear K-12 context
+- MEDIUM: district OR competitor named clearly, other field inferable
+- LOW: district name partial, ambiguous K-12 context, or vague snippet
 
-Return ONLY a valid JSON array — no commentary.
+EXCLUDE only:
+- Universities, colleges, coding bootcamps for adults
+- Out-of-territory results (state field must match the searched state)
+
+Return ONLY a valid JSON array — no commentary. Empty array [] if truly nothing.
 
 Search results:
 {combined_text}"""
