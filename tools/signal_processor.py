@@ -2350,6 +2350,14 @@ def scan_rfp_opportunities(states=None, progress_callback=None) -> list:
             f'"RFP" OR "request for proposal" "STEM" OR "CTE" software OR curriculum school district "{state_name}"',
             f'site:bidnet.com "computer science" OR "coding" OR "STEM" curriculum "{state_name}"',
             f'site:bonfirehub.com school district "computer science" OR "coding" "{state_name}"',
+            # F3: Curriculum adoption season — Nov-Jan committee formation (primary)
+            f'"request for information" OR "RFI" "computer science" OR "STEM" school district "{state_name}"',
+            f'"curriculum evaluation committee" OR "CS committee" school "{state_name}"',
+            f'"seeking" "computer science curriculum" school district "{state_name}"',
+            # F3: Curriculum adoption season — Feb-May committee meetings (secondary)
+            f'"curriculum review committee" "computer science" OR "STEM" "{state_name}"',
+            f'"board agenda" "curriculum" review "computer science" OR "coding" "{state_name}"',
+            f'"textbook adoption" "computer science" OR "STEM" school district "{state_name}"',
         ]
         for query in queries:
             try:
