@@ -1563,7 +1563,8 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     elif user_text.lower().startswith("/draft") or user_text.lower() in ["draft my emails", "draft emails", "check my inbox", "draft replies"]:
-        if not gas:
+        draft_gas = get_gas_bridge()
+        if not draft_gas:
             await send_message("❌ GAS bridge not configured — can't access Gmail.")
             return
         force = "force" in user_text.lower()
@@ -1574,7 +1575,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await send_message("📧 Checking inbox for new emails to draft...")
         try:
             loop = asyncio.get_event_loop()
-            result = await loop.run_in_executor(None, email_drafter.process_new_emails, gas)
+            result = await loop.run_in_executor(None, email_drafter.process_new_emails, draft_gas)
             summary = email_drafter.format_draft_summary(result)
             if summary:
                 await send_message(summary)
