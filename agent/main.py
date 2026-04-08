@@ -3516,11 +3516,15 @@ async def send_morning_brief():
 async def _run_daily_signal_scan():
     """Scheduled daily signal scan at 7:45 AM CST."""
     try:
+        scan_gas = get_gas_bridge()
+        if not scan_gas:
+            logger.error("Daily signal scan: GAS bridge not configured")
+            return
         from datetime import date, timedelta
         since = (date.today() - timedelta(days=2)).strftime("%Y-%m-%d")
         loop = asyncio.get_event_loop()
         summary = await loop.run_in_executor(
-            None, signal_processor.process_new_signals, gas, since)
+            None, signal_processor.process_new_signals, scan_gas, since)
         if summary.get("written", 0) > 0:
             output = signal_processor.format_scan_summary(summary)
             await send_message(output)
@@ -3531,11 +3535,15 @@ async def _run_daily_signal_scan():
         try:
             # Retry once after 5 minutes
             await asyncio.sleep(300)
+            scan_gas = get_gas_bridge()
+            if not scan_gas:
+                await send_message("⚠️ Signal scan failed: GAS bridge not configured.")
+                return
             from datetime import date, timedelta
             since = (date.today() - timedelta(days=2)).strftime("%Y-%m-%d")
             loop = asyncio.get_event_loop()
             summary = await loop.run_in_executor(
-                None, signal_processor.process_new_signals, gas, since)
+                None, signal_processor.process_new_signals, scan_gas, since)
             if summary.get("written", 0) > 0:
                 output = signal_processor.format_scan_summary(summary)
                 await send_message(output)
