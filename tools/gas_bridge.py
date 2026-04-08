@@ -58,6 +58,9 @@ class GASBridge:
             raise GASBridgeError(f"GAS bridge returned non-JSON: {response.text[:200]}")
 
         if not data.get("success"):
+            # Known benign responses — pass through without raising
+            if data.get("already_drafted"):
+                return data
             error = data.get("error", "Unknown error from GAS bridge")
             if "Unauthorized" in error:
                 raise GASBridgeError("GAS bridge auth failed. Check GAS_SECRET_TOKEN matches the token in Code.gs.")

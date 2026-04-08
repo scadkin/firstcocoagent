@@ -404,9 +404,15 @@ def process_new_emails(gas) -> dict:
                 _daily_stats["errors"] += 1
                 logger.error(f"[Email Drafter] GAS draft creation failed: {result}")
         except Exception as e:
-            errors += 1
-            _daily_stats["errors"] += 1
-            logger.error(f"[Email Drafter] Draft creation error for '{subject}': {e}")
+            # Treat "already has a draft" errors as soft-skip, not error
+            if "already has a draft" in str(e).lower() or "already_drafted" in str(e).lower():
+                skipped += 1
+                _daily_stats["skipped"] += 1
+                logger.info(f"[Email Drafter] SKIP (already drafted, via exception path): {sender_name} — {subject}")
+            else:
+                errors += 1
+                _daily_stats["errors"] += 1
+                logger.error(f"[Email Drafter] Draft creation error for '{subject}': {e}")
 
     return {
         "drafted": drafted,
