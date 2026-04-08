@@ -1122,6 +1122,12 @@ Content:
 SERPER_API_KEY = os.environ.get("SERPER_API_KEY", "")
 SERPER_URL = "https://google.serper.dev/search"
 
+# ─────────────────────────────────────────────
+# KILL SWITCHES — flip to False to disable a scanner without deleting code
+# ─────────────────────────────────────────────
+ENABLE_FUNDING_SCAN = True       # F4: scan_cs_funding_awards
+ENABLE_COMPETITOR_SCAN = True    # F2: scan_competitor_displacement
+
 
 def enrich_signal(signal: dict) -> dict:
     """
@@ -2954,6 +2960,297 @@ Search results:
     if progress_callback:
         progress_callback(f"Grant scan: {len(signals)} signals found")
     return signals
+
+
+# ─────────────────────────────────────────────
+# F4: STATE CS FUNDING AWARD SCANNER (Serper + Claude)
+# ─────────────────────────────────────────────
+
+# Tier 2 hints: known state CS program names. Tier 1 generic queries
+# always run; Tier 2 adds hints when programs are confirmed.
+STATE_CS_PROGRAMS = {
+    "TX": ["TEA Advancing CS"],
+    "IL": ["CS Equity Grant"],
+    "MA": ["Innovation Pathways CS"],
+    "PA": ["PAsmart"],
+    "OH": ["Computer Science Promise"],
+}
+
+
+def scan_cs_funding_awards(states=None, progress_callback=None) -> dict:
+    """
+    F4: Scan for K-12 districts that recently received state-level CS funding.
+    Award recipients are pre-qualified leads — they said yes to CS and have budget.
+
+    HIGH confidence + recent → auto-queues to Prospecting Queue as `pending`
+    via add_district() with strategy=cs_funding_recipient.
+
+    MEDIUM/LOW confidence → writes to Signals tab only for manual review.
+
+    Returns dict: {
+        signals: list,           # signals written to Signals tab (medium/low)
+        queued: list,            # district names queued as prospects
+        customer_intel: list,    # active accounts found in scan (don't sell)
+        raw_count: int,
+    }
+    Cost: ~$0.10/scan.
+    """
+    if not ENABLE_FUNDING_SCAN:
+        logger.info("CS funding scan: disabled via ENABLE_FUNDING_SCAN")
+        return {"signals": [], "queued": [], "customer_intel": [], "raw_count": 0}
+
+    if not SERPER_API_KEY:
+        logger.warning("SERPER_API_KEY not set — cannot scan CS funding")
+        return {"signals": [], "queued": [], "customer_intel": [], "raw_count": 0}
+
+    import httpx
+
+    _load_nces_lookup()
+    _load_cross_references()
+
+    scan_states = states or list(TERRITORY_STATES_WITH_CA)
+    all_snippets = []
+    seen_urls = set()
+
+    if progress_callback:
+        progress_callback(f"Searching {len(scan_states)} states for CS funding awards...")
+
+    for state_abbr in scan_states:
+        state_name = ABBR_TO_STATE_NAME.get(state_abbr, state_abbr)
+
+        # Tier 1: generic queries (always run)
+        queries = [
+            f'"computer science" OR "CS" grant awarded school district "{state_name}"',
+            f'"received" grant "computer science" OR "coding" school "{state_name}"',
+            f'"STEM grant" awarded school district "{state_name}"',
+            f'"{state_name} Department of Education" grant "computer science" OR "STEM" awarded',
+        ]
+
+        # Tier 2: state-specific program hints (only when known)
+        for program_name in STATE_CS_PROGRAMS.get(state_abbr, []):
+            queries.append(
+                f'"{program_name}" awarded district "{state_name}"'
+            )
+
+        for query in queries:
+            try:
+                resp = httpx.post(
+                    SERPER_URL,
+                    headers={"X-API-Key": SERPER_API_KEY, "Content-Type": "application/json"},
+                    json={"q": query, "num": 10, "tbs": "qdr:y"},  # 1-year window
+                    timeout=15.0,
+                )
+                data = resp.json()
+                for item in data.get("organic", [])[:10]:
+                    url = item.get("link", "")
+                    if url and url not in seen_urls:
+                        seen_urls.add(url)
+                        all_snippets.append({
+                            "title": item.get("title", ""),
+                            "snippet": item.get("snippet", ""),
+                            "url": url,
+                            "searched_state": state_abbr,
+                        })
+                time.sleep(0.5)
+            except Exception as e:
+                logger.warning(f"Serper CS funding scan failed for {state_abbr}: {e}")
+
+    if not all_snippets:
+        logger.info("CS funding scan: no results")
+        if progress_callback:
+            progress_callback("No CS funding awards found.")
+        return {"signals": [], "queued": [], "customer_intel": [], "raw_count": 0}
+
+    logger.info(f"CS funding scan: {len(all_snippets)} articles from {len(scan_states)} states")
+
+    # Build combined text for Claude
+    combined_text = ""
+    for s in all_snippets:
+        combined_text += f"\n[{s['searched_state']}] {s['title']}\n{s['snippet']}\nURL: {s['url']}\n"
+    combined_text = combined_text[:14000]
+
+    if progress_callback:
+        progress_callback(f"Extracting CS funding awards from {len(all_snippets)} articles...")
+
+    import anthropic
+    try:
+        client = anthropic.Anthropic(timeout=90.0)
+        prompt = f"""Extract K-12 school district CS funding awards from these search results.
+
+For each award, return JSON:
+{{
+  "district": "Exact district name",
+  "state": "2-letter state code",
+  "program": "name of grant program",
+  "amount": "$X,XXX or empty if unknown",
+  "award_date": "YYYY-MM or empty if unknown",
+  "purpose": "CS curriculum | teacher PD | equipment | general",
+  "confidence": "HIGH | MEDIUM | LOW"
+}}
+
+CONFIDENCE RULES:
+- HIGH: district named clearly, amount present, CS-specific purpose confirmed,
+        K-12 context unambiguous, source date present
+- MEDIUM: district + CS context clear, amount or date missing
+- LOW: program-level announcement without specific recipient OR partial entity match
+
+EXCLUDE:
+- Universities, community colleges, individual schools without district context
+- Private schools
+- General STEM grants without clear CS component
+- Construction/facilities grants
+- Device/hardware-only grants (1:1 laptop, Chromebook)
+- E-Rate or telecom infrastructure
+- Awards >12 months old
+
+Return ONLY a valid JSON array — no commentary.
+
+Search results:
+{combined_text}"""
+
+        response = client.messages.create(
+            model="claude-haiku-4-5-20251001",
+            max_tokens=2500,
+            messages=[{"role": "user", "content": prompt}],
+        )
+        _track_usage(response)
+        raw_text = response.content[0].text.strip()
+    except Exception as e:
+        logger.error(f"Claude CS funding extraction failed: {e}")
+        return {"signals": [], "queued": [], "customer_intel": [], "raw_count": 0}
+
+    # Parse JSON
+    try:
+        clean = raw_text
+        if "```" in clean:
+            clean = clean.split("```")[1]
+            if clean.startswith("json"):
+                clean = clean[4:]
+        start = clean.find("[")
+        end = clean.rfind("]")
+        if start == -1 or end == -1:
+            logger.warning("CS funding scan: no JSON array in response")
+            return {"signals": [], "queued": [], "customer_intel": [], "raw_count": 0}
+        items = json.loads(clean[start:end + 1])
+    except json.JSONDecodeError as e:
+        logger.warning(f"CS funding scan JSON parse failed: {e}")
+        return {"signals": [], "queued": [], "customer_intel": [], "raw_count": 0}
+
+    # Post-process: route HIGH→queue, MEDIUM/LOW→signals, customer matches→intel
+    signals_to_write = []
+    queued_districts = []
+    customer_intel = []
+    dedup_seen = set()
+    year_month = datetime.now().strftime("%Y_%m")
+
+    # Lazy import to avoid circular dependency
+    import tools.district_prospector as district_prospector
+
+    for item in items:
+        district = (item.get("district") or "").strip()
+        state = (item.get("state") or "").strip().upper()
+        if not district or not state or len(state) != 2:
+            continue
+
+        # NCES validation/correction
+        nces_state = lookup_district_state(district)
+        if nces_state:
+            state = nces_state
+
+        # Dedup within scan
+        norm_district = csv_importer.normalize_name(district)
+        program = (item.get("program") or "unknown").strip()
+        program_key = csv_importer.normalize_name(program) or "unknown"
+        dedup_key = (norm_district, program_key)
+        if dedup_key in dedup_seen:
+            continue
+        dedup_seen.add(dedup_key)
+
+        confidence = (item.get("confidence") or "LOW").strip().upper()
+        amount = (item.get("amount") or "").strip()
+        award_date = (item.get("award_date") or "").strip()
+        purpose = (item.get("purpose") or "").strip()
+        cust_status = check_customer_status(district)
+        in_territory = state in TERRITORY_STATES_WITH_CA
+
+        headline = f"{district} ({state}) — {amount or 'CS grant'} for {purpose or 'CS program'}"
+        msg_id = f"funding_{norm_district}_{program_key}_{year_month}"
+        notes = f"Program: {program}. Amount: {amount or 'unknown'}. Date: {award_date or 'unknown'}. Purpose: {purpose or 'CS'}. Confidence: {confidence}."
+
+        # Active customer → log as intel only, don't sell
+        if cust_status == "active":
+            customer_intel.append({"district": district, "state": state, "notes": notes})
+            signals_to_write.append({
+                "date": datetime.now().strftime("%Y-%m-%d"),
+                "source": "cs_funding_scan",
+                "source_detail": f"Customer intel — {program}",
+                "signal_type": "cs_funding_award",
+                "scope": "district",
+                "district": district,
+                "state": state,
+                "headline": f"[CUSTOMER] {headline}"[:200],
+                "dollar_amount": amount,
+                "tier": 1,
+                "heat_score": compute_heat_score("grant", 1, in_territory, cust_status),
+                "urgency": "time_sensitive",
+                "customer_status": cust_status,
+                "url": "",
+                "message_id": msg_id,
+            })
+            continue
+
+        # HIGH confidence → auto-queue as pending
+        if confidence == "HIGH":
+            try:
+                queue_result = district_prospector.add_district(
+                    name=district,
+                    state=state,
+                    notes=notes,
+                    strategy="cs_funding_recipient",
+                    source="signal",
+                    signal_id=msg_id,
+                )
+                if queue_result.get("success"):
+                    queued_districts.append(district)
+                # If already in queue or active, add_district returns success=False
+                # but we still log the signal below
+            except Exception as e:
+                logger.warning(f"add_district failed for {district}: {e}")
+
+        # All confidence levels also write to Signals tab
+        signals_to_write.append({
+            "date": datetime.now().strftime("%Y-%m-%d"),
+            "source": "cs_funding_scan",
+            "source_detail": f"Serper — {program}",
+            "signal_type": "cs_funding_award",
+            "scope": "district",
+            "district": district,
+            "state": state,
+            "headline": headline[:200],
+            "dollar_amount": amount,
+            "tier": 1 if confidence == "HIGH" else 2,
+            "heat_score": compute_heat_score("grant", 1, in_territory, cust_status),
+            "urgency": "time_sensitive" if confidence == "HIGH" else "routine",
+            "customer_status": cust_status,
+            "url": "",
+            "message_id": msg_id,
+        })
+
+    logger.info(
+        f"CS funding scan: {len(items)} raw, {len(signals_to_write)} signals, "
+        f"{len(queued_districts)} auto-queued, {len(customer_intel)} customer intel"
+    )
+    if progress_callback:
+        progress_callback(
+            f"CS funding scan: {len(signals_to_write)} signals, {len(queued_districts)} queued"
+        )
+
+    return {
+        "signals": signals_to_write,
+        "queued": queued_districts,
+        "customer_intel": customer_intel,
+        "raw_count": len(items),
+    }
 
 
 # ─────────────────────────────────────────────

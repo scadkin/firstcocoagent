@@ -3184,6 +3184,48 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await send_message(f"Grant scan failed: {e}")
         return
 
+    elif user_text.lower() in ["/signal_funding", "signal funding", "scan funding", "/signal_cs_funding"]:
+        # F4: State CS Funding Award Scanner
+        await send_message("💵 Scanning state DOEs for CS funding awards...")
+        try:
+            loop = asyncio.get_event_loop()
+            result = await loop.run_in_executor(
+                None, signal_processor.scan_cs_funding_awards, None, None)
+            signals = result.get("signals", [])
+            queued = result.get("queued", [])
+            customer_intel = result.get("customer_intel", [])
+            raw = result.get("raw_count", 0)
+
+            if signals:
+                write_result = await loop.run_in_executor(
+                    None, signal_processor.write_signals, signals)
+            else:
+                write_result = {"written": 0, "skipped": 0}
+
+            if not signals and not queued:
+                await send_message(f"💵 CS funding scan: 0 results (raw extracted: {raw}).")
+                return
+
+            lines = [
+                f"💵 *CS Funding Scan*",
+                f"Raw extracted: {raw}",
+                f"Signals written: {write_result['written']} (deduped: {write_result['skipped']})",
+                f"Auto-queued (HIGH confidence): {len(queued)}",
+            ]
+            if customer_intel:
+                lines.append(f"Customer intel (existing accounts): {len(customer_intel)}")
+            if queued:
+                lines.append("\n*Queued as prospects:*")
+                for i, dist in enumerate(queued[:10], 1):
+                    lines.append(f"  {i}. {dist}")
+                if len(queued) > 10:
+                    lines.append(f"  ... and {len(queued) - 10} more")
+                lines.append("\n_Approve in batches of 5-10 with `/prospect_approve` so research catches up._")
+            await send_message("\n".join(lines))
+        except Exception as e:
+            await send_message(f"CS funding scan failed: {e}")
+        return
+
     elif user_text.lower() in ["/signal_budget", "signal budget", "scan budget"]:
         await send_message("📊 Scanning for CS/STEM budget and procurement signals...")
         try:
