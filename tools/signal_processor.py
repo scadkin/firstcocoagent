@@ -3254,6 +3254,311 @@ Search results:
 
 
 # ─────────────────────────────────────────────
+# F2: COMPETITOR DISPLACEMENT SCANNER (Serper + Claude)
+# ─────────────────────────────────────────────
+
+# Competitors to track. Job postings + RFP replacement language are
+# more reliable signals than vendor case studies.
+COMPETITORS = [
+    {"key": "tynker", "name": "Tynker", "domain": "tynker.com"},
+    {"key": "codehs", "name": "CodeHS", "domain": "codehs.com"},
+    {"key": "replit", "name": "Replit for Education", "domain": "replit.com"},
+    {"key": "khan_cs", "name": "Khan Academy CS", "domain": "khanacademy.org"},
+    {"key": "codeorg", "name": "Code.org Express", "domain": "code.org"},
+    {"key": "tinkercad", "name": "Tinkercad", "domain": "tinkercad.com"},
+]
+
+
+def scan_competitor_displacement(states=None, progress_callback=None) -> dict:
+    """
+    F2: Scan for K-12 districts currently using Tynker, CodeHS, Replit,
+    Khan Academy CS, Code.org Express, or Tinkercad. These districts are
+    pre-sold on CS — just need a better platform.
+
+    Source priority:
+      1. Job postings (primary) — "experience with X" implies active use
+      2. RFP replacement language ("replacing X")
+      3. Vendor case studies (tertiary, lower trust)
+
+    HIGH confidence → auto-queue via add_district() with strategy=
+        competitor_displacement.
+    MEDIUM/LOW → Signals tab only.
+    Active customer → customer_intel only (competitive positioning).
+
+    Returns: {signals, queued, customer_intel, raw_count}
+    Cost: ~$0.20/scan (heavier query count than F4).
+    """
+    if not ENABLE_COMPETITOR_SCAN:
+        logger.info("Competitor displacement scan: disabled via ENABLE_COMPETITOR_SCAN")
+        return {"signals": [], "queued": [], "customer_intel": [], "raw_count": 0}
+
+    if not SERPER_API_KEY:
+        logger.warning("SERPER_API_KEY not set — cannot scan competitor displacement")
+        return {"signals": [], "queued": [], "customer_intel": [], "raw_count": 0}
+
+    import httpx
+
+    _load_nces_lookup()
+    _load_cross_references()
+
+    scan_states = states or list(TERRITORY_STATES_WITH_CA)
+    all_snippets = []
+    seen_urls = set()
+
+    if progress_callback:
+        progress_callback(
+            f"Searching {len(scan_states)} states × {len(COMPETITORS)} competitors..."
+        )
+
+    for state_abbr in scan_states:
+        state_name = ABBR_TO_STATE_NAME.get(state_abbr, state_abbr)
+
+        for comp in COMPETITORS:
+            name = comp["name"]
+            domain = comp["domain"]
+
+            queries = [
+                # Primary: job postings (most actionable)
+                f'"experience with {name}" OR "teach {name}" school district job "{state_name}"',
+                # Secondary: RFP replacement language
+                f'"replacing {name}" OR "transition from {name}" school district "{state_name}"',
+                # Tertiary: vendor case studies
+                f'site:{domain} "school district" "{state_name}"',
+            ]
+
+            for query in queries:
+                try:
+                    resp = httpx.post(
+                        SERPER_URL,
+                        headers={"X-API-Key": SERPER_API_KEY, "Content-Type": "application/json"},
+                        json={"q": query, "num": 10, "tbs": "qdr:y"},
+                        timeout=15.0,
+                    )
+                    data = resp.json()
+                    for item in data.get("organic", [])[:10]:
+                        url = item.get("link", "")
+                        if url and url not in seen_urls:
+                            seen_urls.add(url)
+                            all_snippets.append({
+                                "title": item.get("title", ""),
+                                "snippet": item.get("snippet", ""),
+                                "url": url,
+                                "searched_state": state_abbr,
+                                "searched_competitor": comp["key"],
+                            })
+                    time.sleep(0.3)  # 0.3s × 234 queries ≈ 70s scan time
+                except Exception as e:
+                    logger.warning(
+                        f"Serper competitor scan failed for {state_abbr}/{comp['key']}: {e}"
+                    )
+
+    if not all_snippets:
+        logger.info("Competitor scan: no results")
+        if progress_callback:
+            progress_callback("No competitor mentions found.")
+        return {"signals": [], "queued": [], "customer_intel": [], "raw_count": 0}
+
+    logger.info(
+        f"Competitor scan: {len(all_snippets)} unique articles from "
+        f"{len(scan_states)} states × {len(COMPETITORS)} competitors"
+    )
+
+    # Build combined text for Claude
+    combined_text = ""
+    for s in all_snippets:
+        combined_text += (
+            f"\n[{s['searched_state']}/{s['searched_competitor']}] "
+            f"{s['title']}\n{s['snippet']}\nURL: {s['url']}\n"
+        )
+    combined_text = combined_text[:16000]
+
+    if progress_callback:
+        progress_callback(f"Extracting competitor mentions from {len(all_snippets)} articles...")
+
+    import anthropic
+    try:
+        client = anthropic.Anthropic(timeout=90.0)
+        prompt = f"""Extract K-12 school district mentions of competitor curriculum platforms from these search results.
+
+For each mention, return JSON:
+{{
+  "district": "Exact district name",
+  "state": "2-letter state code",
+  "competitor": "Tynker | CodeHS | Replit for Education | Khan Academy CS | Code.org Express | Tinkercad",
+  "evidence_type": "job_posting | rfp_replacement | case_study | other",
+  "first_mention_date": "YYYY-MM or empty if unknown",
+  "confidence": "HIGH | MEDIUM | LOW",
+  "headline": "one-sentence summary"
+}}
+
+CONFIDENCE RULES:
+- HIGH: district named clearly, competitor named clearly, K-12 context confirmed,
+        evidence_type is specific (job_posting or rfp_replacement), date present
+- MEDIUM: entity clear but context or date ambiguous, OR case_study evidence
+- LOW: partial entity match or unclear context
+
+EXCLUDE:
+- Universities, community colleges, coding bootcamps
+- Adult learners, summer camps, private tutoring
+- Out-of-state results
+- Generic vendor marketing pages without a named district
+- Mentions where the district uses the competitor as a complement (not displacement target)
+
+Return ONLY a valid JSON array — no commentary.
+
+Search results:
+{combined_text}"""
+
+        response = client.messages.create(
+            model="claude-haiku-4-5-20251001",
+            max_tokens=3000,
+            messages=[{"role": "user", "content": prompt}],
+        )
+        _track_usage(response)
+        raw_text = response.content[0].text.strip()
+    except Exception as e:
+        logger.error(f"Claude competitor extraction failed: {e}")
+        return {"signals": [], "queued": [], "customer_intel": [], "raw_count": 0}
+
+    # Parse JSON
+    try:
+        clean = raw_text
+        if "```" in clean:
+            clean = clean.split("```")[1]
+            if clean.startswith("json"):
+                clean = clean[4:]
+        start = clean.find("[")
+        end = clean.rfind("]")
+        if start == -1 or end == -1:
+            logger.warning("Competitor scan: no JSON array in response")
+            return {"signals": [], "queued": [], "customer_intel": [], "raw_count": 0}
+        items = json.loads(clean[start:end + 1])
+    except json.JSONDecodeError as e:
+        logger.warning(f"Competitor scan JSON parse failed: {e}")
+        return {"signals": [], "queued": [], "customer_intel": [], "raw_count": 0}
+
+    # Lookup map for competitor key from full name
+    name_to_key = {c["name"]: c["key"] for c in COMPETITORS}
+
+    signals_to_write = []
+    queued_districts = []
+    customer_intel = []
+    dedup_seen = set()
+    year_month = datetime.now().strftime("%Y_%m")
+
+    import tools.district_prospector as district_prospector
+
+    for item in items:
+        district = (item.get("district") or "").strip()
+        state = (item.get("state") or "").strip().upper()
+        if not district or not state or len(state) != 2:
+            continue
+
+        nces_state = lookup_district_state(district)
+        if nces_state:
+            state = nces_state
+
+        norm_district = csv_importer.normalize_name(district)
+        competitor = (item.get("competitor") or "").strip()
+        comp_key = name_to_key.get(competitor, csv_importer.normalize_name(competitor) or "unknown")
+        dedup_key = (norm_district, comp_key)
+        if dedup_key in dedup_seen:
+            continue
+        dedup_seen.add(dedup_key)
+
+        confidence = (item.get("confidence") or "LOW").strip().upper()
+        evidence_type = (item.get("evidence_type") or "other").strip()
+        first_mention = (item.get("first_mention_date") or "").strip()
+        cust_status = check_customer_status(district)
+        in_territory = state in TERRITORY_STATES_WITH_CA
+
+        headline = f"{district} ({state}) — uses {competitor} ({evidence_type})"
+        msg_id = f"competitor_{norm_district}_{comp_key}_{year_month}"
+        notes = (
+            f"Competitor: {competitor}. Evidence: {evidence_type}. "
+            f"First mention: {first_mention or 'unknown'}. Confidence: {confidence}."
+        )
+
+        # Active customer → log as intel only
+        if cust_status == "active":
+            customer_intel.append({
+                "district": district,
+                "state": state,
+                "competitor": competitor,
+                "notes": notes,
+            })
+            signals_to_write.append({
+                "date": datetime.now().strftime("%Y-%m-%d"),
+                "source": "competitor_scan",
+                "source_detail": f"Customer intel — {competitor}",
+                "signal_type": "competitor_usage",
+                "scope": "district",
+                "district": district,
+                "state": state,
+                "headline": f"[CUSTOMER] {headline}"[:200],
+                "dollar_amount": "",
+                "tier": 2,
+                "heat_score": compute_heat_score("market_intel", 2, in_territory, cust_status),
+                "urgency": "routine",
+                "customer_status": cust_status,
+                "url": "",
+                "message_id": msg_id,
+            })
+            continue
+
+        # HIGH confidence → auto-queue as pending
+        if confidence == "HIGH":
+            try:
+                queue_result = district_prospector.add_district(
+                    name=district,
+                    state=state,
+                    notes=notes,
+                    strategy="competitor_displacement",
+                    source="signal",
+                    signal_id=msg_id,
+                )
+                if queue_result.get("success"):
+                    queued_districts.append(f"{district} ({competitor})")
+            except Exception as e:
+                logger.warning(f"add_district failed for {district}: {e}")
+
+        # Always write to Signals tab too
+        signals_to_write.append({
+            "date": datetime.now().strftime("%Y-%m-%d"),
+            "source": "competitor_scan",
+            "source_detail": f"Serper — {evidence_type}",
+            "signal_type": "competitor_usage",
+            "scope": "district",
+            "district": district,
+            "state": state,
+            "headline": headline[:200],
+            "dollar_amount": "",
+            "tier": 1 if confidence == "HIGH" else 2,
+            "heat_score": compute_heat_score("market_intel", 1 if confidence == "HIGH" else 2, in_territory, cust_status),
+            "urgency": "time_sensitive" if confidence == "HIGH" else "routine",
+            "customer_status": cust_status,
+            "url": "",
+            "message_id": msg_id,
+        })
+
+    logger.info(
+        f"Competitor scan: {len(items)} raw, {len(signals_to_write)} signals, "
+        f"{len(queued_districts)} auto-queued, {len(customer_intel)} customer intel"
+    )
+    if progress_callback:
+        progress_callback(
+            f"Competitor scan: {len(signals_to_write)} signals, {len(queued_districts)} queued"
+        )
+
+    return {
+        "signals": signals_to_write,
+        "queued": queued_districts,
+        "customer_intel": customer_intel,
+        "raw_count": len(items),
+    }
+
+
+# ─────────────────────────────────────────────
 # BUDGET CYCLE TARGETING SCANNER (Serper + Claude)
 # ─────────────────────────────────────────────
 
