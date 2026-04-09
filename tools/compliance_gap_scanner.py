@@ -36,6 +36,7 @@ import json
 import logging
 import os
 import time
+from datetime import datetime, timedelta
 from typing import Optional
 
 logger = logging.getLogger(__name__)
@@ -46,6 +47,11 @@ SERPER_URL = "https://google.serper.dev/search"
 
 # Kill switch
 ENABLE_COMPLIANCE_SCAN = True
+
+# Per-state rate limit — track last scan timestamp to prevent accidental
+# double-runs or typos from burning Claude document-input costs.
+_LAST_SCAN: dict[str, datetime] = {}
+_SCAN_COOLDOWN = timedelta(hours=24)
 
 # Pilot states with known CS graduation / offering requirements
 PILOT_STATES = {"CA", "IL", "MA"}
@@ -281,10 +287,23 @@ def scan_compliance_gaps(state: str, max_pdfs: int = 5) -> dict:
             "error": f"{state_upper} not in pilot scope (CA, IL, MA)",
         }
 
+    # Rate limit — one scan per state per 24h
+    last = _LAST_SCAN.get(state_upper)
+    if last is not None:
+        elapsed = datetime.now() - last
+        if elapsed < _SCAN_COOLDOWN:
+            hours_left = int((_SCAN_COOLDOWN - elapsed).total_seconds() / 3600) + 1
+            return {
+                "state": state_upper,
+                "error": f"Rate-limited — {state_upper} was scanned {int(elapsed.total_seconds() / 3600)}h ago. Wait ~{hours_left}h or restart Railway to override.",
+            }
+
     if not SERPER_API_KEY:
         return {"state": state_upper, "error": "SERPER_API_KEY not set"}
     if not ANTHROPIC_API_KEY:
         return {"state": state_upper, "error": "ANTHROPIC_API_KEY not set"}
+
+    _LAST_SCAN[state_upper] = datetime.now()
 
     # Step 1: find candidate PDFs
     pdf_hits = _serper_pdf_urls(state_upper)
