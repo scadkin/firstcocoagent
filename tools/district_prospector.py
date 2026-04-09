@@ -542,6 +542,13 @@ def _calculate_priority(strategy: str, school_count: int, total_licenses: int,
         # Pre-sold on CS, may be approaching renewal.
         # Tier 2.5 (650-749): moderate-warm. Similar to winback range.
         return 650 + min(int(est_enrollment / 250), 99)
+    elif strategy == "csta_partnership":
+        # F5 CSTA Chapter Partnership: CSTA chapter leader with district affiliation.
+        # Warm entry point — partner with the chapter, build goodwill, get intro to
+        # district decision-makers via the chapter leader relationship.
+        # Tier 2.7 (620-719): just below competitor_displacement. Individual teacher
+        # relationships are warm but not deal-ready the way funding or displacement is.
+        return 620 + min(int(est_enrollment / 300), 99)
     else:
         # Cold strategy
         if est_enrollment <= 0:

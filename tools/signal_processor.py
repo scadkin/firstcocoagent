@@ -4489,8 +4489,16 @@ For each person:
   "role": "CSTA chapter role or school title",
   "district": "School district name (if mentioned)",
   "state": "2-letter state code",
-  "headline": "[person_name], [role] — CSTA [state] chapter"
+  "evidence_type": "chapter_officer | board_member | conference_speaker | active_member",
+  "confidence": "HIGH | MEDIUM | LOW",
+  "headline": "[person_name], [role] — CSTA [state] chapter",
+  "source_url": "Copy the URL line from the specific search result that mentions this person. Use the URL exactly as shown — do not fabricate."
 }}
+
+CONFIDENCE RULES:
+- HIGH: person named clearly + specific CSTA role (president, VP, board, conference speaker) + district named
+- MEDIUM: person named, role or district inferable but not both explicit
+- LOW: name partial, role/district unclear, or snippet is vague
 
 Return a JSON array. If nothing qualifies, return [].
 Return ONLY valid JSON — no commentary.
@@ -4524,8 +4532,11 @@ Search results:
         return []
 
     signals = []
+    queued_districts = []
     dedup_seen = set()
     year_month = datetime.now().strftime("%Y_%m")
+
+    import tools.district_prospector as district_prospector
 
     for item in items:
         person_name = (item.get("person_name") or "").strip()
@@ -4544,34 +4555,73 @@ Search results:
             continue
         dedup_seen.add(dedup_key)
 
-        in_territory = True  # Already filtered above
+        confidence = (item.get("confidence") or "LOW").strip().upper()
+        evidence_type = (item.get("evidence_type") or "active_member").strip()
+        source_url = (item.get("source_url") or "").strip()
+        if source_url and not source_url.startswith(("http://", "https://")):
+            source_url = ""
+
+        in_territory = True
         cust_status = check_customer_status(district) if district else "new"
         heat = compute_heat_score("hiring", 2, in_territory, cust_status)
-
+        role = (item.get("role") or "").strip()
         headline = (item.get("headline") or f"{person_name}, CSTA {state}").strip()
         msg_id = f"csta_{norm_person}_{state}_{year_month}"
+        notes = (
+            f"CSTA {evidence_type.replace('_', ' ')}: {person_name}"
+            + (f" ({role})" if role else "")
+            + f". Confidence: {confidence}."
+        )
+
+        # F5 Chapter Partnership: HIGH confidence + district named → auto-queue
+        # as csta_partnership prospect. The chapter leader is the entry point,
+        # but we queue the district so research + sequencing work normally.
+        if (
+            confidence == "HIGH"
+            and district
+            and evidence_type in ("chapter_officer", "board_member")
+            and cust_status != "active"
+        ):
+            try:
+                queue_result = district_prospector.add_district(
+                    name=district,
+                    state=state,
+                    notes=notes,
+                    strategy="csta_partnership",
+                    source="signal",
+                    signal_id=msg_id,
+                )
+                if queue_result.get("success"):
+                    queued_districts.append(f"{district} (via {person_name})")
+            except Exception as e:
+                logger.warning(f"add_district failed for {district}: {e}")
 
         signals.append({
             "date": datetime.now().strftime("%Y-%m-%d"),
             "source": "csta_scan",
-            "source_detail": f"Serper — CSTA {state}",
+            "source_detail": f"Serper — CSTA {evidence_type}",
             "signal_type": "hiring",
             "scope": "district" if district else "state",
             "district": district,
             "state": state,
             "headline": headline[:200],
             "dollar_amount": "",
-            "tier": 2,
+            "tier": 1 if confidence == "HIGH" else 2,
             "heat_score": heat,
             "urgency": "routine",
             "customer_status": cust_status,
-            "url": "",
+            "url": source_url,
             "message_id": msg_id,
         })
 
-    logger.info(f"CSTA scan: {len(signals)} chapter leaders/members extracted")
+    logger.info(
+        f"CSTA scan: {len(signals)} leaders/members extracted, "
+        f"{len(queued_districts)} auto-queued as csta_partnership"
+    )
     if progress_callback:
-        progress_callback(f"CSTA scan: {len(signals)} targets found")
+        progress_callback(
+            f"CSTA scan: {len(signals)} targets, {len(queued_districts)} queued"
+        )
     return signals
 
 
