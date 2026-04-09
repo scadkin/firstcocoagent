@@ -573,6 +573,15 @@ def _calculate_priority(strategy: str, school_count: int, total_licenses: int,
         sending_districts = kwargs.get("sending_districts", 0)
         base = 760 + min(sending_districts * 3, 119)
         return base
+    elif strategy == "private_school_network":
+        # F8 Private School Network: diocesan system or multi-school chain.
+        # Highest per-relationship leverage (one diocese = 100+ schools) but
+        # longer sales cycles because private schools have distributed
+        # purchasing and slower adoption cycles than districts.
+        # Tier 1.5 (740-839): below cte_center, above intra_district.
+        schools = kwargs.get("schools", 0)
+        base = 740 + min(schools * 1, 99)
+        return base
     else:
         # Cold strategy
         if est_enrollment <= 0:

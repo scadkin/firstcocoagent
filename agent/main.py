@@ -37,6 +37,7 @@ import tools.proximity_engine as proximity_engine
 import tools.signal_processor as signal_processor
 import tools.charter_prospector as charter_prospector
 import tools.cte_prospector as cte_prospector
+import tools.private_schools as private_schools
 import tools.email_drafter as email_drafter
 from tools.telegram_bot import send_message
 # Phase 4/5 modules imported lazily inside execute_tool() — safe to boot without them
@@ -3401,6 +3402,45 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 await send_message("No CS/CTE/STEM leaders found.")
         except Exception as e:
             await send_message(f"Role scan failed: {e}")
+        return
+
+    elif user_text.lower().startswith(("/discover_private_schools", "/discover_private", "discover private schools")):
+        # F8: Serper-based private school discovery
+        parts = user_text.strip().split(None, 1)
+        if len(parts) < 2 or not parts[1].strip():
+            await send_message(
+                "🏫 Usage: `/discover_private_schools [state]` — e.g. `/discover_private_schools TX`"
+            )
+            return
+        state_arg = parts[1].strip()
+        await send_message(f"🏫 Discovering private schools in {state_arg}...")
+        try:
+            loop = asyncio.get_event_loop()
+            result = await loop.run_in_executor(
+                None, private_schools.discover_private_schools, state_arg, 25
+            )
+            output = private_schools.format_discovery_for_telegram(result)
+            await send_message(output)
+        except Exception as e:
+            await send_message(f"❌ Private school discovery failed: {e}")
+        return
+
+    elif user_text.lower().startswith(("/prospect_private_networks", "/prospect_dioceses", "queue private networks")):
+        # F8: queue static seed of diocesan and chain networks
+        parts = user_text.strip().split(None, 1)
+        state_arg = parts[1].strip() if len(parts) > 1 else None
+        await send_message(
+            f"⛪ Queueing private school networks{' for ' + state_arg.upper() if state_arg else ' (all territory)'}..."
+        )
+        try:
+            loop = asyncio.get_event_loop()
+            result = await loop.run_in_executor(
+                None, private_schools.queue_private_school_networks, state_arg
+            )
+            output = private_schools.format_networks_queue_for_telegram(result)
+            await send_message(output)
+        except Exception as e:
+            await send_message(f"❌ Private school network queueing failed: {e}")
         return
 
     elif user_text.lower().startswith(("/list_cte_centers", "list cte centers", "show cte centers")):
