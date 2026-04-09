@@ -39,7 +39,7 @@
 ### Current status
 - All prior phases + enhancements: ✅
 - Signal Intelligence System: ✅ — **22 sources** (Session 51 added F9 compliance_gap). **40+ Telegram commands** (Session 51 added `/scan_compliance`, `/prospect_charter_cmos`, `/prospect_cte_centers`, `/prospect_private_networks`, `/discover_coops`, `/discover_private_schools`, `/list_charter_cmos`, `/list_cte_centers`). Daily 7:45 AM + weekly Monday (leadership/RFP) + monthly 1st Monday (legislation/grants/budget). On-demand: roles, CSTA, algebra, cyber, funding, competitors, compliance.
-- Prospecting strategies: ✅ **28 of 28 built** (Session 51 added csta_partnership, charter_cmo, cte_center, private_school_network, compliance_gap, homeschool_coop). Only #2 usage-based (blocked on CodeCombat data) remains unbuilt.
+- Prospecting strategies: ✅ **All Tier A + B + C strategies built** after Session 51. Session 51 added `csta_partnership`, `charter_cmo`, `cte_center`, `private_school_network`, `compliance_gap`, `homeschool_coop`. Session 49 added `intra_district`, `competitor_displacement`, `cs_funding_recipient`. Only #2 usage-based (blocked on CodeCombat data) remains unbuilt.
 - Outreach sequences: ✅ — IDs 1995-2001 (C4 x4, License Request, Webinar x2). 3 send schedules.
 - Email auto-drafter: ✅ — runs every 5 min during business hours, **thread-aware** (GAS `getThreadsBulk` batch fetch, STEVEN/PROSPECT attribution in prompt). Dedup via `threadHasDraft`. Manual triggers: `/draft_emails`, `/draft force`, `/draft [name]` (targeted, bypasses classification). Restart seeding notifies Telegram with `/draft force` hint.
 - Sequence copy rules: ✅ — Comprehensive rules in memory. Seasonal calendar. Send schedules.
