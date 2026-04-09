@@ -362,6 +362,92 @@ Write ONLY the reply body (HTML). No subject line, no signature, no explanation.
         return ""
 
 
+def draft_for_sender(gas, name_query: str) -> dict:
+    """
+    Force-draft a reply to a specific sender by name, bypassing Haiku classification.
+    Searches unread inbox for a thread matching the name query, enriches with thread
+    history, and drafts using Claude Sonnet.
+
+    Returns {success, name, subject, draft_id, flag} or {success: False, error}.
+    """
+    if not ANTHROPIC_API_KEY:
+        return {"success": False, "error": "ANTHROPIC_API_KEY not set"}
+
+    client = Anthropic(api_key=ANTHROPIC_API_KEY, timeout=90.0)
+
+    # Search unread inbox
+    try:
+        data = gas.search_inbox_full(
+            query=_INBOX_QUERY,
+            max_results=25,
+            body_limit=8000,
+        )
+        results = data.get("results", [])
+    except Exception as e:
+        return {"success": False, "error": f"Inbox fetch failed: {e}"}
+
+    if not results:
+        return {"success": False, "error": "No unread emails in inbox."}
+
+    # Find matching thread by sender name or subject (case-insensitive substring)
+    query_lower = name_query.lower()
+    match = None
+    for email in results:
+        sender = email.get("from", "").lower()
+        subject = email.get("subject", "").lower()
+        if query_lower in sender or query_lower in subject:
+            match = email
+            break
+
+    if not match:
+        return {"success": False, "error": f"No unread email matching '{name_query}' found."}
+
+    # Enrich with thread history
+    _enrich_with_thread_history(gas, [match])
+
+    # Load voice context and draft (bypass classification — user explicitly requested)
+    voice_profile, playbook = _load_context_files()
+    draft_body = _draft_reply(client, match, voice_profile, playbook, is_flag=False)
+
+    if not draft_body:
+        return {"success": False, "error": "Draft generation returned empty."}
+
+    # Extract addressing
+    from_addr = match.get("from", "")
+    sender_email = _extract_sender_email(from_addr)
+    sender_name = _extract_sender_name(from_addr)
+    subject = match.get("subject", "")
+    thread_id = match.get("thread_id", "")
+
+    if not sender_email or "@" not in sender_email:
+        return {"success": False, "error": f"Invalid sender email: {from_addr}"}
+
+    # Create draft (no skip_if_draft_exists — user explicitly asked for this)
+    try:
+        result = gas.create_draft(
+            to=sender_email,
+            subject=f"Re: {subject}" if not subject.lower().startswith("re:") else subject,
+            body=draft_body,
+            thread_id=thread_id,
+            content_type="text/html",
+        )
+        if result.get("success"):
+            logger.info(f"[Email Drafter] Targeted draft: {sender_name} — {subject}")
+            return {
+                "success": True,
+                "name": sender_name,
+                "subject": subject,
+                "draft_id": result.get("draft_id", ""),
+                "flag": False,
+            }
+        elif result.get("already_drafted"):
+            return {"success": False, "error": "Thread already has a draft. Delete it in Gmail first."}
+        else:
+            return {"success": False, "error": f"GAS draft creation failed: {result}"}
+    except Exception as e:
+        return {"success": False, "error": f"Draft creation error: {e}"}
+
+
 def clear_processed_cache() -> int:
     """
     Force-clear the in-memory processed message ID set and re-enable seeding.
@@ -573,6 +659,12 @@ def format_draft_summary(result: dict) -> str:
         return ""  # Don't notify for "no new emails" or seeding
 
     if not drafted and not errors:
+        if skipped > 0:
+            return (
+                f"📧 Scanned {skipped} email{'s' if skipped != 1 else ''}"
+                f" — all skipped (already drafted or no reply needed).\n\n"
+                f"Use `/draft [name]` to force-draft a specific one."
+            )
         return ""  # Nothing to report
 
     lines = []
@@ -581,6 +673,8 @@ def format_draft_summary(result: dict) -> str:
         for i, d in enumerate(drafted, 1):
             flag_marker = " ⚠️ FLAG" if d.get("flag") else ""
             lines.append(f"{i}. {d['name']} — {d['subject'][:50]}{flag_marker}")
+    if skipped and drafted:
+        lines.append(f"\n({skipped} skipped — already drafted or no reply needed)")
     if errors:
         lines.append(f"\n⚠️ {errors} error(s) — check logs")
 

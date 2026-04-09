@@ -1567,6 +1567,33 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if not draft_gas:
             await send_message("❌ GAS bridge not configured — can't access Gmail.")
             return
+
+        # Check for targeted draft: /draft Allison, /draft Allison Alltucker
+        draft_target = None
+        if user_text.lower().startswith("/draft"):
+            arg = user_text[6:].strip()
+            if arg and arg.lower() not in ("force", "emails", "my emails", "replies"):
+                draft_target = arg
+
+        if draft_target:
+            await send_message(f"📧 Searching for *{draft_target}* in unread inbox...")
+            try:
+                loop = asyncio.get_event_loop()
+                result = await loop.run_in_executor(
+                    None, email_drafter.draft_for_sender, draft_gas, draft_target
+                )
+                if result.get("success"):
+                    flag_marker = " ⚠️ FLAG" if result.get("flag") else ""
+                    await send_message(
+                        f"✉️ Drafted reply to *{result['name']}* — "
+                        f"{result['subject'][:50]}{flag_marker}"
+                    )
+                else:
+                    await send_message(f"❌ {result.get('error', 'Could not draft')}")
+            except Exception as e:
+                await send_message(f"❌ Draft failed: {e}")
+            return
+
         force = "force" in user_text.lower()
         if force:
             cleared = email_drafter.clear_processed_cache()
