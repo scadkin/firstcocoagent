@@ -4140,7 +4140,19 @@ async def _run_telegram_and_scheduler():
     if gas:
         try:
             loop = asyncio.get_event_loop()
-            await loop.run_in_executor(None, email_drafter.seed_processed_emails, gas)
+            seeded_count = await loop.run_in_executor(
+                None, email_drafter.seed_processed_emails, gas
+            )
+            if seeded_count > 0:
+                plural = "" if seeded_count == 1 else "s"
+                try:
+                    await send_message(
+                        f"🔄 *Scout restarted* — seeded {seeded_count} existing unread "
+                        f"email{plural} as already-seen.\n\n"
+                        f"If any of them still need auto-drafts, run `/draft force`."
+                    )
+                except Exception as notify_err:
+                    logger.warning(f"Could not send startup seeding notice: {notify_err}")
         except Exception as e:
             logger.warning(f"Email drafter seeding failed (non-fatal): {e}")
 
