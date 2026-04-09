@@ -3085,7 +3085,8 @@ For each award, return JSON:
   "amount": "$X,XXX or empty if unknown",
   "award_date": "YYYY-MM or empty if unknown",
   "purpose": "CS curriculum | teacher PD | equipment | general",
-  "confidence": "HIGH | MEDIUM | LOW"
+  "confidence": "HIGH | MEDIUM | LOW",
+  "source_url": "Copy the URL line from the specific search result that mentions this district. Use the URL exactly as shown in the results below — do not fabricate or guess. Empty string if you can't identify which URL the mention came from."
 }}
 
 CONFIDENCE RULES:
@@ -3170,6 +3171,9 @@ Search results:
         amount = (item.get("amount") or "").strip()
         award_date = (item.get("award_date") or "").strip()
         purpose = (item.get("purpose") or "").strip()
+        source_url = (item.get("source_url") or "").strip()
+        if source_url and not source_url.startswith(("http://", "https://")):
+            source_url = ""  # defense against hallucinated URLs
         cust_status = check_customer_status(district)
         in_territory = state in TERRITORY_STATES_WITH_CA
 
@@ -3194,7 +3198,7 @@ Search results:
                 "heat_score": compute_heat_score("grant", 1, in_territory, cust_status),
                 "urgency": "time_sensitive",
                 "customer_status": cust_status,
-                "url": "",
+                "url": source_url,
                 "message_id": msg_id,
             })
             continue
@@ -3232,7 +3236,7 @@ Search results:
             "heat_score": compute_heat_score("grant", 1, in_territory, cust_status),
             "urgency": "time_sensitive" if confidence == "HIGH" else "routine",
             "customer_status": cust_status,
-            "url": "",
+            "url": source_url,
             "message_id": msg_id,
         })
 
@@ -3392,7 +3396,8 @@ For each mention, return JSON:
   "evidence_type": "job_posting | rfp_replacement | case_study | press_release | other",
   "first_mention_date": "YYYY-MM or empty",
   "confidence": "HIGH | MEDIUM | LOW",
-  "headline": "one-sentence summary"
+  "headline": "one-sentence summary",
+  "source_url": "Copy the URL line from the specific search result that mentions this district. Use the URL exactly as shown in the results below — do not fabricate or guess. Empty string if you can't identify which URL the mention came from."
 }}
 
 INCLUDE (be generous):
@@ -3477,6 +3482,9 @@ Search results:
         confidence = (item.get("confidence") or "LOW").strip().upper()
         evidence_type = (item.get("evidence_type") or "other").strip()
         first_mention = (item.get("first_mention_date") or "").strip()
+        source_url = (item.get("source_url") or "").strip()
+        if source_url and not source_url.startswith(("http://", "https://")):
+            source_url = ""  # defense against hallucinated URLs
         cust_status = check_customer_status(district)
         in_territory = state in TERRITORY_STATES_WITH_CA
 
@@ -3509,7 +3517,7 @@ Search results:
                 "heat_score": compute_heat_score("market_intel", 2, in_territory, cust_status),
                 "urgency": "routine",
                 "customer_status": cust_status,
-                "url": "",
+                "url": source_url,
                 "message_id": msg_id,
             })
             continue
@@ -3545,7 +3553,7 @@ Search results:
             "heat_score": compute_heat_score("market_intel", 1 if confidence == "HIGH" else 2, in_territory, cust_status),
             "urgency": "time_sensitive" if confidence == "HIGH" else "routine",
             "customer_status": cust_status,
-            "url": "",
+            "url": source_url,
             "message_id": msg_id,
         })
 
