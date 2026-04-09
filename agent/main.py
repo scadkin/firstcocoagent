@@ -5,6 +5,7 @@ Scout's entry point. Phase 6E: District Prospecting Queue + all previous phases.
 
 import asyncio
 from datetime import datetime
+from functools import partial
 import logging
 import os
 import re
@@ -72,6 +73,13 @@ _fireflies_gmail_seeded: bool = False    # True after first scan seeds existing 
 _last_prospect_batch: list[dict] = []
 # C5: Last proximity results for "add nearby" command
 _last_proximity_result: dict = {}
+# Signal type → prospecting strategy mapping for /signal_act promotion.
+# Signals not in this dict default to "trigger" (falls through to cold tier).
+# Session 53+ follow-up: add bond / leadership / rfp → their own strategies.
+_SIGNAL_TYPE_TO_STRATEGY = {
+    "compliance": "compliance_gap",
+}
+
 # Signal intelligence: last shown batch for /signal_act indexing
 _last_signal_batch: list[dict] = []
 _last_reengagement_sequences: list[dict] = []
@@ -2942,13 +2950,24 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             if dollar:
                 notes += f" ({dollar})"
 
-            result = await loop.run_in_executor(
-                None, district_prospector.add_district,
-                district, state, notes, "trigger", "signal", signal_id)
+            # Map signal type to a prospecting strategy (falls back to "trigger")
+            strategy = _SIGNAL_TYPE_TO_STRATEGY.get(
+                (sig_type or "").strip().lower(), "trigger"
+            )
+
+            # Look up district enrollment so priority scales correctly
+            enrollment = territory_data.lookup_district_enrollment(district, state)
+
+            add_fn = partial(
+                district_prospector.add_district,
+                district, state, notes, strategy, "signal", signal_id,
+                est_enrollment=enrollment,
+            )
+            result = await loop.run_in_executor(None, add_fn)
 
             await send_message(
                 f"✅ {district} ({state}) queued for research.\n"
-                f"Strategy: trigger | Signal: {signal_id} ({sig_type})\n"
+                f"Strategy: {strategy} | Signal: {signal_id} ({sig_type})\n"
                 f"I'll notify you when the sequence draft is ready.")
         except (ValueError, IndexError):
             await send_message("Usage: `/signal_act 1` (number from `/signals` list)")

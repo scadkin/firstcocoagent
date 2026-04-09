@@ -338,14 +338,20 @@ compliance_gap_scanner.scan_compliance_gaps(state, max_pdfs=5) -> dict
 compliance_gap_scanner.format_scan_result_for_telegram(result) -> str
 compliance_gap_scanner.PILOT_STATES  # {"CA", "IL", "MA"}
 compliance_gap_scanner.ENABLE_COMPLIANCE_SCAN  # kill switch
+# PILOT MODE — Signals-only. Does NOT auto-queue.
 # Serper filetype:pdf → httpx download → Claude Sonnet 4.6 document input.
-# Pilot scope: CA, IL, MA. Cost: ~$0.50-$2.00/scan depending on PDF pages.
-# Queues HIGH-confidence non_compliant/partial districts via
-# district_prospector.add_district with strategy="compliance_gap".
-# Priority tier 850-939 (just below cs_funding_recipient).
-# Exit criterion is MANUAL: verify 60%+ of queued districts are truly
-# non-compliant before scaling beyond pilot states.
+# Writes HIGH-confidence non_compliant/partial districts to the Signals tab
+# with signal_type="compliance", source="compliance_scan",
+# source_detail="F9_pilot_{state}", stable message_id via sha1(url+district).
+# Promotion path: Steven reviews via /signals, validates, uses /signal_act N
+# which maps compliance → compliance_gap strategy via _SIGNAL_TYPE_TO_STRATEGY
+# in agent/main.py (priority tier 850-939).
+# Exit criterion: ≥60% validation rate before scaling beyond CA/IL/MA.
 # PDF download cap: 10 MB. Uses claude-sonnet-4-6 with timeout=180s.
+# Return shape: {state, pdf_count, district_extractions, non_compliant_total,
+# signals_written, parse_errors, errors}.
+# _extract_districts_from_pdf returns (items, error_msg_or_none) tuple —
+# caller can distinguish parse failures from legit empty results.
 ```
 
 ## CallProcessor — lazy import

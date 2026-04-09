@@ -14,14 +14,18 @@ Approach:
 2. Download the PDFs (httpx).
 3. Send each PDF to Claude Sonnet 4.6 via the document input API for
    structured extraction of compliant vs. non-compliant districts.
-4. Queue non-compliant districts as prospects with
-   strategy="compliance_gap".
+4. Write HIGH-confidence non-compliant/partial districts to the Signals
+   tab with signal_type="compliance" (PILOT MODE — NOT auto-queued).
+5. Steven reviews signals via `/signals`, validates each manually,
+   and promotes via `/signal_act N` which maps compliance → compliance_gap
+   strategy via the _SIGNAL_TYPE_TO_STRATEGY dict in agent/main.py.
 
 Pilot scope: CA, IL, MA only.
 
-Exit criterion (manual, not enforced by code): at least 60% of the
-extracted "non-compliant" districts should be independently verifiable.
-If the first run produces garbage, dial back or pivot.
+Exit criterion: ≥60% of promoted districts must validate as truly
+non-compliant before scaling beyond pilot states. Tracked implicitly
+via Signals tab status transitions (new → acted vs new → expired).
+Auto-queue mode can re-enable after 15+ validated extractions.
 
 Cost per state: ~$0.50-$2.00 depending on PDF size. Claude PDF pricing
 is by page count in the rendered document.
@@ -179,11 +183,17 @@ def _download_pdf(url: str, max_bytes: int = 10_000_000) -> Optional[bytes]:
         return None
 
 
-def _extract_districts_from_pdf(pdf_bytes: bytes, state: str) -> list[dict]:
-    """Call Claude Sonnet with the PDF and extraction prompt."""
+def _extract_districts_from_pdf(pdf_bytes: bytes, state: str) -> tuple[list[dict], Optional[str]]:
+    """
+    Call Claude Sonnet with the PDF and extraction prompt.
+
+    Returns (items, error_msg).
+    - Success: (items_list, None)
+    - No items found (valid empty response): ([], None)
+    - Extraction or parse failure: ([], "reason")
+    """
     if not ANTHROPIC_API_KEY:
-        logger.warning("ANTHROPIC_API_KEY not set — cannot extract compliance data")
-        return []
+        return [], "ANTHROPIC_API_KEY not set"
 
     import anthropic
 
@@ -216,7 +226,7 @@ def _extract_districts_from_pdf(pdf_bytes: bytes, state: str) -> list[dict]:
         raw_text = response.content[0].text.strip()
     except Exception as e:
         logger.warning(f"Claude PDF extraction failed for {state}: {e}")
-        return []
+        return [], f"claude_api_error: {e}"
 
     # Parse JSON array — strip fences if present
     try:
@@ -230,29 +240,37 @@ def _extract_districts_from_pdf(pdf_bytes: bytes, state: str) -> list[dict]:
         start = clean.find("[")
         end = clean.rfind("]")
         if start == -1 or end == -1:
-            return []
+            return [], None  # Claude returned no array — legit empty result
         items = json.loads(clean[start:end + 1])
         if not isinstance(items, list):
-            return []
-        return items
+            return [], f"parse_error: expected list, got {type(items).__name__}"
+        return items, None
     except (json.JSONDecodeError, IndexError) as e:
         logger.warning(f"Compliance JSON parse failed for {state}: {e}")
-        return []
+        return [], f"parse_error: {e} (first 200 chars: {raw_text[:200]})"
 
 
 def scan_compliance_gaps(state: str, max_pdfs: int = 5) -> dict:
     """
     F9: Run the compliance gap scanner for a single pilot state.
 
+    PILOT MODE — writes extracts to Signals tab, NOT the Prospecting Queue.
+    Steven validates each extract manually and promotes via `/signal_act N`.
+    Auto-queue will re-enable only after ≥60% validation rate is proven.
+
     Returns {
         state,
         pdf_count,
-        district_extractions: [{url, title, districts: [...]}],
+        district_extractions,
         non_compliant_total,
-        queued: [district_names],
-        errors: [],
+        signals_written,
+        parse_errors,
+        errors,
     }
     """
+    import hashlib
+    from datetime import datetime
+
     if not ENABLE_COMPLIANCE_SCAN:
         return {"state": state, "error": "compliance scan disabled via ENABLE_COMPLIANCE_SCAN"}
 
@@ -277,12 +295,14 @@ def scan_compliance_gaps(state: str, max_pdfs: int = 5) -> dict:
             "pdf_count": 0,
             "district_extractions": [],
             "non_compliant_total": 0,
-            "queued": [],
+            "signals_written": 0,
+            "parse_errors": [],
             "errors": ["No PDFs found from Serper"],
         }
 
     # Step 2: process up to max_pdfs
     extractions = []
+    parse_errors = []
     errors = []
     for hit in pdf_hits[:max_pdfs]:
         url = hit["url"]
@@ -290,7 +310,9 @@ def scan_compliance_gaps(state: str, max_pdfs: int = 5) -> dict:
         if not pdf_bytes:
             errors.append(f"download_failed: {url[:80]}")
             continue
-        districts = _extract_districts_from_pdf(pdf_bytes, state_upper)
+        districts, err = _extract_districts_from_pdf(pdf_bytes, state_upper)
+        if err:
+            parse_errors.append({"url": url, "error": err})
         extractions.append({
             "url": url,
             "title": hit["title"],
@@ -298,11 +320,11 @@ def scan_compliance_gaps(state: str, max_pdfs: int = 5) -> dict:
         })
         time.sleep(1.0)
 
-    # Step 3: tally non-compliant districts and queue them
-    import tools.district_prospector as district_prospector
+    # Step 3: tally HIGH-confidence non-compliant/partial districts (dedup by name)
     import tools.csv_importer as csv_importer
+    import tools.signal_processor as signal_processor
 
-    all_non_compliant = {}  # district name → best evidence
+    all_non_compliant = {}
     for ext in extractions:
         for d in ext.get("districts", []):
             status = (d.get("status") or "").strip().lower()
@@ -316,7 +338,6 @@ def scan_compliance_gaps(state: str, max_pdfs: int = 5) -> dict:
                 continue
             evidence = (d.get("evidence_quote") or "").strip()[:200]
             norm = csv_importer.normalize_name(name)
-            # Keep first hit per district (dedup across PDFs)
             if norm not in all_non_compliant:
                 all_non_compliant[norm] = {
                     "name": name,
@@ -326,33 +347,50 @@ def scan_compliance_gaps(state: str, max_pdfs: int = 5) -> dict:
                     "source_title": ext["title"],
                 }
 
-    queued = []
+    # Step 4: write extracts as signals (not prospect queue rows)
+    today = datetime.now().strftime("%Y-%m-%d")
+    signal_payloads = []
     for norm_key, d in all_non_compliant.items():
-        notes = (
-            f"CS compliance gap ({d['status']}). "
-            f"Evidence: {d['evidence']}. "
-            f"Source: {d['source_title'][:80]}. "
-            f"URL: {d['source_url']}"
-        )
+        stable_hash = hashlib.sha1(
+            f"{d['source_url']}|{d['name']}".encode()
+        ).hexdigest()[:12]
+        stable_msg_id = f"compliance_{state_upper}_{stable_hash}"
+        headline = f"{d['name']}: {d['status'].replace('_', ' ')} per state CS compliance report"
+        signal_notes = f"Evidence: {d['evidence']}. Source: {d['source_title'][:80]}"
+        signal_payloads.append({
+            "date": today,
+            "source": "compliance_scan",
+            "source_detail": f"F9_pilot_{state_upper}",
+            "signal_type": "compliance",
+            "scope": "territory",
+            "district": d["name"],
+            "state": state_upper,
+            "headline": headline[:250],
+            "dollar_amount": "",
+            "tier": 1,
+            "heat_score": 80,
+            "urgency": "time_sensitive",
+            "customer_status": "new",
+            "url": d["source_url"],
+            "message_id": stable_msg_id,
+            "notes": signal_notes,
+        })
+
+    signals_written = 0
+    if signal_payloads:
         try:
-            result = district_prospector.add_district(
-                name=d["name"],
-                state=state_upper,
-                notes=notes[:900],
-                strategy="compliance_gap",
-                source="signal",
-            )
-            if result.get("success"):
-                queued.append(d["name"])
+            write_result = signal_processor.write_signals(signal_payloads)
+            signals_written = write_result.get("written", 0)
         except Exception as e:
-            errors.append(f"queue_failed {d['name']}: {e}")
+            errors.append(f"write_signals_failed: {e}")
 
     return {
         "state": state_upper,
         "pdf_count": len(extractions),
         "district_extractions": extractions,
         "non_compliant_total": len(all_non_compliant),
-        "queued": queued,
+        "signals_written": signals_written,
+        "parse_errors": parse_errors,
         "errors": errors,
     }
 
@@ -365,24 +403,17 @@ def format_scan_result_for_telegram(result: dict) -> str:
     state = result.get("state", "?")
     pdf_count = result.get("pdf_count", 0)
     non_compliant = result.get("non_compliant_total", 0)
-    queued = result.get("queued", [])
+    signals_written = result.get("signals_written", 0)
+    parse_errors = result.get("parse_errors", [])
     errors = result.get("errors", [])
     extractions = result.get("district_extractions", [])
 
-    lines = [f"📑 *F9 Compliance Gap Scan — {state}*"]
+    lines = [f"📑 *F9 Compliance Gap Scan — {state}* (PILOT, Signals-only)"]
     lines.append("")
     lines.append(f"PDFs processed: {pdf_count}")
-    lines.append(f"Non-compliant districts extracted: {non_compliant}")
-    lines.append(f"Auto-queued (HIGH confidence): {len(queued)}")
+    lines.append(f"HIGH-confidence non-compliant/partial: {non_compliant}")
+    lines.append(f"Signals written to Signals tab: {signals_written}")
     lines.append("")
-
-    if queued:
-        lines.append("Queued districts:")
-        for q in queued[:15]:
-            lines.append(f"  • {q}")
-        if len(queued) > 15:
-            lines.append(f"  ...and {len(queued) - 15} more")
-        lines.append("")
 
     if extractions:
         lines.append("Source PDFs processed:")
@@ -395,12 +426,19 @@ def format_scan_result_for_telegram(result: dict) -> str:
             lines.append(f"    ({dist_count} districts extracted)")
         lines.append("")
 
+    if parse_errors:
+        lines.append(f"⚠️ {len(parse_errors)} PDF parse errors:")
+        for pe in parse_errors[:3]:
+            lines.append(f"  • {pe['url'][:80]} — {pe['error'][:80]}")
+        lines.append("")
+
     if errors:
         lines.append(f"⚠️ {len(errors)} errors:")
         for e in errors[:5]:
             lines.append(f"  • {e[:100]}")
         lines.append("")
 
-    lines.append("Review queued prospects with `/prospect_all`.")
-    lines.append("PILOT: verify 60% of queued districts are truly non-compliant before scaling.")
+    lines.append("Review extracts with `/signals` — filter by compliance_scan source.")
+    lines.append("Promote validated districts to queue with `/signal_act N`.")
+    lines.append("PILOT: ≥60% of promoted districts must validate before scaling to IL/MA.")
     return "\n".join(lines)

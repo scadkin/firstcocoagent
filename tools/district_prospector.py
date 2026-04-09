@@ -587,8 +587,10 @@ def _calculate_priority(strategy: str, school_count: int, total_licenses: int,
         # offer CS but doesn't yet. Forced-buyer pattern — the law is the
         # sales pitch. Highest urgency after cs_funding_recipient because
         # the timing is driven by state compliance deadlines.
-        # Tier 1.1 (850-939): just below cs_funding_recipient (which has
-        # actual money already allocated).
+        # Tier 1.1 (850-939): applies only when Steven manually promotes
+        # a compliance signal via /signal_act (the F9 scanner is in
+        # Signals-only pilot mode — no auto-queue). Auto-queue re-enables
+        # after ≥60% validation rate over 15+ extractions.
         return 850 + min(int(est_enrollment / 200), 89)
     else:
         # Cold strategy
