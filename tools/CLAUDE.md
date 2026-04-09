@@ -11,11 +11,29 @@ gas.ping() -> dict
 gas.get_sent_emails(months_back=6, max_results=200, page_start=0, page_size=200) -> list[dict]
 gas.create_draft(to, subject, body, thread_id="", cc="", content_type="") -> dict
 gas.search_inbox(query, max_results=10) -> list[dict]
+gas.search_inbox_full(query, max_results=20, page_start=0, body_limit=5000) -> dict
+gas.get_threads_bulk(thread_ids: list[str], body_limit=3000) -> dict
 gas.get_calendar_events(days_ahead=7) -> list[dict]
 gas.log_call(contact_name, title, district, date_iso, duration_minutes, notes, outcome, next_steps) -> dict
 gas.create_google_doc(title, content, folder_id) -> dict  # {success, doc_id, url, title}
 ```
 **GAS returns calendar `guests` as plain email strings, NOT dicts.**
+
+**`get_threads_bulk` return shape:**
+```python
+{
+  "success": True,
+  "threads": {
+    "<thread_id>": {
+      "message_count": int,   # total messages in thread
+      "kept_count": int,      # actually returned (capped at 30 most-recent)
+      "messages": [{"from": str, "date": str, "body": str}]  # chronological
+    },
+    "<thread_id>": {"error": "not_found" | "..."}  # per-thread failures isolated
+  }
+}
+```
+Caps: 30 thread_ids per call, 30 most-recent messages per thread. Empty `thread_ids` list short-circuits — no GAS round-trip. Per-thread errors do NOT raise `GASBridgeError`; they're embedded in the response. Callers should wrap the call in try/except for hard failures (e.g. GAS endpoint not deployed yet) and fall back gracefully.
 
 ## ResearchQueue (`tools/research_engine.py`)
 ```python
@@ -252,6 +270,18 @@ email_drafter.get_daily_summary() -> str  # daily stats for EOD report
 # Auto-runs every 5 min during business hours (7 AM - 6 PM CST, weekdays).
 # Manual trigger: /draft_emails or "draft my emails" in Telegram.
 # _processed_message_ids is in-memory — seeded on startup, lost on restart.
+#
+# Thread-aware drafting (Session 50+):
+# After search_inbox_full, calls gas.get_threads_bulk(thread_ids) to fetch full
+# thread history for every unread email in one batch. Enrichment overwrites
+# email["body"] and email["from"] with the LATEST message so classification +
+# addressing track the latest inbound, and attaches email["thread_messages"]
+# (structured list with is_from_steven flag per message) for _draft_reply to
+# build a chronological STEVEN/PROSPECT transcript for Claude.
+# Degrades gracefully: if bulk fetch raises (e.g. GAS endpoint not deployed
+# yet), drafter falls back to single-message bodies for that cycle. If the
+# latest thread message is from Steven himself, the email is flagged
+# _skip_because_already_replied and skipped in the main loop.
 ```
 
 ## CallProcessor — lazy import

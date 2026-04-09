@@ -55,6 +55,9 @@ function doPost(e) {
       case "search_inbox_full":
         return jsonResponse(searchInboxFull(params));
 
+      case "get_threads_bulk":
+        return jsonResponse(getThreadsBulk(params));
+
       case "delete_draft":
         return jsonResponse(deleteDraft(params));
 
@@ -316,6 +319,75 @@ function searchInboxFull(params) {
     page_start: pageStart,
     has_more: hasMore
   };
+}
+
+
+/**
+ * Fetches message history for multiple Gmail threads in one call.
+ * params: {
+ *   thread_ids (array of str) — required,
+ *   body_limit (int, default 3000) — per-message body cap in chars
+ * }
+ * Returns: {
+ *   success: true,
+ *   threads: {
+ *     <thread_id>: {
+ *       message_count: int,   // total messages in thread
+ *       kept_count: int,      // messages actually returned (capped at 30 most-recent)
+ *       messages: [{from, date, body}]  // chronological oldest -> newest
+ *     },
+ *     <thread_id>: { error: "not_found" | "..." }  // per-thread failures isolated
+ *   }
+ * }
+ * Caps: 30 thread_ids per call, 30 most-recent messages per thread.
+ * Used by tools/email_drafter.py for thread-aware drafting.
+ */
+function getThreadsBulk(params) {
+  var threadIds = params.thread_ids || [];
+  var bodyLimit = params.body_limit || 3000;
+
+  if (!Array.isArray(threadIds) || threadIds.length === 0) {
+    return { success: false, error: "thread_ids array required" };
+  }
+  if (threadIds.length > 30) {
+    threadIds = threadIds.slice(0, 30);
+  }
+
+  var threadsResult = {};
+  for (var i = 0; i < threadIds.length; i++) {
+    var threadId = threadIds[i];
+    if (!threadId) continue;
+
+    try {
+      var thread = GmailApp.getThreadById(threadId);
+      if (!thread) {
+        threadsResult[threadId] = { error: "not_found" };
+        continue;
+      }
+      var allMessages = thread.getMessages();
+      var totalCount = allMessages.length;
+      var messages = totalCount > 30 ? allMessages.slice(-30) : allMessages;
+
+      var msgs = [];
+      for (var j = 0; j < messages.length; j++) {
+        var msg = messages[j];
+        msgs.push({
+          from: msg.getFrom(),
+          date: msg.getDate().toString(),
+          body: (msg.getPlainBody() || "").substring(0, bodyLimit)
+        });
+      }
+      threadsResult[threadId] = {
+        message_count: totalCount,
+        kept_count: messages.length,
+        messages: msgs
+      };
+    } catch (e) {
+      threadsResult[threadId] = { error: String(e) };
+    }
+  }
+
+  return { success: true, threads: threadsResult };
 }
 
 

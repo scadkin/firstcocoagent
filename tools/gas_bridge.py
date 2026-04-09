@@ -206,6 +206,37 @@ class GASBridge:
         })
         return data
 
+    def get_threads_bulk(
+        self,
+        thread_ids: list[str],
+        body_limit: int = 3000,
+    ) -> dict:
+        """
+        Fetches message history for multiple Gmail threads in one call.
+
+        Returns:
+            {
+                "success": True,
+                "threads": {
+                    "<thread_id>": {
+                        "message_count": int,   # total messages in thread
+                        "kept_count": int,      # messages actually returned (capped at 30 most-recent)
+                        "messages": [{"from": str, "date": str, "body": str}]  # chronological
+                    },
+                    "<thread_id>": {"error": "not_found" | "..."}  # per-thread failures isolated
+                }
+            }
+
+        Caps at 30 thread_ids per call and 30 most-recent messages per thread.
+        Used by email_drafter for thread-aware drafting.
+        """
+        if not thread_ids:
+            return {"success": True, "threads": {}}
+        return self._call("get_threads_bulk", {
+            "thread_ids": thread_ids,
+            "body_limit": body_limit,
+        })
+
     def get_draft_link(self) -> str:
         """Returns Gmail drafts folder URL."""
         return "https://mail.google.com/mail/u/0/#drafts"

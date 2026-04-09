@@ -22,6 +22,13 @@ logger = logging.getLogger(__name__)
 
 ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
 
+# Steven's email address — used to tag messages in thread transcripts
+_STEVEN_EMAIL = "steven@codecombat.com"
+
+# Total character cap for the thread transcript passed to Claude.
+# At ~4 chars/token that's ~5K tokens — comfortably within Sonnet's context.
+_MAX_TRANSCRIPT_CHARS = 20000
+
 # Track processed message IDs to avoid re-drafting
 _processed_message_ids: set[str] = set()
 _seeded: bool = False
@@ -126,6 +133,110 @@ def _load_context_files() -> tuple[str, str]:
     return voice_profile, playbook
 
 
+def _enrich_with_thread_history(gas, emails: list[dict]) -> None:
+    """
+    Mutates `emails` in place, adding `thread_messages` to each email that has
+    retrievable thread history. Overwrites email["body"] and email["from"] with
+    the latest message's values so classification and addressing both track
+    the latest inbound.
+
+    Degrades gracefully on bulk fetch failure — the email keeps its original
+    single-message body from search_inbox_full.
+
+    Also flags emails whose latest thread message is from Steven himself with
+    _skip_because_already_replied = True so the main loop can SKIP them. This
+    is a defensive guard against obscure Gmail states where a thread shows
+    unread but the last turn is actually Steven's own reply.
+    """
+    if not emails:
+        return
+
+    thread_ids = list({e.get("thread_id") for e in emails if e.get("thread_id")})
+    if not thread_ids:
+        return
+
+    try:
+        result = gas.get_threads_bulk(thread_ids=thread_ids, body_limit=3000)
+    except Exception as e:
+        logger.warning(
+            f"[Email Drafter] Bulk thread fetch failed, "
+            f"falling back to single-message bodies: {e}"
+        )
+        return
+
+    if not result or not result.get("success"):
+        logger.warning(f"[Email Drafter] Bulk thread fetch returned no success: {result}")
+        return
+
+    thread_data = result.get("threads", {})
+    for email in emails:
+        tid = email.get("thread_id", "")
+        entry = thread_data.get(tid)
+        if not entry or entry.get("error"):
+            continue  # Keep original single-message body (degraded, per-thread)
+
+        raw_messages = entry.get("messages", [])
+        if not raw_messages:
+            continue
+
+        structured = [
+            {
+                "from": m.get("from", ""),
+                "date": m.get("date", ""),
+                "body": m.get("body", ""),
+                "is_from_steven": _STEVEN_EMAIL in m.get("from", "").lower(),
+            }
+            for m in raw_messages
+        ]
+        latest = structured[-1]
+
+        # Edge case: latest message is Steven's own reply. Skip drafting.
+        if latest["is_from_steven"]:
+            email["_skip_because_already_replied"] = True
+            continue
+
+        email["thread_messages"] = structured
+        email["body"] = latest["body"]
+        if latest.get("from"):
+            email["from"] = latest["from"]
+
+
+def _format_thread_transcript(messages: list[dict]) -> str:
+    """
+    Format structured thread messages as a transcript for Claude.
+    Chronological (oldest → newest). If total length exceeds _MAX_TRANSCRIPT_CHARS,
+    drops oldest messages first (keeping latest intact) and prepends a truncation marker.
+    """
+    if not messages:
+        return ""
+
+    blocks = []
+    for i, msg in enumerate(messages):
+        role = "STEVEN" if msg["is_from_steven"] else "PROSPECT"
+        body = msg["body"].strip()
+        blocks.append(
+            f"[Message {i+1}] {role} — {msg['date']}\n"
+            f"From: {msg['from']}\n\n"
+            f"{body}\n\n---"
+        )
+
+    separator = "\n\n"
+    total = sum(len(b) for b in blocks) + len(separator) * max(0, len(blocks) - 1)
+    if total <= _MAX_TRANSCRIPT_CHARS:
+        return separator.join(blocks)
+
+    # Over budget — keep newest, drop oldest.
+    kept_reverse = []
+    running = 0
+    for b in reversed(blocks):
+        if running + len(b) + len(separator) > _MAX_TRANSCRIPT_CHARS:
+            break
+        kept_reverse.append(b)
+        running += len(b) + len(separator)
+    kept = list(reversed(kept_reverse))
+    return "[...older messages truncated to fit context...]\n\n" + separator.join(kept)
+
+
 def _classify_email(client: Anthropic, email: dict) -> str:
     """Classify email as DRAFT, FLAG, or SKIP using Claude Haiku."""
     from_addr = email.get("from", "")
@@ -178,11 +289,36 @@ Respond with ONLY one word: DRAFT, FLAG, or SKIP"""
 
 
 def _draft_reply(client: Anthropic, email: dict, voice_profile: str, playbook: str, is_flag: bool = False) -> str:
-    """Draft a reply using Claude Sonnet with voice profile + playbook."""
+    """Draft a reply using Claude Sonnet with voice profile + playbook + thread history."""
     from_addr = email.get("from", "")
     sender_name = _extract_sender_name(from_addr)
     subject = email.get("subject", "")
     body = email.get("body", "")[:8000]
+    thread_messages = email.get("thread_messages", [])
+    has_history = len(thread_messages) > 1
+
+    if has_history:
+        transcript = _format_thread_transcript(thread_messages)
+        thread_block = (
+            f"THREAD HISTORY ({len(thread_messages)} messages, chronological):\n\n"
+            f"{transcript}\n\n"
+            "CRITICAL RULES FOR THIS REPLY:\n"
+            "- You are replying to the LAST message in the thread (marked PROSPECT).\n"
+            "- Messages marked STEVEN are replies Steven already sent in this thread. "
+            "Do NOT repeat the pitches, offers, product lists, or calls to action he "
+            "already made.\n"
+            "- Address ONLY what is NEW in the prospect's last message — the specific "
+            "question, objection, or information they just shared.\n"
+            "- If they asked a direct question, answer it directly and first.\n"
+            "- Match the tone and length of their latest message: shorter if they're "
+            "getting shorter, warmer if they're warming up, more formal if they pulled back.\n"
+        )
+        reply_target_block = ""  # transcript already contains the target message
+    else:
+        thread_block = "THREAD CONTEXT: This is a new conversation — no prior messages.\n"
+        reply_target_block = (
+            f"\nEMAIL TO REPLY TO:\nFrom: {from_addr}\nSubject: {subject}\nBody:\n{body}\n"
+        )
 
     flag_instruction = ""
     if is_flag:
@@ -200,6 +336,7 @@ VOICE PROFILE (follow these rules exactly — especially the Anti-AI-Tell Checkl
 RESPONSE PLAYBOOK (match to the closest category):
 {playbook}
 
+{thread_block}
 RULES:
 - Body only — no subject line (Gmail handles Re:), no signature (auto-appended by Gmail)
 - Start with greeting (usually "Hey {sender_name}," or "Hi {sender_name},")
@@ -210,13 +347,7 @@ RULES:
 - Use HTML formatting: <br><br> between paragraphs, <b>bold</b> for emphasis, <ul><li> for lists
 - Make links clickable: <a href="URL">text</a>
 - Calendar link: https://codecombat.orumbriel.com/c/steven{flag_instruction}
-
-EMAIL TO REPLY TO:
-From: {from_addr}
-Subject: {subject}
-Body:
-{body}
-
+{reply_target_block}
 Write ONLY the reply body (HTML). No subject line, no signature, no explanation."""
 
     try:
@@ -317,6 +448,9 @@ def process_new_emails(gas) -> dict:
 
     logger.info(f"[Email Drafter] Processing {len(new_emails)} new email(s)")
 
+    # Enrich with full thread history (batch GAS call, graceful degradation)
+    _enrich_with_thread_history(gas, new_emails)
+
     # Load voice context
     voice_profile, playbook = _load_context_files()
     if not voice_profile:
@@ -343,6 +477,13 @@ def process_new_emails(gas) -> dict:
             skipped += 1
             _daily_stats["skipped"] += 1
             logger.debug(f"[Email Drafter] SKIP (fast): {subject}")
+            continue
+
+        # Defensive: latest thread message is Steven's own reply — nothing to draft
+        if email.get("_skip_because_already_replied"):
+            skipped += 1
+            _daily_stats["skipped"] += 1
+            logger.info(f"[Email Drafter] SKIP (latest message is Steven's reply): {subject}")
             continue
 
         # Classify with Claude Haiku
