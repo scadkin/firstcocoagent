@@ -1,9 +1,56 @@
 # SCOUT MASTER PLAN
-*Last updated: 2026-04-09 — End of Session 51*
+*Last updated: 2026-04-09 — End of Session 52*
 
 ---
 
-## YOU ARE HERE → Session 51 COMPLETE. Full build session, zero acting. Tier A spot-check + full Tier B/C build + F2 scanner rewrite + F4/F2 URL preservation fix. 9 commits.
+## YOU ARE HERE → Session 52 CHECKPOINT A COMPLETE. Session 51 audit + 3 confirmed BLOCKERs fixed + F2/F5/F8/F10 kill switches + F9 Signals-only rewrite + /signal_act strategy mapping + /reprioritize_pending migration. 6 commits. Stages 4-8 carry over to Session 53 — code is ready, no rework needed.
+
+### Session 52 deliverables (Checkpoint A)
+
+**Audit findings (verified against live code, not just agent reports):**
+1. **BLOCKER A — Priority scoring collapse across 7 strategies.** `add_district()` called `_calculate_priority(strategy, 0, 0, 0)` with positional zeros. Affected `intra_district`, `cs_funding_recipient`, `competitor_displacement`, `csta_partnership`, `charter_cmo`, `cte_center`, `private_school_network`, `compliance_gap`. 384 pending F1 prospects + all Session 49 auto-queued rows were at tier base.
+2. **BLOCKER B — F9 auto-queued unvalidated extracts at highest system priority.** Tier 850-939 (above cs_funding_recipient 800-899 despite docstring claim), with zero validation data, violating the ≥60% validation exit criterion.
+3. **BLOCKER C — `/signal_act` hardcoded `strategy="trigger"` for every signal.** Latent bug since Session 44 — every bond/leadership/RFP/AI-policy signal promoted via /signal_act has been scoring as cold tier instead of its proper strategy. "trigger" wasn't even a branch in `_calculate_priority`.
+
+**Commits landed (6 total, 2 pushes):**
+- **C1 (f4609fb) `add_district **kwargs forwarding for priority scaling`** — added **kwargs, new `territory_data.lookup_district_enrollment(name, state)` helper, updated charter/cte/private_schools/compliance + F2/F5 scanner call sites to pass size kwargs. Row columns 15-17 now populated.
+- **C2 (a996b32) `F9 Signals-only + /signal_act strategy mapping`** — compliance scanner writes to Signals tab with signal_type="compliance", stable sha1 message_id, parse_errors propagation via tuple return. `_SIGNAL_TYPE_TO_STRATEGY` dict in agent/main.py maps `compliance → compliance_gap`. /signal_act now uses `functools.partial` to pass `est_enrollment=` through `run_in_executor`.
+- **C3 (aff8f16) `/reprioritize_pending one-shot migration`** — recovers size metadata from seed files (charter_cmos.json, cte_centers.json, PRIVATE_SCHOOL_NETWORKS) or NCES lookup for scanner-based strategies. Explicitly skips intra_district (homogeneous) and compliance_gap (post-fix shouldn't exist).
+- **C4 (f60ca7a) `token-subset matching in lookup_district_enrollment`** — fix surfaced when migration initially matched 1 of 20 rows. Added inline token-subset check between exact + fuzzy fallback (csv_importer.fuzzy_match_name has a gap for 1-token-subset-of-multi-token cases). Migration yield jumped from 1/20 → 13/20.
+- **C5 (7a58cc5) `kill switches + evidence_type normalization`** — `ENABLE_CSTA_SCAN` / `ENABLE_PRIVATE_SCHOOL_DISCOVERY` / `ENABLE_HOMESCHOOL_COOP_DISCOVERY` + guards. `_normalize_enum()` helper applied to F2 scan_competitors and F5 scan_csta_chapters evidence_type comparisons. Reconciled F2 `rfp_bid` vs `rfp_replacement` prompt/code mismatch — canonicalized on `rfp_bid`, fixed prompt enum list to include `board_adoption` + `rfp_bid` (they were in the detailed rules but missing from the terse enum).
+- **C6 (a846137) `F9 compliance scanner 24h rate limit`** — per-state `_LAST_SCAN` dict + 24h cooldown. Cost guardrail against typos or double-taps.
+
+**Stage 1 side outputs (time-decaying backlog):**
+- Tulsa PS Prop 3 ($104.785M tech bond) passed with 80.97% approval on April 7. Gmail draft saved for Robert F. Burton (robert.burton@tulsaschools.org) — in Drafts folder, awaits Steven's review. Draft uses the Steven-approved bond-trigger tone (saved as `feedback_bond_trigger_outreach_tone.md` memory).
+- 7 stale Session 49 F2 competitor signals + 2 stale Session 44 STRONG signals (Richardson ISD RFP 198d old, Norwalk AI-policy 289d old) marked `expired` via `update_signal_status`.
+- Acton-Boxborough not in active signals (already expired or different naming).
+- Session 44 "4 STRONG" freshness determined on-face from age + heat decay, not per-signal research. Only Tulsa was still actionable.
+
+**Migration run result (from Checkpoint A):**
+- Total pending scanned: 20 (5 cs_funding_recipient + 15 competitor_displacement)
+- Updated: 13
+- Unmatched: 7 (Western Reserve ESC = 0 enrollment in NCES; others had naming variations outside the token-subset match)
+- No charter_cmo / cte_center / private_school_network rows in queue yet (Stage 6 will queue them in Session 53)
+
+**What was NOT done this session (carries over to Session 53):**
+- Stage 4: rebuild signals (/signal_funding, /signal_competitors, /signal_csta) — ~30 min, ~$1.30
+- Stage 5: F8 one-network smoke test (Archdiocese of Chicago) — ~20 min, ~$0.50
+- Stage 6: queue charter CMOs + CTE centers (all 43 + 79) — ~20 min, $0
+- Stage 7: F9 compliance pilot on CA only — ~30 min, ~$2
+- Stage 8: F1 backlog drip (target 30 approvals) — ~30 min, $0
+- Commit 6 (Session wrap) is being done now instead of at end of Stage 8.
+
+**Next session starts with:**
+1. Verify Railway "Scout is online" after Push #2 (a846137).
+2. Run Stage 4 scanner rebuild: `/signal_funding` → spot-check → `/signal_competitors` → spot-check (3 HIGH signals against BoardDocs URLs) → `/signal_csta` → spot-check. Confirm auto-queued rows have non-zero `Est. Enrollment` column (proves C1 fix is live on Railway).
+3. Stage 5/6 in parallel: queue Archdiocese of Chicago, start its research pipeline in the background, meanwhile `/prospect_charter_cmos` + `/prospect_cte_centers`. Verify charter top 10 sorts by school count (IDEA 135 should be top) and CTE top 10 sorts by sending districts.
+4. Stage 7: `/scan_compliance CA` (will write to Signals tab, not queue — per C2). Manually validate first 5 extracts. If ≥3 of 5 validate, proceed to IL + MA in a later session.
+5. Stage 8: approve 30 F1 intra_district prospects in batches of 5-10.
+6. Review pending Tulsa PS Gmail draft from Session 52, send or revise.
+
+---
+
+## Session 51 deliverables (archived — all fixed or superseded in Session 52)
 
 ### Session 51 deliverables
 1. **Tier A spot-check verdict**:

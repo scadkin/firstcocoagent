@@ -1,45 +1,70 @@
 # SCOUT — Claude Code Reference
-*Last updated: 2026-04-09 — End of Session 51*
+*Last updated: 2026-04-09 — End of Session 52 (Checkpoint A)*
 
 ---
 
 ## CURRENT STATE — update this after each session
 
-**Session 51 (COMPLETE): Tier A spot-check + full Tier B/C build. Fixed F4+F2 source URL bug. Rewrote F2 scanner from scratch (BoardDocs + RFP queries, 7 real HIGH signals vs. Session 49's 7 noise). Shipped F5 CSTA Chapter Partnership, F6 Charter CMO seed list (43 CMOs / 918 schools), F7 CTE Center Directory (79 centers / 1009 sending districts), F8 Private School discovery + 24-network seed, F9 CS Graduation Compliance Gap PDF pilot (CA/IL/MA). 9 commits total.**
+**Session 52 (CHECKPOINT A COMPLETE): Audited Session 51 builds. Found 3 confirmed BLOCKERs and fixed all. Shipped 6 commits across 2 pushes. Stage 4-8 action items carry over to Session 53 — no code rework needed, just scanner runs and approvals.**
+
+**What Session 52 fixed:**
+- **BLOCKER A:** `add_district()` was calling `_calculate_priority(strategy, 0, 0, 0)` with positional zeros. Every Session 49 + 51 strategy (`intra_district`, `cs_funding_recipient`, `competitor_displacement`, `csta_partnership`, `charter_cmo`, `cte_center`, `private_school_network`, `compliance_gap`) was scoring at tier base with no size scaling. Fixed via `**kwargs` forwarding + new `territory_data.lookup_district_enrollment` helper + populated queue row columns 15-17. Token-subset matching added to the lookup helper so name variations like "Carlinville CUSD#1" → NCES "Carlinville CUSD 1" (key "carlinville") resolve correctly.
+- **BLOCKER B:** F9 compliance scanner auto-queued unvalidated extracts at tier 850-939 (highest non-upward tier in the system), violating the ≥60% validation exit criterion. Rewritten as **Signals-only pilot**. Extracts now write to Signals tab with `signal_type="compliance"`, stable sha1 `message_id` for dedup across re-scans, `parse_errors` propagated via tuple return from `_extract_districts_from_pdf`. Promotion path is `/signal_act N`.
+- **BLOCKER C (latent since Session 44):** `/signal_act` hardcoded `strategy="trigger"` for every signal. `"trigger"` wasn't a branch in `_calculate_priority` so it fell through to cold tier. Every bond/leadership/RFP/AI-policy signal ever promoted was scored as cold. Fixed via new `_SIGNAL_TYPE_TO_STRATEGY` dict in `agent/main.py` (currently only `compliance → compliance_gap`; bond/leadership/rfp mappings are Session 53+ follow-up). Added `functools.partial` to pass `est_enrollment` kwarg through `run_in_executor` which can't take kwargs directly.
+- **Kill switches + normalization (Commit 4):** `ENABLE_CSTA_SCAN`, `ENABLE_PRIVATE_SCHOOL_DISCOVERY`, `ENABLE_HOMESCHOOL_COOP_DISCOVERY`. `_normalize_enum()` helper applied to F2 + F5 evidence_type comparisons. F2 `rfp_bid` vs `rfp_replacement` prompt/code mismatch reconciled — canonical is `rfp_bid`, dead `rfp_replacement` removed from `_STRONG_EVIDENCE` tuple, prompt enum list updated to include `board_adoption` + `rfp_bid` (they were in the detailed rules but missing from the terse enum).
+- **F9 rate limit (Commit 5):** `_LAST_SCAN: dict[str, datetime]` + 24h cooldown. Cost guardrail against typos or double-taps ($0.50-$2/scan).
+
+**Session 52 side outputs (manual work during Stage 1):**
+- Tulsa PS Prop 3 ($104.785M tech bond) passed 80.97% on April 7. Gmail draft created via GAS bridge for Robert F. Burton — sitting in Drafts folder, awaits Steven's review. Draft uses the Steven-approved tone pattern (saved as `feedback_bond_trigger_outreach_tone.md` memory).
+- 9 stale signals marked `expired` via `signal_processor.update_signal_status`: 7 Session 49 F2 competitor signals (Wylie, Carlinville, Effingham, U-46, Azusa, LAUSD, K-6 public), plus Richardson ISD RFP (198d old) and Norwalk ai_policy (289d old). Acton-Boxborough not found in active signals.
+- `reprioritize_pending` migration ran on 20 pending scanner rows (5 funding + 15 competitor). 13 matched, 7 unmatched (unmatched are mostly ESCs with 0 enrollment in NCES or multi-state district variants outside the token-subset match).
 
 ### Recent sessions (details in SCOUT_PLAN.md + SCOUT_HISTORY.md)
+- **Session 52:** Session 51 audit + 3 BLOCKER fixes (priority scaling, F9 Signals-only, /signal_act strategy mapping). 6 commits. Stages 4-8 carry to Session 53. Plan: `/Users/stevenadkins/.claude/plans/dreamy-floating-avalanche.md`
 - **Session 51:** Tier B+C Lead Gen (F5/F6/F7/F8/F9/F10 all shipped), F4+F2 URL bug fix, F2 complete rewrite, Tier A spot-check verdict. 9 commits. Plan: session-of-execution (no formal plan file, followed Session 49 Tier B/C stubs).
 - **Session 50:** Email drafter fixes: thread-aware drafting (GAS `getThreadsBulk` + Python enrichment), restart seeding notice, `/draft [name]` targeted command, skip-count UX. 4 commits. Plan: `/Users/stevenadkins/.claude/plans/sparkling-cooking-eclipse.md`
 - **Session 49:** Email auto-drafter, 5 parked features, Lead Gen Tier A (F1 second buyer, F2 competitor, F3 curriculum adoption, F4 funding scanner). 16+ commits. Plan: `/Users/stevenadkins/.claude/plans/inherited-munching-sunrise.md`
 - **Session 48:** Email Reply Drafting system — Gmail MCP threaded drafts in Steven's voice. Response playbook, voice profile updated, GAS `delete_draft`.
 - **Session 47:** Territory map enriched popups + signal heat overlay. 6 new scanners (grants, budget, algebra, cyber, roles, CSTA). Lookalike, re-engagement, dormant detection.
-- **Session 46:** Leadership/RFP/legislative scanners. Territory map visualization. BoardDocs noise filtering.
-- **Session 45:** RSS + BoardDocs + Ballotpedia + signal attribution. 3 Outreach sequences. Send schedules.
 
 ### What still needs to be done (next session — start here)
-1. **Act on Session 51 build outputs** — all the new scanners/prospectors are built but nothing has been queued or approved yet. Steven explicitly deferred acting. When ready:
-   - Run `/prospect_charter_cmos` (or per-state) to queue the 43 charter CMOs, then approve in batches.
-   - Run `/prospect_cte_centers` to queue the 79 CTE centers.
-   - Run `/prospect_private_networks` to queue the 24 diocesan / chain networks.
-   - Run `/scan_compliance CA`, `/scan_compliance IL`, `/scan_compliance MA` for F9 — this is the PILOT and needs validation before scaling. Goal: ≥60% of auto-queued districts should be verifiable non-compliant on manual spot-check.
-   - Run `/signal_competitors` to rebuild F2 Signals tab with the new BoardDocs-sourced HIGH signals. Old Session 49 noise is still in the sheet and needs clearing or will dedup-block.
-   - Run `/signal_funding` to rebuild F4 Signals tab with source URLs now captured.
-   - Run `/signal_csta` to rebuild CSTA signals — now with URL + auto-queue of HIGH-confidence chapter leaders as `csta_partnership` strategy.
-2. **Spot-check Tier A Session 49 outputs** (now possible with URLs):
-   - Western Reserve ESC (OH) F4 result: REAL — confirmed via news-herald.com Teach CS 2.0 grant. $584K for teacher PD (not curriculum). Act on member districts Willoughby-Eastlake, Painesville, iSTEM — not the ESC directly.
-   - F2 Carlinville/Effingham/U-46 (IL): WEAK — partner listings, not paid customers. Do not treat as displacement leads.
-   - F2 Azusa USD (CA): VERY WEAK — one student won a CodeHS scholarship. Not district adoption.
-3. **Approve F1 prospects in batches of 5-10** via `/prospect_approve` — 384 intra-district schools still queued from Session 49.
-4. **Tulsa PS bond results** — Vote was April 7. If Prop 3 ($104M tech) passed, act on Robert F. Burton (Exec Dir IT).
-5. **Verify Google Alert parser** — Run `/signal_scan` to confirm new digest with bond/leadership/AI policy keywords is parsed correctly.
-6. **Act on 4 STRONG enriched signals** — Tulsa PS, Richardson ISD, Acton-Boxborough, Norwalk PS.
-7. **Deferred:** #2 Usage-based prospecting (blocked on CodeCombat data), Firecrawl paid plan (budget), Parse.bot (DNS), F2 tertiary vendor case-study query (deleted in Session 51 — only re-add if BoardDocs+RFP proves insufficient).
-8. See `SCOUT_PLAN.md` for full roadmap and `SCOUT_HISTORY.md` for detail.
+**Code is ready. No rework from Session 52 needed. Just run the stages that were deferred.**
+
+1. **Stage 4 — rebuild signals** (~30 min, ~$1.30):
+   - `/signal_funding` → spot-check 3 rows, confirm `Source URL` column populated, confirm any auto-queued rows have non-zero `Est. Enrollment` (proves Commit 1 fix is live)
+   - `/signal_competitors` → spot-check first 3 HIGH signals against BoardDocs URLs
+   - `/signal_csta` → spot-check auto-queued chapter leaders
+2. **Stage 5 — F8 one-network smoke test** (~20 min, ~$0.50):
+   - Queue ONLY Archdiocese of Chicago (IL, 125 schools, confirmed in seed at `tools/private_schools.py:47`)
+   - Approve it, let research pipeline run in background
+   - Success gates: ≥3 contact emails, website identified, ≥1 named superintendent/principal/technology director
+   - Decision: unblock all 24 diocesan networks, OR document specific gap for a Session 53+ research playbook fix, OR flag F8 for redesign
+3. **Stage 6 — queue seed prospectors** (~20 min, $0) — in parallel with Stage 5 research:
+   - `/prospect_charter_cmos` → verify top 10 sorts by school_count (IDEA 135 should be top)
+   - `/prospect_cte_centers` → verify top 10 sorts by sending_districts count
+   - Approve a small first batch: 5 charter + 5 CTE via `/prospect_approve`
+4. **Stage 7 — F9 compliance pilot on CA only** (~30 min, ~$2):
+   - `/scan_compliance CA` → extracts go to Signals tab (not queue — per Commit 2)
+   - `/signals` → review compliance signals
+   - Manually validate first 5 extracts against PDF source URLs + CDE data
+   - Promote validated ones via `/signal_act N` (uses Commit 2's `compliance → compliance_gap` mapping)
+   - Gate: ≥3 of 5 validate → scale to IL + MA in a later session. <3 → tune prompt, re-run after 24h rate-limit expires.
+5. **Stage 8 — F1 backlog drip** (~30 min, $0):
+   - 384 pending F1 `intra_district` rows. `reprioritize_pending` explicitly skipped them (homogeneous school-level sort doesn't matter for batch approval).
+   - `/prospect_approve` in batches of 5-10. Target: 30 approvals.
+6. **Review pending Tulsa PS Gmail draft** from Session 52 — sitting in Drafts, ready to send or revise.
+
+### Session 52 completed follow-ups from Session 51
+- ✅ Western Reserve ESC (OH) F4 spot-check: REAL — $584K Ohio Teach CS 2.0 grant for teacher PD, confirmed via news-herald.com URL. Act on member districts Willoughby-Eastlake, Painesville, iSTEM — NOT the ESC itself. (No action taken this session; carries to Session 53+ as a manual outreach task.)
+- ✅ F2 Carlinville/Effingham/U-46 (IL): WEAK — code.org free partner network, not paid customers. Signals expired.
+- ✅ F2 Azusa USD (CA): VERY WEAK — CodeHS student scholarship, not district adoption. Signal expired.
+- ✅ Tulsa PS bond: Prop 3 passed 80.97%. Draft created.
+- Richardson ISD, Acton-Boxborough, Norwalk PS: 3 of 4 Session 44 "STRONG" signals confirmed stale (198-289 days old) and expired.
 
 ### Current status
 - All prior phases + enhancements: ✅
-- Signal Intelligence System: ✅ — **22 sources** (Session 51 added F9 compliance_gap). **40+ Telegram commands** (Session 51 added `/scan_compliance`, `/prospect_charter_cmos`, `/prospect_cte_centers`, `/prospect_private_networks`, `/discover_coops`, `/discover_private_schools`, `/list_charter_cmos`, `/list_cte_centers`). Daily 7:45 AM + weekly Monday (leadership/RFP) + monthly 1st Monday (legislation/grants/budget). On-demand: roles, CSTA, algebra, cyber, funding, competitors, compliance.
-- Prospecting strategies: ✅ **All Tier A + B + C strategies built** after Session 51. Session 51 added `csta_partnership`, `charter_cmo`, `cte_center`, `private_school_network`, `compliance_gap`, `homeschool_coop`. Session 49 added `intra_district`, `competitor_displacement`, `cs_funding_recipient`. Only #2 usage-based (blocked on CodeCombat data) remains unbuilt.
+- Signal Intelligence System: ✅ — **22 sources**. **40+ Telegram commands**. Session 52 added `/reprioritize_pending` (one-shot migration). F9 compliance scanner is now Signals-only pilot (not auto-queue). Daily 7:45 AM + weekly Monday + monthly 1st Monday schedule unchanged.
+- Prospecting strategies: ✅ All Tier A + B + C strategies built AND priority-scoring is working end-to-end after Session 52 Commit 1. Seven strategies now scale with size kwargs (`intra_district`, `cs_funding_recipient`, `competitor_displacement`, `csta_partnership`, `charter_cmo`, `cte_center`, `private_school_network`, `compliance_gap`). Only #2 usage-based (blocked on CodeCombat data) remains unbuilt.
 - Outreach sequences: ✅ — IDs 1995-2001 (C4 x4, License Request, Webinar x2). 3 send schedules.
 - Email auto-drafter: ✅ — runs every 5 min during business hours, **thread-aware** (GAS `getThreadsBulk` batch fetch, STEVEN/PROSPECT attribution in prompt). Dedup via `threadHasDraft`. Manual triggers: `/draft_emails`, `/draft force`, `/draft [name]` (targeted, bypasses classification). Restart seeding notifies Telegram with `/draft force` hint.
 - Sequence copy rules: ✅ — Comprehensive rules in memory. Seasonal calendar. Send schedules.
@@ -80,6 +105,8 @@ Draft log in `memory/draft_log.md`. Known issue: Outreach browser extension stri
 
 ## CRITICAL RULES
 
+**Always enter plan mode before building anything non-trivial.** New scanners, new strategies, new tools, schema changes, multi-file refactors — all require `EnterPlanMode` + Steven's sign-off BEFORE code gets written. Session 51 shipped 7 features without plan mode and 3 of them had BLOCKER-level bugs that Session 52 had to fix. Exception: typos, one-line config tweaks, documentation edits. When in doubt, plan. Rule established Session 52.
+
 **Always push code changes from Claude Code via git — never tell Steven to use `/push_code` in Telegram.** Scout's `/push_code` dumps entire file contents into Telegram (4,096-char limit) causing truncation and confusion. Always `git add`, `git commit`, `git push` directly from the Claude Code terminal. This is a hard rule established Session 19.
 
 **Read before write.** Before touching any file that calls an existing module, read that module first. Every crash in this project has been caused by hallucinated method names. Module APIs are documented in `agent/CLAUDE.md` and `tools/CLAUDE.md`.
@@ -106,7 +133,17 @@ Draft log in `memory/draft_log.md`. Known issue: Outreach browser extension stri
 
 **GAS `createDraft` always passes `skip_if_draft_exists=True`.** This prevents duplicate drafts on threads that already have one. GAS-side check via `threadHasDraft(threadId)` iterates `GmailApp.getDrafts()`. Returns `{success: false, already_drafted: true}` which `gas_bridge._call()` passes through (does NOT raise). Email drafter treats `already_drafted` as a soft-skip, not an error.
 
-**`_calculate_priority()` strategies as of Session 49:** `upward` (600-999), `winback` (550-749), `proximity` (400-699), `esa_cluster` (450-599), `intra_district` (750-849), `cs_funding_recipient` (800-899), `competitor_displacement` (650-749), and falls through to `cold` (300-799 by enrollment) for anything unknown. Add new branches for new strategies — falling through to cold gives wrong sort order for warm leads.
+**`_calculate_priority()` strategies as of Session 52:** `upward` (600-999), `winback` (550-749), `proximity` (400-699), `esa_cluster` (450-599), `intra_district` (750-849), `cs_funding_recipient` (800-899), `competitor_displacement` (650-749), `csta_partnership` (620-719), `charter_cmo` (780-899 scaled by school_count), `cte_center` (760-879 scaled by sending_districts), `private_school_network` (740-839 scaled by schools), `compliance_gap` (850-939 scaled by est_enrollment — applies only on manual `/signal_act` promotion since F9 is Signals-only pilot), `homeschool_coop` (500-599), and falls through to `cold` (300-799 by enrollment) for anything unknown. Add new branches for new strategies — falling through to cold gives wrong sort order for warm leads. **After Session 52:** `add_district(**kwargs)` forwards `school_count`, `total_licenses`, `est_enrollment` positionally and the rest via kwargs — pass the size metadata or priority scoring collapses to tier base.
+
+**`add_district(**kwargs)` and size metadata:** As of Session 52 Commit 1, `add_district()` accepts `**kwargs` and forwards them to `_calculate_priority`. Callers should pass `est_enrollment`, `school_count`, `sending_districts`, or `schools` depending on strategy — these both affect priority scoring and populate queue row columns 15-17 (`Est. Enrollment`, `School Count`, `Total Licenses`). If you add a new strategy and don't pass the right kwargs, it'll score at tier base and look broken. The existing `_calculate_priority` signature has `school_count` and `total_licenses` as named positionals; `add_district` pops them out of kwargs before forwarding to avoid collision. Use `functools.partial` when calling via `loop.run_in_executor(None, fn, *args)` — that API can't pass kwargs directly.
+
+**`/signal_act` uses `_SIGNAL_TYPE_TO_STRATEGY` dict for strategy mapping.** Added Session 52 Commit 2 in `agent/main.py`. Currently only maps `"compliance" → "compliance_gap"`. Anything else defaults to `"trigger"` which falls through to the cold branch (same as the pre-Session-52 behavior for back-compat). Session 53+ follow-up: add `bond → bond_trigger`, `leadership → leadership_change`, `rfp → rfp_trigger`, etc. after those strategies are built. When you add a new signal-promoted strategy, you MUST also add its branch in `_calculate_priority` AND its entry in `_SIGNAL_TYPE_TO_STRATEGY`.
+
+**F9 compliance_gap_scanner is Signals-only pilot mode.** Session 52 Commit 2 rewrote the queue path — scanner writes extracts to the Signals tab via `signal_processor.write_signals` with `signal_type="compliance"`, `source="compliance_scan"`, `source_detail="F9_pilot_{state}"`, and stable `message_id = f"compliance_{state}_{sha1(url+district)[:12]}"` for dedup across re-scans. Auto-queue mode is disabled until ≥60% validation rate is proven over 15+ extractions. Promotion happens via `/signal_act N` which uses the strategy mapping above. Per-state 24h rate limit enforced via module-level `_LAST_SCAN` dict (Commit 5) — override by waiting 24h or restarting Railway.
+
+**`_extract_districts_from_pdf` returns `(items, error_msg_or_none)` tuple** (Session 52 Commit 2). Allows `scan_compliance_gaps` to distinguish "parse failed" from "no districts found in document" — both return empty lists in the first element but the second element is `None` vs an error string. The return dict now surfaces a `parse_errors` list for operator visibility.
+
+**New territory_data helper: `lookup_district_enrollment(name, state) -> int`** (Session 52 Commit 1, refined in Commit 4). Matches on pre-computed `Name Key` column first, then falls back to re-normalizing `District Name`, then a token-subset pre-check (if target tokens are a strict subset of candidate tokens or vice versa), then `csv_importer.fuzzy_match_name` with threshold 0.7. Returns 0 on miss. The token-subset pre-check exists because `csv_importer.fuzzy_match_name` has a gap for 1-token-subset-of-multi-token cases (e.g., "carlinville" ⊂ "carlinville 1") — see `memory/feedback_fuzzy_match_limits.md`.
 
 **Explicit slash commands bypass Claude and call execute_tool() directly.** `/brief`, `/call`, `/recent_calls`, `/progress`, `/sync_activities`, `/call_list`, `/pipeline`, `/pipeline_import`, `/import_closed_lost`, `/import_leads`, `/import_contacts`, `/enrich_leads`, and all `/prospect_*` commands call execute_tool() directly and return. Direct dispatch is the only reliable pattern — when conversation history is long, Claude responds with descriptive text instead of calling tools.
 

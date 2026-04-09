@@ -613,3 +613,61 @@ Exit criterion is **manual**, not enforced in code: verify ≥60% of queued dist
 - Memories: `feedback_build_only_mode.md`, `feedback_scanner_url_preservation.md`, `feedback_vendor_site_queries_fail.md`, `reference_urban_institute_no_pss.md`
 - Plan file: none (session followed Session 49's Tier B/C stubs directly, no fresh plan file was written)
 
+
+---
+
+## Session 52 — Audit + BLOCKER fixes (Checkpoint A)
+
+### What changed
+Session 52 audited everything Session 51 shipped autonomously, surfaced three BLOCKER-level bugs by reading the code directly during planning, and shipped 6 commits across 2 Railway pushes that fixed all three. Stages 4-8 of the plan (scanner rebuild, F8 smoke test, seed queueing, F9 pilot, F1 backlog) deferred to Session 53 when context limits hit Checkpoint A. Code is ready to run — no rework needed.
+
+### Why
+Steven opened the session asking for a careful audit of the F2 rewrite + F5/F6/F7/F8/F9/F10 builds from Session 51 because they were all shipped without plan-mode discussion. Three parallel Explore agents reviewed the code and flagged issues. I verified the critical findings by reading source directly during plan mode rather than accepting agent reports on faith, and then ran the plan through Steven's "pressure-test + rewrite from scratch" prompt three iterations to land on v4 before executing.
+
+### Audit findings (verified against live code)
+- **BLOCKER A:** `add_district()` at `tools/district_prospector.py:2515` called `_calculate_priority(strategy, 0, 0, 0)` with positional zeros. Every branch added in Session 49 (`intra_district`, `cs_funding_recipient`, `competitor_displacement`) and Session 51 (`csta_partnership`, `charter_cmo`, `cte_center`, `private_school_network`, `compliance_gap`) read size metadata from `kwargs.get(...)` which was always 0. 384 pending F1 intra_district prospects + all Session 49 auto-queued rows were at tier base with no size scaling. Row columns 15-17 were 20-column aligned in the row-write but always written as empty strings — the bug had two layers, scoring AND queue display.
+- **BLOCKER B:** F9 `compliance_gap_scanner.py` auto-queued HIGH-confidence extracts with `strategy="compliance_gap"` at priority tier 850-939 — the highest non-upward tier in the system, despite a docstring claim of "just below cs_funding_recipient (800-899)". Inverted numerically AND structurally wrong for a pilot requiring ≥60% validation before scaling.
+- **BLOCKER C (latent since Session 44):** `/signal_act` handler at `agent/main.py:2947` hardcoded `strategy="trigger"` for every signal. `"trigger"` isn't a branch in `_calculate_priority`, so it fell through to `cold`. Every bond/leadership/RFP/AI-policy signal Steven has ever promoted has been scoring as cold tier instead of its proper strategy.
+
+### Key decisions
+- **F9 fix was NOT a retier — it was a complete behavioral pivot to Signals-only pilot mode.** Retiering would have left an unvalidated extractor auto-writing to the queue, fundamentally violating the ≥60% exit criterion. Signals-only means Steven reviews every extract manually and promotes via `/signal_act N`. Also collapsed a proposed "validation log JSON + /validate_compliance command" sub-plan because Signals tab status transitions (`new → acted` vs `new → expired`) already track validation rate implicitly.
+- **BLOCKER C was framed as a sub-fix for F9 but turned out to be a load-bearing latent bug.** Without a `_SIGNAL_TYPE_TO_STRATEGY` mapping, the F9 Signals-only plan didn't work out of the box — promoted compliance signals would have become `strategy="trigger"` → cold tier instead of `compliance_gap`. Added as first-class blocker. Mapping is deliberately minimal (only `compliance → compliance_gap`) so bond/leadership/RFP keep their current "trigger" behavior until their own strategies exist.
+- **`reprioritize_pending` migration explicitly skips `intra_district`.** Initially planned to cover all 7 strategies, then realized 384 F1 rows are homogeneous school-level data and sort-within-set doesn't matter for Steven's batch-approval workflow.
+- **Migration surfaced a secondary bug:** first pass matched 1 of 20 rows because `csv_importer.fuzzy_match_name` has a gap for 1-token-subset-of-multi-token cases like "carlinville 1" vs "carlinville" (the "strong match" branch requires `len(shorter_tokens) >= 2`). Added an inline token-subset pre-check in `lookup_district_enrollment`. Migration yield jumped to 13/20. Saved as `feedback_fuzzy_match_limits.md` memory.
+- **F2 prompt/code mismatch resolved on canonical `rfp_bid`.** The terse enum list in the F2 competitor prompt had `rfp_replacement` (no other references anywhere) and was missing `board_adoption` + `rfp_bid` entirely, while the detailed rules and `_STRONG_EVIDENCE` tuple used `rfp_bid`. Fixed the terse enum list and removed the orphan `rfp_replacement`.
+- **Plan went through Steven's pressure-test prompt three iterations.** v1 → v2 (noted priority bug scope was broader than initially thought, `/signal_act` mapping discovery was deferred conditionally). v2 → v3 (discovered v2's Claude response try/except fix was redundant — already existed in code). v3 → v4 (surfaced `/signal_act` hardcoding by actually reading the code, shrank `reprioritize_pending` by skipping intra_district, added `functools.partial` gotcha callout).
+- **New critical rule added to CLAUDE.md:** always enter plan mode before building anything non-trivial. Session 51 shipped 7 features without plan mode and 3 of them had BLOCKER-level bugs Session 52 had to fix. Rule is now permanent in the CRITICAL RULES block.
+
+### Tulsa PS side quest (Stage 1)
+Prop 3 tech bond ($104.785M) passed with 80.97% approval on April 7. Drafted outreach for Robert F. Burton (Exec Dir IT) via a direct GAS bridge call from Claude Code — Gmail draft created and waiting in Drafts folder for Steven's review. Steven revised the first draft: cut the "$104M" figure (too transactional), added "& safe AI" to the CodeCombat one-liner, changed CTA wording from sales-voice to colleague-voice, removed unverified peer district name-drops. Saved the approved pattern as `feedback_bond_trigger_outreach_tone.md` memory for future bond/funding-trigger outreach.
+
+### Stale signal cleanup (Stage 1)
+9 stale signals marked `expired` via `signal_processor.update_signal_status`:
+- 7 Session 49 F2 competitor signals: Wylie, Carlinville, Effingham, U-46, Azusa, LAUSD, K-6 public
+- Richardson ISD RFP (198 days old)
+- Norwalk School District ai_policy (289 days old)
+- Acton-Boxborough not in active signals
+
+### Commits
+- `f4609fb` fix: add **kwargs forwarding in add_district for priority scaling
+- `a996b32` fix: F9 Signals-only pilot + /signal_act strategy mapping
+- `aff8f16` fix: /reprioritize_pending one-shot migration for Session 49 + 51 queue rows
+- `f60ca7a` fix: token-subset matching in lookup_district_enrollment
+- `7a58cc5` fix: kill switches + evidence_type normalization for Session 51 scanners
+- `a846137` fix: F9 compliance scanner per-state 24h rate limit
+
+### Files modified
+- `tools/district_prospector.py` — `add_district(**kwargs)` signature + forward, populate row columns 15-17, new `reprioritize_pending()` function, new `_col_letter_dp()` helper, compliance_gap docstring update, charter_cmo branch reads from positional school_count
+- `tools/territory_data.py` — new `lookup_district_enrollment(name, state) -> int` helper with exact + token-subset + fuzzy matching
+- `tools/charter_prospector.py` — passes `school_count` + `est_enrollment` to add_district
+- `tools/cte_prospector.py` — passes `sending_districts` + `est_enrollment`
+- `tools/private_schools.py` — passes `schools` kwarg, new `ENABLE_PRIVATE_SCHOOL_DISCOVERY` kill switch
+- `tools/compliance_gap_scanner.py` — Signals-only rewrite, stable sha1 message_id, `_extract_districts_from_pdf` returns tuple with error_msg, new `_LAST_SCAN` rate limit dict, updated docstring and telegram format
+- `tools/signal_processor.py` — F4/F2/F5 scanners pass `est_enrollment` via `territory_data.lookup_district_enrollment`, new `ENABLE_CSTA_SCAN` + `ENABLE_HOMESCHOOL_COOP_DISCOVERY` kill switches + guards, new `_normalize_enum` helper, F2 prompt enum list fixed, `_STRONG_EVIDENCE` tuple cleaned
+- `agent/main.py` — new `_SIGNAL_TYPE_TO_STRATEGY` dict, `/signal_act` updated to use mapping + `functools.partial` for kwarg passing through run_in_executor, new `/reprioritize_pending` direct-dispatch handler, `from functools import partial` import
+- `tools/CLAUDE.md` — updated `add_district` signature docstring, added `territory_data.lookup_district_enrollment` entry, rewrote `compliance_gap_scanner` block to reflect Signals-only behavior
+- `CLAUDE.md` (root) — Session 52 Current State, new "Always enter plan mode before building" critical rule, expanded `_calculate_priority()` strategies list, new sections on `add_district(**kwargs)` / `_SIGNAL_TYPE_TO_STRATEGY` / F9 Signals-only / `_extract_districts_from_pdf` tuple return / `lookup_district_enrollment`
+- `SCOUT_PLAN.md` — Session 52 Checkpoint A deliverables + Session 53 carryover
+- `SCOUT_HISTORY.md` — this entry
+- Memories (auto-memory): `feedback_always_plan_mode.md`, `feedback_bond_trigger_outreach_tone.md`, `feedback_fuzzy_match_limits.md`
+- Plan file: `/Users/stevenadkins/.claude/plans/dreamy-floating-avalanche.md` (4 iterations before approval)
