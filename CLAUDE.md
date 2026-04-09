@@ -1,13 +1,14 @@
 # SCOUT — Claude Code Reference
-*Last updated: 2026-04-08 — End of Session 50*
+*Last updated: 2026-04-09 — End of Session 51*
 
 ---
 
 ## CURRENT STATE — update this after each session
 
-**Session 50 (COMPLETE): Fixed critical email drafter bug — second-round drafts now read full thread history instead of re-reading the original inbound. New `get_threads_bulk` GAS endpoint. Added `/draft [name]` targeted draft command. Restart seeding Telegram notice. Skip-count UX fix.**
+**Session 51 (COMPLETE): Tier A spot-check + full Tier B/C build. Fixed F4+F2 source URL bug. Rewrote F2 scanner from scratch (BoardDocs + RFP queries, 7 real HIGH signals vs. Session 49's 7 noise). Shipped F5 CSTA Chapter Partnership, F6 Charter CMO seed list (43 CMOs / 918 schools), F7 CTE Center Directory (79 centers / 1009 sending districts), F8 Private School discovery + 24-network seed, F9 CS Graduation Compliance Gap PDF pilot (CA/IL/MA). 9 commits total.**
 
 ### Recent sessions (details in SCOUT_PLAN.md + SCOUT_HISTORY.md)
+- **Session 51:** Tier B+C Lead Gen (F5/F6/F7/F8/F9/F10 all shipped), F4+F2 URL bug fix, F2 complete rewrite, Tier A spot-check verdict. 9 commits. Plan: session-of-execution (no formal plan file, followed Session 49 Tier B/C stubs).
 - **Session 50:** Email drafter fixes: thread-aware drafting (GAS `getThreadsBulk` + Python enrichment), restart seeding notice, `/draft [name]` targeted command, skip-count UX. 4 commits. Plan: `/Users/stevenadkins/.claude/plans/sparkling-cooking-eclipse.md`
 - **Session 49:** Email auto-drafter, 5 parked features, Lead Gen Tier A (F1 second buyer, F2 competitor, F3 curriculum adoption, F4 funding scanner). 16+ commits. Plan: `/Users/stevenadkins/.claude/plans/inherited-munching-sunrise.md`
 - **Session 48:** Email Reply Drafting system — Gmail MCP threaded drafts in Steven's voice. Response playbook, voice profile updated, GAS `delete_draft`.
@@ -16,27 +17,29 @@
 - **Session 45:** RSS + BoardDocs + Ballotpedia + signal attribution. 3 Outreach sequences. Send schedules.
 
 ### What still needs to be done (next session — start here)
-1. **Spot-check Tier A scanner outputs:**
-   - F4 result: Educational Service Center of the Western Reserve (OH) — Western Reserve ESC is an ESA that buys curriculum for multiple member districts. High leverage if real.
-   - F2 results: Carlinville CUSD#1 (IL), Effingham CUSD 40 (IL), School District U-46 (IL), Azusa USD (CA) — all using Code.org Express or CodeHS. Verify via Google before acting.
-2. **Approve F1 prospects in batches of 5-10** via `/prospect_approve` — 384 intra-district schools queued. Research queue is sequential (~3-5 min each), so don't bulk-approve.
-3. **Tulsa PS bond results** — Vote was April 7. If Prop 3 ($104M tech) passed, act on Robert F. Burton (Exec Dir IT).
-4. **Verify Google Alert parser ~April 9** — First new digest with bond/leadership/AI policy keywords. Run `/signal_scan`.
-5. **Act on 4 STRONG enriched signals** — Tulsa PS, Richardson ISD, Acton-Boxborough, Norwalk PS.
-6. **Lead Generation Expansion Tier B + C** (in plan file as one-line stubs, ~7 hours total split across sessions):
-   - F5 CSTA Chapter Partnership (~60 min)
-   - F6 Charter School CMO Seed List (~90 min)
-   - F7 CTE Center Directory (~90 min)
-   - F8 Private School Data via NCES PSS (~120 min)
-   - F9 CS Graduation Compliance Gap PILOT — Claude PDF input approach for CA/IL/MA (~120 min)
-   - F10 Homeschool Co-op Discovery (~45 min)
-7. **Deferred:** #2 Usage-based prospecting (blocked on CodeCombat data), Firecrawl paid plan (budget), Parse.bot (DNS)
-8. See `SCOUT_PLAN.md` for full roadmap and `SCOUT_HISTORY.md` for Session 49 details
+1. **Act on Session 51 build outputs** — all the new scanners/prospectors are built but nothing has been queued or approved yet. Steven explicitly deferred acting. When ready:
+   - Run `/prospect_charter_cmos` (or per-state) to queue the 43 charter CMOs, then approve in batches.
+   - Run `/prospect_cte_centers` to queue the 79 CTE centers.
+   - Run `/prospect_private_networks` to queue the 24 diocesan / chain networks.
+   - Run `/scan_compliance CA`, `/scan_compliance IL`, `/scan_compliance MA` for F9 — this is the PILOT and needs validation before scaling. Goal: ≥60% of auto-queued districts should be verifiable non-compliant on manual spot-check.
+   - Run `/signal_competitors` to rebuild F2 Signals tab with the new BoardDocs-sourced HIGH signals. Old Session 49 noise is still in the sheet and needs clearing or will dedup-block.
+   - Run `/signal_funding` to rebuild F4 Signals tab with source URLs now captured.
+   - Run `/signal_csta` to rebuild CSTA signals — now with URL + auto-queue of HIGH-confidence chapter leaders as `csta_partnership` strategy.
+2. **Spot-check Tier A Session 49 outputs** (now possible with URLs):
+   - Western Reserve ESC (OH) F4 result: REAL — confirmed via news-herald.com Teach CS 2.0 grant. $584K for teacher PD (not curriculum). Act on member districts Willoughby-Eastlake, Painesville, iSTEM — not the ESC directly.
+   - F2 Carlinville/Effingham/U-46 (IL): WEAK — partner listings, not paid customers. Do not treat as displacement leads.
+   - F2 Azusa USD (CA): VERY WEAK — one student won a CodeHS scholarship. Not district adoption.
+3. **Approve F1 prospects in batches of 5-10** via `/prospect_approve` — 384 intra-district schools still queued from Session 49.
+4. **Tulsa PS bond results** — Vote was April 7. If Prop 3 ($104M tech) passed, act on Robert F. Burton (Exec Dir IT).
+5. **Verify Google Alert parser** — Run `/signal_scan` to confirm new digest with bond/leadership/AI policy keywords is parsed correctly.
+6. **Act on 4 STRONG enriched signals** — Tulsa PS, Richardson ISD, Acton-Boxborough, Norwalk PS.
+7. **Deferred:** #2 Usage-based prospecting (blocked on CodeCombat data), Firecrawl paid plan (budget), Parse.bot (DNS), F2 tertiary vendor case-study query (deleted in Session 51 — only re-add if BoardDocs+RFP proves insufficient).
+8. See `SCOUT_PLAN.md` for full roadmap and `SCOUT_HISTORY.md` for detail.
 
 ### Current status
 - All prior phases + enhancements: ✅
-- Signal Intelligence System: ✅ — **21 sources** (Session 49 added F4 cs_funding_award + F2 competitor_usage). **34 Telegram commands** (Session 50 added `/draft [name]`). Daily 7:45 AM + weekly Monday (leadership/RFP) + monthly 1st Monday (legislation/grants/budget). On-demand: roles, CSTA, algebra, cyber, funding, competitors.
-- Prospecting strategies: ✅ **23 of 24 built** (Session 49 added intra_district + competitor_displacement + cs_funding_recipient strategy tags). Only #2 (usage-based, blocked on CodeCombat data) remains.
+- Signal Intelligence System: ✅ — **22 sources** (Session 51 added F9 compliance_gap). **40+ Telegram commands** (Session 51 added `/scan_compliance`, `/prospect_charter_cmos`, `/prospect_cte_centers`, `/prospect_private_networks`, `/discover_coops`, `/discover_private_schools`, `/list_charter_cmos`, `/list_cte_centers`). Daily 7:45 AM + weekly Monday (leadership/RFP) + monthly 1st Monday (legislation/grants/budget). On-demand: roles, CSTA, algebra, cyber, funding, competitors, compliance.
+- Prospecting strategies: ✅ **28 of 28 built** (Session 51 added csta_partnership, charter_cmo, cte_center, private_school_network, compliance_gap, homeschool_coop). Only #2 usage-based (blocked on CodeCombat data) remains unbuilt.
 - Outreach sequences: ✅ — IDs 1995-2001 (C4 x4, License Request, Webinar x2). 3 send schedules.
 - Email auto-drafter: ✅ — runs every 5 min during business hours, **thread-aware** (GAS `getThreadsBulk` batch fetch, STEVEN/PROSPECT attribution in prompt). Dedup via `threadHasDraft`. Manual triggers: `/draft_emails`, `/draft force`, `/draft [name]` (targeted, bypasses classification). Restart seeding notifies Telegram with `/draft force` hint.
 - Sequence copy rules: ✅ — Comprehensive rules in memory. Seasonal calendar. Send schedules.
@@ -267,6 +270,10 @@ firstcocoagent/
 │   ├── proximity_engine.py     ← MODULE not class. C5: proximity search, ESA mapping
 │   ├── signal_processor.py     ← MODULE not class. Signal intelligence: Gmail parsing, classification, scoring
 │   ├── email_drafter.py        ← MODULE not class. Auto-draft Gmail replies in Steven's voice
+│   ├── charter_prospector.py   ← F6 MODULE. Charter CMO seed list loader + queue functions
+│   ├── cte_prospector.py       ← F7 MODULE. CTE center seed list loader + queue functions
+│   ├── private_schools.py      ← F8 MODULE. Private school Serper discovery + diocesan/chain seed
+│   ├── compliance_gap_scanner.py ← F9 MODULE. Serper PDF + Claude Sonnet document input (CA/IL/MA pilot)
 │   └── fireflies.py            ← FirefliesClient, FirefliesError
 ├── gas/
 │   ├── CLAUDE.md               ← GAS deployment checklist and gotchas
@@ -379,6 +386,14 @@ firstcocoagent/
 | `/eod` | manually trigger end-of-day report (useful on weekends) |
 | `/draft_emails`, `draft my emails` | manually trigger email auto-drafting (also runs every 5 min during business hours) |
 | `/draft [name]` | force-draft a specific sender's unread email, bypassing Haiku classification (e.g. `/draft Allison`) |
+| `/list_charter_cmos [state]` | read-only view of the 43-CMO seed list (F6) |
+| `/prospect_charter_cmos [state]` | queue charter CMOs from the seed list as `charter_cmo` strategy prospects (F6) |
+| `/list_cte_centers [state]` | read-only view of the 79-CTE-center seed list (F7) |
+| `/prospect_cte_centers [state]` | queue CTE centers from the seed list as `cte_center` strategy prospects (F7) |
+| `/discover_coops [state]` | F10 Serper-based homeschool co-op discovery for a state |
+| `/discover_private_schools [state]` | F8 Serper-based private school discovery for a state |
+| `/prospect_private_networks [state]` | F8 queue the 24 diocesan/chain networks as `private_school_network` strategy |
+| `/scan_compliance [state]` | F9 PDF pilot — CS graduation compliance gap scan. Pilot states: CA, IL, MA. Cost ~$0.50-$2/scan. |
 | `/prospect_discover [state]` | cold district search via Serper |
 | `/prospect_upward` | upward targets from active accounts |
 | `/prospect` | show next 5 pending districts |

@@ -1,17 +1,50 @@
 # SCOUT MASTER PLAN
-*Last updated: 2026-04-08 — End of Session 49*
+*Last updated: 2026-04-09 — End of Session 51*
 
 ---
 
-## YOU ARE HERE → Session 49 COMPLETE. Massive session: cleaned up CLAUDE.md, built email auto-drafter on Railway with thread-dedup + force flag, shipped 5 parked features (fuzzy matching, extraction improvements, signal expansions, unanswered outreach tracker, tool eval), and shipped Tier A of Lead Generation Expansion: F1 Second Buyer Expansion (384 schools queued), F2 Competitor Displacement Scanner (4 HIGH auto-queued), F3 Curriculum Adoption Queries, F4 State CS Funding Scanner (1 HIGH auto-queued — Western Reserve ESC). Email drafter dedup via GAS threadHasDraft. Two scope bugs fixed (UnboundLocalError in /draft handler + _run_daily_signal_scan).
+## YOU ARE HERE → Session 51 COMPLETE. Full build session, zero acting. Tier A spot-check + full Tier B/C build + F2 scanner rewrite + F4/F2 URL preservation fix. 9 commits.
 
-**Next session starts with:**
-1. Spot-check the Tier A scanner outputs (Western Reserve ESC funding lead, 4 IL/CA competitor displacement leads)
-2. Approve 384 F1 intra-district expansion prospects in batches of 5-10 via `/prospect_approve` (don't bulk-approve — research queue is sequential)
-3. Tulsa bond results check (April 7 vote) — if Prop 3 passed, act on Robert F. Burton
-4. Verify Google Alert parser ~April 9 with first new digest
-5. Continue with Tier B + C of Lead Generation Expansion: CSTA Chapter Partnership (F5), Charter CMO seed list (F6), CTE Center directory (F7), Private School Data via NCES PSS (F8), CS Graduation Compliance Gap PDF pilot (F9 — Claude PDF input approach), Homeschool Co-op discovery (F10)
-6. Plan file: `/Users/stevenadkins/.claude/plans/inherited-munching-sunrise.md`
+### Session 51 deliverables
+1. **Tier A spot-check verdict**:
+   - F4 Western Reserve ESC (OH): REAL — $584K Ohio Teach CS 2.0 grant for teacher PD (verified via news-herald.com URL). Scout's "ESA buys curriculum" framing is WRONG — this is PD funding. Correct play is member districts (Willoughby-Eastlake, Painesville, iSTEM), not the ESC itself.
+   - F2 Carlinville/Effingham/U-46 (IL): WEAK. All three were linked to `code.org/districts/partners` — FREE partner network, not paid Code.org Express customers.
+   - F2 Azusa USD (CA): VERY WEAK. Source was a CodeHS student scholarship announcement; one Azusa High student won $1,000. Not district adoption.
+
+2. **F4+F2 URL preservation bug fix** (commit 42b6ef7): Both scanners were hardcoding `url=""` when writing signals — source URLs never made it to the Signals tab, making verification impossible. Fixed the Claude extraction schemas to include `source_url` and added http/https validation against hallucinated URLs.
+
+3. **F2 scanner complete rewrite** (commit 4801431):
+   - Dropped tertiary `site:vendor.com` query — source of 90%+ false positives.
+   - New primary: BoardDocs hits (`site:go.boarddocs.com`) — real board meeting docs.
+   - New secondary: general board-of-education curriculum adoption docs.
+   - New tertiary: RFP / bid documents with vendor-domain exclusion.
+   - Collapsed per-state query loop — territory filter moved to NCES post-process. 13× fewer Serper calls.
+   - Strict evidence types: only `board_adoption`, `rfp_bid`, `job_posting`, `rfp_replacement` qualify for HIGH confidence. Case studies + press releases cap at MEDIUM.
+   - URL-pattern downgrade: `/districts/partners`, `/scholars`, `/blog/announcing-*`, `/newsletter` auto-demote to LOW.
+   - Local test produced 7 HIGH signals from real BoardDocs URLs: Columbus City SD (OH), Fort Worth ISD (TX), Palo Alto USD (CA), Pocono Mountain SD (PA), Northridge (OH), Chester Upland (PA). Night-and-day improvement over Session 49's 7 false positives.
+
+4. **F5 CSTA Chapter Partnership** (commit a637487): New `csta_partnership` strategy tier 620-719. Fixed URL bug in `scan_csta_chapters`. Added confidence + evidence types. HIGH + district + chapter officer/board → auto-queue. `memory/csta_partnership_sequence.md` — 4-step peer-to-peer sequence template.
+
+5. **F10 Homeschool Co-op Discovery** (commit 8220c83): New `/discover_coops [state]` Serper-only command. Three queries per state with noise exclusions. New `homeschool_coop` strategy tier 500-599.
+
+6. **F6 Charter School CMO Seed List** (commit 8ae5d5a): `memory/charter_cmos.json` with 43 CMOs across 11 states — 918 schools, ~511K students total. Biggest: IDEA PS (135), National Heritage (100), ResponsiveEd (80), Harmony (60). New `tools/charter_prospector.py` module. New `charter_cmo` strategy tier 780-899.
+
+7. **F7 CTE Center Directory** (commit ac2c4e4): `memory/cte_centers.json` with 79 CTE centers — 1,009 sending districts, ~139K students. Coverage: OK (29), OH (22), PA (11), IN (6), MA (5), MI (3), TN (3). New `tools/cte_prospector.py`. New `cte_center` strategy tier 760-879.
+
+8. **F8 Private School discovery + networks** (commit c911b33): Pivot from Urban Institute PSS sync (blocked — Urban doesn't have PSS, NCES Locator is rate-capped). New `tools/private_schools.py` with:
+   - 24 multi-school network seed (dioceses + chains) — ~1,674 schools. Biggest: Primrose (450), Archdiocese of LA (215), Archdiocese of Chicago (125).
+   - Serper per-state discovery.
+   - New `private_school_network` strategy tier 740-839.
+
+9. **F9 CS Graduation Compliance Gap PDF pilot** (commit 442d7cb): New `tools/compliance_gap_scanner.py`. Pilot: CA, IL, MA. Pipeline: Serper filetype:pdf → httpx download (10 MB cap) → Claude Sonnet 4.6 document input → structured extraction → auto-queue HIGH non-compliant/partial as `compliance_gap` strategy. New tier 850-939 (just below cs_funding_recipient — the law is the sales pitch). Cost ~$0.50-$2.00/scan. Exit criterion manual: ≥60% validation rate before scaling.
+
+**Next session starts with (Steven said no acting — this is for the session AFTER he's ready to act):**
+1. Rebuild Signals tab with new URLs — run `/signal_funding`, `/signal_competitors`, `/signal_csta`. Old rows may dedup-block; clear them first if needed.
+2. Test F9 compliance pilot on CA, IL, MA. Validate ≥60% of queued districts before scaling to other states.
+3. Queue + approve the static seeds: `/prospect_charter_cmos`, `/prospect_cte_centers`, `/prospect_private_networks`.
+4. Approve 384 F1 intra-district prospects in batches of 5-10.
+5. Tulsa bond results — if Prop 3 passed, act on Robert F. Burton.
+6. Verify Google Alert parser with first post-April-9 digest.
 
 ---
 

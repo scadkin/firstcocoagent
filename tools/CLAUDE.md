@@ -284,6 +284,69 @@ email_drafter.get_daily_summary() -> str  # daily stats for EOD report
 # _skip_because_already_replied and skipped in the main loop.
 ```
 
+## charter_prospector — MODULE not class (F6)
+```python
+import tools.charter_prospector as charter_prospector
+charter_prospector.load_charter_cmos() -> list[dict]
+charter_prospector.filter_cmos_by_state(cmos, state=None) -> list[dict]
+charter_prospector.queue_charter_cmos(state=None) -> dict
+charter_prospector.format_queue_result_for_telegram(result) -> str
+charter_prospector.list_charter_cmos_for_telegram(state=None) -> str
+# Reads memory/charter_cmos.json seed (43 CMOs, 918 schools total).
+# Queues via district_prospector.add_district with strategy="charter_cmo".
+# Priority tier 780-899, scales with school_count.
+```
+
+## cte_prospector — MODULE not class (F7)
+```python
+import tools.cte_prospector as cte_prospector
+cte_prospector.load_cte_centers() -> list[dict]
+cte_prospector.filter_centers_by_state(centers, state=None) -> list[dict]
+cte_prospector.filter_centers_cs_only(centers) -> list[dict]
+cte_prospector.queue_cte_centers(state=None, cs_only=True) -> dict
+cte_prospector.format_queue_result_for_telegram(result) -> str
+cte_prospector.list_cte_centers_for_telegram(state=None, cs_only=True) -> str
+# Reads memory/cte_centers.json seed (79 centers, 1009 sending districts).
+# Queues via district_prospector.add_district with strategy="cte_center".
+# Priority tier 760-879, scales with sending_districts count.
+# cs_only=True default — only queue centers flagged with IT/CS program.
+```
+
+## private_schools — MODULE not class (F8)
+```python
+import tools.private_schools as private_schools
+private_schools.list_private_school_networks(state=None) -> list[dict]
+private_schools.discover_private_schools(state, max_results=25) -> dict
+private_schools.queue_private_school_networks(state=None) -> dict
+private_schools.format_discovery_for_telegram(result) -> str
+private_schools.format_networks_queue_for_telegram(result) -> str
+private_schools.PRIVATE_SCHOOL_NETWORKS  # 24-network static seed
+# discover_private_schools: Serper-based per-state lookup with noise filters
+# and size/city heuristics. Not comprehensive — Serper doesn't hit NCES PSS
+# data (NCES Private School Locator is rate-capped at 15/query, Urban
+# Institute doesn't expose PSS).
+# queue_private_school_networks: queues static seed (diocesan systems +
+# national chains) via strategy="private_school_network".
+# Priority tier 740-839, scales with school count.
+```
+
+## compliance_gap_scanner — MODULE not class (F9)
+```python
+import tools.compliance_gap_scanner as compliance_gap_scanner
+compliance_gap_scanner.scan_compliance_gaps(state, max_pdfs=5) -> dict
+compliance_gap_scanner.format_scan_result_for_telegram(result) -> str
+compliance_gap_scanner.PILOT_STATES  # {"CA", "IL", "MA"}
+compliance_gap_scanner.ENABLE_COMPLIANCE_SCAN  # kill switch
+# Serper filetype:pdf → httpx download → Claude Sonnet 4.6 document input.
+# Pilot scope: CA, IL, MA. Cost: ~$0.50-$2.00/scan depending on PDF pages.
+# Queues HIGH-confidence non_compliant/partial districts via
+# district_prospector.add_district with strategy="compliance_gap".
+# Priority tier 850-939 (just below cs_funding_recipient).
+# Exit criterion is MANUAL: verify 60%+ of queued districts are truly
+# non-compliant before scaling beyond pilot states.
+# PDF download cap: 10 MB. Uses claude-sonnet-4-6 with timeout=180s.
+```
+
 ## CallProcessor — lazy import
 ```python
 from agent.call_processor import CallProcessor
