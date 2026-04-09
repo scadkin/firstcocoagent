@@ -3401,6 +3401,28 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await send_message(f"Role scan failed: {e}")
         return
 
+    elif user_text.lower().startswith(("/discover_coops", "/discover_homeschool", "discover homeschool")):
+        # F10: on-demand homeschool co-op discovery
+        # Usage: /discover_coops TX  OR  /discover_homeschool_coops Texas
+        parts = user_text.strip().split(None, 1)
+        if len(parts) < 2 or not parts[1].strip():
+            await send_message(
+                "🏠 Usage: `/discover_coops [state]` — e.g. `/discover_coops TX` or `/discover_coops California`"
+            )
+            return
+        state_arg = parts[1].strip()
+        await send_message(f"🏠 Discovering homeschool co-ops in {state_arg}...")
+        try:
+            loop = asyncio.get_event_loop()
+            result = await loop.run_in_executor(
+                None, signal_processor.discover_homeschool_coops, state_arg, 25
+            )
+            output = signal_processor.format_homeschool_discovery(result)
+            await send_message(output)
+        except Exception as e:
+            await send_message(f"❌ Homeschool discovery failed: {e}")
+        return
+
     elif user_text.lower() in ["/signal_csta", "signal csta", "scan csta"]:
         await send_message("🎓 Scanning for CSTA chapter leaders (~$1.20)...")
         try:

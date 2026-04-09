@@ -549,6 +549,12 @@ def _calculate_priority(strategy: str, school_count: int, total_licenses: int,
         # Tier 2.7 (620-719): just below competitor_displacement. Individual teacher
         # relationships are warm but not deal-ready the way funding or displacement is.
         return 620 + min(int(est_enrollment / 300), 99)
+    elif strategy == "homeschool_coop":
+        # F10 Homeschool Co-op: parent-organized groups, 20-200 students.
+        # Small deal sizes but short sales cycles and no procurement red tape.
+        # Tier 3.5 (500-599): below cold small/medium (which enjoys enrollment
+        # lookups) but above cold with unknown enrollment.
+        return 500 + min(int(est_enrollment / 20), 99)
     else:
         # Cold strategy
         if est_enrollment <= 0:

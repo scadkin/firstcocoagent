@@ -2977,6 +2977,168 @@ STATE_CS_PROGRAMS = {
 }
 
 
+# ─────────────────────────────────────────────
+# F10: HOMESCHOOL CO-OP DISCOVERY (Serper-only, on-demand)
+# ─────────────────────────────────────────────
+
+def discover_homeschool_coops(state: str, max_results: int = 25) -> dict:
+    """
+    F10: On-demand discovery of homeschool co-ops in a given state.
+
+    Lightweight Serper-only — no Claude extraction, no auto-queue, no
+    scheduled scan. Steven runs this manually, reviews results, and can
+    /prospect_add any co-op they want to pursue.
+
+    Homeschool co-ops are different from districts:
+      - Parent-organized, 20-200 students typical
+      - Often meet 1-2 days/week in a church, community center, or home
+      - Pay per-family or per-student, not per-seat
+      - Decision-maker is the co-op director (usually a parent-volunteer)
+      - Harder to find via NCES (not federally reported)
+
+    Returns: {
+        state: "TX",
+        count: int,
+        coops: [{
+            name: str,
+            city: str,
+            url: str,
+            snippet: str,
+            estimated_size: str,  # "small" | "medium" | "large" | "unknown"
+        }]
+    }
+    """
+    if not SERPER_API_KEY:
+        logger.warning("SERPER_API_KEY not set — cannot discover homeschool co-ops")
+        return {"state": state, "count": 0, "coops": [], "error": "SERPER_API_KEY not set"}
+
+    state_abbr = state.strip().upper()
+    state_name = ABBR_TO_STATE_NAME.get(state_abbr, state_abbr)
+    if state_abbr not in TERRITORY_STATES_WITH_CA:
+        return {
+            "state": state_abbr,
+            "count": 0,
+            "coops": [],
+            "error": f"{state_abbr} not in territory — pass a territory state",
+        }
+
+    import httpx
+
+    # Three queries. Union of results, dedup by URL.
+    # Global exclusions: social media, national orgs, generic directories.
+    _exclusions = "-site:facebook.com -site:hslda.org -site:reddit.com"
+    queries = [
+        f'"homeschool co-op" OR "homeschool cooperative" "{state_name}" directory {_exclusions}',
+        f'"homeschool co-op" "{state_name}" classes OR curriculum OR enrollment {_exclusions}',
+        f'homeschool co-op "{state_name}" meet OR location OR "2025-2026" {_exclusions}',
+    ]
+
+    all_hits = []
+    seen_urls = set()
+    for q in queries:
+        try:
+            resp = httpx.post(
+                SERPER_URL,
+                headers={"X-API-Key": SERPER_API_KEY, "Content-Type": "application/json"},
+                json={"q": q, "num": 10},
+                timeout=15.0,
+            )
+            data = resp.json()
+            for item in data.get("organic", [])[:10]:
+                url = item.get("link", "")
+                if not url or url in seen_urls:
+                    continue
+                seen_urls.add(url)
+                title = item.get("title", "").strip()
+                snippet = item.get("snippet", "").strip()
+
+                # Skip generic directory listings and national orgs
+                lower = (title + " " + snippet).lower()
+                if any(noise in lower for noise in (
+                    "hslda", "home school legal", "reviews of", "list of homeschool",
+                    "top 10", "best homeschool", "wikipedia",
+                )):
+                    continue
+
+                # Heuristic size estimate from snippet text
+                size = "unknown"
+                if any(w in lower for w in ("100+ students", "200 students", "300 students", "large co-op")):
+                    size = "large"
+                elif any(w in lower for w in ("50 students", "60 families", "70 families", "medium")):
+                    size = "medium"
+                elif any(w in lower for w in ("20 students", "15 families", "small co-op", "our family")):
+                    size = "small"
+
+                # Try to extract a city from the snippet
+                city = ""
+                for part in snippet.split("."):
+                    if state_name in part or state_abbr in part.split():
+                        # Crude: grab preceding capitalized token
+                        tokens = part.strip().split()
+                        for i, t in enumerate(tokens):
+                            if t == state_abbr or t == state_name:
+                                if i > 0 and tokens[i - 1][0:1].isupper():
+                                    city = tokens[i - 1].strip(",")
+                                    break
+                        if city:
+                            break
+
+                all_hits.append({
+                    "name": title,
+                    "city": city,
+                    "url": url,
+                    "snippet": snippet[:200],
+                    "estimated_size": size,
+                })
+                if len(all_hits) >= max_results:
+                    break
+            time.sleep(0.3)
+            if len(all_hits) >= max_results:
+                break
+        except Exception as e:
+            logger.warning(f"Serper homeschool co-op query failed: {e}")
+
+    logger.info(f"Homeschool discovery ({state_abbr}): {len(all_hits)} co-ops found")
+    return {
+        "state": state_abbr,
+        "count": len(all_hits),
+        "coops": all_hits[:max_results],
+    }
+
+
+def format_homeschool_discovery(result: dict) -> str:
+    """Format discover_homeschool_coops output for Telegram."""
+    if result.get("error"):
+        return f"❌ Homeschool discovery: {result['error']}"
+
+    coops = result.get("coops", [])
+    state = result.get("state", "?")
+
+    if not coops:
+        return f"🏠 No homeschool co-ops found in {state}. Try a different state."
+
+    lines = [f"🏠 *Homeschool co-ops in {state}* — {len(coops)} found"]
+    lines.append("")
+    for i, c in enumerate(coops[:15], 1):
+        name = c["name"][:55]
+        size_marker = {"large": "🟢", "medium": "🟡", "small": "🔵", "unknown": "⚪"}.get(
+            c["estimated_size"], "⚪"
+        )
+        city_str = f" ({c['city']})" if c["city"] else ""
+        lines.append(f"{i}. {size_marker} {name}{city_str}")
+        if c["snippet"]:
+            lines.append(f"    _{c['snippet'][:100]}_")
+        lines.append(f"    {c['url'][:100]}")
+        lines.append("")
+
+    if len(coops) > 15:
+        lines.append(f"_...and {len(coops) - 15} more. Re-run with smaller max for fewer._")
+
+    lines.append("")
+    lines.append("Use `/prospect_add [name], [state]` to queue any of these for outreach.")
+    return "\n".join(lines)
+
+
 def scan_cs_funding_awards(states=None, progress_callback=None) -> dict:
     """
     F4: Scan for K-12 districts that recently received state-level CS funding.
