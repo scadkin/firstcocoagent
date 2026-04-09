@@ -3314,47 +3314,53 @@ def scan_competitor_displacement(states=None, progress_callback=None) -> dict:
             f"Searching {len(scan_states)} states × {len(COMPETITORS)} competitors..."
         )
 
-    for state_abbr in scan_states:
-        state_name = ABBR_TO_STATE_NAME.get(state_abbr, state_abbr)
+    # Session 51 redesign: query strategy shifted from job postings + vendor case
+    # studies (noisy, low precision) to board meeting documents, RFP/bid documents,
+    # and district-published curriculum adoption records (high precision). State
+    # filtering moved to post-process via NCES lookup since the state constraint
+    # inside the query was killing hit rate.
+    for comp in COMPETITORS:
+        name = comp["name"]
+        domain = comp["domain"]
 
-        for comp in COMPETITORS:
-            name = comp["name"]
-            domain = comp["domain"]
+        # Note: state_abbr loop collapsed — we now query once per competitor and
+        # rely on NCES district lookup in post-process to enforce territory.
+        # This cuts Serper call count ~13x (one query per competitor instead of
+        # per state × competitor).
+        queries = [
+            # Primary: BoardDocs hits — highest precision. These are actual
+            # board meeting documents where districts discuss curriculum adoption.
+            f'"{name}" site:go.boarddocs.com',
+            # Secondary: Non-BoardDocs board meeting + curriculum adoption docs
+            f'"{name}" "board of education" curriculum adoption school district',
+            # Tertiary: RFP and bid documents, excluding vendor's own site
+            f'"{name}" RFP OR "request for proposal" school district -site:{domain}',
+        ]
 
-            queries = [
-                # Primary: job postings (most actionable)
-                f'"experience with {name}" OR "teach {name}" school district job "{state_name}"',
-                # Secondary: RFP replacement language
-                f'"replacing {name}" OR "transition from {name}" school district "{state_name}"',
-                # Tertiary: vendor case studies
-                f'site:{domain} "school district" "{state_name}"',
-            ]
-
-            for query in queries:
-                try:
-                    resp = httpx.post(
-                        SERPER_URL,
-                        headers={"X-API-Key": SERPER_API_KEY, "Content-Type": "application/json"},
-                        json={"q": query, "num": 10, "tbs": "qdr:y"},
-                        timeout=15.0,
-                    )
-                    data = resp.json()
-                    for item in data.get("organic", [])[:10]:
-                        url = item.get("link", "")
-                        if url and url not in seen_urls:
-                            seen_urls.add(url)
-                            all_snippets.append({
-                                "title": item.get("title", ""),
-                                "snippet": item.get("snippet", ""),
-                                "url": url,
-                                "searched_state": state_abbr,
-                                "searched_competitor": comp["key"],
-                            })
-                    time.sleep(0.3)  # 0.3s × 234 queries ≈ 70s scan time
-                except Exception as e:
-                    logger.warning(
-                        f"Serper competitor scan failed for {state_abbr}/{comp['key']}: {e}"
-                    )
+        for query in queries:
+            try:
+                resp = httpx.post(
+                    SERPER_URL,
+                    headers={"X-API-Key": SERPER_API_KEY, "Content-Type": "application/json"},
+                    json={"q": query, "num": 10},  # no tbs — full time window
+                    timeout=15.0,
+                )
+                data = resp.json()
+                for item in data.get("organic", [])[:10]:
+                    url = item.get("link", "")
+                    if url and url not in seen_urls:
+                        seen_urls.add(url)
+                        all_snippets.append({
+                            "title": item.get("title", ""),
+                            "snippet": item.get("snippet", ""),
+                            "url": url,
+                            "searched_competitor": comp["key"],
+                        })
+                time.sleep(0.3)  # ~18 queries (6 comp × 3 queries) ≈ 6s scan time
+            except Exception as e:
+                logger.warning(
+                    f"Serper competitor scan failed for {comp['key']}: {e}"
+                )
 
     if not all_snippets:
         logger.info("Competitor scan: no results")
@@ -3363,15 +3369,15 @@ def scan_competitor_displacement(states=None, progress_callback=None) -> dict:
         return {"signals": [], "queued": [], "customer_intel": [], "raw_count": 0}
 
     logger.info(
-        f"Competitor scan: {len(all_snippets)} unique articles from "
-        f"{len(scan_states)} states × {len(COMPETITORS)} competitors"
+        f"Competitor scan: {len(all_snippets)} unique articles across "
+        f"{len(COMPETITORS)} competitors"
     )
 
     # Build combined text for Claude
     combined_text = ""
     for s in all_snippets:
         combined_text += (
-            f"\n[{s['searched_state']}/{s['searched_competitor']}] "
+            f"\n[{s['searched_competitor']}] "
             f"{s['title']}\n{s['snippet']}\nURL: {s['url']}\n"
         )
     combined_text = combined_text[:16000]
@@ -3384,9 +3390,10 @@ def scan_competitor_displacement(states=None, progress_callback=None) -> dict:
         client = anthropic.Anthropic(timeout=90.0)
         prompt = f"""Extract K-12 school district mentions of competitor curriculum platforms from these search results.
 
-Be PERMISSIVE in extraction. The downstream system uses confidence tiers
-to filter, so include ALL plausible K-12 district mentions and let the
-confidence field convey uncertainty. Do NOT pre-filter aggressively.
+We are looking specifically for evidence that a district is a PAYING
+CUSTOMER actively USING the competitor's curriculum day-to-day. Be strict
+about this — a district being "associated with" or "mentioned near" a
+vendor is NOT evidence of paid adoption.
 
 For each mention, return JSON:
 {{
@@ -3397,27 +3404,35 @@ For each mention, return JSON:
   "first_mention_date": "YYYY-MM or empty",
   "confidence": "HIGH | MEDIUM | LOW",
   "headline": "one-sentence summary",
-  "source_url": "Copy the URL line from the specific search result that mentions this district. Use the URL exactly as shown in the results below — do not fabricate or guess. Empty string if you can't identify which URL the mention came from."
+  "source_url": "Copy the URL line from the specific search result that mentions this district. Use the URL exactly as shown — do not fabricate or guess. Empty string if you can't identify which URL the mention came from."
 }}
 
-INCLUDE (be generous):
-- Any K-12 district, school, or school system mention paired with a competitor name
-- Job postings at K-12 schools mentioning competitor experience
-- Vendor case studies, customer lists, press releases naming K-12 customers
-- News articles mentioning a school/district using a competitor
-- Board meeting minutes referencing competitor adoption or evaluation
-- If snippet says "school district" without naming one, still include with confidence=LOW
+EVIDENCE TYPE RULES (strict):
+- board_adoption: BoardDocs file or district board meeting document showing the district discussing or adopting the competitor's curriculum. URL usually contains go.boarddocs.com or a district's own board docs portal. STRONGEST evidence.
+- rfp_bid: District RFP, bid document, or procurement record naming the competitor as a purchased or evaluated product. Also STRONG.
+- job_posting: District's own job listing requires or prefers experience with the competitor (e.g. "CodeHS experience preferred" on a district career page). Strong — but ONLY if the job is posted by the district, NOT by the competitor company itself.
+- case_study: Vendor-published case study naming the district as a paying customer. Medium strength — marketing content.
+- press_release: News article explicitly describing the district's PAID adoption of the competitor's product.
+- other: Anything else — use this for ambiguous mentions, and ALWAYS pair with confidence=LOW.
 
-CONFIDENCE TIERS:
-- HIGH: district named clearly + competitor named clearly + clear K-12 context
-- MEDIUM: district OR competitor named clearly, other field inferable
-- LOW: district name partial, ambiguous K-12 context, or vague snippet
+CONFIDENCE TIERS (strict):
+- HIGH: evidence_type is board_adoption OR rfp_bid OR job_posting (from district, not vendor), district named clearly, competitor named clearly, K-12 context unambiguous.
+- MEDIUM: evidence_type is case_study OR press_release with clear district naming. NEVER assign HIGH to case_study or press_release.
+- LOW: evidence_type is other, OR district name is partial, OR snippet is vague.
 
-EXCLUDE only:
+DO NOT mistake these for adoption evidence (use confidence=LOW or skip):
+- Vendor "district partners" or "partner schools" pages (e.g. code.org/districts/partners) — these are typically FREE PD/resource networks, not paid customers.
+- Student scholarship announcements (e.g. "2025 CodeHS Scholars") — one student winning $1K is NOT evidence the district adopted the curriculum.
+- Teacher conference speaker bios mentioning the competitor — personal experience, not district adoption.
+- Newsletter or blog posts with generic "schools use [competitor]" language without a specific district name.
+- Generic "Code.org partner network" or "CodeHS scholars" pages with no specific district.
+
+EXCLUDE entirely:
 - Universities, colleges, coding bootcamps for adults
 - Out-of-territory results (state field must match the searched state)
+- Home-school co-ops without a district affiliation
 
-Return ONLY a valid JSON array — no commentary. Empty array [] if truly nothing.
+Return ONLY a valid JSON array — no commentary. Empty array [] if nothing qualifies.
 
 Search results:
 {combined_text}"""
@@ -3471,6 +3486,11 @@ Search results:
         if nces_state:
             state = nces_state
 
+        # Session 51: territory filter moved from query-time to post-process
+        # since the queries no longer include state names.
+        if state not in scan_states:
+            continue
+
         norm_district = csv_importer.normalize_name(district)
         competitor = (item.get("competitor") or "").strip()
         comp_key = name_to_key.get(competitor, csv_importer.normalize_name(competitor) or "unknown")
@@ -3485,6 +3505,33 @@ Search results:
         source_url = (item.get("source_url") or "").strip()
         if source_url and not source_url.startswith(("http://", "https://")):
             source_url = ""  # defense against hallucinated URLs
+
+        # Post-process confidence hardening. Claude has a tendency to inflate
+        # confidence on weak sources (partner pages, scholarship announcements).
+        # This is belt-and-suspenders on top of the prompt rules.
+        _STRONG_EVIDENCE = ("board_adoption", "rfp_bid", "job_posting", "rfp_replacement")
+        if evidence_type not in _STRONG_EVIDENCE:
+            # Only strong evidence types qualify for HIGH.
+            # Case studies and press releases cap at MEDIUM even if Claude said HIGH.
+            if confidence == "HIGH":
+                confidence = "MEDIUM"
+
+        # URL-pattern demotion: known false-positive sources auto-downgrade to LOW
+        _WEAK_URL_PATTERNS = (
+            "/districts/partners",        # code.org free partner network
+            "/district/partners",         # alt casing
+            "/partners/",                 # any vendor partners subpath
+            "/scholars",                  # CodeHS/code.org student scholarships
+            "/scholarship",               # scholarship announcements
+            "/blog/announcing-the-",      # vendor blog announcements
+            "/newsletter",                # vendor newsletters
+            "/press/",                    # vendor press rooms
+        )
+        if source_url and any(p in source_url.lower() for p in _WEAK_URL_PATTERNS):
+            confidence = "LOW"
+            if evidence_type == "case_study":
+                evidence_type = "other"  # it's not actually a case study
+
         cust_status = check_customer_status(district)
         in_territory = state in TERRITORY_STATES_WITH_CA
 
