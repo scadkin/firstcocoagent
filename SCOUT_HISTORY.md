@@ -450,3 +450,166 @@ Stubs in plan file:
 - `gas/Code.gs` — `createDraft` thread/cc/HTML, `threadHasDraft` helper, `skip_if_draft_exists`
 - `CLAUDE.md`, `SCOUT_PLAN.md` — updated session state and architecture rules
 
+
+## Session 50 (2026-04-08) — Email Drafter Fixes + Targeted Draft Command
+
+### What changed
+- **Issue A (critical):** Second-round email drafts were repeating the first draft instead of addressing the prospect's new reply. Root cause: `searchInboxFull` in `gas/Code.gs` used `messages[0]` (oldest message in thread) instead of `messages[last]`. The drafter re-read the same original message every cycle and never saw Steven's sent reply or the prospect's new message.
+- **Issue B:** First-round drafts sometimes didn't fire because `seed_processed_emails` silently marked all currently-unread emails as "seen" on Railway restart, absorbing them. No visibility into when this happened.
+
+### Solution
+- **New GAS endpoint `getThreadsBulk(thread_ids, body_limit)`** — batch-fetches structured per-message data for multiple threads in one call. Returns `{thread_id: {message_count, kept_count, messages: [{from, date, body}]}}`. Caps at 30 threads × 30 messages × 3000 chars/message.
+- **`tools/email_drafter.py` enrichment pipeline:** `_enrich_with_thread_history(gas, emails)` batch-fetches after `search_inbox_full`, overwrites `email["body"]` and `email["from"]` with the latest message so classification + addressing track correctly, attaches `email["thread_messages"]` with `is_from_steven` flag per message, graceful degradation on GAS failure.
+- **`_format_thread_transcript`** builds chronological STEVEN/PROSPECT transcript for Claude's prompt. 20000-char cap, truncates oldest first.
+- **`_draft_reply` prompt** updated with explicit rules: "Messages marked STEVEN are replies Steven already sent — do NOT repeat points he already made. Address ONLY what is new in the prospect's last message."
+- **`_skip_because_already_replied` defensive guard** for the edge case where the latest message is from Steven himself.
+- **Startup restart notice** — `agent/main.py` now sends a Telegram notice when `seed_processed_emails` absorbs any unread emails on restart, with `/draft force` hint.
+- **`/draft [name]` targeted command** — bypasses Haiku classification entirely for a specific sender. Searches unread inbox by name substring, forces a draft. Fixes the case where Haiku SKIPs an email Steven wants to reply to.
+- **Skip-count UX fix** — `format_draft_summary` now shows "Scanned N — all skipped (already drafted or no reply needed)" instead of the misleading "No new emails to draft" when everything got dedup-blocked.
+
+### Live test results
+- **Jesse Layne / Buchanan:** PASS. Draft correctly addressed Jesse's CompTIA CyberSecurity question, acknowledged "high school" and "budget permitting" context, did not re-list product bullets.
+- **Kerrie Priest / Colon Schools:** PASS. Correctly classified as SKIP (short "thank you, will check out" acknowledgment with nothing to reply to).
+- **Katherine Konwinski (FLAG):** PASS. Draft addressed all 3 of Katherine's specific points (licenses in use, vendor sponsorship, Zoom scheduling) with proper `[STEVEN: ...]` FLAG placeholder.
+
+### Key decisions
+- **Batch endpoint over per-thread calls** — `_call` has ~500ms overhead per invocation and the drafter runs ~132 cycles/day minimum during business hours. One batch call per cycle beats one-plus-N calls even at N=2, and it makes error handling atomic (one try/except, not a loop).
+- **Structured messages over stringly-typed transcript** — explicit `is_from_steven` beats Claude pattern-matching "On Mon, Steven wrote:". Python filters and formats deterministically.
+- **Graceful degradation** (try/except around bulk fetch) — if Python ships before GAS is redeployed, drafter falls back to prior behavior rather than crashing.
+- **Persistence of `_processed_message_ids` deferred** — Telegram restart notice is the minimum viable fix. Full persistence would eliminate seeding entirely but adds new failure modes (stale state, write conflicts). Revisit only if notice proves insufficient.
+
+### Commits
+- `d6a2923` Fix email drafter: second-round drafts read full thread history
+- `10b72e8` Email drafter: notify Telegram when restart seeds unread emails out
+- `37acfeb` Add targeted draft command: /draft [name] bypasses classification
+- `61794ed` Session 50 wrap-up: update CLAUDE.md with drafter fixes
+
+### Files modified
+- NEW: (none — all changes in existing files)
+- `gas/Code.gs` — new `getThreadsBulk` function + case in `doPost` switch
+- `tools/gas_bridge.py` — `get_threads_bulk(thread_ids, body_limit=3000)` method with empty-list short-circuit
+- `tools/email_drafter.py` — `_STEVEN_EMAIL` constant, `_MAX_TRANSCRIPT_CHARS=20000`, `_enrich_with_thread_history`, `_format_thread_transcript`, `_skip_because_already_replied` branch, `_draft_reply` prompt rewrite, `draft_for_sender` function, `format_draft_summary` skip-count handling
+- `agent/main.py` — `/draft [name]` targeted handler, startup seeding Telegram notice, `import tools.email_drafter`, skip-count UX path
+- `tools/CLAUDE.md` — `get_threads_bulk` documented in GASBridge section, email_drafter section updated with thread-aware drafting notes
+- `CLAUDE.md` — Session 50 current state, new commands in shorthand table, email auto-drafter status with thread-aware note
+- Plan: `/Users/stevenadkins/.claude/plans/sparkling-cooking-eclipse.md`
+
+
+## Session 51 (2026-04-09) — Tier A Spot-Check + Full Tier B/C Build + F2 Rewrite
+
+### What changed
+Full build session, zero acting. Executed the complete Tier B + C of the Lead Generation Expansion (F5/F6/F7/F8/F9/F10), fixed a hidden bug shared by F4 and F2 that had been suppressing source URLs in signals since Session 49, and completely rewrote the F2 competitor displacement scanner after the Tier A spot-check revealed Session 49's F2 output was 100% false positives.
+
+### Tier A spot-check verdict
+- **F4 Western Reserve ESC (OH):** REAL. $584,614 Ohio Teach CS 2.0 grant, verified via news-herald.com URL. BUT characterization as "ESA buys curriculum" was wrong — this is teacher PD funding, not curriculum purchase. Correct play is member districts (Willoughby-Eastlake, Painesville, iSTEM), not the ESC itself.
+- **F2 Carlinville CUSD#1, Effingham CUSD 40, School District U-46 (IL):** WEAK. All three linked to `code.org/districts/partners` — Code.org's FREE partner network page, not paid Code.org Express customers.
+- **F2 Azusa USD (CA):** VERY WEAK. Source URL was a CodeHS blog post announcing the 2025 CodeHS Scholars program. One Azusa High student, Kaelyn Yang, won a $1,000 scholarship. Not district curriculum adoption.
+
+### F4+F2 source URL preservation bug
+Both `scan_cs_funding_awards` and `scan_competitor_displacement` were hardcoding `"url": ""` when writing signals to the Signals tab. Serper URLs were fed INTO Claude's prompt combined_text but never requested back in the JSON extraction schema, so Claude never returned them. Fixed by adding `source_url` field to both schemas with explicit "copy exactly, do not fabricate" instructions, plus http/https validation against hallucinated URLs. Same fix applied to F5 CSTA scanner which had the identical bug.
+
+### F2 competitor displacement scanner — complete rewrite
+Old Session 49 F2 used three queries per competitor per state (234 total Serper calls across territory):
+- Primary: `"experience with {name}"` job postings
+- Secondary: `"replacing {name}"` RFP replacement
+- Tertiary: `site:{vendor_domain} "school district"` — this was the main source of false positives (partner listings, scholarship announcements, marketing blog posts)
+
+New Session 51 F2 strategy:
+- **Drop tertiary vendor site: queries entirely** — always produced false positives, never real customer evidence.
+- **New primary:** `"{name}" site:go.boarddocs.com` — actual district board meeting documents. Highest precision.
+- **New secondary:** `"{name}" "board of education" curriculum adoption school district` — general board-portal adoption records.
+- **New tertiary:** `"{name}" RFP OR "request for proposal" school district -site:{vendor_domain}` — district RFP/bid documents with vendor self-site exclusion.
+- **Collapsed per-state query loop** — 18 total Serper calls (6 competitors × 3 queries) instead of 234. 13× fewer calls. Territory filter moved to post-process via NCES district→state lookup.
+- **Strict evidence type gate:** only `board_adoption`, `rfp_bid`, `job_posting`, or `rfp_replacement` qualify for HIGH confidence. Case studies and press releases cap at MEDIUM.
+- **URL-pattern downgrade:** `/districts/partners`, `/scholars`, `/blog/announcing-*`, `/newsletter`, `/press/` auto-demote to LOW and re-tag `case_study` → `other`.
+- **Prompt rewritten** to explicitly exclude partner pages, student scholarships, conference speaker bios, generic mentions.
+
+Local test after rewrite produced 7 HIGH signals from real BoardDocs URLs: Columbus City SD (OH), Fort Worth ISD (TX), Palo Alto USD (CA), Pocono Mountain SD (PA), Northridge (OH), Chester Upland SD (PA), + more. Plus 4 MEDIUM signals. Night and day versus Session 49.
+
+### F5 CSTA Chapter Partnership
+New prospecting strategy `csta_partnership` for CSTA chapter leaders with district affiliation. Entry point is the chapter relationship, not a cold district pitch. `scan_csta_chapters` updated with:
+- URL bug fix (same pattern as F4/F2)
+- `confidence` + `evidence_type` fields (`chapter_officer`, `board_member`, `conference_speaker`, `active_member`)
+- HIGH confidence + named district + chapter_officer/board_member → auto-queue via `district_prospector.add_district(strategy="csta_partnership")`
+- Tier 1 signal upgrade for HIGH confidence (was always Tier 2)
+
+Priority tier 620-719. Sequence template written to `memory/csta_partnership_sequence.md` — 4-step peer-to-peer framing, chapter-first entry, district decision-maker intro request in step 3, polite step-back in step 4. Hard rules: never pitch pricing in steps 1-2, never "hop on a call" language, always use the specific chapter name + role from the captured signal.
+
+### F10 Homeschool Co-op Discovery
+Lightweight Serper-only `/discover_coops [state]` command. No scheduled scan, no auto-queue. Three queries per state with noise exclusions (facebook.com, hslda.org, reddit.com). Size heuristic (small/medium/large/unknown) from snippet text. Crude city extraction. Returns structured list for Telegram display, Steven manually `/prospect_add`s the ones he wants. New `homeschool_coop` priority tier 500-599.
+
+### F6 Charter School CMO Seed List
+Static seed list of 43 Charter Management Organizations across 11 territory states. Total: 918 schools, ~511,100 students. Biggest entries: IDEA PS (TX, 135 schools), National Heritage Academies (MI, 100), ResponsiveEd (TX, 80), Harmony Public Schools (TX, 60), KIPP Texas (57). Coverage by state: TX 8, CA 8, PA 5, TN 4, IL 4, MA 3, OH 3, NV 3, CT 2, OK 2, MI 1.
+
+`memory/charter_cmos.json` with per-entry fields: cmo_name, parent_network, state, school_count, est_enrollment, hq_city, grade_levels, website, notes. New module `tools/charter_prospector.py` with `load_charter_cmos`, `filter_cmos_by_state`, `queue_charter_cmos`, `format_queue_result_for_telegram`, `list_charter_cmos_for_telegram`. New commands `/list_charter_cmos [state]` and `/prospect_charter_cmos [state]`. New `charter_cmo` priority tier 780-899 scaling with school count (more schools = bigger deal).
+
+### F7 CTE Center Directory
+Static seed list of 79 Career Technical Education centers across 7 territory states. Total sending-district reach: 1,009 districts. ~139,500 students. Coverage: OK 29 (entire Oklahoma CareerTech system), OH 22 (major career centers), PA 11 (CTCs), IN 6 (Area Career Centers), MA 5 (regional vocational schools), MI 3 (ISD CTE centers), TN 3 (TCATs).
+
+`memory/cte_centers.json` with per-entry fields: name, state, city, est_enrollment, sending_districts, website, it_cs_program flag, notes. All current entries flagged it_cs_program=true (prioritized CS-relevant centers for CodeCombat fit). New module `tools/cte_prospector.py` mirroring charter_prospector pattern. New commands `/list_cte_centers [state]` and `/prospect_cte_centers [state]`. New `cte_center` priority tier 760-879 scaling with sending-district count (broader reach = higher priority). `/prospect_cte_centers` defaults to cs_only=True.
+
+### F8 Private School — pivot from Urban Institute PSS to Serper discovery + network seed
+Original Session 49 plan called for Urban Institute PSS sync. Session 51 investigation found:
+- Urban Institute Education Data Portal does **not** cover NCES Private School Survey. It exposes CCD, CRDC, EdFacts, and higher-ed sources — not PSS.
+- NCES Private School Locator's HTML interface is rate-capped to 15 results per query with no working pagination parameters. Bulk sync is not viable.
+- PSS microdata downloads from NCES require offline SAS/Stata processing. Not suitable for a live scanner.
+
+Pivot: match F10 discovery pattern plus a static seed of multi-school networks for high-leverage targeting.
+
+`tools/private_schools.py` with:
+- `PRIVATE_SCHOOL_NETWORKS` static seed: 24 networks, ~1,674 total schools. Catholic diocesan systems (Archdiocese of LA 215, Chicago 125, Philadelphia 120, Cincinnati 110, Boston 100, Detroit 80, Galveston-Houston 55), national independent chains (Primrose 450, Stratford 28, Great Hearts TX 8, BASIS Independent 12, Challenger 4), Jewish day school networks.
+- `discover_private_schools(state, max_results=25)` — Serper per-state discovery with K-12 filters, noise exclusions (facebook.com, yelp.com, niche.com, greatschools.org, -preschool, -daycare, -homeschool, -college, -university), size/city extraction heuristics.
+- `queue_private_school_networks(state)` — queues static seed as `private_school_network` strategy prospects.
+- Format functions for both paths.
+
+New commands `/discover_private_schools [state]` and `/prospect_private_networks [state]`. New `private_school_network` priority tier 740-839 scaling with schools count.
+
+### F9 CS Graduation Compliance Gap PDF Pilot
+The most complex new feature this session. Uses Claude Sonnet 4.6's `document` content block for PDF input — a newer API capability.
+
+Theory: states with CS graduation laws (CA AB 1251, IL PA 102-0763, MA DLCS framework) create forced-buyer leads. Districts legally obligated to offer CS but not yet compliant are the highest-urgency prospects because the law itself is the sales pitch.
+
+Pipeline:
+1. Per-state Serper `filetype:pdf` queries targeting state DOE domains, legislative reports, and accountability documents.
+2. httpx PDF download with 10 MB cap, content-type validation, streaming (no in-memory blowup).
+3. Base64-encode PDF → Claude Sonnet 4.6 document block + extraction prompt with state-specific context (cites the actual state law).
+4. Structured JSON extraction: `[{district, status, evidence_quote, page_hint, confidence}]`. Statuses: non_compliant, compliant, partial, unknown.
+5. Auto-queue HIGH-confidence non_compliant + partial districts via `add_district(strategy="compliance_gap")`, deduping across multiple PDFs by normalized district name.
+
+New module `tools/compliance_gap_scanner.py` with `ENABLE_COMPLIANCE_SCAN` kill switch, `PILOT_STATES = {"CA", "IL", "MA"}`, `scan_compliance_gaps(state, max_pdfs=5)`, `format_scan_result_for_telegram`. New command `/scan_compliance [state]` pilot-guarded to CA/IL/MA.
+
+New `compliance_gap` priority tier 850-939 — just below `cs_funding_recipient` (which has money already allocated). The law is the sales pitch.
+
+Cost: ~$0.50-$2.00 per scan depending on PDF page counts. Sanity check on the Serper step confirmed 20+ on-topic PDF hits per pilot state (CA AIR case studies, IL legislative docs, MA DESE DLCS docs).
+
+Exit criterion is **manual**, not enforced in code: verify ≥60% of queued districts are truly non-compliant before scaling beyond pilot states. If the first real run produces garbage, pivot or disable.
+
+### Key decisions
+- **F2 query strategy inverted from "vendor says customer" to "district says adoption"** — vendor-site queries (partner pages, case studies, customer lists, scholarship blurbs) were the main source of noise. BoardDocs and RFP documents are where districts self-report adoption decisions — high precision, low hallucination risk.
+- **Territory filtering moved from query-time to post-process** for F2 — per-state queries were killing hit rate on specific phrases. Using NCES district→state lookup after extraction keeps the Serper call count low and lets the primary/secondary/tertiary queries cast a wider net.
+- **F8 pivot was prompted by reality, not preference** — attempted Urban Institute endpoints (404), then scoped NCES alternatives and confirmed they're all blocked or offline-only. Static seed + Serper discovery is not the "comprehensive sync" Session 49 imagined, but it ships a working feature instead of a dead one.
+- **F9 PDF input pipeline has real cost guardrails** — 10 MB download cap, max_pdfs=5 per call, kill switch, manual 60% validation gate before scaling. Claude PDF calls are priced per page; one carelessly large PDF could spike a scan to $5+.
+- **Per-feature commits rule honored rigorously** — 9 commits (F2 URL fix, F2 rewrite, F5, F10, F6, F7, F8, F9, wrap-up). Anyone needs to revert any single feature can do it surgically.
+
+### Commits
+- `42b6ef7` Fix F4+F2 scanners to preserve source URLs
+- `4801431` Tighten F2 competitor scanner: BoardDocs + RFP queries, strict evidence
+- `a637487` F5 CSTA Chapter Partnership strategy
+- `8220c83` F10 Homeschool Co-op Discovery: lightweight Serper command
+- `8ae5d5a` F6 Charter School CMO Seed List + prospector
+- `ac2c4e4` F7 CTE Center Directory + prospector
+- `c911b33` F8 Private School discovery + network seed list
+- `442d7cb` F9 CS Graduation Compliance Gap Scanner (PDF pilot)
+- `2edf6df` Session 51 wrap-up: CLAUDE.md, SCOUT_PLAN.md, tools/CLAUDE.md
+
+### Files modified
+- NEW: `tools/charter_prospector.py`, `tools/cte_prospector.py`, `tools/private_schools.py`, `tools/compliance_gap_scanner.py`, `memory/charter_cmos.json`, `memory/cte_centers.json`, `memory/csta_partnership_sequence.md`
+- `tools/signal_processor.py` — F4/F2/F5 URL preservation fix, F2 query strategy rewrite, F2 evidence type + confidence gating, F2 URL-pattern downgrade, F5 CSTA auto-queue logic, new `discover_homeschool_coops` + `format_homeschool_discovery` functions (F10)
+- `tools/district_prospector.py` — 6 new priority tiers: `csta_partnership` (620-719), `homeschool_coop` (500-599), `charter_cmo` (780-899), `cte_center` (760-879), `private_school_network` (740-839), `compliance_gap` (850-939)
+- `agent/main.py` — 8 new command handlers: `/list_charter_cmos`, `/prospect_charter_cmos`, `/list_cte_centers`, `/prospect_cte_centers`, `/discover_coops`, `/discover_private_schools`, `/prospect_private_networks`, `/scan_compliance`. New top-level imports for `charter_prospector`, `cte_prospector`, `private_schools`, `compliance_gap_scanner`.
+- `CLAUDE.md` — Session 51 current state, 28-of-28 strategy count, next-session checklist restructured with acting items grouped at top, new modules in repo structure
+- `SCOUT_PLAN.md` — Session 51 YOU ARE HERE with full deliverables
+- `tools/CLAUDE.md` — Module API blocks added for all 4 new modules
+- Memories: `feedback_build_only_mode.md`, `feedback_scanner_url_preservation.md`, `feedback_vendor_site_queries_fail.md`, `reference_urban_institute_no_pss.md`
+- Plan file: none (session followed Session 49's Tier B/C stubs directly, no fresh plan file was written)
+
