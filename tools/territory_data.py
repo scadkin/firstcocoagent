@@ -552,7 +552,11 @@ def lookup_district_enrollment(name: str, state: str) -> int:
     """
     Look up a district's enrollment from NCES territory data.
 
-    Matches on normalized district name within the given state.
+    Matches on normalized district name within the given state:
+      1. Exact Name Key match (fast)
+      2. Fuzzy match via csv_importer.fuzzy_match_name (token overlap /
+         containment, threshold 0.7)
+
     Returns 0 on miss or missing state.
     """
     if not name or not state:
@@ -560,9 +564,55 @@ def lookup_district_enrollment(name: str, state: str) -> int:
     try:
         target_key = csv_importer.normalize_name(name)
         districts = _load_territory_districts(state.strip().upper())
+        if not districts:
+            return 0
+
+        # Build key → enrollment map
+        key_to_enrollment = {}
         for d in districts:
-            if csv_importer.normalize_name(d.get("Name", "")) == target_key:
-                return int(d.get("Enrollment") or 0)
+            existing_key = (d.get("Name Key") or "").strip()
+            if not existing_key:
+                existing_key = csv_importer.normalize_name(d.get("District Name", ""))
+            if existing_key:
+                try:
+                    key_to_enrollment[existing_key] = int(d.get("Enrollment") or 0)
+                except (ValueError, TypeError):
+                    key_to_enrollment[existing_key] = 0
+
+        # 1. Exact match
+        if target_key in key_to_enrollment:
+            return key_to_enrollment[target_key]
+
+        # 2. Token-set subset match (handles "carlinville 1" vs "carlinville",
+        # "effingham community unit" vs "effingham", "u46" vs "sd u46", etc.
+        # within a single state's namespace — false-positive risk is low.)
+        target_tokens = set(target_key.split())
+        if target_tokens:
+            best_key = None
+            best_overlap = 0
+            for cand_key in key_to_enrollment:
+                cand_tokens = set(cand_key.split())
+                if not cand_tokens:
+                    continue
+                shared = target_tokens & cand_tokens
+                if not shared:
+                    continue
+                # Require that either direction's tokens are fully contained
+                # in the other, AND at least one token in common.
+                if shared == target_tokens or shared == cand_tokens:
+                    overlap = len(shared)
+                    if overlap > best_overlap:
+                        best_overlap = overlap
+                        best_key = cand_key
+            if best_key:
+                return key_to_enrollment[best_key]
+
+        # 3. Existing fuzzy fallback (2+ token subset or single-token containment)
+        matched = csv_importer.fuzzy_match_name(
+            target_key, list(key_to_enrollment.keys()), threshold=0.7
+        )
+        if matched:
+            return key_to_enrollment[matched]
     except Exception as e:
         logger.info(f"lookup_district_enrollment miss for {name} ({state}): {e}")
     return 0
