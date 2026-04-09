@@ -94,7 +94,7 @@ district_prospector.discover_districts(state, max_results=15) -> dict  # sync
 district_prospector.suggest_upward_targets() -> dict
 district_prospector.suggest_closed_lost_targets(buffer_months=6, lookback_months=18) -> dict
 district_prospector.suggest_cold_license_requests(sequence_ids=None, progress_callback=None) -> dict
-district_prospector.add_district(name, state, notes="", strategy="cold", source="manual", signal_id="") -> dict
+district_prospector.add_district(name, state, notes="", strategy="cold", source="manual", signal_id="", **kwargs) -> dict  # kwargs: est_enrollment, school_count, sending_districts, schools, total_licenses — used for priority scoring + queue row columns 15-17
 district_prospector.get_pending(limit=5) -> list[dict]
 district_prospector.get_all_prospects(status_filter="") -> list[dict]
 district_prospector.approve_districts(indices, batch) -> list[dict]
@@ -188,6 +188,7 @@ import tools.territory_data as territory_data
 territory_data.sync_territory(states=None) -> dict  # sync, use run_in_executor
 territory_data.get_territory_stats(state_filter="") -> dict
 territory_data.get_territory_gaps(state) -> dict
+territory_data.lookup_district_enrollment(name, state) -> int  # NCES match, returns 0 on miss
 ```
 
 ## proximity_engine — MODULE not class

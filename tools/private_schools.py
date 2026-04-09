@@ -233,6 +233,7 @@ def queue_private_school_networks(state: Optional[str] = None) -> dict:
                 notes=full_notes,
                 strategy="private_school_network",
                 source="manual",
+                schools=schools,
             )
             if result.get("success"):
                 queued.append({"name": name, "state": st, "schools": schools})

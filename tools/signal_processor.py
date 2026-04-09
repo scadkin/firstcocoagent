@@ -3368,6 +3368,7 @@ Search results:
         # HIGH confidence → auto-queue as pending
         if confidence == "HIGH":
             try:
+                enrollment = territory_data.lookup_district_enrollment(district, state)
                 queue_result = district_prospector.add_district(
                     name=district,
                     state=state,
@@ -3375,6 +3376,7 @@ Search results:
                     strategy="cs_funding_recipient",
                     source="signal",
                     signal_id=msg_id,
+                    est_enrollment=enrollment,
                 )
                 if queue_result.get("success"):
                     queued_districts.append(district)
@@ -3734,6 +3736,7 @@ Search results:
         # HIGH confidence → auto-queue as pending
         if confidence == "HIGH":
             try:
+                enrollment = territory_data.lookup_district_enrollment(district, state)
                 queue_result = district_prospector.add_district(
                     name=district,
                     state=state,
@@ -3741,6 +3744,7 @@ Search results:
                     strategy="competitor_displacement",
                     source="signal",
                     signal_id=msg_id,
+                    est_enrollment=enrollment,
                 )
                 if queue_result.get("success"):
                     queued_districts.append(f"{district} ({competitor})")
@@ -4745,6 +4749,7 @@ Search results:
             and cust_status != "active"
         ):
             try:
+                enrollment = territory_data.lookup_district_enrollment(district, state)
                 queue_result = district_prospector.add_district(
                     name=district,
                     state=state,
@@ -4752,6 +4757,7 @@ Search results:
                     strategy="csta_partnership",
                     source="signal",
                     signal_id=msg_id,
+                    est_enrollment=enrollment,
                 )
                 if queue_result.get("success"):
                     queued_districts.append(f"{district} (via {person_name})")

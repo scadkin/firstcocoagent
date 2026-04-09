@@ -548,6 +548,26 @@ def _load_territory_districts(state_filter: str = "") -> list[dict]:
     return rows
 
 
+def lookup_district_enrollment(name: str, state: str) -> int:
+    """
+    Look up a district's enrollment from NCES territory data.
+
+    Matches on normalized district name within the given state.
+    Returns 0 on miss or missing state.
+    """
+    if not name or not state:
+        return 0
+    try:
+        target_key = csv_importer.normalize_name(name)
+        districts = _load_territory_districts(state.strip().upper())
+        for d in districts:
+            if csv_importer.normalize_name(d.get("Name", "")) == target_key:
+                return int(d.get("Enrollment") or 0)
+    except Exception as e:
+        logger.info(f"lookup_district_enrollment miss for {name} ({state}): {e}")
+    return 0
+
+
 def _load_territory_schools(state_filter: str = "") -> list[dict]:
     """Load schools from the Territory Schools tab."""
     rows = _load_tab_rows(TAB_TERRITORY_SCHOOLS, SCHOOL_COLUMNS)

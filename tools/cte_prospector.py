@@ -134,6 +134,8 @@ def queue_cte_centers(
                 notes=full_notes,
                 strategy="cte_center",
                 source="manual",
+                sending_districts=sending_districts,
+                est_enrollment=est_enrollment,
             )
             if result.get("success"):
                 queued.append({

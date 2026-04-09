@@ -561,8 +561,8 @@ def _calculate_priority(strategy: str, school_count: int, total_licenses: int,
         # Tier 1.3 (780-899): below upward tier 1 (active customer expansion)
         # but above intra_district and cs_funding_recipient. Scale by school
         # count because more schools = bigger deal.
-        school_count = kwargs.get("school_count", 0)
-        base = 780 + min(school_count * 2, 99)
+        sc = school_count or kwargs.get("school_count", 0)
+        base = 780 + min(sc * 2, 99)
         return base
     elif strategy == "cte_center":
         # F7 CTE Center: regional career/technical center serving multiple
@@ -2478,9 +2478,12 @@ def _write_c4_audit(pricing_sent: list, has_opp: list, active: list,
 
 
 def add_district(name: str, state: str, notes: str = "", strategy: str = "cold",
-                  source: str = "manual", signal_id: str = "") -> dict:
+                  source: str = "manual", signal_id: str = "", **kwargs) -> dict:
     """
     Manually add a district to the prospecting queue.
+
+    kwargs: optional size metadata used for priority scoring + queue display.
+      est_enrollment, school_count, sending_districts, schools, total_licenses
 
     Returns:
       {success, message, already_exists}
@@ -2512,29 +2515,40 @@ def add_district(name: str, state: str, notes: str = "", strategy: str = "cold",
                 }
 
         now = datetime.now().strftime("%Y-%m-%d %H:%M")
-        priority = _calculate_priority(strategy, 0, 0, 0)
+        # Pop any names that collide with _calculate_priority's positional params.
+        # We pass them positionally; the remaining kwargs (sending_districts, schools,
+        # amount, etc.) forward via **kwargs for branch lookup.
+        est_enrollment = int(kwargs.pop("est_enrollment", 0) or 0)
+        school_count = int(kwargs.pop("school_count", 0) or 0)
+        total_licenses = int(kwargs.pop("total_licenses", 0) or 0)
+        priority = _calculate_priority(strategy, school_count, total_licenses, est_enrollment, **kwargs)
+
+        # Size metadata → queue columns 15-17
+        est_enrollment_cell = str(est_enrollment) if est_enrollment else ""
+        school_count_cell = str(school_count) if school_count else ""
+        total_licenses_cell = str(total_licenses) if total_licenses else ""
 
         row = [
-            state_abbr,     # State
-            name,           # Account Name
-            "",             # Email
-            "",             # First Name
-            "",             # Last Name
-            "",             # Deal Level
-            "",             # Parent District
-            name_key,       # Name Key
-            strategy,       # Strategy
-            source,         # Source
-            "pending",      # Status
-            str(priority),  # Priority
-            now,            # Date Added
-            "",             # Date Approved
-            "",             # Sequence Doc URL
-            "",             # Est. Enrollment
-            "",             # School Count
-            "",             # Total Licenses
-            signal_id,      # Signal ID
-            notes,          # Notes (always last)
+            state_abbr,             # State
+            name,                   # Account Name
+            "",                     # Email
+            "",                     # First Name
+            "",                     # Last Name
+            "",                     # Deal Level
+            "",                     # Parent District
+            name_key,               # Name Key
+            strategy,               # Strategy
+            source,                 # Source
+            "pending",              # Status
+            str(priority),          # Priority
+            now,                    # Date Added
+            "",                     # Date Approved
+            "",                     # Sequence Doc URL
+            est_enrollment_cell,    # Est. Enrollment
+            school_count_cell,      # School Count
+            total_licenses_cell,    # Total Licenses
+            signal_id,              # Signal ID
+            notes,                  # Notes (always last)
         ]
         _write_rows([row])
 

@@ -131,6 +131,8 @@ def queue_charter_cmos(state: Optional[str] = None) -> dict:
                 notes=full_notes,
                 strategy="charter_cmo",
                 source="manual",
+                school_count=school_count,
+                est_enrollment=est_enrollment,
             )
             if result.get("success"):
                 queued.append({
