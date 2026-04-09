@@ -1,13 +1,14 @@
 # SCOUT — Claude Code Reference
-*Last updated: 2026-04-08 — End of Session 49*
+*Last updated: 2026-04-08 — End of Session 50*
 
 ---
 
 ## CURRENT STATE — update this after each session
 
-**Session 49 (COMPLETE): Massive session. Email auto-drafter on Railway with thread dedup. 5 parked features shipped. Tier A of Lead Generation Expansion shipped (F1+F2+F3+F4). 384 schools queued for intra-district expansion, 4 competitor displacement leads, 1 CS funding lead.**
+**Session 50 (COMPLETE): Fixed critical email drafter bug — second-round drafts now read full thread history instead of re-reading the original inbound. New `get_threads_bulk` GAS endpoint. Added `/draft [name]` targeted draft command. Restart seeding Telegram notice. Skip-count UX fix.**
 
 ### Recent sessions (details in SCOUT_PLAN.md + SCOUT_HISTORY.md)
+- **Session 50:** Email drafter fixes: thread-aware drafting (GAS `getThreadsBulk` + Python enrichment), restart seeding notice, `/draft [name]` targeted command, skip-count UX. 4 commits. Plan: `/Users/stevenadkins/.claude/plans/sparkling-cooking-eclipse.md`
 - **Session 49:** Email auto-drafter, 5 parked features, Lead Gen Tier A (F1 second buyer, F2 competitor, F3 curriculum adoption, F4 funding scanner). 16+ commits. Plan: `/Users/stevenadkins/.claude/plans/inherited-munching-sunrise.md`
 - **Session 48:** Email Reply Drafting system — Gmail MCP threaded drafts in Steven's voice. Response playbook, voice profile updated, GAS `delete_draft`.
 - **Session 47:** Territory map enriched popups + signal heat overlay. 6 new scanners (grants, budget, algebra, cyber, roles, CSTA). Lookalike, re-engagement, dormant detection.
@@ -34,10 +35,10 @@
 
 ### Current status
 - All prior phases + enhancements: ✅
-- Signal Intelligence System: ✅ — **21 sources** (Session 49 added F4 cs_funding_award + F2 competitor_usage). **33 Telegram commands** (added /signal_funding, /signal_competitors, /prospect_expansion, /unanswered, /draft, /draft force). Daily 7:45 AM + weekly Monday (leadership/RFP) + monthly 1st Monday (legislation/grants/budget). On-demand: roles, CSTA, algebra, cyber, funding, competitors.
+- Signal Intelligence System: ✅ — **21 sources** (Session 49 added F4 cs_funding_award + F2 competitor_usage). **34 Telegram commands** (Session 50 added `/draft [name]`). Daily 7:45 AM + weekly Monday (leadership/RFP) + monthly 1st Monday (legislation/grants/budget). On-demand: roles, CSTA, algebra, cyber, funding, competitors.
 - Prospecting strategies: ✅ **23 of 24 built** (Session 49 added intra_district + competitor_displacement + cs_funding_recipient strategy tags). Only #2 (usage-based, blocked on CodeCombat data) remains.
 - Outreach sequences: ✅ — IDs 1995-2001 (C4 x4, License Request, Webinar x2). 3 send schedules.
-- Email auto-drafter: ✅ — runs every 5 min during business hours, dedup via GAS `threadHasDraft`, manual `/draft_emails` and `/draft force` triggers.
+- Email auto-drafter: ✅ — runs every 5 min during business hours, **thread-aware** (GAS `getThreadsBulk` batch fetch, STEVEN/PROSPECT attribution in prompt). Dedup via `threadHasDraft`. Manual triggers: `/draft_emails`, `/draft force`, `/draft [name]` (targeted, bypasses classification). Restart seeding notifies Telegram with `/draft force` hint.
 - Sequence copy rules: ✅ — Comprehensive rules in memory. Seasonal calendar. Send schedules.
 
 ### Completed features (details in SCOUT_PLAN.md)
@@ -56,7 +57,7 @@
 - C4 sequences: IDs 1995-1998. Schedule: "C4 Tue-Thu Morning" (ID 50). Steven's template: ID 43784.
 
 ### Email Reply Drafting (auto + manual)
-**Auto-drafting (Railway):** `tools/email_drafter.py` polls unread inbox every 5 min during business hours (7 AM - 6 PM CST, weekdays). Classifies via Claude Haiku (DRAFT/FLAG/SKIP), drafts via Claude Sonnet with voice profile + playbook, creates threaded HTML drafts via GAS bridge. Notifies Steven in Telegram. Manual trigger: `/draft_emails` or "draft my emails".
+**Auto-drafting (Railway):** `tools/email_drafter.py` polls unread inbox every 5 min during business hours (7 AM - 6 PM CST, weekdays). Classifies via Claude Haiku (DRAFT/FLAG/SKIP), drafts via Claude Sonnet with voice profile + playbook + **full thread history** (via `gas.get_threads_bulk`), creates threaded HTML drafts via GAS bridge. Notifies Steven in Telegram. Manual triggers: `/draft_emails`, `/draft force`, `/draft [name]` (targeted — bypasses classification).
 **Claude Code workflow:** When Steven says "draft my emails" in Claude Code, load and follow `prompts/reply_draft.md`.
 Voice rules in `memory/voice_profile.md`. Response patterns in `memory/response_playbook.md`.
 Draft log in `memory/draft_log.md`. Known issue: Outreach browser extension strips draft body for contacts in Outreach.
@@ -377,6 +378,7 @@ firstcocoagent/
 | `/color_leads` | recolor Leads tab rows by email confidence |
 | `/eod` | manually trigger end-of-day report (useful on weekends) |
 | `/draft_emails`, `draft my emails` | manually trigger email auto-drafting (also runs every 5 min during business hours) |
+| `/draft [name]` | force-draft a specific sender's unread email, bypassing Haiku classification (e.g. `/draft Allison`) |
 | `/prospect_discover [state]` | cold district search via Serper |
 | `/prospect_upward` | upward targets from active accounts |
 | `/prospect` | show next 5 pending districts |
