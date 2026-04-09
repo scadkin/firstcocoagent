@@ -36,6 +36,7 @@ import tools.todo_manager as todo_manager
 import tools.proximity_engine as proximity_engine
 import tools.signal_processor as signal_processor
 import tools.charter_prospector as charter_prospector
+import tools.cte_prospector as cte_prospector
 import tools.email_drafter as email_drafter
 from tools.telegram_bot import send_message
 # Phase 4/5 modules imported lazily inside execute_tool() — safe to boot without them
@@ -3400,6 +3401,35 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 await send_message("No CS/CTE/STEM leaders found.")
         except Exception as e:
             await send_message(f"Role scan failed: {e}")
+        return
+
+    elif user_text.lower().startswith(("/list_cte_centers", "list cte centers", "show cte centers")):
+        # F7: read-only CTE center list
+        parts = user_text.strip().split(None, 1)
+        state_arg = parts[1].strip() if len(parts) > 1 else None
+        try:
+            output = cte_prospector.list_cte_centers_for_telegram(state_arg)
+            await send_message(output)
+        except Exception as e:
+            await send_message(f"❌ CTE center list failed: {e}")
+        return
+
+    elif user_text.lower().startswith(("/prospect_cte_centers", "/prospect_cte", "queue cte centers")):
+        # F7: queue CTE centers as prospects
+        parts = user_text.strip().split(None, 1)
+        state_arg = parts[1].strip() if len(parts) > 1 else None
+        await send_message(
+            f"🛠 Queueing CTE centers{' for ' + state_arg.upper() if state_arg else ' (all territory)'}..."
+        )
+        try:
+            loop = asyncio.get_event_loop()
+            result = await loop.run_in_executor(
+                None, cte_prospector.queue_cte_centers, state_arg
+            )
+            output = cte_prospector.format_queue_result_for_telegram(result)
+            await send_message(output)
+        except Exception as e:
+            await send_message(f"❌ CTE center queueing failed: {e}")
         return
 
     elif user_text.lower().startswith(("/list_charter_cmos", "list charter cmos", "show charter cmos")):

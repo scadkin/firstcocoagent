@@ -564,6 +564,15 @@ def _calculate_priority(strategy: str, school_count: int, total_licenses: int,
         school_count = kwargs.get("school_count", 0)
         base = 780 + min(school_count * 2, 99)
         return base
+    elif strategy == "cte_center":
+        # F7 CTE Center: regional career/technical center serving multiple
+        # sending districts. Similar leverage to charter CMO — one adoption
+        # pulls 5-50 sending district relationships with it.
+        # Tier 1.4 (760-879): just below charter_cmo. Scale by sending
+        # district count because more sending districts = broader reach.
+        sending_districts = kwargs.get("sending_districts", 0)
+        base = 760 + min(sending_districts * 3, 119)
+        return base
     else:
         # Cold strategy
         if est_enrollment <= 0:
