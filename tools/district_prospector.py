@@ -555,6 +555,15 @@ def _calculate_priority(strategy: str, school_count: int, total_licenses: int,
         # Tier 3.5 (500-599): below cold small/medium (which enjoys enrollment
         # lookups) but above cold with unknown enrollment.
         return 500 + min(int(est_enrollment / 20), 99)
+    elif strategy == "charter_cmo":
+        # F6 Charter School CMO: multi-school network. One contract = many
+        # schools. Highest per-deal leverage in the territory.
+        # Tier 1.3 (780-899): below upward tier 1 (active customer expansion)
+        # but above intra_district and cs_funding_recipient. Scale by school
+        # count because more schools = bigger deal.
+        school_count = kwargs.get("school_count", 0)
+        base = 780 + min(school_count * 2, 99)
+        return base
     else:
         # Cold strategy
         if est_enrollment <= 0:

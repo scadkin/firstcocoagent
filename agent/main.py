@@ -35,6 +35,7 @@ import tools.territory_data as territory_data
 import tools.todo_manager as todo_manager
 import tools.proximity_engine as proximity_engine
 import tools.signal_processor as signal_processor
+import tools.charter_prospector as charter_prospector
 import tools.email_drafter as email_drafter
 from tools.telegram_bot import send_message
 # Phase 4/5 modules imported lazily inside execute_tool() — safe to boot without them
@@ -3399,6 +3400,35 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 await send_message("No CS/CTE/STEM leaders found.")
         except Exception as e:
             await send_message(f"Role scan failed: {e}")
+        return
+
+    elif user_text.lower().startswith(("/list_charter_cmos", "list charter cmos", "show charter cmos")):
+        # F6: read-only seed list view
+        parts = user_text.strip().split(None, 1)
+        state_arg = parts[1].strip() if len(parts) > 1 else None
+        try:
+            output = charter_prospector.list_charter_cmos_for_telegram(state_arg)
+            await send_message(output)
+        except Exception as e:
+            await send_message(f"❌ Charter CMO list failed: {e}")
+        return
+
+    elif user_text.lower().startswith(("/prospect_charter_cmos", "/prospect_cmos", "queue charter cmos")):
+        # F6: queue charter CMOs as prospects
+        parts = user_text.strip().split(None, 1)
+        state_arg = parts[1].strip() if len(parts) > 1 else None
+        await send_message(
+            f"🏫 Queueing charter CMOs{' for ' + state_arg.upper() if state_arg else ' (all territory)'}..."
+        )
+        try:
+            loop = asyncio.get_event_loop()
+            result = await loop.run_in_executor(
+                None, charter_prospector.queue_charter_cmos, state_arg
+            )
+            output = charter_prospector.format_queue_result_for_telegram(result)
+            await send_message(output)
+        except Exception as e:
+            await send_message(f"❌ Charter CMO queueing failed: {e}")
         return
 
     elif user_text.lower().startswith(("/discover_coops", "/discover_homeschool", "discover homeschool")):
