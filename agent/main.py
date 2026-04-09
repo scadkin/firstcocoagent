@@ -38,6 +38,7 @@ import tools.signal_processor as signal_processor
 import tools.charter_prospector as charter_prospector
 import tools.cte_prospector as cte_prospector
 import tools.private_schools as private_schools
+import tools.compliance_gap_scanner as compliance_gap_scanner
 import tools.email_drafter as email_drafter
 from tools.telegram_bot import send_message
 # Phase 4/5 modules imported lazily inside execute_tool() — safe to boot without them
@@ -3402,6 +3403,31 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 await send_message("No CS/CTE/STEM leaders found.")
         except Exception as e:
             await send_message(f"Role scan failed: {e}")
+        return
+
+    elif user_text.lower().startswith(("/scan_compliance", "/compliance_gap", "scan compliance")):
+        # F9: CS graduation compliance gap scanner (PDF pilot)
+        parts = user_text.strip().split(None, 1)
+        if len(parts) < 2 or not parts[1].strip():
+            await send_message(
+                "📑 Usage: `/scan_compliance [state]` — pilot scope: CA, IL, MA. "
+                "E.g. `/scan_compliance CA` (cost: ~$0.50-$2.00 per scan)"
+            )
+            return
+        state_arg = parts[1].strip().upper()
+        await send_message(
+            f"📑 Running F9 compliance gap scan on {state_arg}... "
+            f"(Serper → PDF download → Claude Sonnet extraction, ~2-5 min)"
+        )
+        try:
+            loop = asyncio.get_event_loop()
+            result = await loop.run_in_executor(
+                None, compliance_gap_scanner.scan_compliance_gaps, state_arg, 5
+            )
+            output = compliance_gap_scanner.format_scan_result_for_telegram(result)
+            await send_message(output)
+        except Exception as e:
+            await send_message(f"❌ Compliance gap scan failed: {e}")
         return
 
     elif user_text.lower().startswith(("/discover_private_schools", "/discover_private", "discover private schools")):

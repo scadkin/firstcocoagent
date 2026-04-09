@@ -582,6 +582,14 @@ def _calculate_priority(strategy: str, school_count: int, total_licenses: int,
         schools = kwargs.get("schools", 0)
         base = 740 + min(schools * 1, 99)
         return base
+    elif strategy == "compliance_gap":
+        # F9 CS Graduation Compliance Gap: district is legally obligated to
+        # offer CS but doesn't yet. Forced-buyer pattern — the law is the
+        # sales pitch. Highest urgency after cs_funding_recipient because
+        # the timing is driven by state compliance deadlines.
+        # Tier 1.1 (850-939): just below cs_funding_recipient (which has
+        # actual money already allocated).
+        return 850 + min(int(est_enrollment / 200), 89)
     else:
         # Cold strategy
         if est_enrollment <= 0:
