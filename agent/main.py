@@ -2699,6 +2699,40 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await send_message(f"Clear error: {e}")
         return
 
+    elif user_text.lower() == "/reprioritize_pending":
+        try:
+            await send_message("🔧 Reprioritizing pending queue rows (Session 52 migration)...")
+            loop = asyncio.get_event_loop()
+            result = await loop.run_in_executor(
+                None, district_prospector.reprioritize_pending
+            )
+            lines = [
+                "✅ *Reprioritize complete*",
+                "",
+                f"Scanned: {result.get('total_scanned', 0)}",
+                f"Updated: {result.get('updated', 0)}",
+                f"Unmatched: {result.get('unmatched', 0)}",
+            ]
+            bs = result.get("by_strategy", {}) or {}
+            if bs:
+                lines.append("")
+                lines.append("*By strategy:*")
+                for strat, counts in sorted(bs.items()):
+                    lines.append(
+                        f"  • {strat}: {counts.get('matched', 0)} matched, "
+                        f"{counts.get('unmatched', 0)} unmatched"
+                    )
+            errs = result.get("errors", []) or []
+            if errs:
+                lines.append("")
+                lines.append(f"⚠️ {len(errs)} errors:")
+                for e in errs[:5]:
+                    lines.append(f"  • {e[:120]}")
+            await send_message("\n".join(lines))
+        except Exception as e:
+            await send_message(f"Reprioritize error: {e}")
+        return
+
     elif user_text.lower() in ["/prospect_all", "prospect all", "show all prospects"]:
         try:
             loop = asyncio.get_event_loop()

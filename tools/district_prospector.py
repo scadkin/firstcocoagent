@@ -2564,6 +2564,214 @@ def add_district(name: str, state: str, notes: str = "", strategy: str = "cold",
         return {"success": False, "message": f"Error: {e}", "already_exists": False}
 
 
+def reprioritize_pending() -> dict:
+    """
+    One-shot migration: recompute priority for all pending queue rows
+    using the Session 52 kwargs-aware scoring path.
+
+    Session 49 + Session 51 introduced 7 new strategies that all read
+    size metadata from kwargs, but add_district was calling
+    _calculate_priority(strategy, 0, 0, 0) so every row scored at tier
+    base. This function reconstructs the metadata from the seed files
+    (CMOs, CTE centers, private school networks) or NCES lookups
+    (competitor / csta / funding) and writes corrected priorities back.
+
+    Strategies covered:
+      - charter_cmo         → memory/charter_cmos.json
+      - cte_center          → memory/cte_centers.json
+      - private_school_network → tools.private_schools seed
+      - cs_funding_recipient / competitor_displacement / csta_partnership
+        → territory_data.lookup_district_enrollment
+      - intra_district      → skipped (F1 rows are homogeneous, sort order
+                              within the set doesn't matter for batch approval)
+      - compliance_gap      → skipped (post-Session-52 should not auto-queue;
+                              any legacy rows stay at base)
+
+    Returns: {total_scanned, updated, unmatched, by_strategy, errors}
+    """
+    import tools.charter_prospector as charter_prospector
+    import tools.cte_prospector as cte_prospector
+    import tools.private_schools as private_schools
+    import tools.territory_data as territory_data
+
+    errors = []
+    updated = 0
+    unmatched = 0
+    by_strategy = {}
+
+    # Build seed lookup tables (normalized name → size metadata)
+    try:
+        cmo_seed = {
+            csv_importer.normalize_name(c.get("cmo_name") or ""): c
+            for c in charter_prospector.load_charter_cmos()
+        }
+    except Exception as e:
+        errors.append(f"charter seed load: {e}")
+        cmo_seed = {}
+
+    try:
+        cte_seed = {
+            csv_importer.normalize_name(c.get("name") or ""): c
+            for c in cte_prospector.load_cte_centers()
+        }
+    except Exception as e:
+        errors.append(f"cte seed load: {e}")
+        cte_seed = {}
+
+    try:
+        ps_seed = {
+            csv_importer.normalize_name(n.get("name") or ""): n
+            for n in private_schools.PRIVATE_SCHOOL_NETWORKS
+        }
+    except Exception as e:
+        errors.append(f"private_schools seed load: {e}")
+        ps_seed = {}
+
+    service = _get_service()
+    sheet_id = _get_sheet_id()
+
+    # Read pending rows with row indices
+    result = service.spreadsheets().values().get(
+        spreadsheetId=sheet_id,
+        range=f"'{TAB_PROSPECT_QUEUE}'!A:T",
+    ).execute()
+    rows = result.get("values", [])
+    if len(rows) < 2:
+        return {"total_scanned": 0, "updated": 0, "unmatched": 0,
+                "by_strategy": {}, "errors": errors}
+
+    headers = rows[0]
+    try:
+        strategy_idx = headers.index("Strategy")
+        status_idx = headers.index("Status")
+        priority_idx = headers.index("Priority")
+        name_idx = headers.index("Account Name")
+        state_idx = headers.index("State")
+        enroll_idx = headers.index("Est. Enrollment")
+        sc_idx = headers.index("School Count")
+    except ValueError as e:
+        return {"total_scanned": 0, "updated": 0, "unmatched": 0,
+                "by_strategy": {}, "errors": [f"header missing: {e}"]}
+
+    # Batch value updates — one per row per changed cell
+    value_updates = []
+    total_scanned = 0
+
+    for i, row in enumerate(rows[1:], start=2):  # 1-indexed + header offset
+        padded = row + [""] * (len(headers) - len(row))
+        status = (padded[status_idx] or "").lower()
+        if status != "pending":
+            continue
+        strategy = (padded[strategy_idx] or "").strip()
+        if strategy in ("intra_district", "compliance_gap", "cold", "upward",
+                        "winback", "proximity", "esa_cluster", "trigger",
+                        "cold_license_request"):
+            continue  # Skip homogeneous, out-of-scope, or already-correct tiers
+        total_scanned += 1
+
+        name = padded[name_idx] or ""
+        state = padded[state_idx] or ""
+        name_key = csv_importer.normalize_name(name)
+
+        # Recover size metadata based on strategy
+        kwargs = {}
+        enroll_cell_update = None
+        sc_cell_update = None
+
+        if strategy == "charter_cmo":
+            seed = cmo_seed.get(name_key)
+            if seed:
+                kwargs["school_count"] = int(seed.get("school_count") or 0)
+                kwargs["est_enrollment"] = int(seed.get("est_enrollment") or 0)
+                enroll_cell_update = str(kwargs["est_enrollment"]) if kwargs["est_enrollment"] else ""
+                sc_cell_update = str(kwargs["school_count"]) if kwargs["school_count"] else ""
+        elif strategy == "cte_center":
+            seed = cte_seed.get(name_key)
+            if seed:
+                kwargs["sending_districts"] = int(seed.get("sending_districts") or 0)
+                kwargs["est_enrollment"] = int(seed.get("est_enrollment") or 0)
+                enroll_cell_update = str(kwargs["est_enrollment"]) if kwargs["est_enrollment"] else ""
+        elif strategy == "private_school_network":
+            seed = ps_seed.get(name_key)
+            if seed:
+                kwargs["schools"] = int(seed.get("schools") or 0)
+        elif strategy in ("cs_funding_recipient", "competitor_displacement",
+                          "csta_partnership"):
+            enrollment = territory_data.lookup_district_enrollment(name, state)
+            if enrollment:
+                kwargs["est_enrollment"] = enrollment
+                enroll_cell_update = str(enrollment)
+        else:
+            # Unknown strategy — skip
+            continue
+
+        if not kwargs:
+            unmatched += 1
+            by_strategy.setdefault(strategy, {"matched": 0, "unmatched": 0})
+            by_strategy[strategy]["unmatched"] += 1
+            continue
+
+        # Recompute priority
+        est_enrollment = int(kwargs.pop("est_enrollment", 0) or 0)
+        school_count = int(kwargs.pop("school_count", 0) or 0)
+        new_priority = _calculate_priority(
+            strategy, school_count, 0, est_enrollment, **kwargs
+        )
+        old_priority = (padded[priority_idx] or "").strip()
+        if str(new_priority) == old_priority:
+            continue  # No change, don't bother writing
+
+        # Write priority
+        priority_col_letter = _col_letter_dp(priority_idx)
+        value_updates.append({
+            "range": f"'{TAB_PROSPECT_QUEUE}'!{priority_col_letter}{i}",
+            "values": [[str(new_priority)]],
+        })
+
+        # Also populate Est. Enrollment / School Count cells if they were blank
+        if enroll_cell_update is not None and not (padded[enroll_idx] or "").strip():
+            enroll_col_letter = _col_letter_dp(enroll_idx)
+            value_updates.append({
+                "range": f"'{TAB_PROSPECT_QUEUE}'!{enroll_col_letter}{i}",
+                "values": [[enroll_cell_update]],
+            })
+        if sc_cell_update is not None and not (padded[sc_idx] or "").strip():
+            sc_col_letter = _col_letter_dp(sc_idx)
+            value_updates.append({
+                "range": f"'{TAB_PROSPECT_QUEUE}'!{sc_col_letter}{i}",
+                "values": [[sc_cell_update]],
+            })
+
+        updated += 1
+        by_strategy.setdefault(strategy, {"matched": 0, "unmatched": 0})
+        by_strategy[strategy]["matched"] += 1
+
+    # Commit all updates in one batch
+    if value_updates:
+        try:
+            service.spreadsheets().values().batchUpdate(
+                spreadsheetId=sheet_id,
+                body={"valueInputOption": "RAW", "data": value_updates},
+            ).execute()
+        except Exception as e:
+            errors.append(f"batchUpdate failed: {e}")
+
+    return {
+        "total_scanned": total_scanned,
+        "updated": updated,
+        "unmatched": unmatched,
+        "by_strategy": by_strategy,
+        "errors": errors,
+    }
+
+
+def _col_letter_dp(idx: int) -> str:
+    """0-indexed column → A1 letter (for columns A-Z + AA-AZ)."""
+    if idx < 26:
+        return chr(ord("A") + idx)
+    return chr(ord("A") + (idx // 26) - 1) + chr(ord("A") + (idx % 26))
+
+
 def get_pending(limit: int = 5) -> list[dict]:
     """Get pending districts sorted by Priority descending."""
     prospects = _load_all_prospects()
