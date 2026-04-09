@@ -30,6 +30,9 @@ logger = logging.getLogger(__name__)
 SERPER_API_KEY = os.environ.get("SERPER_API_KEY", "")
 SERPER_URL = "https://google.serper.dev/search"
 
+# Kill switch — F8 private school Serper discovery
+ENABLE_PRIVATE_SCHOOL_DISCOVERY = True
+
 TERRITORY_STATES = {"IL", "PA", "OH", "MI", "CT", "OK", "MA", "IN", "NV", "TN", "NE", "TX"}
 TERRITORY_STATES_WITH_CA = TERRITORY_STATES | {"CA"}
 
@@ -93,6 +96,8 @@ def discover_private_schools(state: str, max_results: int = 25) -> dict:
     Focuses on larger/multi-campus private schools and excludes daycares,
     preschools-only, homeschool co-ops, and colleges.
     """
+    if not ENABLE_PRIVATE_SCHOOL_DISCOVERY:
+        return {"state": state, "count": 0, "schools": [], "error": "disabled via ENABLE_PRIVATE_SCHOOL_DISCOVERY"}
     if not SERPER_API_KEY:
         return {"state": state, "count": 0, "schools": [], "error": "SERPER_API_KEY not set"}
 

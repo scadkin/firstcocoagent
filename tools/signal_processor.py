@@ -1125,8 +1125,15 @@ SERPER_URL = "https://google.serper.dev/search"
 # ─────────────────────────────────────────────
 # KILL SWITCHES — flip to False to disable a scanner without deleting code
 # ─────────────────────────────────────────────
-ENABLE_FUNDING_SCAN = True       # F4: scan_cs_funding_awards
-ENABLE_COMPETITOR_SCAN = True    # F2: scan_competitor_displacement
+ENABLE_FUNDING_SCAN = True              # F4: scan_cs_funding_awards
+ENABLE_COMPETITOR_SCAN = True           # F2: scan_competitor_displacement
+ENABLE_CSTA_SCAN = True                 # F5: scan_csta_chapters
+ENABLE_HOMESCHOOL_COOP_DISCOVERY = True # F10: discover_homeschool_coops
+
+
+def _normalize_enum(val: str) -> str:
+    """Normalize a Claude-extracted enum value for case-insensitive comparison."""
+    return (val or "").strip().lower().replace("-", "_").replace(" ", "_")
 
 
 def enrich_signal(signal: dict) -> dict:
@@ -3008,6 +3015,9 @@ def discover_homeschool_coops(state: str, max_results: int = 25) -> dict:
         }]
     }
     """
+    if not ENABLE_HOMESCHOOL_COOP_DISCOVERY:
+        logger.info("Homeschool co-op discovery: disabled via ENABLE_HOMESCHOOL_COOP_DISCOVERY")
+        return {"state": state, "count": 0, "coops": [], "error": "disabled via ENABLE_HOMESCHOOL_COOP_DISCOVERY"}
     if not SERPER_API_KEY:
         logger.warning("SERPER_API_KEY not set — cannot discover homeschool co-ops")
         return {"state": state, "count": 0, "coops": [], "error": "SERPER_API_KEY not set"}
@@ -3564,7 +3574,7 @@ For each mention, return JSON:
   "district": "District or school name (best guess from snippet)",
   "state": "2-letter state code",
   "competitor": "Tynker | CodeHS | Replit for Education | Khan Academy CS | Code.org Express | Tinkercad",
-  "evidence_type": "job_posting | rfp_replacement | case_study | press_release | other",
+  "evidence_type": "board_adoption | rfp_bid | job_posting | case_study | press_release | other",
   "first_mention_date": "YYYY-MM or empty",
   "confidence": "HIGH | MEDIUM | LOW",
   "headline": "one-sentence summary",
@@ -3664,7 +3674,7 @@ Search results:
         dedup_seen.add(dedup_key)
 
         confidence = (item.get("confidence") or "LOW").strip().upper()
-        evidence_type = (item.get("evidence_type") or "other").strip()
+        evidence_type = _normalize_enum(item.get("evidence_type") or "other")
         first_mention = (item.get("first_mention_date") or "").strip()
         source_url = (item.get("source_url") or "").strip()
         if source_url and not source_url.startswith(("http://", "https://")):
@@ -3673,7 +3683,7 @@ Search results:
         # Post-process confidence hardening. Claude has a tendency to inflate
         # confidence on weak sources (partner pages, scholarship announcements).
         # This is belt-and-suspenders on top of the prompt rules.
-        _STRONG_EVIDENCE = ("board_adoption", "rfp_bid", "job_posting", "rfp_replacement")
+        _STRONG_EVIDENCE = ("board_adoption", "rfp_bid", "job_posting")
         if evidence_type not in _STRONG_EVIDENCE:
             # Only strong evidence types qualify for HIGH.
             # Case studies and press releases cap at MEDIUM even if Claude said HIGH.
@@ -4572,6 +4582,9 @@ def scan_csta_chapters(states=None, progress_callback=None) -> list:
     Uses Serper + Claude Haiku. Returns list of signal dicts.
     Cost: ~$1.20/scan (24 Serper queries + 1 Claude call).
     """
+    if not ENABLE_CSTA_SCAN:
+        logger.info("CSTA scan: disabled via ENABLE_CSTA_SCAN")
+        return []
     if not SERPER_API_KEY:
         logger.warning("SERPER_API_KEY not set — cannot scan CSTA chapters")
         return []
@@ -4722,7 +4735,7 @@ Search results:
         dedup_seen.add(dedup_key)
 
         confidence = (item.get("confidence") or "LOW").strip().upper()
-        evidence_type = (item.get("evidence_type") or "active_member").strip()
+        evidence_type = _normalize_enum(item.get("evidence_type") or "active_member")
         source_url = (item.get("source_url") or "").strip()
         if source_url and not source_url.startswith(("http://", "https://")):
             source_url = ""
