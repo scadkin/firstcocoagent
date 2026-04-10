@@ -431,7 +431,8 @@ def add_proximity_prospects(districts: list, state: str, reference_account: str 
             str(d.get("enrollment", "")),  # Est. Enrollment
             "",                            # School Count
             "",                            # Total Licenses
-            note,                          # Notes
+            "",                            # Signal ID
+            note,                          # Notes (always last)
         ]
         rows.append(row)
 
