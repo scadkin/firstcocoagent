@@ -294,6 +294,7 @@ async def _on_research_complete(result: dict):
                 with_email=with_email,
                 no_email=no_email,
                 notes=notes,
+                cross_contam_dropped=result.get("cross_contam_dropped", 0),
             )
         except Exception as log_err:
             logger.error(f"Research log write failed: {log_err}")
