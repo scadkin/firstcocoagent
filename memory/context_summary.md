@@ -1087,3 +1087,6 @@ No tasks completed today — ready to start fresh tomorrow.
 Five straight zero days. Thomas A. Edison MS is 87 days past close — that opp is functionally dead without contact tomorrow. Bonsall High ($11K) hits 10 days past due tomorrow. Pick one. Draft the email tonight or first thing tomorrow. Two minutes. That's all it takes to stop the bleeding.
 
 On it.
+
+### 2026-04-10
+❌ Claude API error: Error code: 400 - {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 'request_id': 'req_011CZvoXfnZynxfiYx6hzm8M'}
