@@ -1,9 +1,49 @@
 # SCOUT MASTER PLAN
-*Last updated: 2026-04-09 — End of Session 53 (Fire Drill Audit)*
+*Last updated: 2026-04-10 — End of Session 54 (BUG 3 repair + writer fixes)*
 
 ---
 
-## YOU ARE HERE → Session 53 was a FIRE DRILL AUDIT. Started as Session 52 Stage 4-8 execution, ended after discovering 5 separate silent-failure bugs in the scanner + research pipeline. Only 1 fix shipped (F2 max_tokens cap, commit `7c345a07`). **Session 54 is a DEDICATED FIX SPRINT** — no new features, repair the foundation. See CLAUDE.md CURRENT STATE for the full bug list + fix priority order. See the 5 new `memory/project_f*.md` files for per-bug details.
+## YOU ARE HERE → Session 54 shipped BUG 3 end-to-end. 1952 scrambled rows in Prospecting Queue rebuilt in canonical layout, 5 writer bugs patched, 2 latent bugs fixed, backup tab preserved. Ghost writer root cause still unidentified (diagnostic logging deployed to capture on next F2 run). **Next up: BUG 5 (research cross-contamination) — Priority 2 in the sprint order.** 4 bugs remain before the Session 52 Stage 6-8 carryover can run.
+
+### Session 54 deliverables (BUG 3 Fix Sprint)
+
+**Shipped (7 commits pushed to main):**
+- **Commit `7a9540f`:** Phase 0 kill switches — `ENABLE_COMPETITOR_SCAN=False`, `ENABLE_PRIVATE_SCHOOL_DISCOVERY=False` (stop-the-bleed before investigation).
+- **Commit `68622aa`:** Phase 1f diagnostic — temporary `_write_rows` logging that captures row payload, strategy position, caller stack trace, and Sheets API `updatedRange` response. Still active — will capture evidence on next production write.
+- **Commit `5990d8a`:** Phase 2-3 diagnostic scripts + repair script. 9 files including `scripts/repair_scrambled_queue_rows.py` (strategy-dispatch readers per scramble template, dry-run default, --apply gated).
+- **Commit `a54bc8c`:** Phase 4 district_prospector.py writer fixes. 4 callers (`discover_districts`, `suggest_upward_targets`, `suggest_closed_lost_targets`, `suggest_cold_license_requests`) now write 20-element rows with the Signal ID slot. Also fixed `_update_status` range A:S → A:T (latent Notes-truncation) and extended `_KNOWN_STRATEGIES` in both the module-level constant and `migrate_prospect_columns`.
+- **Commit `5ebfaea`:** Phase 4 proximity_engine.py — `add_proximity_prospects` now writes 20 elements.
+- **Commit `8b59ceb`:** Phase 6 F2 re-enabled (`ENABLE_COMPETITOR_SCAN=True`).
+- **Queue repair applied** via `python3 scripts/repair_scrambled_queue_rows.py --apply`. Backup: `Prospecting Queue BACKUP 2026-04-10 0010`. Post-repair audit: 1958/1958 rows canonical.
+
+**Investigation findings (captured in updated `memory/project_f2_column_layout_corruption.md`):**
+- 1952 of 1954 data rows were scrambled; only Pittsburgh PS + Archdiocese were canonical before Session 54.
+- Root cause: **partially identified.** The 4 district_prospector writers + 1 proximity_engine writer all built 19-element rows (missing the Signal ID slot added by commit `33e34f6`). This explains most of the historical damage.
+- **But NOT the F2 Lackland rows from 00:51 UTC.** F2 calls `add_district` which correctly builds a 20-element row. Four independent sentinel tests produced CANONICAL rows from the same checkout: (1) local Python, (2) `railway run` with Railway env vars, (3) `railway ssh` inside the container, (4) via `loop.run_in_executor`. Only the long-running Scout bot process produces scrambled rows. Diagnostic logging in `_write_rows` (commit `68622aa`) will capture evidence on the next scheduled F2 run.
+
+**7 exit criteria verified:**
+1. ✅ Zero non-canonical rows after repair (verified via fingerprint audit rerun)
+2. ✅ All 8 F2 rows from 00:51 UTC visible with Status=pending
+3. ⏳ Manual F2 sentinel test — waiting for next scheduled 7:45 AM CDT run
+4. ✅ Backup tab exists
+5. ✅ Pittsburgh PS + Archdiocese untouched
+6. ✅ Repair script committed with recovery docstring
+7. ✅ All writer fixes committed (one per file)
+
+**Leftover cleanup items:**
+- 4 sentinel rows (`ZZZ_SENTINEL_*`, `ZZZ_PHASE1*`) at rows 1956-1959 — canonical, harmless clutter, delete via `/cleanup_queue` or manually.
+- Backup tab `Prospecting Queue BACKUP 2026-04-10 0010` — safe to keep indefinitely; delete only after confirming repaired queue looks correct.
+- Phase 1f diagnostic logging in `_write_rows` — revert after next F2 run confirms outcome.
+
+### Session 54 starts with → Session 55 starts with
+
+**Next priority: BUG 5 — Research cross-contamination** (Priority 2 in sprint order). See `memory/project_research_cross_contamination.md`. Two steps:
+1. **Audit script** — iterate "Leads from Research" tab rows, flag any where the email domain doesn't match the canonical site of `District Name`. Report scope (expected: dozens of misattributions across 20 completed research jobs).
+2. **Fix** — post-extraction validation layer in `tools/research_engine.py` between L9 Claude-extract and L10 dedup-score. Drop or re-attribute contacts whose email domain doesn't match the research target's canonical domain.
+
+**Then in order:** BUG 4 (F8 diocesan playbook) → BUG 1 (F4 query redesign) → BUG 2 (F5 strategic decision) → Session 52 Stages 6-8 carryover.
+
+**Rules for Session 55:** Same as Session 54 — enter plan mode before any non-trivial build, ruthless pressure-test pass on the plan, verify before asking, commit one per feature, diagnostic logging should survive the fix so we catch the next ghost writer.
 
 ### Session 53 deliverables (Fire Drill Audit)
 
