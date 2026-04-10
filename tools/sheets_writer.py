@@ -162,14 +162,27 @@ def ensure_sheet_tabs_exist():
 
 
 def _ensure_headers(service, sheet_id: str, tab: str, columns: list[str]):
-    """Write header row if tab is empty."""
+    """Write header row if tab is empty OR if the current header is a
+    prefix of the expected columns (forward-compatible schema migration
+    when a new trailing column is added to LEAD_COLUMNS / LOG_COLUMNS / etc).
+    """
     result = service.spreadsheets().values().get(
         spreadsheetId=sheet_id,
         range=f"'{tab}'!A1:Z1"
     ).execute()
 
     values = result.get("values", [])
-    if not values or not values[0]:
+    current = values[0] if values else []
+
+    needs_write = False
+    if not current:
+        needs_write = True
+    elif len(current) < len(columns) and current == columns[: len(current)]:
+        # Header is a prefix of expected — append new trailing columns
+        needs_write = True
+        logger.info(f"Migrating header for tab {tab}: {len(current)} → {len(columns)} cols")
+
+    if needs_write:
         service.spreadsheets().values().update(
             spreadsheetId=sheet_id,
             range=f"'{tab}'!A1",

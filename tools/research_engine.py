@@ -692,7 +692,7 @@ class ResearchJob:
             kept.append(c)
 
         self.all_contacts = kept
-        self._contam_contacts_filtered = dropped
+        self._contam_contacts_filtered += dropped
         if dropped or email_cleared:
             logger.info(
                 f"L9 contact filter: {dropped}/{before} contacts dropped as cross-district, "
@@ -733,20 +733,26 @@ class ResearchJob:
                 continue
             seen.add(key)
 
-            # Cross-district email validation
-            if email and "@" in email and domain:
-                _, email_domain = email.rsplit("@", 1)
-                generic_domains = {"gmail.com", "yahoo.com", "hotmail.com", "outlook.com"}
-                if email_domain not in generic_domains:
-                    district_patterns = ["isd", "usd", "k12", "schools", "ps"]
-                    domain_root = email_domain.split(".")[0]
-                    looks_like_district = any(p in domain_root for p in district_patterns)
-                    if looks_like_district and district_hint not in domain_root:
-                        # Email is from a different district — clear it
-                        logger.debug(f"L10: Cross-district email dropped: {fn} {ln} → {email}")
-                        c["email"] = ""
-                        c["email_confidence"] = "UNKNOWN"
-                        rejected["cross_district"] += 1
+            # Cross-district email validation.
+            # BUG 5 Session 55: rewritten to use the shared helpers so the
+            # whole hostname is inspected (not just parts[0]). The old
+            # implementation missed emails like "@centralislip.k12.ny.us"
+            # because parts[0] = "centralislip" contains no district pattern.
+            if email and "@" in email and domain and ENABLE_RESEARCH_CONTAM_FILTER:
+                email_domain = email.rsplit("@", 1)[1]
+                target_host_l10 = self.district_domain.lower().replace("www.", "") if self.district_domain else ""
+                target_hint_l10 = self._district_name_hint(self.district_name)
+                if (
+                    email_domain
+                    and self._is_school_host(email_domain)
+                    and not self._email_domain_matches_target(
+                        email, target_host_l10, target_hint_l10
+                    )
+                ):
+                    logger.debug(f"L10: Cross-district email dropped: {fn} {ln} → {email}")
+                    c["email"] = ""
+                    c["email_confidence"] = "UNKNOWN"
+                    rejected["cross_district"] += 1
 
             # BUG 5: L10 source_url strengthening. Catches L15-added contacts
             # that bypass both filter stages. Degrades confidence to UNKNOWN;
@@ -1333,6 +1339,9 @@ class ResearchJob:
                     None, extract_from_multiple, enrichment_raw, self.district_name
                 )
                 self._merge_contacts(new_contacts)
+                # BUG 5: run Stage 2 over L15 additions so they get the
+                # same cross-district filtering L9 additions do
+                self._filter_contacts_by_domain()
 
             await asyncio.sleep(1.0)
 
@@ -1368,6 +1377,8 @@ class ResearchJob:
                     None, extract_from_multiple, discovery_raw, self.district_name
                 )
                 self._merge_contacts(new_contacts)
+                # BUG 5: run Stage 2 over L15 discovery additions too
+                self._filter_contacts_by_domain()
 
         logger.info(
             f"L15 complete for {self.district_name}: {_l15_used} queries used, "
