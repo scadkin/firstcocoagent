@@ -178,7 +178,15 @@ def migrate_prospect_columns() -> dict:
     Safe to run multiple times — detects which rows need migration.
     Returns {migrated, total, already_correct, errors}.
     """
-    _KNOWN_STRATEGIES = {"upward", "cold", "winback", "cold_license_request", "trigger", "sequence_reengagement", "webinar_attendee", "webinar_missed"}
+    _KNOWN_STRATEGIES = {
+        "upward", "cold", "winback", "cold_license_request", "trigger",
+        "sequence_reengagement", "webinar_attendee", "webinar_missed",
+        # Session 49+ strategies (added Session 54 BUG 3 fix)
+        "competitor_displacement", "csta_partnership", "charter_cmo",
+        "cte_center", "private_school_network", "compliance_gap",
+        "intra_district", "cs_funding_recipient", "homeschool_coop",
+        "proximity", "esa_cluster",
+    }
     num_cols = len(PROSPECT_COLUMNS)  # 20
 
     try:
@@ -334,7 +342,14 @@ def clear_by_strategy(strategy: str) -> dict:
     return {"cleared": cleared, "total_before": total_before, "total_after": len(kept_rows) - 1}
 
 
-_KNOWN_STRATEGIES = {"upward", "cold", "winback", "cold_license_request", "sequence_reengagement", "webinar_attendee", "webinar_missed"}
+_KNOWN_STRATEGIES = {
+    "upward", "cold", "winback", "cold_license_request", "trigger",
+    "sequence_reengagement", "webinar_attendee", "webinar_missed",
+    "competitor_displacement", "csta_partnership", "charter_cmo",
+    "cte_center", "private_school_network", "compliance_gap",
+    "intra_district", "cs_funding_recipient", "homeschool_coop",
+    "proximity", "esa_cluster",
+}
 
 
 def cleanup_prospect_queue() -> dict:
@@ -458,15 +473,15 @@ def _update_status(name_key: str, new_status: str, extra_updates: dict | None = 
 
     result = service.spreadsheets().values().get(
         spreadsheetId=sheet_id,
-        range=f"'{TAB_PROSPECT_QUEUE}'!A:S"
+        range=f"'{TAB_PROSPECT_QUEUE}'!A:T"
     ).execute()
     rows = result.get("values", [])
     if len(rows) < 2:
         return
 
     headers = rows[0]
-    name_key_idx = headers.index("Name Key") if "Name Key" in headers else 1
-    status_idx = headers.index("Status") if "Status" in headers else 5
+    name_key_idx = headers.index("Name Key") if "Name Key" in headers else 7
+    status_idx = headers.index("Status") if "Status" in headers else 10
 
     for row_num, row in enumerate(rows[1:], start=2):
         padded = row + [""] * (len(headers) - len(row))
@@ -1171,6 +1186,7 @@ def discover_districts(state: str, max_results: int = 15) -> dict:
                 str(d.get("est_enrollment", "")),  # Est. Enrollment
                 "",                  # School Count
                 "",                  # Total Licenses
+                "",                  # Signal ID
                 territory_warning,   # Notes (always last)
             ]
             new_rows.append(row)
@@ -1259,6 +1275,7 @@ def suggest_upward_targets() -> dict:
                 "",                        # Est. Enrollment
                 str(school_count),         # School Count
                 str(total_licenses),       # Total Licenses
+                "",                        # Signal ID
                 f"Schools: {', '.join(school_names)}",  # Notes (always last)
             ]
             new_rows.append(row)
@@ -1710,6 +1727,7 @@ def suggest_closed_lost_targets(buffer_months: int = 6, lookback_months: int = 1
                 "",                  # Est. Enrollment
                 "",                  # School Count
                 "",                  # Total Licenses
+                "",                  # Signal ID
                 " | ".join(notes_parts),  # Notes (always last)
             ]
             new_rows.append(row)
@@ -2357,6 +2375,7 @@ def suggest_cold_license_requests(sequence_ids: list[int] = None, progress_callb
                 "",                  # Est. Enrollment
                 "",                  # School Count
                 "",                  # Total Licenses
+                "",                  # Signal ID
                 " | ".join(notes_parts),  # Notes (always last)
             ]
             new_rows.append(row)
