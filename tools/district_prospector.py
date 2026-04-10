@@ -428,13 +428,27 @@ def _write_rows(rows: list[list]):
     if not rows:
         return
     service, sheet_id = _ensure_tab()
-    service.spreadsheets().values().append(
+    # SESSION 54 PHASE 1F DIAGNOSTIC — temporary, revert after BUG 3 fix lands
+    import traceback as _tb
+    for _row in rows:
+        logger.info(
+            f"[BUG3_DIAG] _write_rows row len={len(_row)} first3={_row[:3]!r} "
+            f"pos_of_strategy={[i for i,v in enumerate(_row) if isinstance(v, str) and v in {'upward','cold','winback','cold_license_request','trigger','competitor_displacement','csta_partnership','charter_cmo','cte_center','private_school_network','compliance_gap','intra_district','cs_funding_recipient','homeschool_coop','proximity','esa_cluster'}]}"
+        )
+    logger.info(f"[BUG3_DIAG] _write_rows caller stack:\n" + "".join(_tb.format_stack(limit=8)))
+    _resp = service.spreadsheets().values().append(
         spreadsheetId=sheet_id,
         range=f"'{TAB_PROSPECT_QUEUE}'!A2",
         valueInputOption="RAW",
         insertDataOption="INSERT_ROWS",
         body={"values": rows}
     ).execute()
+    logger.info(
+        f"[BUG3_DIAG] _write_rows API response: updatedRange={_resp.get('updates',{}).get('updatedRange','?')} "
+        f"updatedRows={_resp.get('updates',{}).get('updatedRows','?')} "
+        f"updatedColumns={_resp.get('updates',{}).get('updatedColumns','?')} "
+        f"updatedCells={_resp.get('updates',{}).get('updatedCells','?')}"
+    )
 
 
 def _update_status(name_key: str, new_status: str, extra_updates: dict | None = None):
