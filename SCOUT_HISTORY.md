@@ -671,3 +671,150 @@ Prop 3 tech bond ($104.785M) passed with 80.97% approval on April 7. Drafted out
 - `SCOUT_HISTORY.md` — this entry
 - Memories (auto-memory): `feedback_always_plan_mode.md`, `feedback_bond_trigger_outreach_tone.md`, `feedback_fuzzy_match_limits.md`
 - Plan file: `/Users/stevenadkins/.claude/plans/dreamy-floating-avalanche.md` (4 iterations before approval)
+
+---
+
+## Session 53 (2026-04-09) — Fire Drill Audit: 5 Silent-Failure Bugs Discovered
+
+### Premise
+Session 53 started as straightforward execution of the Session 52 Checkpoint A carryover: run Stages 4-8 (scanner rebuild, F8 Archdiocese smoke test, queue charter CMOs + CTE centers, F9 compliance CA pilot, F1 backlog drip). Code was supposedly ready — no rework needed.
+
+That premise turned out to be wrong. By the end of Stage 4 we'd discovered that the scanner output had been silently corrupted for weeks, probably since Session 49. Session 53 became a fire drill audit.
+
+### Discovery pattern
+Every bug was invisible from the Telegram surface and visible in 30 seconds via direct sheet read (service account + Python). The audit pattern that worked: run a scanner, then use `_load_all_prospects()` or `service.spreadsheets().values().get(...)` to read the actual row state, then compare to what the scanner said it wrote.
+
+### Bug 1 — F4 funding scanner queries wrong corpus (pre-existing since Session 49)
+- **Symptom:** `/signal_funding` returns "0 results (raw extracted: 0)" every run.
+- **Railway logs:** Serper pulls 456 articles across 13 states, Claude extracts 0 items in ~1.3s.
+- **Local diagnostic (IL only):** 39 articles, 12,486 chars (fits under 14K truncation cap). Top 15 Serper results are higher-ed grants, community colleges, teacher awards, student scholarships, state program descriptions, IL statutes — ZERO K-12 LEA recipient announcements. Claude correctly extracts 1 LOW-confidence garbage ("Dot Foods STEM Grant Recipients — 23 west central Illinois schools") which is a grant program not a district. Claude isn't broken — the upstream corpus is wrong.
+- **Root cause:** Queries like `"CS grant awarded school district Illinois"` don't distinguish K-12 LEAs from higher ed / student level / program level. Claude's EXCLUDE rules fire correctly but the signal content isn't there to find.
+- **Fix required:** Query redesign with site filters targeting `*.k12.*.us`, state DOE subdomains (isbe.net, tea.texas.gov, cde.ca.gov etc.), known state program names. Plus chunked per-state Claude calls to eliminate the 14K truncation at 13-state scale. Plus prompt change to drop the redundant "Awards >12 months old" exclude (qdr:y already constrains to 1 year).
+- **Memory:** `project_f4_funding_scanner_broken.md`
+- **Status:** PARKED. ENABLE_FUNDING_SCAN flipped to False tonight (commit `3431323`) until Session 54 fix sprint.
+
+### Bug 2 — F5 CSTA scanner low yield (1.8%) + strategic question
+- **Symptom:** `/signal_csta` returned 3 leads from 167 articles across 12 states. 1 real auto-queue (Pittsburgh Public Schools via Teresa Nicholas, CSTA K-12 Board member, PA territory). 2 garbage records where Claude wrote "CSTA PA chapter" / "CSTA TN chapter" into the `district` field.
+- **Railway logs:** `CSTA scan: 167 articles from 12 states` → `3 leaders/members extracted, 1 auto-queued as csta_partnership`.
+- **Root causes stacked:**
+  1. Queries target generic chapter homepages + conference promos, not the `csteachers.org` chapter leadership rosters or LinkedIn officer directories where real CSTA leaders live.
+  2. `combined_text[:12000]` input truncation throws away ~76% of articles (167 → ~40 reach Claude).
+  3. Prompt allows Claude to write chapter name ("CSTA PA chapter") into the `district` field when no real LEA is mentioned. Auto-queue gate at line 4760 only checks truthiness not LEA validity.
+  4. `max_tokens=2000` is even smaller than F2's old 3000 — would bite if more content reached Claude.
+  5. `split("```")[1]` IndexError lurking (same pattern F2 had).
+  6. Return type is `list` not `dict`, so Telegram handler can't surface "auto-queued N" count.
+- **STRATEGIC QUESTION:** Is F5 worth keeping as a standalone scanner? CSTA chapter leaders are CS advocates but they're not a strong proxy for "district about to change curriculum vendors." A redesigned F5 might be more valuable as a contact-enrichment layer ON TOP of F2 hits ("this district uses CodeHS AND has a CSTA chapter leader") rather than a standalone scanner. That's a product decision needed before any code fix.
+- **Win to preserve:** Pittsburgh Public Schools row (PA, `csta_partnership`, priority 621, via Teresa Nicholas). Real warm intro, in queue in canonical layout.
+- **Memory:** `project_f5_csta_scanner_low_yield.md`
+- **Status:** PARKED. ENABLE_CSTA_SCAN flipped to False tonight (commit `3431323`). Fix requires strategic decision first.
+
+### Bug 3 — F2 writes rows in scrambled column layout (HIGHEST PRIORITY MYSTERY)
+- **Symptom:** After the F2 max_tokens fix shipped (commit `7c345a07`), rerunning `/signal_competitors` produced "17 raw, 12 signals, 8 auto-queued" in Telegram. Real signal visible. But `/prospect_all` showed only 2 pending rows total: Pittsburgh PS + Archdiocese, no F2 rows.
+- **Direct sheet read (service account):** The F2 rows ARE in the queue. Lackland ISD is at row 1947. But the column layout is WRONG:
+  ```
+  col  1: TX                                   ← state (correct)
+  col  2: Lackland ISD                          ← name (correct)
+  col  3: competitor_displacement               ← strategy (should be col 9)
+  col  4: 654                                   ← priority (should be col 12)
+  col  5: signal                                ← source (should be col 10)
+  col  6: 1035                                  ← enrollment (should be col 16)
+  col  7: Competitor: Tynker...                 ← notes (should be col 20)
+  col 8-12: EMPTY                               ← Status (col 11) is empty, which is why /prospect_all doesn't see it
+  col 13: lackland                              ← name_key (should be col 8)
+  col 14: pending                               ← status (should be col 11)
+  col 15: 2026-04-10 00:51                      ← date_added (should be col 13)
+  col 16-19: EMPTY
+  col 20: competitor_lackland_tynker_2026_04    ← signal_id (should be col 19)
+  ```
+- **The same `add_district` call from F5 and F8 produced CANONICAL layout** for Pittsburgh PS and Archdiocese in the SAME session window. Tested by writing a sentinel row (`ZZZ_TEST_DELETE_ME_session53_diag`) via `dp.add_district(...)` from local Python — landed in canonical positions (state col 1, name col 2, name_key col 8, strategy col 9, source col 10, pending col 11, priority col 12, date col 13, enrollment col 16, signal_id col 19, notes col 20). Sentinel cleaned up after verification.
+- **Git archaeology:** Searched every historical version of `district_prospector.py`. NO version of `add_district` has EVER written rows with strategy at col 3. The Session 14 original schema had strategy at col 4 and a 14-column layout. The pre-Session-52 layout had strategy at col 9 (same as current). The Lackland row layout doesn't match any version.
+- **PRE-EXISTING CORRUPTION DISCOVERED:** Queue has 1954 total rows. Status distribution:
+  - `status="school"`: 1463 rows
+  - `status="district"`: 449 rows
+  - `status=""` (empty): 40 rows
+  - `status="pending"`: 2 rows (Pittsburgh PS + Archdiocese from tonight)
+  The 1463 school + 449 district rows have the SAME scrambled layout as the Lackland rows — sample: Kennedy Junior High School (IL, written 2026-03-20) has strategy at col 3, status="school" at col 11 (which is actually an account type, misplaced), name_key at col 13, date at col 15. **This corruption has been happening for WEEKS, not just tonight.** Some secondary writer or race condition has been bypassing the canonical `add_district` writer for a long time.
+- **Hypothesis (unconfirmed):** Railway rolling deploy overlap. The F2 max_tokens deploy (7c345a07) BUILD started 00:47:49 UTC, SUCCESS at 00:48:38 UTC. Lackland written at 00:51 UTC. Pittsburgh PS at 01:14 UTC. Archdiocese at 01:32 UTC. If Railway was still serving traffic from the old container for some period after SUCCESS, and the old container had some shadow `_write_rows` path that the new container doesn't, F2 hit the old path while F5/F8 hit the new one. But I couldn't find any code in git that would produce the Lackland layout. Hypothesis needs audit via adding log lines + redeploying.
+- **Affected data:** Tonight's 8 F2 rows contain real valuable data (Lackland ISD TX, Mansfield ISD TX, Naperville Community Unit SD 203 IL, North Royalton OH, West Ottawa MI, San Juan Unified CA, San Francisco Unified CA, New Hartford) but are unreachable via `/prospect_all` because Status column is empty. Plus 1912 historical rows with scrambled layout.
+- **Naperville 203 source URL ground-truthed** against my earlier local diagnostic: `https://go.boarddocs.com/il/naperville203/Board.nsf/files/DMWQGL690166/$file/2026%20Proposal.pdf` — real BoardDocs PDF, real CodeHS adoption. F2's extraction logic is genuinely good. Only the writer is broken.
+- **Memory:** `project_f2_column_layout_corruption.md`
+- **Status:** PARKED. F2 stays enabled (logic is proven good) — only manual runs until Session 54 repairs the writer. Session 54 PRIORITY 1.
+
+### Bug 4 — F8 research playbook mismatch for diocesan networks
+- **Symptom:** Stage 5 F8 smoke test on Archdiocese of Chicago (IL, 125 schools, priority 839). Research pipeline ran for 4m 56s using 40 Serper queries. Result: "35 total — 3 with email, 32 name-only. 3 verified emails."
+- **Layer breakdown (from Research Log):** L16:exa-broad=30, L15:email-verify=4, L13:state-doe=1. **L1:direct-title, L2:title-variations, L3:linkedin, L4:district-site, L5:news-grants, L6:scrape, L7:deep-crawl, L8:email-inference, L11:school-staff, L12:board-agendas, L14:conference, L17:exa-domain all returned 0.**
+- **Direct sheet read of Leads from Research tab:** The 3 "verified" contacts were:
+  1. **Allen** (Instructional Technology, `tallen@archchicago.org`) — real Archdiocese hit, sourced from a 2017 PDF about early childhood leadership. 9-year-old source, employment unverified.
+  2. **Michelle Erickson** (HS Business/CS, `merickson@rowva.k12.il.us`) — works at ROWVA CUSD 208, NOT Archdiocese. Cross-contamination (see Bug 5).
+  3. **Frank LaMantia** (Curriculum Director CTE, `frank.lamantia@chsd218.org`) — works at Community HSD 218, NOT Archdiocese. Cross-contamination.
+- **Gate assessment:**
+  - Gate 1 (≥3 emails for the network): ❌ FAIL — only 1 real, 2 cross-contaminated
+  - Gate 2 (network website ID'd): ❌ FAIL — `archchicago.org` never discovered via L4, only incidentally found via contact email
+  - Gate 3 (≥1 named director): 🟡 PARTIAL — Allen in "Instructional Technology" is role-adjacent but not a director/C-suite title, source 9 years old
+- **Root cause:** The 20-layer research engine is tuned for single-website K-12 public districts. L4 district-site discovery pattern-matches `*.k12.*.us` and common district URL structures — can't find diocesan custom domains (`archchicago.org`, `archdiocese-of-X.org`, `catholicschools.org`). When L4 returns no domain, downstream L6-L8 have no site to scrape and return 0. Engine falls through to L16 Exa broad search which pulls Chicago-area content indiscriminately.
+- **Fix required:** Dedicated diocesan central-office research playbook. Known diocesan domain patterns to try before L4 (`archchicago.org`, `archdiocese-of-X.org`, `catholicschools.org`, `diocesanX.org`). Priority titles (Superintendent of Schools, Director of Schools, Chief Academic Officer, Director of Religious Education, Director of Educational Technology). Central directory paths (`/schools/leadership`, `/offices/catholic-schools`, `/education-office`). Lower success threshold to 3-5 high-confidence central office contacts.
+- **Decision:** Do NOT unblock the other 23 networks in the F8 seed until the diocesan playbook is built.
+- **Sequence builder side note:** Cold Prospecting Google Doc was auto-built for Archdiocese post-research. But the sequence builder wrote it as "Cold Prospecting" even though the strategy is `private_school_network` — sequence builder has no branch for that strategy and falls back to cold. Minor follow-up.
+- **Memory:** `project_f8_diocesan_research_playbook.md`
+- **Status:** PARKED. F8 seed-loader stays enabled (no auto-scan, manual only). Archdiocese row stays in queue as "complete/draft" for manual review. Session 54 PRIORITY 3.
+
+### Bug 5 — Research pipeline cross-contaminates leads across districts
+- **Discovered as a side effect of Bug 4.** Two of the three Archdiocese "verified" leads were not Archdiocese people at all — they work at ROWVA CUSD 208 and Community HSD 218, both unrelated public K-12 districts in Illinois. Their rows in the "Leads from Research" tab have `District Name = "Archdiocese of Chicago Schools"` (set from the research job target) but `Account = "ROWVA CUSD 208"` / `"Community High School District 218"` (set from the source page header or Claude's extraction).
+- **Example row:**
+  ```
+  First Name: Michelle
+  Last Name: Erickson
+  Email: merickson@rowva.k12.il.us    ← domain proves ROWVA
+  Account: ROWVA CUSD 208               ← employer
+  District Name: Archdiocese of Chicago Schools   ← wrong attribution
+  Source URL: https://www.rowva.k12.il.us/staff?page_no=2
+  Email Confidence: VERIFIED
+  ```
+- **Hypothesis:** The research engine's L16 Exa broad search + L17 Exa domain-scoped search query the web with terms related to the target district. Exa returns pages mentioning those terms even if the page is ABOUT a different district. L9 Claude-extract processes the page and extracts real contacts from it — but doesn't verify that the contact's employer matches the research target. L10 dedup-score writes the contact with `District Name = <research target>` and `Account = <scraped from source page>`, creating the mismatch.
+- **Scope:** Unknown but concerning. If the same contamination rate applies to the other 19 completed research jobs in the Research Log tab, we could be looking at 40+ misattributed contacts across the Leads from Research tab. NEEDS AUDIT.
+- **Why this matters:** If Steven manually reviews Archdiocese research output and picks the top 3 "verified" emails, he'd send CodeCombat pitches to a ROWVA teacher and a CHSD 218 CTE director as if they were Archdiocesan contacts. Embarrassing + potentially hits real customer context for ROWVA/CHSD if they're ever in the pipeline.
+- **Fix required:**
+  1. Audit script: iterate all rows in "Leads from Research", flag rows where `Email` domain doesn't match the canonical site of `District Name`, report scope.
+  2. Post-extraction validation layer in `research_engine.py` between L9 Claude-extract and L10 dedup-score: check each extracted contact's email domain and/or source URL host against the research target's canonical domain. If mismatch → drop the contact OR rewrite both `Account` and `District Name` to the actual employer (so the contact survives as a ROWVA lead instead of disappearing).
+- **Until fixed:** When manually reviewing ANY research output, always cross-check Email column against Account column. If they don't match, treat the lead as belonging to Account, not District Name. Unscalable but protective.
+- **Memory:** `project_research_cross_contamination.md`
+- **Status:** PARKED. Session 54 PRIORITY 2 (after Bug 3, before Bug 4).
+
+### Commits (Session 53)
+- `7c345a07` fix: F2 max_tokens cap was truncating Claude response + harden codefence parser (THE one real fix tonight)
+- `89fa279` docs: Session 53 Fire Drill Audit wrap — CLAUDE.md + SCOUT_PLAN.md + SCOUT_REFERENCE.md
+- `3431323` fix: disable F4 + F5 kill switches until Session 54 fix sprint
+- (this SCOUT_HISTORY entry is the 4th commit of the session)
+
+### Files modified (Session 53)
+- `tools/signal_processor.py` — F2 max_tokens 3000→8000, hardened `split("```")[1]` parser with `len(parts) >= 2` guard; ENABLE_FUNDING_SCAN flipped to False, ENABLE_CSTA_SCAN flipped to False with memory references
+- `CLAUDE.md` (root) — trimmed 45.4k → 33.3k → 36.9k chars. Moved REPO STRUCTURE + RAILWAY ENV VARS + CLAUDE TOOLS + SHORTHAND COMMANDS to new `docs/SCOUT_REFERENCE.md`. Rewrote CURRENT STATE with Session 53 discoveries, 5 bugs, Session 54 fix sprint priority order. Added Session 53 lessons section (Railway temporal inconsistency, spot-check via direct sheet read, silent failure habituation, kill switch hygiene).
+- `SCOUT_PLAN.md` — new YOU ARE HERE header, Session 53 deliverables section
+- `SCOUT_HISTORY.md` — this entry
+- `.gitignore` — replaced `scripts/__pycache__/` with generic `**/__pycache__/` to stop polluting git status
+- `docs/SCOUT_REFERENCE.md` — NEW FILE, contains the static reference material trimmed from CLAUDE.md
+
+### Side outputs (manual work during the session)
+- **Tulsa PS Prop 3 Gmail draft for Robert F. Burton:** Reworked body in claude.ai, sent back to me. First draft via shell-quoted `python3 -c "..."` left literal `"""` in apostrophes ("Here's" → `Here"""s`). Second draft via standalone Python file was clean. Manually deleted the broken draft from Gmail. **Scheduled to send Tuesday 8:05 AM.** Subject: "Before the Prop 3 RFPs land on your desk".
+- **Railway deployment status checks** via GraphQL API using `RAILWAY_TOKEN` from `.env` (project peaceful-delight b91479be, environment production 785d5426, service web 9534f961). Pulled deployment logs by deployment ID + filter string to diagnose each failed scanner run.
+- **5 project memories created + 5 entries added to MEMORY.md index** in `~/.claude/projects/-Users-stevenadkins-Code-Scout/memory/`:
+  - `project_f4_funding_scanner_broken.md`
+  - `project_f5_csta_scanner_low_yield.md`
+  - `project_f2_column_layout_corruption.md`
+  - `project_f8_diocesan_research_playbook.md`
+  - `project_research_cross_contamination.md`
+
+### Key decisions
+1. **Park F4 as pre-existing bug, not a regression.** Session 52 explicitly tracked F4 in scope but never actually ran it. Sessions 49-51 never spot-checked it. The silent zero-result output looks identical to a quiet news week. Not a Session 52 regression — a Session 49 latent bug that's been firing weekly.
+2. **Quick-fix F2 via one-line max_tokens bump because local diagnostic proved the logic was sound.** Not a plan-mode violation because CLAUDE.md has an explicit exception for "one-line config tweaks". Same justification applied to tonight's kill switch flip.
+3. **Do NOT quick-fix F5 despite same `max_tokens` pattern.** F5 has 6 distinct issues plus a strategic question (standalone scanner vs F2 enrichment layer). A quick fix would lock in the standalone shape before validating it's the right shape. Park instead.
+4. **Do NOT attempt to repair the F2 column layout tonight.** The writer mystery isn't understood. A repair script written without knowing the writer could mangle the canonical rows alongside fixing the broken ones. Session 54 plan-mode first.
+5. **Stop at Stage 5 failure rather than continue to Stages 6-8.** Stage 6 (charter CMOs + CTE centers) risked adding 122 more rows through the same potentially-broken writer path. The 50/50 odds that Stage 6 produces canonical vs scrambled rows didn't justify the audit cost.
+6. **Option A at end of session: stop and wrap with brutal honesty, not Option B/C.** The responsible next session is a Fix Sprint, not more scanning. Finding more broken stuff by running more scanners just produces a longer memory list.
+
+### What was NOT done (carried over to Session 54)
+- Stage 6 (charter CMOs + CTE centers queue + approve first batch)
+- Stage 7 (F9 compliance CA pilot + validation gate)
+- Stage 8 (F1 backlog drip, 30 approvals from 384 pending)
+- Approval of Pittsburgh Public Schools row (canonical, waiting for manual review)
+- Approval of Archdiocese of Chicago row (canonical, research complete, Cold Prospecting Google Doc built, waiting for manual review)
