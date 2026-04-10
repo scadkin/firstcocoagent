@@ -1,9 +1,41 @@
 # SCOUT MASTER PLAN
-*Last updated: 2026-04-09 — End of Session 52*
+*Last updated: 2026-04-09 — End of Session 53 (Fire Drill Audit)*
 
 ---
 
-## YOU ARE HERE → Session 52 CHECKPOINT A COMPLETE. Session 51 audit + 3 confirmed BLOCKERs fixed + F2/F5/F8/F10 kill switches + F9 Signals-only rewrite + /signal_act strategy mapping + /reprioritize_pending migration. 6 commits. Stages 4-8 carry over to Session 53 — code is ready, no rework needed.
+## YOU ARE HERE → Session 53 was a FIRE DRILL AUDIT. Started as Session 52 Stage 4-8 execution, ended after discovering 5 separate silent-failure bugs in the scanner + research pipeline. Only 1 fix shipped (F2 max_tokens cap, commit `7c345a07`). **Session 54 is a DEDICATED FIX SPRINT** — no new features, repair the foundation. See CLAUDE.md CURRENT STATE for the full bug list + fix priority order. See the 5 new `memory/project_f*.md` files for per-bug details.
+
+### Session 53 deliverables (Fire Drill Audit)
+
+**The 1 fix that shipped:**
+- **Commit `7c345a07`: F2 max_tokens 3000→8000 + codefence parser hardening.** Root cause diagnosed via local IL diagnostic (CodeHS, 30 articles → 15 HIGH board_adoption signals from real BoardDocs PDFs). Fix proven end-to-end on Railway — Telegram output went from "0 raw extracted" to "17 raw, 12 signals, 8 auto-queued". **However see BUG 3 below — the 8 auto-queued rows have their own problem.**
+
+**The 5 silent-failure bugs discovered (all parked for Session 54):**
+
+1. **BUG 1: F4 funding scanner queries wrong corpus** (`memory/project_f4_funding_scanner_broken.md`). Pre-existing since Session 49. Queries pull higher-ed, student scholarships, teacher awards instead of K-12 LEA recipient announcements. 456 articles → 0 extractions. Not a prompt fix — queries need site filters.
+2. **BUG 2: F5 CSTA scanner low yield + strategic question** (`memory/project_f5_csta_scanner_low_yield.md`). 1.8% yield. Multiple issues including wrong query corpus, input truncation, prompt district-fallback. Plus open strategic question: standalone scanner or F2 enrichment layer?
+3. **BUG 3: F2 writes rows in scrambled column layout (HIGHEST PRIORITY MYSTERY)** (`memory/project_f2_column_layout_corruption.md`). Tonight's 8 F2 rows landed at wrong column positions while F5/F8 rows from the same session window are canonical. **Also discovered 1912 pre-existing scrambled rows** in the queue — this has been happening for weeks. Some secondary writer or race condition is bypassing the canonical writer.
+4. **BUG 4: F8 research playbook mismatch for diocesan networks** (`memory/project_f8_diocesan_research_playbook.md`). Archdiocese of Chicago smoke test FAILED all 3 gates. Research engine's L1-L8 all returned 0 (couldn't discover `archchicago.org`). Only 1 of 3 "verified" contacts was a real Archdiocese hit.
+5. **BUG 5: Research pipeline cross-contaminates leads across districts** (`memory/project_research_cross_contamination.md`). Discovered as a side effect of BUG 4. 2 of 3 Archdiocese "verified" contacts were actually at unrelated public districts (ROWVA CUSD 208, Community HSD 218). Pattern likely affects the other 19 completed research jobs.
+
+**Non-bug work banked tonight:**
+- **CLAUDE.md trim:** 45.4k → 33.3k → 36.9k (with Session 53 current state). Extracted repo tree + env var table + command list + Claude tool registry to `docs/SCOUT_REFERENCE.md` (gitted, not loaded per-session). Cleared the 40k performance ceiling.
+- **Tulsa PS Gmail draft scheduled.** Body reworked in claude.ai, rewrote as plain text via GAS bridge (3 attempts to get apostrophes right). **Scheduled to send Tuesday 8:05 AM.** Old broken drafts manually trashed.
+- **2 real warm leads banked in canonical-layout queue rows** (verified via direct sheet read): Pittsburgh Public Schools (PA, csta_partnership, priority 621, via Teresa Nicholas CSTA K-12 Board member) and Archdiocese of Chicago Schools (IL, private_school_network, priority 839). Archdiocese research completed tonight — Cold Prospecting Google Doc built (note: sequence builder fell back to "cold" because it has no `private_school_network` branch — minor follow-up).
+- **5 project memories + MEMORY.md index updated.**
+
+**What was NOT done tonight (carries over to Session 54 AFTER the fix sprint):**
+- Stage 6: queue charter CMOs + CTE centers — BLOCKED on BUG 3 resolution
+- Stage 7: F9 compliance CA pilot — lower blocker (F9 writes to Signals tab not queue), but post-Session-53 trust level is low
+- Stage 8: F1 backlog drip (384 pending intra_district rows) — BLOCKED on BUG 3 (some may already be scrambled and unreachable)
+
+**Session 54 starts with:**
+1. **Enter plan mode.** No autonomous builds. Per the Session 52 rule.
+2. **Work the fix priority order from CLAUDE.md CURRENT STATE:** BUG 3 column layout → BUG 5 research cross-contamination → BUG 4 diocesan playbook → BUG 1 F4 queries → BUG 2 F5 strategic decision → Stage 6-8 Session 52 carryover.
+3. **Build a local diagnostic harness** that can replay Serper results + call `add_district` without Railway redeploys.
+4. **Consider flipping kill switches to False** for F4 and F5 during the sprint. F2 stays enabled (logic good, only BUG 3 writer issue). F8/F9 stay enabled.
+
+---
 
 ### Session 52 deliverables (Checkpoint A)
 

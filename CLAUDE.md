@@ -1,65 +1,56 @@
 # SCOUT — Claude Code Reference
-*Last updated: 2026-04-09 — End of Session 52 (Checkpoint A)*
+*Last updated: 2026-04-09 — End of Session 53 (Fire Drill Audit)*
 
 ---
 
 ## CURRENT STATE — update this after each session
 
-**Session 52 (CHECKPOINT A COMPLETE): Audited Session 51 builds. Found 3 confirmed BLOCKERs and fixed all. Shipped 6 commits across 2 pushes. Stage 4-8 action items carry over to Session 53 — no code rework needed, just scanner runs and approvals.**
+**Session 53 (FIRE DRILL AUDIT): Started as Session 52 Stage 4-8 execution. Ended as a discovery session that uncovered 5 separate silent-failure bugs across the scanner + research pipeline. Only 1 real fix shipped (F2 max_tokens cap). Session 54 needs to be a dedicated fix sprint before any more scanning.**
 
-**What Session 52 fixed:**
-- **BLOCKER A:** `add_district()` was calling `_calculate_priority(strategy, 0, 0, 0)` with positional zeros. Every Session 49 + 51 strategy (`intra_district`, `cs_funding_recipient`, `competitor_displacement`, `csta_partnership`, `charter_cmo`, `cte_center`, `private_school_network`, `compliance_gap`) was scoring at tier base with no size scaling. Fixed via `**kwargs` forwarding + new `territory_data.lookup_district_enrollment` helper + populated queue row columns 15-17. Token-subset matching added to the lookup helper so name variations like "Carlinville CUSD#1" → NCES "Carlinville CUSD 1" (key "carlinville") resolve correctly.
-- **BLOCKER B:** F9 compliance scanner auto-queued unvalidated extracts at tier 850-939 (highest non-upward tier in the system), violating the ≥60% validation exit criterion. Rewritten as **Signals-only pilot**. Extracts now write to Signals tab with `signal_type="compliance"`, stable sha1 `message_id` for dedup across re-scans, `parse_errors` propagated via tuple return from `_extract_districts_from_pdf`. Promotion path is `/signal_act N`.
-- **BLOCKER C (latent since Session 44):** `/signal_act` hardcoded `strategy="trigger"` for every signal. `"trigger"` wasn't a branch in `_calculate_priority` so it fell through to cold tier. Every bond/leadership/RFP/AI-policy signal ever promoted was scored as cold. Fixed via new `_SIGNAL_TYPE_TO_STRATEGY` dict in `agent/main.py` (currently only `compliance → compliance_gap`; bond/leadership/rfp mappings are Session 53+ follow-up). Added `functools.partial` to pass `est_enrollment` kwarg through `run_in_executor` which can't take kwargs directly.
-- **Kill switches + normalization (Commit 4):** `ENABLE_CSTA_SCAN`, `ENABLE_PRIVATE_SCHOOL_DISCOVERY`, `ENABLE_HOMESCHOOL_COOP_DISCOVERY`. `_normalize_enum()` helper applied to F2 + F5 evidence_type comparisons. F2 `rfp_bid` vs `rfp_replacement` prompt/code mismatch reconciled — canonical is `rfp_bid`, dead `rfp_replacement` removed from `_STRONG_EVIDENCE` tuple, prompt enum list updated to include `board_adoption` + `rfp_bid` (they were in the detailed rules but missing from the terse enum).
-- **F9 rate limit (Commit 5):** `_LAST_SCAN: dict[str, datetime]` + 24h cooldown. Cost guardrail against typos or double-taps ($0.50-$2/scan).
+**What Session 53 actually accomplished:**
+- **Shipped F2 max_tokens fix (commit `7c345a07`):** Bumped `max_tokens` 3000→8000 in `scan_competitor_displacement` + hardened the codefence parser against IndexError on truncated output. Proven via local IL diagnostic (CodeHS one-competitor replay found 15 HIGH board_adoption signals incl. Naperville 203 IL). Telegram output went from "0 raw extracted" to "17 raw, 12 signals, 8 auto-queued" on rerun. **However see BUG 3 below — the 8 auto-queued rows have their own problem.**
+- **Trimmed CLAUDE.md from 45.4k to 33.3k chars** to clear the 40k performance ceiling. Extracted repo tree + env var table + command list + Claude tool registry to `docs/SCOUT_REFERENCE.md` (gitted, greppable, not loaded per-session).
+- **Sent the Tulsa PS Gmail draft for Robert F. Burton** — reworked the body in claude.ai, rewrote via GAS bridge (first HTML attempt had rendered `<br>`/`&#39;` literally, second shell-escaped attempt produced literal `"""` in body, third attempt via standalone Python file was clean). **Scheduled to send Tuesday 8:05 AM.** Old broken drafts manually trashed.
+- **Banked 2 real warm leads in canonical-layout queue rows:** Pittsburgh Public Schools (PA, csta_partnership, priority 621 via Teresa Nicholas CSTA K-12 Board member) and Archdiocese of Chicago Schools (IL, private_school_network, priority 839 from F8 seed). These two rows are verified canonical via direct sheet read.
+- **5 separate project memories created** documenting the silent-failure bugs. Index entries in `memory/MEMORY.md`.
 
-**Session 52 side outputs (manual work during Stage 1):**
-- Tulsa PS Prop 3 ($104.785M tech bond) passed 80.97% on April 7. Gmail draft created via GAS bridge for Robert F. Burton — sitting in Drafts folder, awaits Steven's review. Draft uses the Steven-approved tone pattern (saved as `feedback_bond_trigger_outreach_tone.md` memory).
-- 9 stale signals marked `expired` via `signal_processor.update_signal_status`: 7 Session 49 F2 competitor signals (Wylie, Carlinville, Effingham, U-46, Azusa, LAUSD, K-6 public), plus Richardson ISD RFP (198d old) and Norwalk ai_policy (289d old). Acton-Boxborough not found in active signals.
-- `reprioritize_pending` migration ran on 20 pending scanner rows (5 funding + 15 competitor). 13 matched, 7 unmatched (unmatched are mostly ESCs with 0 enrollment in NCES or multi-state district variants outside the token-subset match).
+**The 5 bugs discovered (all parked for Session 54 fix sprint):**
+
+1. **BUG 1 — F4 funding scanner: wrong queries, not truncation** (`project_f4_funding_scanner_broken.md`). Pre-existing since Session 49. Serper pulls 456 articles across 13 states; Claude extracts 0. Local IL diagnostic proved the root cause: queries like `"CS grant awarded school district Illinois"` pull higher-ed, student scholarships, teacher awards, program descriptions — NOT K-12 LEA recipient announcements. Claude correctly extracts nothing from noise. Fix requires query redesign with site filters targeting `*.k12.*.us` domains + state DOE subdomains, NOT prompt tuning.
+
+2. **BUG 2 — F5 CSTA scanner: multiple issues + strategic question** (`project_f5_csta_scanner_low_yield.md`). 167 articles → 3 extractions → 1 auto-queued (Pittsburgh PS is the real one). 1.8% yield. Issues: queries target wrong corpus (chapter homepages / conference promos instead of `csteachers.org` subdomains + LinkedIn rosters), 12K input truncation throws away 76% of articles, prompt lets Claude write chapter-name as district fallback (Tamar McPherson got district="CSTA PA chapter"), `max_tokens=2000` is smaller than F2's old 3000. **Strategic question:** is F5 worth keeping as a standalone scanner, or redesigned as a contact-enrichment layer on top of F2 hits?
+
+3. **BUG 3 — F2 writes rows in scrambled column layout (HIGHEST PRIORITY MYSTERY)** (`project_f2_column_layout_corruption.md`). The F2 max_tokens fix unblocked extraction, but the 8 rows auto-queued tonight are at WRONG column positions. Lackland ISD has `competitor_displacement` at col 3 (should be col 9), priority 654 at col 4 (should be col 12), notes at col 7 (should be col 20). Status column is EMPTY, which is why `/prospect_all` doesn't see them. **SAME `add_district` call from F5 and F8 produced CANONICAL layout for Pittsburgh PS and Archdiocese in the same session window.** Local sentinel-row test via `dp.add_district(...)` also produced canonical layout. Git archaeology found NO version of `add_district` that has ever written rows with strategy at col 3. **Also discovered 1912 pre-existing scrambled rows in the queue** (1463 with status="school", 449 with status="district") — this corruption has been happening for weeks. Some secondary writer or race condition is bypassing the canonical writer and we don't know what yet. Tonight's 8 F2 rows contain real valuable data (Lackland TX, Mansfield TX, Naperville 203 IL, etc.) — they're not lost, they're unreachable until the repair script runs.
+
+4. **BUG 4 — F8 research playbook mismatch for diocesan networks** (`project_f8_diocesan_research_playbook.md`). Archdiocese of Chicago smoke test FAILED all 3 success gates. Research engine's L1-L8 all returned 0 (couldn't discover `archchicago.org` via domain discovery). Fell through to L16 Exa broad search, produced 30 contacts, only 1 was a real Archdiocese hit (Allen in Instructional Technology, from a 2017 PDF). The 20-layer engine has no path for multi-school central-office networks. **Do NOT unblock the other 23 networks in the F8 seed** until a dedicated diocesan playbook is built.
+
+5. **BUG 5 — Research pipeline cross-contaminates leads across districts** (`project_research_cross_contamination.md`). Discovered as a side effect of BUG 4. Two of the three "verified" email contacts for the Archdiocese research were actually employees of unrelated public districts: Michelle Erickson at ROWVA CUSD 208 and Frank LaMantia at Community HSD 218. Both written to "Leads from Research" with `District Name = "Archdiocese of Chicago Schools"` but `Account = "ROWVA CUSD 208"` etc. **This is NOT F8-specific — the same pattern likely affects the other 19 completed research jobs in the Research Log tab.** Needs an audit + a post-extraction domain-matching validation layer. Until fixed, always cross-check Email vs Account columns in any manual review of research output.
 
 ### Recent sessions (details in SCOUT_PLAN.md + SCOUT_HISTORY.md)
-- **Session 52:** Session 51 audit + 3 BLOCKER fixes (priority scaling, F9 Signals-only, /signal_act strategy mapping). 6 commits. Stages 4-8 carry to Session 53. Plan: `/Users/stevenadkins/.claude/plans/dreamy-floating-avalanche.md`
-- **Session 51:** Tier B+C Lead Gen (F5/F6/F7/F8/F9/F10 all shipped), F4+F2 URL bug fix, F2 complete rewrite, Tier A spot-check verdict. 9 commits. Plan: session-of-execution (no formal plan file, followed Session 49 Tier B/C stubs).
-- **Session 50:** Email drafter fixes: thread-aware drafting (GAS `getThreadsBulk` + Python enrichment), restart seeding notice, `/draft [name]` targeted command, skip-count UX. 4 commits. Plan: `/Users/stevenadkins/.claude/plans/sparkling-cooking-eclipse.md`
-- **Session 49:** Email auto-drafter, 5 parked features, Lead Gen Tier A (F1 second buyer, F2 competitor, F3 curriculum adoption, F4 funding scanner). 16+ commits. Plan: `/Users/stevenadkins/.claude/plans/inherited-munching-sunrise.md`
-- **Session 48:** Email Reply Drafting system — Gmail MCP threaded drafts in Steven's voice. Response playbook, voice profile updated, GAS `delete_draft`.
-- **Session 47:** Territory map enriched popups + signal heat overlay. 6 new scanners (grants, budget, algebra, cyber, roles, CSTA). Lookalike, re-engagement, dormant detection.
+- **Session 53:** Fire drill audit. F2 max_tokens fix shipped (commit `7c345a07`). 5 silent-failure bugs discovered. CLAUDE.md trim + `docs/SCOUT_REFERENCE.md`. Tulsa PS draft scheduled. Stages 6-8 of Session 52 carryover NOT run — stopped at Stage 5 failure. No formal plan file.
+- **Session 52:** Session 51 audit + 3 BLOCKER fixes (priority scaling, F9 Signals-only, /signal_act strategy mapping). 6 commits. Plan: `/Users/stevenadkins/.claude/plans/dreamy-floating-avalanche.md`
+- **Session 51:** Tier B+C Lead Gen (F5/F6/F7/F8/F9/F10 shipped), F4+F2 URL bug fix, F2 complete rewrite.
+- **Session 50:** Email drafter fixes: thread-aware drafting, restart seeding notice, `/draft [name]` targeted command.
+- **Session 49:** Email auto-drafter, Lead Gen Tier A (F1-F4).
+- **Session 48:** Email Reply Drafting system — Gmail MCP threaded drafts in Steven's voice.
 
-### What still needs to be done (next session — start here)
-**Code is ready. No rework from Session 52 needed. Just run the stages that were deferred.**
+### What still needs to be done (Session 54 — Fix Sprint)
+**Session 54 is a FIX SPRINT. No new scanners, no new strategies, no new features. Fix the 5 discovered bugs in priority order.**
 
-1. **Stage 4 — rebuild signals** (~30 min, ~$1.30):
-   - `/signal_funding` → spot-check 3 rows, confirm `Source URL` column populated, confirm any auto-queued rows have non-zero `Est. Enrollment` (proves Commit 1 fix is live)
-   - `/signal_competitors` → spot-check first 3 HIGH signals against BoardDocs URLs
-   - `/signal_csta` → spot-check auto-queued chapter leaders
-2. **Stage 5 — F8 one-network smoke test** (~20 min, ~$0.50):
-   - Queue ONLY Archdiocese of Chicago (IL, 125 schools, confirmed in seed at `tools/private_schools.py:47`)
-   - Approve it, let research pipeline run in background
-   - Success gates: ≥3 contact emails, website identified, ≥1 named superintendent/principal/technology director
-   - Decision: unblock all 24 diocesan networks, OR document specific gap for a Session 53+ research playbook fix, OR flag F8 for redesign
-3. **Stage 6 — queue seed prospectors** (~20 min, $0) — in parallel with Stage 5 research:
-   - `/prospect_charter_cmos` → verify top 10 sorts by school_count (IDEA 135 should be top)
-   - `/prospect_cte_centers` → verify top 10 sorts by sending_districts count
-   - Approve a small first batch: 5 charter + 5 CTE via `/prospect_approve`
-4. **Stage 7 — F9 compliance pilot on CA only** (~30 min, ~$2):
-   - `/scan_compliance CA` → extracts go to Signals tab (not queue — per Commit 2)
-   - `/signals` → review compliance signals
-   - Manually validate first 5 extracts against PDF source URLs + CDE data
-   - Promote validated ones via `/signal_act N` (uses Commit 2's `compliance → compliance_gap` mapping)
-   - Gate: ≥3 of 5 validate → scale to IL + MA in a later session. <3 → tune prompt, re-run after 24h rate-limit expires.
-5. **Stage 8 — F1 backlog drip** (~30 min, $0):
-   - 384 pending F1 `intra_district` rows. `reprioritize_pending` explicitly skipped them (homogeneous school-level sort doesn't matter for batch approval).
-   - `/prospect_approve` in batches of 5-10. Target: 30 approvals.
-6. **Review pending Tulsa PS Gmail draft** from Session 52 — sitting in Drafts, ready to send or revise.
+1. **PRIORITY 0 — Enter plan mode.** Session 53 was a discovery session; Session 54 needs a real plan before touching code. Sketch the dependency graph: BUG 3 (column layout) blocks reliable use of any scanner that calls `add_district`, so it's probably first. BUG 5 (research cross-contamination) blocks trust in any research output. BUGs 1/2/4 come after.
+2. **PRIORITY 1 — BUG 3: Column layout corruption.** Audit every writer to `TAB_PROSPECT_QUEUE`. Check `signal_processor.py` vs `charter_prospector.py` vs `cte_prospector.py` vs `proximity_engine.add_proximity_prospects` (constructs rows manually) vs any auto-migration hooks. Write a sheet-state diagnostic that fingerprints every row by its column layout pattern. Write a one-shot repair script that fixes ALL scrambled rows — the 8 F2 rows from tonight AND the 1912 pre-existing status=school/district rows. Validate on local diff before running.
+3. **PRIORITY 2 — BUG 5: Research cross-contamination.** Audit script that iterates "Leads from Research" and flags any row where email domain doesn't match the canonical site of its `District Name`. Report on scope. Then add a post-extraction validation layer in `research_engine.py` between L9 Claude-extract and L10 dedup-score that drops or re-attributes contacts whose email domain doesn't match the research target.
+4. **PRIORITY 3 — BUG 4: F8 diocesan research playbook.** Build a dedicated diocesan central-office research path — either a new strategy branch or a preprocessing layer. Known diocesan domain patterns to try before L4 (`archchicago.org`, `archdiocese-of-X.org`), priority titles (Superintendent of Schools, Director of Schools, Director of Educational Technology), central directory paths (`/schools/leadership`, `/offices/catholic-schools`). Lower the Stage 5 success threshold to 3-5 high-confidence contacts.
+5. **PRIORITY 4 — BUG 1: F4 query redesign.** Not a prompt fix. Queries need to target `*.k12.*.us` domains, state DOE subdomains, known state-program names. Build a local diagnostic harness (same pattern as tonight's F2 diag) that can replay Serper results without redeploying.
+6. **PRIORITY 5 — BUG 2: F5 strategic decision.** ANSWER THE STRATEGIC QUESTION FIRST before any code fix: standalone scanner or contact-enrichment layer on top of F2? If standalone, redesign queries + prompt + truncation. If enrichment, refactor to a different entry point.
+7. **PRIORITY 6 — Session 52 carryover Stages 6-8.** Once infrastructure is proven via audits, run Stage 6 (charter CMOs + CTE centers), Stage 7 (F9 compliance CA pilot — Signals-only), Stage 8 (F1 backlog drip).
+8. **End-of-sprint review:** Pittsburgh PS and Archdiocese are already in the queue as canonical rows ready for manual review. Archdiocese research is complete (Cold Prospecting sequence doc built — note the sequence builder fell back to "cold" because it has no `private_school_network` branch; another minor follow-up).
 
-### Session 52 completed follow-ups from Session 51
-- ✅ Western Reserve ESC (OH) F4 spot-check: REAL — $584K Ohio Teach CS 2.0 grant for teacher PD, confirmed via news-herald.com URL. Act on member districts Willoughby-Eastlake, Painesville, iSTEM — NOT the ESC itself. (No action taken this session; carries to Session 53+ as a manual outreach task.)
-- ✅ F2 Carlinville/Effingham/U-46 (IL): WEAK — code.org free partner network, not paid customers. Signals expired.
-- ✅ F2 Azusa USD (CA): VERY WEAK — CodeHS student scholarship, not district adoption. Signal expired.
-- ✅ Tulsa PS bond: Prop 3 passed 80.97%. Draft created.
-- Richardson ISD, Acton-Boxborough, Norwalk PS: 3 of 4 Session 44 "STRONG" signals confirmed stale (198-289 days old) and expired.
+### Session 53 lessons (bank these into future sessions)
+- **Railway rolling deploys can cause TEMPORAL inconsistency between scanners in the same session.** F2 ran at 00:51 UTC, F5 at 01:14 UTC, same `add_district` call, different row layouts. The build cache warning in CLAUDE.md has a new dimension: two scanners in the same hour may hit different container versions.
+- **Spot-check EVERY scanner output via direct sheet read, not Telegram message.** Telegram reported "F2 auto-queued 8" which sounded like a win. Direct sheet read showed 8 rows at wrong column positions, unreachable via `/prospect_all`. "Spot-check" from Session 54 onward means "read the actual sheet row via service account" not "trust the Telegram ack."
+- **"Not a regression" is not the same as "not a bug".** F4 has been returning 0 since Session 49, nobody noticed. BUG 3 has been happening for weeks via the 1912 pre-existing scrambled rows. The operator-facing output looked indistinguishable from a quiet news week. Break the habituation by periodically direct-reading sheet state, not just watching Telegram.
+- **Kill switches need to be used.** All 5 discovered bugs involve scanners with kill switches (`ENABLE_FUNDING_SCAN`, `ENABLE_COMPETITOR_SCAN`, `ENABLE_CSTA_SCAN`, `ENABLE_PRIVATE_SCHOOL_DISCOVERY`) currently all `True`. Session 54 may want to flip F4 + F5 to `False` until fixes land. F2 stays enabled because logic IS good (only BUG 3 writer issue). F8/F9 stay enabled (F8 seed-only, F9 Signals-only pilot).
 
 ### Current status
 - All prior phases + enhancements: ✅
@@ -271,191 +262,12 @@ Telegram → agent/main.py (asyncio poll loop)
 
 ---
 
-## REPO STRUCTURE
+## REFERENCE MATERIAL → docs/SCOUT_REFERENCE.md
 
-```
-firstcocoagent/
-├── CLAUDE.md                   ← This file (project-wide rules)
-├── SCOUT_HISTORY.md            ← Bug log + changelog (not loaded each session)
-├── Procfile                    ← "web: python -m agent.main"
-├── requirements.txt
-├── agent/
-│   ├── CLAUDE.md               ← Module APIs for agent/ files
-│   ├── main.py                 ← Entry point. Scheduler poll loop. All tool dispatch.
-│   ├── config.py               ← Env vars
-│   ├── claude_brain.py         ← Claude API + tool definitions + memory injection
-│   ├── memory_manager.py       ← Persistent memory: read/write/GitHub commit
-│   ├── scheduler.py            ← CST-aware Scheduler class, check() only
-│   ├── keywords.py             ← Lead research title/keyword list
-│   ├── voice_trainer.py        ← Paginated email fetch + paired context analysis
-│   ├── call_processor.py       ← Transcript → summary → Google Doc
-│   └── webhook_server.py       ← aiohttp server for Fireflies webhook
-├── tools/
-│   ├── CLAUDE.md               ← Module APIs for tools/ files
-│   ├── telegram_bot.py
-│   ├── research_engine.py      ← ResearchJob, ResearchQueue (singleton: research_queue)
-│   ├── contact_extractor.py
-│   ├── sheets_writer.py        ← MODULE not class. write_contacts(), count_leads(), etc.
-│   ├── gas_bridge.py           ← GASBridge class
-│   ├── github_pusher.py        ← push_file(), list_repo_files(), get_file_content()
-│   ├── sequence_builder.py     ← build_sequence(), write_sequence_to_doc()
-│   ├── activity_tracker.py     ← MODULE not class. log_activity(), sync_gmail_activities()
-│   ├── csv_importer.py         ← MODULE not class. import_accounts(), classify_account()
-│   ├── daily_call_list.py      ← MODULE not class. build_daily_call_list()
-│   ├── district_prospector.py  ← MODULE not class. discover_districts(), suggest_upward_targets()
-│   ├── lead_importer.py        ← MODULE not class. import_leads(), import_contacts(), enrich
-│   ├── proximity_engine.py     ← MODULE not class. C5: proximity search, ESA mapping
-│   ├── signal_processor.py     ← MODULE not class. Signal intelligence: Gmail parsing, classification, scoring
-│   ├── email_drafter.py        ← MODULE not class. Auto-draft Gmail replies in Steven's voice
-│   ├── charter_prospector.py   ← F6 MODULE. Charter CMO seed list loader + queue functions
-│   ├── cte_prospector.py       ← F7 MODULE. CTE center seed list loader + queue functions
-│   ├── private_schools.py      ← F8 MODULE. Private school Serper discovery + diocesan/chain seed
-│   ├── compliance_gap_scanner.py ← F9 MODULE. Serper PDF + Claude Sonnet document input (CA/IL/MA pilot)
-│   └── fireflies.py            ← FirefliesClient, FirefliesError
-├── gas/
-│   ├── CLAUDE.md               ← GAS deployment checklist and gotchas
-│   └── Code.gs                 ← Deployed at script.google.com as "Scout Bridge"
-├── prompts/
-│   ├── system.md
-│   ├── morning_brief.md
-│   ├── eod_report.md
-│   ├── sequence_templates.md   ← 18 archetypes
-│   └── reply_draft.md          ← Email drafting workflow instructions
-├── memory/
-│   ├── preferences.md
-│   ├── context_summary.md
-│   ├── voice_profile.md
-│   ├── response_playbook.md    ← 14 reply categories from 150+ emails
-│   ├── draft_log.md            ← Draft tracking for learning loop
-│   └── sequence_building_rules.md
-└── docs/
-    ├── CHANGELOG.md
-    ├── DECISIONS.md
-    ├── SETUP.md
-    └── SETUP_PHASE5.md
-```
+The repo tree, full Railway env var table, the Claude tool registry (25 tools), and the complete Telegram shorthand command list (~80 commands) all live in **`docs/SCOUT_REFERENCE.md`**. Read it on demand — it's gitted, greppable, and not loaded into every session. CLAUDE.md was hitting the 40k char performance ceiling so this static reference material was extracted in Session 53.
 
----
-
-## RAILWAY ENVIRONMENT VARIABLES
-
-| Variable | Notes |
-|----------|-------|
-| ANTHROPIC_API_KEY | Claude API |
-| TELEGRAM_BOT_TOKEN | Bot token |
-| TELEGRAM_CHAT_ID | 8677984089 |
-| MORNING_BRIEF_TIME | 09:15 |
-| EOD_REPORT_TIME | 16:30 |
-| TIMEZONE | America/Chicago |
-| AGENT_NAME | Scout |
-| GITHUB_TOKEN | Fine-grained PAT, contents:write |
-| GITHUB_REPO | scadkin/firstcocoagent |
-| CHECKIN_START_HOUR | 10 |
-| CHECKIN_END_HOUR | 16 |
-| SERPER_API_KEY | serper.dev |
-| GOOGLE_SHEETS_ID | From Sheet URL |
-| GOOGLE_SHEETS_TERRITORY_ID | Separate sheet for territory data (falls back to main sheet) |
-| GOOGLE_SERVICE_ACCOUNT_JSON | Full JSON string, personal account |
-| GAS_WEBHOOK_URL | **Update every time Code.gs gets new deployment** |
-| GAS_SECRET_TOKEN | Must match Code.gs |
-| FIREFLIES_API_KEY | app.fireflies.ai → Account → API |
-| FIREFLIES_WEBHOOK_SECRET | Must match Fireflies webhook config |
-| PRECALL_BRIEF_FOLDER_ID | Google Drive folder ID |
-| SEQUENCES_FOLDER_ID | Google Drive folder ID. Paste full browser URL — query params stripped automatically. |
-
-**Note:** Phase 5+ env vars (`FIREFLIES_API_KEY`, `FIREFLIES_WEBHOOK_SECRET`, `PRECALL_BRIEF_FOLDER_ID`, `SEQUENCES_FOLDER_ID`) are read via `os.environ.get()` directly — NOT in `config.py`.
-
----
-
-## CLAUDE TOOLS (25 total, defined in claude_brain.py, handled in main.py)
-
-`research_district`, `get_sheet_status`, `get_research_queue_status`, `train_voice`, `draft_email`, `save_draft_to_gmail`, `get_calendar`, `log_call`, `create_district_deck`, `push_code`, `list_repo_files`, `get_file_content`, `build_sequence`, `ping_gas_bridge`, `grade_draft`, `add_template`, `process_call_transcript`, `get_pre_call_brief`, `get_activity_summary`, `get_accounts_status`, `set_goal`, `sync_gmail_activities`, `generate_call_list`, `discover_prospects`, `find_nearby_prospects`
-
----
-
-## SHORTHAND COMMANDS (handle_message in main.py)
-
-| Command | Action |
-|---------|--------|
-| `research [district], [state]`, `look up [district] in [state]` | direct dispatch to research_district — bypasses Claude |
-| `proximity [state] [miles]`, `nearby districts in [state]` | find districts near active accounts (C5) |
-| `esa [state]`, `service centers in [state]` | ESA/ESC region opportunities (C5) |
-| `/signals` | top 5 district signals by heat score |
-| `/signals all`, `/signals [state]`, `/signals new` | all signals, state filter, new only |
-| `/signal_info N` | full detail on signal #N from last `/signals` list |
-| `/signal_act N` | fast-path: mark acted → add to Prospecting Queue → auto-research |
-| `/signal_dismiss N` | archive signal (hidden from default view) |
-| `/signal_scan` | trigger manual signal scan of Gmail |
-| `/signal_stats` | signal counts by type and state |
-| `/signal_rss` | manual RSS-only scan (K-12 Dive, eSchool News, CSTA) |
-| `/signal_board` | manual BoardDocs agenda scan (25 districts) |
-| `/signal_bonds` | manual Ballotpedia bond measure scan |
-| `/signal_leadership` | manual superintendent change scan (Serper + Claude, ~$0.03) |
-| `/signal_rfp` | manual CS/STEM RFP opportunity scan (Serper + Claude, ~$0.03) |
-| `/signal_legislation` | manual CS/STEM education legislation scan (Serper + Claude, ~$0.03) |
-| `/signal_grants` | manual CS/STEM grant-funded district scan (Serper + Claude, ~$0.03) |
-| `/signal_budget` | manual budget cycle/procurement signal scan (Serper + Claude, ~$0.03) |
-| `/signal_algebra` | AI Algebra campaign: find districts adopting math/algebra curriculum (~$0.03) |
-| `/signal_cyber` | Cybersecurity pre-launch: find districts with CTE cyber programs (~$0.03) |
-| `/prospect_lookalike [state]` | find districts demographically similar to best customers ($0) |
-| `/prospect_reengagement` | scan ALL Outreach sequences for finished/no-reply prospects |
-| `/signal_roles [state]` | find CS/CTE/STEM leaders via Serper (~$2.50/scan, on-demand) |
-| `/signal_csta` | find CSTA chapter leaders/members (~$1.20/scan, on-demand) |
-| `/dormant [days]` | show accounts with past activity that went silent (default 90 days) |
-| `/export_sequence [name]` | export Outreach sequence to Google Doc |
-| `/ping_gas`, `ping gas`, `test gas` | ping GAS bridge |
-| `/train_voice`, `train voice` | train voice from Gmail (24 months) |
-| `/grade_draft`, `grade draft` | feedback on last draft → updates voice_profile.md |
-| `/add_template [content]` | add template to voice profile |
-| `/list_files`, `/ls` | list repo files |
-| `/push_code [filepath]` | fetch-first: read file, ask for changes, edit + push |
-| `/build_sequence [name]` | hybrid: Claude asks questions, then builds + sends directly |
-| `looks good`, `save it`, `approved` | save pending draft to Gmail |
-| `add email: addr@domain.org` | set recipient on pending draft |
-| `/brief [meeting name]` | manual pre-call brief |
-| `/recent_calls [num]` | recent external calls (1–20) |
-| `/call [id] [email]` | post-call processing. Optional email override. |
-| `/progress` or `/kpi` | today's activity vs KPI goals |
-| `/sync_activities` | scan Gmail for PandaDoc + Dialpad events |
-| `/set_goal [type] [target]` | update KPI target |
-| `/call_list [N]` | generate daily call list (default 10, max 50) |
-| `/color_leads` | recolor Leads tab rows by email confidence |
-| `/eod` | manually trigger end-of-day report (useful on weekends) |
-| `/draft_emails`, `draft my emails` | manually trigger email auto-drafting (also runs every 5 min during business hours) |
-| `/draft [name]` | force-draft a specific sender's unread email, bypassing Haiku classification (e.g. `/draft Allison`) |
-| `/list_charter_cmos [state]` | read-only view of the 43-CMO seed list (F6) |
-| `/prospect_charter_cmos [state]` | queue charter CMOs from the seed list as `charter_cmo` strategy prospects (F6) |
-| `/list_cte_centers [state]` | read-only view of the 79-CTE-center seed list (F7) |
-| `/prospect_cte_centers [state]` | queue CTE centers from the seed list as `cte_center` strategy prospects (F7) |
-| `/discover_coops [state]` | F10 Serper-based homeschool co-op discovery for a state |
-| `/discover_private_schools [state]` | F8 Serper-based private school discovery for a state |
-| `/prospect_private_networks [state]` | F8 queue the 24 diocesan/chain networks as `private_school_network` strategy |
-| `/scan_compliance [state]` | F9 PDF pilot — CS graduation compliance gap scan. Pilot states: CA, IL, MA. Cost ~$0.50-$2/scan. |
-| `/prospect_discover [state]` | cold district search via Serper |
-| `/prospect_upward` | upward targets from active accounts |
-| `/prospect` | show next 5 pending districts |
-| `/prospect_all` | full queue grouped by status |
-| `/prospect_winback` | scan Closed Lost tab for winback targets (last 12 months) |
-| `/prospect_add [name], [state]` | manually add district to queue |
-| `/prospect_approve 1,3,5` | approve from last batch, auto-queue research |
-| `/prospect_skip 2,4` | skip from last batch |
-| `/prospect_clear` | wipe all entries from Prospecting Queue tab |
-| `/import_clear` | next CSV upload will clear & rewrite (then resets to merge) |
-| `/import_merge` | switch CSV upload back to merge mode (default) |
-| `/import_replace_state CA` | next CSV upload replaces only that state's rows; all other states untouched (then resets) |
-| `/dedup_accounts` | Remove duplicate rows from Active Accounts tab (uses Name Key + State composite key — fixed Session 18) |
-| `/import_leads` | next CSV upload imports as Salesforce leads (SF Leads tab) |
-| `/import_contacts` | next CSV upload imports as Salesforce contacts (SF Contacts tab) |
-| `/enrich_leads` | run Serper enrichment on unenriched SF Leads (add `contacts` arg for SF Contacts) |
-| `/clear_leads` | clear SF Leads + Leads Assoc Active Accounts data rows + shrink grid |
-| `/clear_contacts` | clear SF Contacts + Contacts Assoc Active Accounts data rows + shrink grid |
-| `/territory_sync [state]` | download NCES territory data for one state or all |
-| `/territory_stats [state]` | territory coverage summary (districts, schools, enrollment) |
-| `/territory_gaps <state>` | gap analysis: cross-ref territory vs Active Accounts + Prospecting Queue |
-| `/territory_map [state]` | generate interactive Folium territory map → Telegram file attachment |
-| `/pipeline` | show open pipeline summary with stale alerts |
-| `/pipeline_import` | next CSV upload imports as opportunities (Pipeline tab) |
-| `/import_closed_lost` | next CSV upload imports as closed-lost opps (Closed Lost tab) |
-| send a `.csv` file | Auto-detects opp vs lead vs contact vs account CSV; or Salesforce active accounts import (merge by default) |
-| describe CSV before upload | "these are my salesforce leads" / "contacts from salesforce" / "pipeline opps" — sets routing for next CSV upload |
-| caption on CSV upload | Same as above — type description as caption when sending the file |
+Quick pointers:
+- Module API details: `agent/CLAUDE.md` and `tools/CLAUDE.md`
+- GAS deployment checklist: `gas/CLAUDE.md`
+- Bug log + per-session changelog: `SCOUT_HISTORY.md`
+- Active plan + completed feature notes: `SCOUT_PLAN.md`

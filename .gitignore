@@ -9,4 +9,6 @@ docs/sessions/.raw/
 
 # Evaluation results (local-only, regenerable)
 scripts/eval_results/
-scripts/__pycache__/
+
+# Python bytecode cache (any subdirectory)
+**/__pycache__/
