@@ -13,3 +13,6 @@ scripts/eval_results/
 # Python bytecode cache (any subdirectory)
 **/__pycache__/
 .telethon_session*
+
+# BUG 5 oracle files (contain PII)
+scripts/bug5_oracle_*.json

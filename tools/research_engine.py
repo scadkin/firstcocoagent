@@ -72,6 +72,24 @@ MAX_CRAWL_PAGES = 30          # max pages to crawl on district site
 CRAWL_DELAY = 0.5             # seconds between requests (be polite)
 SERPER_REQUESTS_PER_JOB = int(os.environ.get("SERPER_REQUESTS_PER_JOB", "100"))  # safety cap; ~57 used in normal 15-layer run (L15 adds up to 30)
 
+# BUG 5 cross-district contamination filter kill switch. Set to False to disable
+# both the page-level and contact-level filters and fall back to L10's built-in
+# cross-district email check only. See Session 55 plan + feedback_kill_switches.
+ENABLE_RESEARCH_CONTAM_FILTER = True
+
+# Shared school-host pattern set for cross-district detection. Affirmative test:
+# if a hostname contains any of these, treat it as a school-owned domain.
+# Everything else is "generic" (news/DOE/LinkedIn/conference) and gets benefit
+# of the doubt. Same set is reused by the page filter, contact filter, L10
+# strengthening, and the audit script.
+_SCHOOL_HOST_PATTERNS = (
+    ".k12.", ".edu", "isd", "usd", "schools", ".ps.",
+    "cusd", "cps", "chsd", "ccsd", "ccusd", "cisd", "dusd", "dvusd",
+    "mcsd", "ecsd", "ocsd",
+    "archdiocese", "diocese", "academy", "charter",
+)
+_GENERIC_EMAIL_ROOTS = frozenset({"gmail", "yahoo", "hotmail", "outlook", "icloud"})
+
 
 # ─────────────────────────────────────────────
 # MAIN ENTRY POINT
@@ -105,6 +123,85 @@ class ResearchJob:
         # Layer effectiveness tracking
         self._url_to_layer: dict[str, str] = {}  # url → layer tag
         self._start_time: datetime = datetime.now()
+
+        # BUG 5 cross-district contamination counters (Session 55)
+        self._contam_pages_filtered: int = 0
+        self._contam_contacts_filtered: int = 0
+        self._contam_l10_cleared: int = 0
+
+    # ─────────────────────────────────────────────
+    # BUG 5 shared matching helpers (Session 55)
+    # Single source of truth for cross-district filtering. Used by the stage-1
+    # page filter (_filter_raw_pages_by_domain), stage-2 contact filter
+    # (_filter_contacts_by_domain), strengthened L10, and the audit script.
+    # ─────────────────────────────────────────────
+
+    @staticmethod
+    def _district_name_hint(name: str) -> str:
+        """Derive a short distinctive token from a district name for substring
+        matching against hostnames/email domains. Returns "" if the hint is
+        too short (<5 chars) to be distinctive.
+
+        Examples:
+          "Austin ISD"                      → "austin"
+          "Pittsburgh Public Schools"       → "pittsburgh"
+          "Archdiocese of Chicago Schools"  → "chicago"
+          "Park Ridge"                      → "" (too short after normalization)
+        """
+        if not name:
+            return ""
+        h = name.lower().strip()
+        for suf in (
+            " isd", " unified school district", " school district",
+            " public schools", " city schools", " county superintendent of schools",
+            " county schools", " catholic schools", " academy", " schools",
+        ):
+            if h.endswith(suf):
+                h = h[: -len(suf)]
+                break
+        for pre in ("archdiocese of ", "diocese of "):
+            if h.startswith(pre):
+                h = h[len(pre):]
+                break
+        h = "".join(h.split())  # collapse whitespace
+        return h if len(h) >= 5 else ""
+
+    @staticmethod
+    def _is_school_host(host: str) -> bool:
+        """Affirmative test: is this hostname a school-owned domain?
+        Everything else is "generic" (DOE, news, LinkedIn, conference, PDF)
+        and gets benefit of the doubt (kept, not dropped).
+        """
+        if not host:
+            return False
+        h = host.lower()
+        return any(p in h for p in _SCHOOL_HOST_PATTERNS)
+
+    @staticmethod
+    def _host_matches_target(host: str, target_host: str, target_hint: str) -> bool:
+        """True if `host` belongs to the research target.
+
+        Rule: exact target_host substring match OR target_hint substring match
+        (when hint is ≥5 chars). Matches subdomains implicitly.
+        """
+        if not host:
+            return False
+        h = host.lower().replace("www.", "")
+        if target_host:
+            t = target_host.lower().replace("www.", "")
+            if t and t in h:
+                return True
+        if target_hint and len(target_hint) >= 5 and target_hint in h:
+            return True
+        return False
+
+    @staticmethod
+    def _email_domain_matches_target(email: str, target_host: str, target_hint: str) -> bool:
+        """Same substring test, applied to the domain of an email address."""
+        if not email or "@" not in email:
+            return False
+        domain = email.rsplit("@", 1)[1].lower()
+        return ResearchJob._host_matches_target(domain, target_host, target_hint)
 
     async def run(self) -> dict:
         """
