@@ -476,11 +476,69 @@ class ResearchJob:
     # LAYER 9: Claude extraction pass
     # ─────────────────────────────────────────────
 
+    def _filter_raw_pages_by_domain(self):
+        """BUG 5 Stage 1: drop pages whose host is clearly a DIFFERENT school
+        from the research target. Runs before Claude extraction so contaminated
+        pages never cost tokens.
+
+        Decision (per page):
+          - host matches target_host or target_hint → keep
+          - host is school-like AND doesn't match → DROP
+          - otherwise (generic host — DOE, news, LinkedIn, PDF) → keep
+
+        Fail-open: if self.district_domain is empty (L4 didn't discover one)
+        or the kill switch is off, the filter no-ops and returns.
+        """
+        if not ENABLE_RESEARCH_CONTAM_FILTER:
+            return
+        if not self.district_domain:
+            logger.info("L9 page filter skipped: no district_domain from L4")
+            return
+
+        target_host = self.district_domain.lower().replace("www.", "")
+        target_hint = self._district_name_hint(self.district_name)
+
+        before = len(self.raw_pages)
+        kept: list[tuple[str, str]] = []
+        dropped_urls: list[str] = []
+        for url, content in self.raw_pages:
+            host = urlparse(url).netloc.lower().replace("www.", "")
+            if self._host_matches_target(host, target_host, target_hint):
+                kept.append((url, content))
+            elif self._is_school_host(host):
+                dropped_urls.append(url)
+            else:
+                kept.append((url, content))
+
+        self.raw_pages = kept
+        # Prune layer tracking for dropped URLs so return dict stats stay honest
+        for url in dropped_urls:
+            self._url_to_layer.pop(url, None)
+
+        dropped = len(dropped_urls)
+        self._contam_pages_filtered = dropped
+        if dropped:
+            logger.info(
+                f"L9 page filter: {dropped}/{before} pages dropped as cross-district "
+                f"(target={target_host})"
+            )
+
     async def _layer9_claude_extraction(self):
         self.layers_used.append("L9:claude-extract")
 
         if not self.raw_pages:
             logger.warning(f"No raw pages to extract from for {self.district_name}")
+            return
+
+        # BUG 5 Stage 1: page-host filter runs BEFORE the two-pass content
+        # filter below. Contaminated pages (wrong-school hosts) never reach
+        # Claude extraction.
+        self._filter_raw_pages_by_domain()
+
+        if not self.raw_pages:
+            logger.warning(
+                f"No pages survived cross-district page filter for {self.district_name}"
+            )
             return
 
         # Two-pass filter: skip pages unlikely to contain contacts
