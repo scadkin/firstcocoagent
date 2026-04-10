@@ -31,7 +31,7 @@ SERPER_API_KEY = os.environ.get("SERPER_API_KEY", "")
 SERPER_URL = "https://google.serper.dev/search"
 
 # Kill switch — F8 private school Serper discovery
-ENABLE_PRIVATE_SCHOOL_DISCOVERY = True
+ENABLE_PRIVATE_SCHOOL_DISCOVERY = False  # DISABLED Session 54 Phase 0 — BUG 3 queue column corruption investigation. Re-enable after Phase 6.
 
 TERRITORY_STATES = {"IL", "PA", "OH", "MI", "CT", "OK", "MA", "IN", "NV", "TN", "NE", "TX"}
 TERRITORY_STATES_WITH_CA = TERRITORY_STATES | {"CA"}

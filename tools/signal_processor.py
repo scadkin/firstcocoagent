@@ -1126,7 +1126,7 @@ SERPER_URL = "https://google.serper.dev/search"
 # KILL SWITCHES — flip to False to disable a scanner without deleting code
 # ─────────────────────────────────────────────
 ENABLE_FUNDING_SCAN = False             # F4: DISABLED Session 53 — wrong query corpus since Session 49 (project_f4_funding_scanner_broken.md)
-ENABLE_COMPETITOR_SCAN = True           # F2: scan_competitor_displacement (logic fixed Session 53 7c345a07 but see BUG 3 — project_f2_column_layout_corruption.md)
+ENABLE_COMPETITOR_SCAN = False          # F2: DISABLED Session 54 Phase 0 — BUG 3 queue column corruption investigation (project_f2_column_layout_corruption.md). Re-enable after Phase 6 sentinel test.
 ENABLE_CSTA_SCAN = False                # F5: DISABLED Session 53 — 1.8% yield + strategic question (project_f5_csta_scanner_low_yield.md)
 ENABLE_HOMESCHOOL_COOP_DISCOVERY = True # F10: discover_homeschool_coops
 
