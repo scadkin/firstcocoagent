@@ -12,3 +12,4 @@ scripts/eval_results/
 
 # Python bytecode cache (any subdirectory)
 **/__pycache__/
+.telethon_session*
