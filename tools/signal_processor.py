@@ -3613,7 +3613,7 @@ Search results:
 
         response = client.messages.create(
             model="claude-haiku-4-5-20251001",
-            max_tokens=3000,
+            max_tokens=8000,
             messages=[{"role": "user", "content": prompt}],
         )
         _track_usage(response)
@@ -3626,9 +3626,11 @@ Search results:
     try:
         clean = raw_text
         if "```" in clean:
-            clean = clean.split("```")[1]
-            if clean.startswith("json"):
-                clean = clean[4:]
+            parts = clean.split("```")
+            if len(parts) >= 2:
+                clean = parts[1]
+                if clean.startswith("json"):
+                    clean = clean[4:]
         start = clean.find("[")
         end = clean.rfind("]")
         if start == -1 or end == -1:
