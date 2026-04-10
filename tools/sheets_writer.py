@@ -66,6 +66,7 @@ LOG_COLUMNS = [
     "With Email",
     "No Email",
     "Notes",
+    "Cross-Contam Dropped",  # BUG 5 Session 55 — pages+contacts dropped by contam filter
 ]
 
 TAB_LEADS = "Leads from Research"
@@ -533,9 +534,15 @@ def log_research_job(
     total_found: int,
     with_email: int,
     no_email: int,
-    notes: str = ""
+    notes: str = "",
+    cross_contam_dropped: int = 0,
 ):
-    """Append one row to the Research Log tab."""
+    """Append one row to the Research Log tab.
+
+    cross_contam_dropped (BUG 5): sum of pages + contacts dropped by the
+    cross-district contamination filter for this job. Defaults to 0 for
+    backwards compatibility with callers that don't track this.
+    """
     service = _get_service()
     sheet_id = _get_sheet_id()
 
@@ -550,11 +557,12 @@ def log_research_job(
         with_email,
         no_email,
         notes,
+        cross_contam_dropped,
     ]
 
     service.spreadsheets().values().append(
         spreadsheetId=sheet_id,
-        range=f"'{TAB_LOG}'!A:H",
+        range=f"'{TAB_LOG}'!A:I",
         valueInputOption="RAW",
         insertDataOption="INSERT_ROWS",
         body={"values": [row]}
