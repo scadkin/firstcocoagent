@@ -285,6 +285,11 @@ class ResearchJob:
             "skipped_layers": self._skipped_layers,
             "elapsed_seconds": elapsed_seconds,
             "layer_contact_counts": layer_contact_counts,
+            # BUG 5 cross-district contamination stats
+            "pages_filtered": self._contam_pages_filtered,
+            "contacts_filtered": self._contam_contacts_filtered,
+            "l10_cleared": self._contam_l10_cleared,
+            "cross_contam_dropped": self._contam_pages_filtered + self._contam_contacts_filtered,
         }
 
     # ─────────────────────────────────────────────
@@ -594,6 +599,106 @@ class ResearchJob:
 
         self._merge_contacts(contacts)
 
+        # BUG 5 Stage 2: contact-level cross-district filter. Catches the
+        # long tail of contamination that Stage 1 can't — pages from generic
+        # hosts (state DOE, conference sites, PDFs) that mention the target
+        # alongside other districts.
+        self._filter_contacts_by_domain()
+
+    def _filter_contacts_by_domain(self):
+        """BUG 5 Stage 2: filter self.all_contacts by cross-district match.
+
+        Runs after L9 has extracted + merged contacts. Unlike Stage 1 which
+        runs on (url, content) tuples, this operates on the structured contact
+        dicts from Claude extraction. Catches contamination that slipped
+        through Stage 1 because the source host was generic (DOE, news, etc).
+
+        Decision rule (per contact):
+          - source_url host AND email domain both match target → keep
+          - source matches target but email is from a clearly different
+            school → keep the contact at UNKNOWN confidence, clear the email
+            (preserve the name as a lead)
+          - source matches target only (email missing/generic) → keep
+          - email matches target only (source generic) → keep
+          - source is a wrong-school host → drop
+          - generic source + email is a wrong-school domain → drop
+          - otherwise (generic source + generic/missing email) → keep at UNKNOWN
+
+        Fail-open when district_domain is empty or kill switch is off.
+        """
+        if not ENABLE_RESEARCH_CONTAM_FILTER:
+            return
+        if not self.district_domain:
+            return
+        if not self.all_contacts:
+            return
+
+        target_host = self.district_domain.lower().replace("www.", "")
+        target_hint = self._district_name_hint(self.district_name)
+
+        before = len(self.all_contacts)
+        kept: list[dict] = []
+        dropped = 0
+        email_cleared = 0
+
+        for c in self.all_contacts:
+            source_url = c.get("source_url", "")
+            email = c.get("email", "")
+            host = urlparse(source_url).netloc.lower().replace("www.", "")
+            email_domain = email.rsplit("@", 1)[1].lower() if "@" in email else ""
+
+            source_matches = self._host_matches_target(host, target_host, target_hint)
+            email_matches = self._email_domain_matches_target(email, target_host, target_hint)
+
+            if source_matches and email_matches:
+                kept.append(c)
+                continue
+            if source_matches:
+                # Source page is legit target, but email may or may not match
+                if email and not email_matches and self._is_school_host(email_domain):
+                    # Legit-target page embedded someone else's contact info
+                    logger.debug(
+                        f"L9.5 source-match, email cleared: {c.get('first_name')} "
+                        f"{c.get('last_name')} email={email} host={host}"
+                    )
+                    c["email"] = ""
+                    c["email_confidence"] = "UNKNOWN"
+                    email_cleared += 1
+                kept.append(c)
+                continue
+            if email_matches:
+                # Generic source, email is the authority
+                kept.append(c)
+                continue
+            if self._is_school_host(host):
+                # Wrong-school host that Stage 1 missed (shouldn't happen
+                # often since Stage 1 already ran, but defense in depth)
+                logger.debug(
+                    f"L9.5 dropped wrong-school host: {c.get('first_name')} "
+                    f"{c.get('last_name')} host={host} email={email}"
+                )
+                dropped += 1
+                continue
+            # Generic host
+            if email and email_domain and self._is_school_host(email_domain) and not email_matches:
+                logger.debug(
+                    f"L9.5 dropped generic-host + wrong-email-school: "
+                    f"{c.get('first_name')} {c.get('last_name')} email={email} host={host}"
+                )
+                dropped += 1
+                continue
+            # Can't judge — keep at UNKNOWN confidence (no change if already set)
+            c["email_confidence"] = c.get("email_confidence") or "UNKNOWN"
+            kept.append(c)
+
+        self.all_contacts = kept
+        self._contam_contacts_filtered = dropped
+        if dropped or email_cleared:
+            logger.info(
+                f"L9 contact filter: {dropped}/{before} contacts dropped as cross-district, "
+                f"{email_cleared} emails cleared (target={target_host})"
+            )
+
     # ─────────────────────────────────────────────
     # LAYER 10: Dedup + confidence scoring
     # ─────────────────────────────────────────────
@@ -642,6 +747,26 @@ class ResearchJob:
                         c["email"] = ""
                         c["email_confidence"] = "UNKNOWN"
                         rejected["cross_district"] += 1
+
+            # BUG 5: L10 source_url strengthening. Catches L15-added contacts
+            # that bypass both filter stages. Degrades confidence to UNKNOWN;
+            # does NOT drop (L10 runs twice and dropping would double-count).
+            if ENABLE_RESEARCH_CONTAM_FILTER and self.district_domain:
+                source_url = c.get("source_url", "")
+                source_host = urlparse(source_url).netloc.lower().replace("www.", "")
+                target_host_l10 = self.district_domain.lower().replace("www.", "")
+                target_hint_l10 = self._district_name_hint(self.district_name)
+                if (
+                    source_host
+                    and self._is_school_host(source_host)
+                    and not self._host_matches_target(source_host, target_host_l10, target_hint_l10)
+                ):
+                    if c.get("email_confidence") != "UNKNOWN":
+                        logger.debug(
+                            f"L10: source_url cross-district: {fn} {ln} host={source_host}"
+                        )
+                        c["email_confidence"] = "UNKNOWN"
+                        self._contam_l10_cleared += 1
 
             # Name↔email alignment check
             if email and "@" in email:
