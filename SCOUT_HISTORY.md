@@ -1093,3 +1093,125 @@ INFO:tools.sheets_writer:Migrating header for tab Research Log: 8 → 9 cols
 ### Archived from CLAUDE.md CURRENT STATE
 
 Session 54's full "What's working" + "What's still in-progress" narrative was superseded by the Session 55 entry. BUG 3 Phase 6 sentinel text (including the "Scheduled F2 run at 7:45 AM CDT daily" assumption that turned out wrong), 4 ZZZ sentinel row text, and the "diagnostic logging is temporary" text all removed from CLAUDE.md CURRENT STATE since they no longer describe current state.
+
+---
+
+## Session 57 (2026-04-11) — BUG 1 + BUG 2 Closed: Zero Fire Drill Audit Bugs Remain
+
+**Scope:** Close the last two bugs from the Session 53 Fire Drill Audit. BUG 1 = F4 CS funding scanner query redesign + harness + gate + enable. BUG 2 = F5 CSTA strategic decision (retire standalone scanner, convert to enrichment lookup).
+
+### BUG 1 — F4 CS funding scanner
+
+**Problem:** `scan_cs_funding_awards` returned 0 extractions on every run since F4 shipped in Session 49. Serper leg fired (456 articles in Session 53 diagnostic) but Haiku correctly extracted nothing — the query corpus was pulling higher-ed grants, teacher awards, student scholarships, and bill PDFs, not K-12 district funding. `ENABLE_FUNDING_SCAN` had been off since Session 53.
+
+**Pre-plan empirical probing (load-bearing).** Ran 14 live Serper queries BEFORE writing any plan to validate the prior memory's `site:*.k12.*.us + state DOE subdomain` prescription. Finding: the prescription was **wrong**. `site:k12.il.us` returned 0 results. `site:*.k12.il.us` returned 1 (a student prize). `site:isbe.net` returned 0. Districts don't self-announce grant receipts on their own websites, and direct-DOE site filters over-restrict against actually-indexed weekly-message PDFs. What DID work: `"awarded" "computer science" grant Pennsylvania "school district"` (unquoted state, quoted "school district") returned 5/6 real hits including Berwick Area SD (PAsmart), Philadelphia SD $450K, Saucon Valley $75K STEM. `"Illinois State Board of Education" "computer science" grant recipients` (quoted proper name, no site filter) returned ISBE Weekly Message PDF. `site:.gov "computer science" grant "school district" awarded` (generic `.gov`, not `site:ed.gov`) returned ed.gov EIR: *"Community Unit School District 60, Computer Science and Engineering and Design STEM Program, $694,176"* — real district + amount + purpose in the snippet itself.
+
+**Plan rev-1 → rev-2 (7-step pressure test).** Rev-1 had three silent bugs: (a) `"<State> State Board of Education"` was a generic template broken for TX (TEA), CA (CDE), OH (ODE), CT (CSDE), MA (DESE); (b) Type A2 query `"computer science" grant "selected" OR "recipients"` was invented without probing; (c) `STATE_CS_PROGRAMS` aspired to verify TX/MA "during implementation." Rev-2 fixed all three: added hand-curated `STATE_DOE_NAMES` constant covering all 13 territory states, dropped unprobed Type A2, shrunk `STATE_CS_PROGRAMS` to verified-3 (IL/PA/OH). Plan file: `~/.claude/plans/purring-crafting-scroll.md`.
+
+**Commit 1 (`54e7fed`) — scanner redesign + harness.**
+- `tools/signal_processor.py`: added `STATE_DOE_NAMES` (13 territory states), shrunk `STATE_CS_PROGRAMS` to verified-3 with IL corrected from "CS Equity Grant" → "Computer Science Equity Grant" (the literal Google indexes). New private helpers `_f4_build_queries` + `_f4_extract_items` + `_F4_EXTRACTION_PROMPT_TEMPLATE`. Scanner rewritten to per-state chunked Haiku extraction — one call per state, ≤20K chars payload, JSONDecodeError caught per-state so one bad response can't kill the other 12. 14K global truncation removed.
+- `scripts/f4_serper_replay.py` (NEW, 356 lines): harness with `--snapshot`, `--snapshot-all`, `--replay`, `--replay-all`, `--gate` modes. Imports real `_f4_build_queries` and `_f4_extract_items` from `tools.signal_processor` — zero divergence path. Snapshots saved to `scripts/f4_snapshots/<STATE>_<YYYYMMDD>.json`.
+- Pre-flight checks passed. IL test snapshot extracted 4 real IL districts including CUSD 60 $694K HIGH.
+
+**Commit 2 (`2c8ebfb`) — prompt tightening + oracle + gate pass.**
+- First replay-all produced 19 HIGH extractions across 13 states, but only ~47% were genuine CS-specific LEA grants — Haiku was classifying generic STEM grants as HIGH in violation of its own EXCLUDE rule.
+- Tightened `CONFIDENCE RULES`: HIGH now requires the phrase "computer science" / "coding" / "programming" / "CS" (NOT just "STEM" or "robotics") verbatim in snippet or title. STEM-only grants correctly drop to MEDIUM (Signals tab, not auto-queue).
+- Set `temperature=0.0` on the Haiku call after discovering non-determinism — first replay produced 19 HIGH, second produced 18, same snapshot. Deterministic gates need deterministic extractors. Saved as `memory/feedback_haiku_temperature_zero_for_gates.md`.
+- Built `scripts/f4_oracle.json` with 14 hand-verified HIGH rows (11 TRUE + 3 FALSE from Haiku state-mistag edge cases: Lake Public Schools OK is actually Lake Local SD OH, McKenzie Special SD IN/PA is actually TN). Each row has `district`, `state`, `source_url`, `expected_confidence`, `is_real_lea_award`, `notes`.
+- `scripts/f4_snapshots/` committed to git — 13 territory state snapshots, 544 total unique organic results from the new query design.
+- Gate: **PASS. Precision 16/19 = 84.2%. Threshold 60%.**
+
+**Commit 3 (`a2d43ea`) — kill switch flip.** `ENABLE_FUNDING_SCAN = False → True`.
+
+**Live smoke test.** Fired `/signal_funding` via Telethon. Result:
+```
+💵 CS Funding Scan
+Raw extracted: 44
+Signals written: 43 (deduped: 0)
+Auto-queued (HIGH confidence): 8
+  1. Midland Independent School District (TX, APCSP $674K)
+  2. Berwick Area School District (PA, PAsmart)
+  3. Northwest Local School District (OH)
+  4. Sto-Rox School District (PA, $75K)
+  5. School District of Philadelphia (PA, PAsmart $450K)
+  6. DuBois Area School District (PA, PAsmart $450K)
+  7. Riverside Unified School District (CA, Golden State Pathways $5.5M)
+  8. Tippecanoe School Corporation (IN, robotics borderline)
+```
+From 0 extractions across 13 states since Session 49 → 43 signals + 8 HIGH auto-queues in a single manual run. None of the 10 strict-CS false positives from the pre-tightening run made it into the queue. 43 new `cs_funding_award` rows verified in Signals tab (`SIG-18871..18913`). BUG 1 closed end-to-end.
+
+### BUG 2 — F5 CSTA strategic decision
+
+**The strategic question.** F5 (`scan_csta_chapters`) had 1.8% yield because CSTA rosters are essentially static directory data — ~60 chapters nationwide, board terms 1-2 years. Scanning static data daily is architecturally wrong. Strategic brief to Steven presented three options: (A) fix F5 in place, (B) retire F5 and convert CSTA to an enrichment lookup, (C) hybrid. Steven ratified **Option B**: retire permanently, build now, `csta_partnership` strategy kept for Pittsburgh PS back-compat but not used for new writes (enrichment is always an augment).
+
+**Pre-plan empirical probing.** Ran 6 Serper probes + 4 live `httpx.get` pre-checks on csteachers.org subdomains with a browser User-Agent (`Mozilla/5.0 …`). Finding: (a) chapter pages are reachable, return 200, BeautifulSoup extracts clean readable text (no JS-rendering issue like BUG 4's diocesan Liferay); (b) LongwoodPA home page lists "President: Stephanie Shrake" in plain text; (c) Arizona chapter leaders page has 12,791 chars of roster text; (d) national CSTA Team page (`csteachers.org/team/`) has 37K chars with individual bios naming employers. Pages ARE parseable if you fetch them directly.
+
+**Plan rev-1 → rev-2 (7-step pressure test).** Rev-1 had four silent bugs: (a) snippet-only Haiku extraction would have produced ~0 yield because Serper snippets are 200 chars and rarely contain a full roster; (b) state-level Serper queries miss chapter-level subdomains (PA alone has Longwood, Pittsburgh, Philly, Central PA, Susquehanna); (c) dedup by `(norm_person, state)` was wrong — chapter state ≠ employer state; (d) token-subset matching didn't disambiguate multiple candidates. Rev-2 fixed all four: two-phase fetcher (discovery + direct HTML fetch), dedup by person only, multi-candidate subset check with count-first disambiguation. Plan file: `~/.claude/plans/bug2-csta-enrichment.md`.
+
+**Commit (`69ec3b8`) — single commit covering the full BUG 2 scope.**
+
+*`scripts/fetch_csta_roster.py` (NEW, 321 lines).* Two-phase pipeline:
+- Phase 1 (Discovery): Serper queries per territory state (`site:csteachers.org "{state}" chapter` + `site:linkedin.com "CSTA {state}" president OR officer OR board`) collect chapter URLs + LinkedIn snippets.
+- Phase 2 (Extraction): `httpx.get` each discovered `csteachers.org` URL with browser UA + BeautifulSoup text extraction. Combine all page text + LinkedIn snippets + national seed pages (`csteachers.org/board-of-directors/`, `csteachers.org/team/`) into a ~500KB corpus.
+- Phase 3 (Haiku): one `claude-haiku-4-5-20251001` call, `temperature=0`, `max_tokens=6000`, with a strict extraction prompt. Rules: only state/regional chapter officers (skip national), skip university professors, state = K-12 employer state (NOT chapter state), district = specific named LEA or empty string, source_url copied verbatim.
+- Phase 4: dedup by `csv_importer.normalize_name(name)` only (not by `(name, state)`), pre-compute `district_normalized` at fetch time, write to `memory/csta_roster.json`.
+- Cost: ~$0.10 one-time. Refresh: manual quarterly via `python3 scripts/fetch_csta_roster.py`.
+
+*`memory/csta_roster.json` (NEW, 358 lines).* Initial build: 39 total entries, 14 with parseable K-12 district affiliation across CA (10: Vallejo City USD, Sweetwater Union HSD, Reedley, San Mateo CoE, Gunn HS, Stanislaus CoE, Sunny Hills HS, Mendocino CoE, Da Vinci Charter Academy, Sacramento CoE), PA (Warwick SD, Plum Borough SD), OH (Paula Caso @ North Olmsted HS), TX (1 private, filtered at match time).
+
+*`tools/signal_processor.py`.* Added:
+- `ENABLE_CSTA_SCAN = False` comment updated to "PERMANENTLY RETIRED — CSTA is now an enrichment lookup"
+- `_CSTA_ROSTER_INDEX`, `_CSTA_ROSTER_BY_STATE`, `_CSTA_ROSTER_LOADED` module globals
+- `_load_csta_roster()` — eager-load at module import, graceful degrade if file missing. Reads `memory/csta_roster.json` via absolute path (`Path(__file__).resolve().parent.parent`). Logs entry count + state coverage on successful load.
+- `enrich_with_csta(district_name, state) -> Optional[dict]` — lookup helper. Returns `{name, role, chapter, source_url}` on match, `None` otherwise. Matching stack: (1) exact `(state_upper, district_normalized)` key lookup, (2) token-subset check that ONLY fires when exactly one candidate matches (prevents non-determinism on `"chicago"` ⊂ both `"chicago public schools"` and `"chicago catholic schools"`), (3) fuzzy fallback via `csv_importer.fuzzy_match_name` at 0.7 threshold (convention default).
+- `_csta_match_shape(entry)` — private formatter for the match dict.
+- Call to `_load_csta_roster()` at module bottom for eager init.
+- F2 `scan_competitor_displacement` auto-queue block: `csta_match = enrich_with_csta(district, state)` runs INSIDE the `if confidence == "HIGH"` gate. On hit, `enriched_notes` prepends `CSTA chapter match: NAME (ROLE, CHAPTER). Source: URL` and `priority_bonus=50` is passed to `add_district`.
+
+*`tools/district_prospector.py`.* Added `priority_bonus: int = 0` kwarg to `add_district`. Popped from `**kwargs` BEFORE forwarding to `_calculate_priority` (which doesn't accept it). Added to the final priority after calculation. Default 0 preserves every existing call site. No clamping — realistic worst case is competitor_displacement + 50 = 748, still well under upward tier 900+.
+
+*`agent/main.py`.* `/signal_csta` handler repurposed from scan-trigger to roster display. Reads `memory/csta_roster.json` via absolute path, groups entries by state, displays up to 8 per state with name/role/district, shows `fetched_at` + refresh instructions + "F5 daily scanner retired Session 57" retirement message. Truncates at newline boundary for Telegram 4096-char limit. Old scan path (`scan_csta_chapters` call) removed from handler; function itself stays in `signal_processor.py` behind kill switch for rollback safety.
+
+**Pre-flight checks passed.** Roster loads: 39 entries, 14 matchable. Anchor match: PA Warwick → Jeffrey Wile (President). Fuzzy match: "Vallejo" CA → Lilibeth Mora (short-subset-of-long-name, the `csv_importer.fuzzy_match_name` gap case my token-subset pre-check handles). Cold test (`Definitely Not A Real District 99` CA) returns None — no false positives.
+
+**Live smoke tests.**
+- `/signal_csta` → bot returned `🎓 CSTA Roster — 39 entries (14 with district)` grouped by state with retirement message. No exception, no scan trigger. Handler repurpose live.
+- `/signal_competitors` → F2 completed cleanly. 24 raw extractions, 6 signals written, 1 HIGH auto-queued: North Ridgeville Exempted Village SD (CodeHS). `enrich_with_csta("North Ridgeville", "OH")` returned None (not in the 14-entry roster — we only have Paula Caso @ North Olmsted HS for OH). `add_district` called with `priority_bonus=0`. Queue write succeeded. Integration is wired cleanly.
+
+BUG 2 closed end-to-end.
+
+### Session 57 commits (4 total on main)
+
+- `54e7fed` — fix(f4): redesign CS funding scanner queries + add diagnostic harness (BUG 1 Session 57)
+- `2c8ebfb` — feat(f4): tighten HIGH-confidence rule + oracle gate pass (BUG 1 Commit 2)
+- `a2d43ea` — feat(f4): re-enable CS funding scanner (BUG 1 Commit 3 — kill switch flip)
+- `69ec3b8` — feat(f5): retire F5 daily scanner, convert CSTA to enrichment lookup (BUG 2)
+
+### Session 57 lessons (distilled to memory files)
+
+- `feedback_static_directories_are_lookups.md` — any static finite directory (CSTA chapters, dioceses, charter CMOs, CTE centers) should be fetched once into `memory/*.json` and used as an enrichment lookup, not scanned daily.
+- `feedback_haiku_temperature_zero_for_gates.md` — oracle-gated harnesses replaying Claude extractions must pin `temperature=0.0` or the gate flip-flops between runs.
+- Empirical Serper probing BEFORE plan mode is load-bearing. Both BUG 1 and BUG 2 rev-1 plans had silent bugs that only surfaced when I ran actual queries against the proposed templates.
+- Browser User-Agent is OK for one-shot local scripts (csteachers.org fetcher). Don't change Scout's global production UA (Session 56 rule still applies).
+- Eager-load lookup indexes at module import time. Lazy-init patterns are overkill for read-only JSON.
+- Pressure-test must HOLD THE FULL PLAN IN HEAD before reacting. Surface all silent bugs in one pass, rewrite from scratch with everything baked in.
+
+### Memory files deleted
+
+- `project_f4_funding_scanner_broken.md` — bug closed
+- `project_f5_csta_scanner_low_yield.md` — bug closed
+
+### Still unresolved / carryover after Session 57
+
+- `Prospecting Queue BACKUP 2026-04-10 0010` tab — safe to delete
+- Sequence builder diocesan branch not written
+- Diocesan email verification ceiling (need paid tools or L8 pattern inference)
+- CSTA enrichment only wired to F2 — F1/F4/F9/F6/F7/F8 pending
+- CSTA roster is sparse (14 matchable) — grow via hand-curation or query iteration
+- Session 52 Stages 6-8 still untouched (Charter CMOs, CTE centers, F9 CA pilot, F1 backlog drip)
+- 16 Catholic dioceses still pending approval drip post-Session-56
+- 8 F4 auto-queued prospects from Session 57 live run awaiting `/prospect_approve` (Tippecanoe is borderline — Indiana DOE robotics grant, consider skipping)
+
+### Archived from CLAUDE.md CURRENT STATE (Session 57)
+
+The full Session 56 "What's working" + "What's still in-progress / unresolved" + "2 remaining bugs" + "What still needs to be done (Session 57 — continue fix sprint)" narrative blocks were moved here IN FULL because both referenced bugs are now closed and the todo list is now executed. Session 56 lesson blocks (5 bullets on plan-as-one-shot, empirical foundation verification, Serper snippets as raw_pages, canonical lookup keys, single source of truth helpers, L6 architectural blindness, slash command naming inconsistency) stayed in CLAUDE.md — still evergreen rules guiding current behavior. Session 55 lesson block also stayed for the same reason.
