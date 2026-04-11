@@ -1125,7 +1125,7 @@ SERPER_URL = "https://google.serper.dev/search"
 # ─────────────────────────────────────────────
 # KILL SWITCHES — flip to False to disable a scanner without deleting code
 # ─────────────────────────────────────────────
-ENABLE_FUNDING_SCAN = False             # F4: DISABLED Session 53 — wrong query corpus since Session 49 (project_f4_funding_scanner_broken.md)
+ENABLE_FUNDING_SCAN = True              # F4: Re-enabled Session 57 after BUG 1 query redesign + 84.2% gate pass (scripts/f4_serper_replay.py --gate)
 ENABLE_COMPETITOR_SCAN = True           # F2: RE-ENABLED Session 54 Phase 6. BUG 3 writer fix shipped + queue repaired. Diagnostic logging active for next run evidence capture.
 ENABLE_CSTA_SCAN = False                # F5: DISABLED Session 53 — 1.8% yield + strategic question (project_f5_csta_scanner_low_yield.md)
 ENABLE_HOMESCHOOL_COOP_DISCOVERY = True # F10: discover_homeschool_coops
