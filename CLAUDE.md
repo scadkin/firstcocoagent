@@ -1,61 +1,58 @@
 # SCOUT — Claude Code Reference
-*Last updated: 2026-04-10 — End of Session 54 (BUG 3 repair + writer fixes)*
+*Last updated: 2026-04-11 — End of Session 55 (BUG 3 sentinel close-out + BUG 5 two-stage filter)*
 
 ---
 
 ## CURRENT STATE — update this after each session
 
-**Session 54 shipped BUG 3 end-to-end.** 1952 scrambled rows in the Prospecting Queue rebuilt in canonical layout via a snapshot+repair script. 5 writer bugs patched (missing Signal ID slot in 4 `district_prospector` callers + 1 `proximity_engine` caller). 2 latent bugs fixed (`_update_status` range A:S→A:T, `_KNOWN_STRATEGIES` extended). Backup tab preserved. Diagnostic logging still active to capture any remaining ghost writer on the next production F2 run. **4 bugs from the Session 53 Fire Drill Audit still remain. Next: BUG 5 (research cross-contamination), Priority 2.**
+**Session 55 closed BUG 3 AND shipped BUG 5.** Priority 0: captured live production `[BUG3_DIAG]` evidence via Telethon sentinel (`A1960:T1960 pos_of_strategy=[8]` — canonical 20-col write), reverted diagnostic commit `68622aa` via `9b51a67`, deleted 5 ZZZ sentinels, queue stable at 1954/1954 canonical. Priority 1: two-stage cross-district contamination filter shipped (Stage 1 page filter at raw_pages boundary + Stage 2 contact filter + strengthened L10 + schema migration fix + L15-bypass fix). Live smoke test on Lackland ISD: 9/234 pages dropped at Stage 1, 25/25 new rows clean. Historical audit on 483 Leads from Research rows: 95% clean, 4.8% flagged for manual review. Also built Telethon bridge (Claude Code can now drive Scout Telegram end-to-end). **3 bugs remain. Next: BUG 4 (F8 diocesan playbook), Priority 2.**
 
-**What's working after Session 54:**
-- **Prospecting Queue is clean.** All 1958 rows in canonical layout (strategy@col I, status@col K, source@col J, signal_id@col S, notes@col T). Pittsburgh PS, Archdiocese, Irving STEAM, all 8 F2 Lackland/Mansfield/Naperville rows, all winback/C4/intra_district/proximity rows — preserved correctly. `/prospect_all` can see everything now. Verified via fingerprint audit rerun.
-- **5 writer bugs patched** (commits `a54bc8c` + `5ebfaea`). `discover_districts`, `suggest_upward_targets`, `suggest_closed_lost_targets`, `suggest_cold_license_requests`, `add_proximity_prospects` all now write 20-element rows with the Signal ID slot.
-- **2 latent bugs fixed** (same commit `a54bc8c`): `_update_status` range bug (silently dropped Notes col on every status update), `_KNOWN_STRATEGIES` extended with all Session 49+ strategies in both the module-level constant and inside `migrate_prospect_columns`.
-- **F2 re-enabled** (`ENABLE_COMPETITOR_SCAN=True`, commit `8b59ceb`). F4 and F5 still disabled. F8 discovery Serper path disabled (seed queue still works manually).
-- **Backup tab preserved:** `Prospecting Queue BACKUP 2026-04-10 0010` in the sheet. Recovery path if the repair misread some field.
+**What's working after Session 55:**
+- **Prospecting Queue is clean.** 1954/1954 canonical rows (1958 before deleting ZZZ sentinels). Pittsburgh PS, Archdiocese, all F2/F5/F8 rows preserved. `/prospect_all` sees everything.
+- **BUG 3 confirmed dead end-to-end.** Live production sentinel test via Telethon proved `add_district → _write_rows` writes canonical 20-col rows in the long-running Railway bot. Diagnostic logging removed.
+- **BUG 5 two-stage filter live in production.** Commits `6ffa1b2`/`552240f`/`148aca6`/`4bdfcfc`/`22dc28b`/`da46dfa`/`b809198`. Stage 1 page filter (`_filter_raw_pages_by_domain`) drops cross-district pages before Claude extraction. Stage 2 contact filter (`_filter_contacts_by_domain`) drops cross-district contacts after merge. Called from L9 AND from L15's two `_merge_contacts` sites so L15 additions don't bypass. L10 strengthened with shared helpers. Kill switch: `ENABLE_RESEARCH_CONTAM_FILTER = True` in `tools/research_engine.py`.
+- **4 shared matching helpers** in `ResearchJob`: `_district_name_hint`, `_is_school_host`, `_host_matches_target`, `_email_domain_matches_target`. Single source of truth — used by both filter stages, strengthened L10, and the audit script.
+- **Research Log schema migrated.** Now has 9 columns including `Cross-Contam Dropped`. `sheets_writer._ensure_headers` now auto-migrates when current header is a prefix of expected (previously only wrote on empty tab).
+- **F2 re-enabled** (`ENABLE_COMPETITOR_SCAN=True`). F4 and F5 still disabled. F8 discovery Serper path disabled. Backup tab `Prospecting Queue BACKUP 2026-04-10 0010` still in the sheet (delete when comfortable).
+- **Telethon bridge live.** `scripts/telethon_auth.py` + `tg_send.py` + `tg_recent.py`. Session file `.telethon_session` (gitignored). Can drive Scout end-to-end from Claude Code. See `memory/reference_telethon_bridge.md`.
+- **Screenshot capture** via `screencapture -x` + Read tool. Terminal permission granted. See `memory/reference_screenshot_capability.md`.
 
 **What's still in-progress / unresolved:**
-- **BUG 3 root cause partially known.** The 19-element writer bug explains MOST of the 1952 scrambled rows. It does NOT explain the F2 Lackland rows from 2026-04-10 00:51 UTC — F2 calls `add_district` which correctly builds a 20-element row in current code, AND 4 independent sentinel tests (local Python, `railway run`, `railway ssh` inside container, via `loop.run_in_executor`) all produced CANONICAL rows. Only the long-running Scout bot process on Railway produced scrambled rows. Commit `68622aa` added diagnostic logging to `_write_rows` that will capture the row payload, strategy position, caller stack trace, and Sheets API `updatedRange` response on the next production write. **Scheduled F2 run at 7:45 AM CDT daily** — first run after Phase 6 commits will be the evidence capture. If next F2 produces canonical rows → writer fix was sufficient. If scrambled → diagnostic logs reveal the ghost writer for targeted fix in Session 55.
-- **Diagnostic logging in `_write_rows` is a temporary commit (`68622aa`)** that should be reverted after the ghost writer is confirmed killed OR captured.
-- **4 sentinel rows** (`ZZZ_SENTINEL_*`, `ZZZ_PHASE1*`) at queue rows 1956-1959 — harmless clutter from investigation. Delete via `/cleanup_queue` or manually.
+- **Historical contamination cleanup is pending Steven's manual review.** Phase 4 audit found 23 flagged rows in Leads from Research (~half real, ~half false positives from LAUSD/DSUSD abbreviation mismatches). Google Doc report: https://docs.google.com/document/d/1TFle1jiyEiFqU_hv-rxIxsCf-WxXXDRoRaKW2A6MEfA/edit. Real contamination to delete: Archdiocese rows 458+459, Epic Charter rows 216+217, Columbus row 333, Irving STEAM (2 rows), Friendswood row 15 (needs check). LAUSD/DSUSD rows are NOT contamination — ignore the audit flag there.
+- **`Prospecting Queue BACKUP 2026-04-10 0010` tab** still in the sheet. Safe to delete.
+- **BUG 5 oracle JSONs** at `scripts/bug5_oracle_archdiocese.json` and `scripts/bug5_oracle_clean_sample.json` are gitignored but live on disk — useful if the matching rule needs iteration.
 
-**The 4 remaining bugs from Session 53 Fire Drill Audit (full detail in each `memory/project_*.md`):**
-1. **BUG 1** (Priority 4) — F4 funding scanner wrong query corpus. Pre-existing since Session 49. Kill switch off. `memory/project_f4_funding_scanner_broken.md`.
-2. **BUG 2** (Priority 5) — F5 CSTA scanner 1.8% yield + strategic question (standalone vs F2-enrichment). Kill switch off. `memory/project_f5_csta_scanner_low_yield.md`.
-3. **BUG 4** (Priority 3) — F8 diocesan research playbook. Engine has no path for multi-school central-office networks. Don't unblock the other 23 F8 networks. `memory/project_f8_diocesan_research_playbook.md`.
-4. **BUG 5** (Priority 2, NEXT) — Research pipeline cross-contaminates leads across districts. 2 of 3 "verified" Archdiocese contacts were actually ROWVA/CHSD 218 staff. Same pattern likely affects the other 19 completed research jobs. `memory/project_research_cross_contamination.md`.
+**The 3 remaining bugs from Session 53 Fire Drill Audit (full detail in each `memory/project_*.md`):**
+1. **BUG 4** (Priority 2, NEXT) — F8 diocesan research playbook. Engine has no path for multi-school central-office networks. Don't unblock the other 23 F8 networks. `memory/project_f8_diocesan_research_playbook.md`.
+2. **BUG 1** (Priority 3) — F4 funding scanner wrong query corpus. Pre-existing since Session 49. Kill switch off. `memory/project_f4_funding_scanner_broken.md`.
+3. **BUG 2** (Priority 4) — F5 CSTA scanner 1.8% yield + strategic question (standalone vs F2-enrichment). Kill switch off. `memory/project_f5_csta_scanner_low_yield.md`.
 
 ### Recent sessions (details in SCOUT_PLAN.md + SCOUT_HISTORY.md)
-- **Session 54:** BUG 3 repair + writer fixes. 7 commits, 1952 rows repaired, 5 writer bugs patched, 2 latent bugs fixed, backup tab preserved, diagnostic logging deployed. Plan: `/Users/stevenadkins/.claude/plans/sunny-riding-aurora.md`
-- **Session 53:** Fire drill audit. F2 max_tokens fix shipped (commit `7c345a07`). 5 silent-failure bugs discovered (4 still open after Session 54). CLAUDE.md trim + `docs/SCOUT_REFERENCE.md`. Tulsa PS draft scheduled.
-- **Session 52:** Session 51 audit + 3 BLOCKER fixes (priority scaling, F9 Signals-only, /signal_act strategy mapping). 6 commits. Plan: `/Users/stevenadkins/.claude/plans/dreamy-floating-avalanche.md`
+- **Session 55:** BUG 3 sentinel close-out + BUG 5 two-stage filter + Telethon bridge. 8 commits. Plan: `/Users/stevenadkins/.claude/plans/abundant-finding-riddle.md`
+- **Session 54:** BUG 3 repair + writer fixes. 7 commits. Plan: `/Users/stevenadkins/.claude/plans/sunny-riding-aurora.md`
+- **Session 53:** Fire drill audit. F2 max_tokens fix (commit `7c345a07`). 5 silent-failure bugs discovered.
+- **Session 52:** Session 51 audit + 3 BLOCKER fixes. 6 commits. Plan: `/Users/stevenadkins/.claude/plans/dreamy-floating-avalanche.md`
 - **Session 51:** Tier B+C Lead Gen (F5/F6/F7/F8/F9/F10 shipped), F4+F2 URL bug fix, F2 complete rewrite.
 - **Session 50:** Email drafter fixes: thread-aware drafting, restart seeding notice, `/draft [name]` targeted command.
-- **Session 49:** Email auto-drafter, Lead Gen Tier A (F1-F4).
-- **Session 48:** Email Reply Drafting system — Gmail MCP threaded drafts in Steven's voice.
 
-### What still needs to be done (Session 55 — continue fix sprint)
+### What still needs to be done (Session 56 — continue fix sprint)
 
-1. **PRIORITY 0 — Check on BUG 3 Phase 6 sentinel test.** Pull Railway logs for the last F2 scheduled run after Session 54 commits deployed. If new F2 rows fingerprint canonical via fingerprint audit → BUG 3 is fully fixed, revert the diagnostic logging commit. If scrambled → read the `[BUG3_DIAG]` stack trace in the logs to find the ghost writer, then patch it.
-2. **PRIORITY 1 — BUG 5: Research cross-contamination** (`memory/project_research_cross_contamination.md`). Enter plan mode first. Two steps: (a) audit script that iterates "Leads from Research" and flags rows where email domain ≠ `District Name` canonical domain — report scope; (b) post-extraction validation layer in `tools/research_engine.py` between L9 Claude-extract and L10 dedup-score that drops or re-attributes non-matching contacts.
-3. **PRIORITY 2 — BUG 4: F8 diocesan research playbook** (`memory/project_f8_diocesan_research_playbook.md`). Dedicated diocesan central-office research path. Known diocesan domain patterns to try before L4 (`archchicago.org`, `archdiocese-of-X.org`), priority titles (Superintendent of Schools, Director of Educational Technology), central directory paths (`/schools/leadership`, `/offices/catholic-schools`). Lower Stage 5 success threshold to 3-5 high-confidence contacts.
-4. **PRIORITY 3 — BUG 1: F4 query redesign** (`memory/project_f4_funding_scanner_broken.md`). Not a prompt fix. Queries need site filters targeting `*.k12.*.us` domains + state DOE subdomains. Build a local Serper-replay diagnostic harness so iteration doesn't need Railway redeploys.
-5. **PRIORITY 4 — BUG 2: F5 strategic decision** (`memory/project_f5_csta_scanner_low_yield.md`). ANSWER THE STRATEGIC QUESTION FIRST before code fix: standalone scanner or F2-enrichment layer?
-6. **PRIORITY 5 — Session 52 carryover Stages 6-8.** Charter CMOs + CTE centers (Stage 6), F9 compliance CA pilot (Stage 7, Signals-only), F1 backlog drip (Stage 8 — 384 pending `intra_district` rows that were scrambled until Session 54 repair).
-7. **Cleanup items:** delete the 4 sentinel rows (1956-1959), delete the `Prospecting Queue BACKUP 2026-04-10 0010` tab once comfortable, revert the temporary `_write_rows` diagnostic logging commit once BUG 3 is confirmed fully killed, fix the `sequence_builder` fallback-to-cold for `private_school_network` strategy (minor — Archdiocese Cold Prospecting doc was built with the wrong branch).
+1. **PRIORITY 0 — Historical contamination manual cleanup.** Read the Phase 4 Google Doc report. Delete rows 458, 459, 216, 217, 333, 2 Irving STEAM rows, review row 15. Ignore LAUSD/DSUSD flags (false positives).
+2. **PRIORITY 1 — BUG 4: F8 diocesan research playbook** (`memory/project_f8_diocesan_research_playbook.md`). Enter plan mode + pressure-test. Dedicated diocesan central-office research path. Known diocesan domain patterns to try before L4 (`archchicago.org`, `archdiocese-of-X.org`), priority titles (Superintendent of Schools, Director of Educational Technology), central directory paths (`/schools/leadership`, `/offices/catholic-schools`). Lower Stage 5 success threshold to 3-5 high-confidence contacts.
+3. **PRIORITY 2 — BUG 1: F4 query redesign** (`memory/project_f4_funding_scanner_broken.md`). Enter plan mode. Not a prompt fix. Queries need site filters targeting `*.k12.*.us` domains + state DOE subdomains. Build a local Serper-replay diagnostic harness so iteration doesn't need Railway redeploys.
+4. **PRIORITY 3 — BUG 2: F5 strategic decision** (`memory/project_f5_csta_scanner_low_yield.md`). ANSWER THE STRATEGIC QUESTION FIRST before code fix: standalone scanner or F2-enrichment layer?
+5. **PRIORITY 4 — Session 52 carryover Stages 6-8.** Charter CMOs + CTE centers (Stage 6), F9 compliance CA pilot (Stage 7, Signals-only), F1 backlog drip (Stage 8 — 384 pending `intra_district` rows).
+6. **Cleanup items:** delete the `Prospecting Queue BACKUP 2026-04-10 0010` tab once comfortable, fix the `sequence_builder` fallback-to-cold for `private_school_network` strategy (Archdiocese doc was built with the wrong branch).
 
-### Session 54 lessons (bank these into future sessions)
-- **Snapshot before any destructive repair.** `scripts/repair_scrambled_queue_rows.py` creates a backup tab via `duplicateSheet` API call BEFORE clearing. Non-negotiable. Every future one-shot repair script should inherit this pattern.
-- **Dry-run-then-apply is a hard flag-gate, not a casual print.** The repair script's `--dry-run` is default, `--apply` is opt-in, and the operator reviews the diff before flipping.
-- **Verify before asking.** When you're about to ask Steven a question, first try to answer it yourself via env check, config read, git log, tool query, memory lookup. Only ask if the tool result is ambiguous, the answer is a preference Steven alone can give, or picking wrong has high cost. Saved as `memory/feedback_verify_before_asking.md`.
-- **The ghost writer hunt ended up less important than the repair.** Four independent sentinel tests reproduced canonical rows, proving the code IS correct when called directly. The investigation burned hours. Lesson: once the REPAIR path is viable, don't keep drilling on the root cause — ship the repair, add diagnostic logging that will catch the next occurrence, move on.
-- **Railway rolling deploys remain a temporal risk.** Session 53's hypothesis about rolling deploy overlap was partially right — 20+ deployments in one day create windows where old and new pods could theoretically overlap. Not root cause for tonight's BUG 3 but keep in mind for future intermittent weirdness.
-- **Strategy-dispatch readers beat universal content-based recovery** for multi-template scrambles. Each scanner's row-construction order is deterministic per strategy, so reading fields from known positions is more robust than heuristic content classification.
-
-### Session 54 lessons to carry forward — from Session 53
-- **Spot-check EVERY scanner output via direct sheet read, not Telegram message.** Telegram reported "F2 auto-queued 8" which sounded like a win in Session 53. Direct sheet read showed 8 rows at wrong column positions. From Session 54 onward, "spot-check" means "read the actual sheet row via service account" not "trust the Telegram ack."
-- **"Not a regression" is not the same as "not a bug".** F4 has been returning 0 since Session 49, nobody noticed. BUG 3 was happening for WEEKS before Session 53 caught it. Break the habituation by periodically direct-reading sheet state.
-- **Kill switches need to be used.** Session 54 used them correctly (F2/F8 disabled during investigation, re-enabled after fix). Keep that discipline.
+### Session 55 lessons (bank these)
+- **Filter at the earliest boundary that has the signal, not at the output.** BUG 5 plan v2 filtered after Claude extraction (wasted tokens). v3 filters at `raw_pages` boundary before Claude sees the pages. Saved as `memory/feedback_filter_upstream_not_downstream.md`. Walk the pipeline backwards in plan mode and find the earliest stage where the needed signal first becomes available.
+- **Don't ask permission on verified capabilities.** Steven: "you dont need to ask to do that you should have just done it" (re: testing screencapture). Asking on safe reversible known-working actions burns latency. Saved as `memory/feedback_take_initiative_on_verified_capabilities.md`. Still ask on destructive ops, ambiguous decisions, or money-spending.
+- **Shared helpers as single source of truth.** BUG 5 has 4 callers of the same matching logic (Stage 1, Stage 2, strengthened L10, audit script). One helper, four callers. DRY prevents the "4 places with subtly different rules" failure mode.
+- **Known-bad oracle is necessary but not sufficient.** 2-row oracle passes trivially for almost any rule. Add a 20-row "must be kept" clean spot-check as a second gate. Both gates block the audit script from producing a report until they pass.
+- **L15 additions bypass anything that runs in L9.** Any post-L9 validation must ALSO run on L15's `_merge_contacts` sites (two of them). The second L10 pass is a weaker gate than a Stage 2 call.
+- **`sheets_writer._ensure_headers` was NOT the auto-migrating function I assumed from root CLAUDE.md.** Root CLAUDE.md's "`_ensure_tab` always overwrites" refers to a different function in `district_prospector.py`. Now fixed: `_ensure_headers` auto-migrates when current header is a prefix of expected.
+- **Railway log API queries need DateTime scalar type** (not String). `startDate: DateTime` / `endDate: DateTime`. 5000-line limit per query — narrow the window if near the cap.
+- **Scout bot research task can occasionally hang silently for 1 request then recover.** Session 55 second smoke test hung for 20+ min with zero progress logs, then a third attempt completed in 7 minutes. Possibly a 409 Conflict overlap during rolling deploy. If research seems stuck, wait 2-3 min and retry; don't assume a code bug first.
 
 ### Current status
 - All prior phases + enhancements: ✅

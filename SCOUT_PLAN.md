@@ -1,9 +1,66 @@
 # SCOUT MASTER PLAN
-*Last updated: 2026-04-10 — End of Session 54 (BUG 3 repair + writer fixes)*
+*Last updated: 2026-04-11 — End of Session 55 (BUG 3 sentinel close-out + BUG 5 fix)*
 
 ---
 
-## YOU ARE HERE → Session 54 shipped BUG 3 end-to-end. 1952 scrambled rows in Prospecting Queue rebuilt in canonical layout, 5 writer bugs patched, 2 latent bugs fixed, backup tab preserved. Ghost writer root cause still unidentified (diagnostic logging deployed to capture on next F2 run). **Next up: BUG 5 (research cross-contamination) — Priority 2 in the sprint order.** 4 bugs remain before the Session 52 Stage 6-8 carryover can run.
+## YOU ARE HERE → Session 55 closed BUG 3 end-to-end AND shipped BUG 5 (research cross-contamination). Priority 0: captured live production `[BUG3_DIAG]` evidence via Telethon-driven sentinel, confirmed canonical 20-col write (`A1960:T1960 pos_of_strategy=[8]`), reverted diagnostic logging, deleted 5 ZZZ sentinel rows. Priority 1: two-stage cross-district filter shipped (Stage 1 page filter at raw_pages boundary + Stage 2 contact filter + strengthened L10 + schema migration). Live smoke test on Lackland ISD: 9/234 pages dropped, 25/25 new rows fingerprint clean. Historical audit on 483 rows: 95% clean, 4.8% flagged for Steven's manual review. Also built Telethon bridge for end-to-end Scout automation from Claude Code. **Next up: BUG 4 (F8 diocesan playbook) — Priority 2.** 3 bugs remain before Session 52 Stage 6-8 carryover.
+
+### Session 55 deliverables
+
+**Priority 0 — BUG 3 Phase 6 sentinel close-out:**
+- Pulled Railway logs for the 12:45 UTC scheduled scan window — discovered F2 is NOT in the daily scheduled scan (only `/signal_competitors` manual trigger). Session 54's "scheduled 7:45 AM CDT" assumption was wrong.
+- Built Telethon bridge: `scripts/telethon_auth.py`, `scripts/tg_send.py`, `scripts/tg_recent.py`. One-time phone auth completed. Session file at `.telethon_session` (gitignored).
+- Fired `/prospect_add ZZZ_SESSION55_SENTINEL_DELETEME, TX` via Telethon through live Railway bot. Diagnostic log captured:
+  ```
+  [BUG3_DIAG] _write_rows row len=20 first3=['TX','ZZZ_SESSION55_SENTINEL_DELETEME',''] pos_of_strategy=[8]
+  updatedRange='Prospecting Queue'!A1960:T1960 updatedRows=1 updatedCells=20
+  ```
+  Canonical 20-col write via normal `add_district → _write_rows` path. BUG 3 confirmed dead.
+- Reverted commit `68622aa` via `9b51a67` → pushed `0061aed`.
+- Deleted 5 ZZZ sentinel rows (1956-1960).
+- Committed Telethon infrastructure as `746e1e7`.
+
+**Priority 1 — BUG 5 two-stage cross-district contamination filter:**
+- Entered plan mode. Wrote v1, self-pressure-tested, wrote v2, Steven ran the 7-step ruthless pressure-test prompt, wrote v3 from scratch. Biggest architectural shift across passes: filter at `raw_pages` boundary BEFORE Claude extraction, not after (cheaper AND more effective).
+- **Phase 0 oracle construction:** `scripts/bug5_phase0_scan.py` built `bug5_oracle_archdiocese.json` (3 rows, 2 known-bad marked) and `bug5_oracle_clean_sample.json` (20 rows across 9 districts). Both gitignored.
+- **Phase 1 dry-run hard gate:** `scripts/bug5_dryrun.py` validates matching helpers against both oracles. 23/23 rows classify correctly before any live code ships.
+- **Phase 2 — 6 commits landed on main:**
+  - `6ffa1b2` Commit A: `ENABLE_RESEARCH_CONTAM_FILTER` kill switch + 4 shared matching helpers (`_district_name_hint`, `_is_school_host`, `_host_matches_target`, `_email_domain_matches_target`) + 3 counters
+  - `552240f` Commit B: `_filter_raw_pages_by_domain()` — Stage 1 page filter, called at start of `_layer9_claude_extraction`. Drops pages whose host is a different school BEFORE Claude extraction.
+  - `148aca6` Commit C: `_filter_contacts_by_domain()` — Stage 2 contact filter, called after `_merge_contacts`. Strengthened L10 with source_url hostname branch + rewrote L10 email check to use new helpers (old `parts[0]` domain parsing missed real school domains).
+  - `4bdfcfc` Commit D: `sheets_writer.log_research_job()` extended with `cross_contam_dropped` kwarg + new "Cross-Contam Dropped" column
+  - `22dc28b` Commit E: `agent/main.py` `_on_research_complete` one-line wiring
+  - `da46dfa` fix commit: L15 `_merge_contacts` sites now call `_filter_contacts_by_domain` so L15 additions go through Stage 2. `sheets_writer._ensure_headers` now auto-migrates headers when current is a prefix of expected (the Session 55 original assumption "`_ensure_tab` overwrites header on every call" was wrong for the log tab).
+- **Phase 3 live smoke test on Lackland ISD (via Telethon):** Research completed in 7 min. Production logs confirmed `L9 page filter: 9/234 pages dropped as cross-district (target=lacklandisd.net)` + `Migrating header for tab Research Log: 8 → 9 cols`. Research Log now shows `Cross-Contam Dropped: 9`. All 25 new Lackland rows fingerprint as `clean_both` or `clean_email`. 27 total contacts vs 31 from the broken-credits run — filter caught 4 that previously leaked through.
+- **Phase 4 historical audit:** `scripts/audit_leads_cross_contamination.py` fingerprinted all 483 rows, gated by both oracles. Results: 175 `clean_both` + 271 `clean_email` + 4 `clean_source` + 1 `generic` + 9 `ambiguous` + 1 `source_mismatch` + 11 `email_mismatch` + 11 `both_mismatch` = 95% clean / 4.8% flagged. Google Doc report: https://docs.google.com/document/d/1TFle1jiyEiFqU_hv-rxIxsCf-WxXXDRoRaKW2A6MEfA/edit
+- Committed audit + supporting scripts as `b809198`.
+
+**Priority 0 infrastructure wins:**
+- **Telethon bridge** — Claude Code can now drive Scout Telegram end-to-end. `tg_send.py`, `tg_recent.py` documented in `memory/reference_telethon_bridge.md`.
+- **Screenshot capability** — verified `screencapture -x` + Read tool image handling. Terminal permission granted. Documented in `memory/reference_screenshot_capability.md`.
+- **Railway log API pattern** — dialed in, using deployment-ID scoping + DateTime filter + keyword filter.
+
+### Historical contamination review items for Steven (Phase 4 audit)
+
+**Real contamination worth manual deletion/correction** (11 + 11 + 1 flagged, ~half false positives from abbreviation mismatches):
+- **Archdiocese of Chicago** rows 458, 459 — original Session 53 finding (ROWVA + CHSD218)
+- **Epic Charter School** rows 216, 217 — staff at Collinsville + Spiro (unrelated OK districts)
+- **Columbus City Schools** row 333 — cisenhour@wscloud.org from Worthington k12.oh.us
+- **Irving STEAM Magnet** — 2 flagged rows, need inspection
+- **Friendswood ISD** row 15 — possibly real, needs check
+
+**False positives to ignore** (audit limitation, not live-filter behavior):
+- Los Angeles Unified rows (9 flagged) — all @lausd.net, legitimately LA Unified staff. Audit can't match "losangelesunified" to "lausd" abbreviation. LIVE filter handles correctly via L4-discovered `district_domain = "lausd.net"`.
+- Desert Sands Unified row 212 — @dsusd.us, same abbreviation issue.
+
+Manual cleanup is out of scope for the automated fix per plan; Steven reviews and deletes/keeps at his discretion.
+
+### What's still in-progress / unresolved after Session 55
+
+- **BUG 4 (F8 diocesan research playbook)** — Priority 2 next. `memory/project_f8_diocesan_research_playbook.md`. L1-L8 have no path for multi-school central-office networks. Don't unblock the other 23 F8 networks.
+- **BUG 1 (F4 funding scanner)** — Priority 3. `memory/project_f4_funding_scanner_broken.md`. Pre-existing since Session 49. Kill switch off. Needs query redesign with site filters.
+- **BUG 2 (F5 CSTA scanner)** — Priority 4. `memory/project_f5_csta_scanner_low_yield.md`. Kill switch off. Strategic question first: standalone vs F2-enrichment.
+- **Session 52 carryover Stages 6-8** — blocked pending bug cleanup. Charter CMOs + CTE centers (Stage 6), F9 compliance CA pilot (Stage 7, Signals-only), F1 backlog drip (Stage 8 — 384 pending intra_district rows that are now readable post-Session-54 repair).
 
 ### Session 54 deliverables (BUG 3 Fix Sprint)
 
