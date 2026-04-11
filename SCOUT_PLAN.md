@@ -1,9 +1,38 @@
 # SCOUT MASTER PLAN
-*Last updated: 2026-04-11 — End of Session 55 (BUG 3 sentinel close-out + BUG 5 fix)*
+*Last updated: 2026-04-11 — End of Session 56 (Priority 0 historical contamination cleanup + BUG 4 diocesan playbook shipped)*
 
 ---
 
-## YOU ARE HERE → Session 55 closed BUG 3 end-to-end AND shipped BUG 5 (research cross-contamination). Priority 0: captured live production `[BUG3_DIAG]` evidence via Telethon-driven sentinel, confirmed canonical 20-col write (`A1960:T1960 pos_of_strategy=[8]`), reverted diagnostic logging, deleted 5 ZZZ sentinel rows. Priority 1: two-stage cross-district filter shipped (Stage 1 page filter at raw_pages boundary + Stage 2 contact filter + strengthened L10 + schema migration). Live smoke test on Lackland ISD: 9/234 pages dropped, 25/25 new rows fingerprint clean. Historical audit on 483 rows: 95% clean, 4.8% flagged for Steven's manual review. Also built Telethon bridge for end-to-end Scout automation from Claude Code. **Next up: BUG 4 (F8 diocesan playbook) — Priority 2.** 3 bugs remain before Session 52 Stage 6-8 carryover.
+## YOU ARE HERE → Session 56 closed Priority 0 (historical cross-contamination cleanup) AND shipped BUG 4 (F8 diocesan research playbook). Priority 0: verified all 23 audit-flagged rows against Serper + HTTP checks, reassigned 10 real contacts to their correct districts (4 Epic Charter → Collinsville/Spiro/Bristow, 2 Archdiocese → ROWVA/CHSD218, 2 Guthrie → Hartshorne/Wyandotte, 1 Columbus → Worthington, 1 Irving STEAM → LAUSD), dropped 1 (out-of-territory ISD 88 Foundation MN), left 12 false positives alone (LAUSD/DSUSD/SBCUSD abbreviation mismatches — all real). Priority 1: BUG 4 diocesan playbook shipped one-shot (commit `06f8386`) after full brainstorm + ruthless pressure-test + empirical foundation verification (confirmed Liferay+React diocesan CMS → L6 dead, Serper snippets via `_add_raw_from_serper` carry yield). 16 diocesan domains verified up front. Smoke test on Archdiocese of Chicago: playbook active (Cross-Contam Dropped=28, L12 skipped, L4 pre-seed engaged), zero hard contamination, 5 real Archdiocese central-office contacts found (Richmond Superintendent, Craig Deputy Superintendent, Simunovic Leadership Coach, DiCello CIO, Mannino CFO). 25 stale pre-playbook CPS-contaminated rows cleaned out of No Email tab. 23 private school networks queued via `/prospect_private_networks`. **Next up: BUG 1 (F4 funding scanner) — Priority 2.** 2 bugs remain before Session 52 Stage 6-8 carryover.
+
+### Session 56 deliverables
+
+**Priority 0 — historical contamination cleanup:**
+- Ran `scripts/audit_leads_cross_contamination.py` to dump all 23 flagged rows
+- Verified every flagged domain via HTTP title fetch + Serper confirmation (fisdk12.net = Friendswood real domain, sbcusd.com = SBCUSD real, dsusd.us = DSUSD real, etc.)
+- Identified 11 real contamination rows (4 more than Session 55's handoff list) and 12 abbreviation false positives
+- Built a reassignment script: appended 10 corrected rows with the right District Name + State, then deleted the 11 originals in reverse-row order
+- Post-cleanup audit: 482 rows, zero real contamination remaining (15 flagged are all known false positives + 2 new ones from my own reassignment that the audit helper's abbreviation gap can't distinguish)
+
+**Priority 1 — BUG 4 diocesan research playbook:**
+- Explored research engine integration points via Explore agent — identified L4 domain rejection, hardcoded public-district queries in L1/L2/L3/L4-site/L11, BUG 5 filter collision on shared city names, and L12 diocesan-board mismatch as four simultaneous root causes
+- Verified all 16 Catholic diocesan domains via Serper top-rank + HTTP root fetch + title confirmation. Fixed 2 weak hits (OKC `archokc.org`, Galveston-Houston `archgh.org`) on re-query
+- Empirically verified the L6 dead-weight hypothesis: Archdiocese of Chicago runs on Liferay + React, BeautifulSoup sees 49KB of JS module markers (`contacts-web@5.0.63`) and no text. Confirmed Serper's crawler sees the rendered content (Greg Richmond, Donna Woodard from `schools.archchicago.org/meet-our-team`) and `_add_raw_from_serper` pushes those snippets into `raw_pages` for L9 Claude extraction
+- Wrote plan v1, self-critiqued, ran Steven's ruthless pressure test protocol, rewrote v3 from scratch with the foundation verification baked in — dropped `DIOCESAN_CENTRAL_PATHS` entirely (waste on React sites), added L11 diocesan queries and L12 skip that v1/v2 missed, added name canonicalization helper for robust lookup
+- Shipped commits A+B+C in one push (`06f8386`):
+  - `tools/private_schools.py`: domain field on 16 diocesan entries, `_canonical_diocesan_key` helper, derived `DIOCESAN_DOMAIN_MAP`
+  - `tools/research_engine.py`: `ENABLE_DIOCESAN_PLAYBOOK` kill switch, `DIOCESAN_PRIORITY_TITLES` + L2/L3/L4-site/L11 query template constants, `ResearchJob.__init__` new kwargs + pre-seed, `_base_domain` static helper, `_target_match_params` instance helper (replaces 4 inline target_hint computations in Stage 1 page filter + Stage 2 contact filter + L10 email check + L10 source_url check), L1/L2/L3/L4/L11/L12 diocesan branches, `ResearchQueue.enqueue` canonicalized name lookup + kwarg forwarding to worker
+  - Zero `agent/main.py` changes — all 5 existing enqueue call sites (main.py:443, 1492, 2378, 2771, enqueue_batch) auto-pick-up the playbook
+- 8-check local pre-flight passed
+- Live smoke test on Archdiocese of Chicago via Telethon: research completed 3m 27s, `Cross-Contam Dropped: 28`, L12 correctly absent from layers_used, L4 pre-seed log line confirmed, 0 hard contamination. Pass-criterion of ≥3 @archchicago.org emails was NOT met (still just Allen) because diocesan sites don't publish emails — but real central-office NAMES were extracted from the diocesan-tuned Serper queries
+- Cleaned up 25 stale No Email tab rows from Session 53's pre-playbook run (21 confirmed cps.edu/cs4allcps Chicago Public Schools leaks + 4 uncertain LinkedIn/ICE-conference sources that matched the contamination pattern). 11 clean Archdiocese rows remain
+- Queued 23 private school networks via `/prospect_private_networks` (Chicago already in queue as draft → deduped). 16 Catholic dioceses are now pending in the Prospecting Queue, will auto-activate the playbook on `/prospect_approve`
+
+**Lessons banked (memory):**
+- `feedback_plans_are_one_shot.md` — Steven explicitly rejected my v1 plan's framing that treated his pressure test as an expected refinement round. Every plan is a one-shot; self-pressure-test hard before shipping. Saved under "Critical" in MEMORY.md index.
+- `reference_serper_snippets_as_raw_pages.md` — Documented the `_add_raw_from_serper` mechanism so future research-engine work on JS-rendered sites doesn't waste effort on L6 seed URLs. Saved under "Reference" in MEMORY.md index.
+
+### Session 55 deliverables
 
 ### Session 55 deliverables
 

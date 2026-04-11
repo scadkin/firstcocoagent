@@ -872,6 +872,95 @@ The full 5-bug discovery narrative from Session 53 was trimmed from CLAUDE.md CU
 
 ---
 
+## Session 56 (2026-04-11) — Historical Contamination Cleanup + BUG 4 Diocesan Research Playbook
+
+**Session theme:** Priority 0 close out Session 55's historical cross-contamination review (the 23 audit-flagged rows). Priority 1 plan + ship BUG 4 (diocesan research playbook). 3 bugs remaining at session start became 2 by end.
+
+### Priority 0 — historical contamination cleanup
+
+Session 55's audit script flagged 23 rows in "Leads from Research". CLAUDE.md's handoff listed 7 rows to delete and 12 to ignore. Instead of accepting that list, I re-ran the audit locally to dump all 23 rows, then verified each flagged domain via HTTP title fetch + Serper lookup.
+
+**Findings:**
+- Session 55's handoff under-counted by 4 rows. Two additional Epic Charter contamination rows (219, 220 — Cameron Palmer + J. Swafford at Bristow OK) and two Guthrie Public Schools rows (421, 429 — S. Gambi at Hartshorne OK, Samantha Young at Wyandotte OK) were in the flagged set but not on the CLAUDE.md delete list.
+- Session 55's "Friendswood row 15 — possibly real, needs check" was a false positive: `fisdk12.net` title-verifies as Friendswood ISD's real domain, and Serper confirms Trish Hanks is the Friendswood ISD Superintendent per LinkedIn. Kept.
+- 11 confirmed real contamination rows, 12 confirmed abbreviation false positives (9 LAUSD @lausd.net, 1 SBCUSD @sbcusd.com, 1 DSUSD @dsusd.us, 1 Friendswood @fisdk12.net).
+
+Steven chose the reassign-then-delete path over delete-only. The `Account` column on every contaminated row already had the correct school name — only `District Name` was wrong. I built a script that appended 10 corrected rows (proper District Name + normalized state code) then deleted the 11 originals in reverse row order via `batchUpdate deleteDimension`. Net: 483 → 482 rows, 10 contacts preserved under their correct districts, 1 dropped (Irving STEAM row 213 — Steph @ isd88foundation.org was ISD 88 Foundation New Ulm MN, out of territory).
+
+**Post-cleanup audit:** 15 rows still flagged, all confirmed false positives including 2 new ones from my reassignment (ROWVA CUSD 208 row and CHSD 218 row trip the audit helper's abbreviation gap in reverse — their names normalize to "rowvacusd208" and "chsd218" which don't substring-match their own `rowva.k12.il.us` / `chsd218.org` domains). The live filter in production handles these correctly because it uses L4-discovered domains, not the audit's name-hint fallback.
+
+### Priority 1 — BUG 4: F8 diocesan research playbook
+
+**Root cause (re-analyzed during planning):** BUG 4 had four simultaneous misfits, not one:
+1. L4 domain discovery rejects diocesan URLs (`_looks_like_district_domain` hardcodes `.k12.`, `isd`, `usd` and falls back to district-name token matching; "archdiocese" fuses "arch"+"chicago" into one token, so `archchicago.org` fails both gates).
+2. L1/L2/L3/L4-site/L11 queries target public-district concepts ("computer science coordinator", "STEM director", "staff directory") that don't match diocesan organizational structure.
+3. L6 direct scrape is architecturally blind to modern diocesan CMS platforms — I empirically verified Archdiocese of Chicago runs on Liferay + React, BeautifulSoup sees 49KB of JS module markers (`contacts-web@5.0.63`) and no text. 4 of 16 diocesan domains (Boston, Pittsburgh, OKC, Galveston-Houston) also WAF-block Scout's `ScoutBot/2.0` UA entirely.
+4. BUG 5 contamination filter collides on shared city names — `_district_name_hint("Archdiocese of Chicago Schools")` returns `"chicago"`, which matches both `archchicago.org` AND `cps.edu` (Chicago Public Schools).
+
+**Critical plan-mode discovery:** `_add_raw_from_serper` (research_engine.py:1428) pushes Serper snippet text directly into `self.raw_pages` as `(url, "Title: ...\nURL: ...\n{snippet}")` tuples. L9 Claude extraction operates on those tuples, so **any Serper query that returns organic results contributes contacts without the engine ever fetching the target URL directly**. This means the diocesan playbook's yield mechanism is search-layer query tuning, NOT direct HTML fetch. v1 and v2 of the plan wanted `DIOCESAN_CENTRAL_PATHS` to enumerate `/office-of-catholic-schools`, `/schools/leadership`, etc. for L6 to fetch. v3 dropped them entirely after I verified that all the diocesan sites that DO return 200 are React-rendered and all the sites that don't return 200 are WAF-blocked regardless.
+
+**Plan-mode iteration:** Wrote v1 of the plan, then Steven explicitly told me in a session-defining feedback message: "I do not want you to ever make a plan with the context or knowledge or understanding that I am going to do refining rounds on it. I want you to make every plan everytime as if it was the only plan and only chance you are going to get at it." I rewrote v3 from scratch with the empirical foundation verification baked in, dropped `DIOCESAN_CENTRAL_PATHS`, added L11 diocesan queries (v1 missed L11's hardcoded template entirely), added L12 skip (v1 missed that diocesan networks have no public K-12 boards so L12 would return noise), added `_canonical_diocesan_key` name normalization helper for robust lookup, and introduced `_target_match_params` as a single-source-of-truth helper collapsing the 4 previously-inline cross-district filter computations into one override point. Steven approved v3 directly via ExitPlanMode — no pressure test round needed.
+
+**Implementation (commit `06f8386`):**
+- **`tools/private_schools.py`:** Added `domain` field to 16 Catholic diocesan entries in `PRIVATE_SCHOOL_NETWORKS`. New `_canonical_diocesan_key` helper (lowercase + strip " schools" / " catholic schools" suffix). New `DIOCESAN_DOMAIN_MAP` derived at import time from the seed list via dict comprehension so the two can't drift.
+- **`tools/research_engine.py` constants (Commit A):** `ENABLE_DIOCESAN_PLAYBOOK` kill switch, `DIOCESAN_PRIORITY_TITLES` (8 titles: Superintendent of Schools, Director of Catholic Schools, Associate Superintendent, Assistant Superintendent of Schools, Director of Curriculum and Instruction, Director of Elementary Education, Director of Secondary Education, Director of Educational Technology), `DIOCESAN_L2_QUERIES_TEMPLATE` (5 queries), `DIOCESAN_L3_QUERIES_TEMPLATE` (3 LinkedIn queries), `DIOCESAN_L4_SITE_QUERIES_TEMPLATE` (3 site-scoped queries), `DIOCESAN_L11_QUERIES_TEMPLATE` (2 site-scoped queries).
+- **`tools/research_engine.py` ResearchJob (Commit B):** `__init__` accepts new `diocesan_domain` + `diocesan_playbook` kwargs, pre-seeds `self.district_domain` and computes `self._diocesan_filter_base` = 2-part base domain via new `_base_domain` static helper. New `_target_match_params` instance method returns `(filter_base, "")` in strict mode or falls back to `(district_domain, _district_name_hint(district_name))` for public districts. L1 iterates `DIOCESAN_PRIORITY_TITLES[:8]`, L2 uses `DIOCESAN_L2_QUERIES_TEMPLATE`, L3 uses `DIOCESAN_L3_QUERIES_TEMPLATE`, L4 skips Serper domain-discovery when playbook pre-seeded the domain and uses `DIOCESAN_L4_SITE_QUERIES_TEMPLATE` for its site block, L11 uses `DIOCESAN_L11_QUERIES_TEMPLATE`, L12 returns immediately with a `_skipped_layers` entry. `ResearchQueue.enqueue` does the canonicalized `DIOCESAN_DOMAIN_MAP` lookup (lazy import) and forwards `diocesan_domain` + `diocesan_playbook` through the job dict to the worker's `ResearchJob` construction. **Zero `agent/main.py` changes** — all 5 existing enqueue call sites and `enqueue_batch` auto-pick-up the playbook.
+- **`tools/research_engine.py` filter helper (Commit C):** 4 mechanical 2-line replacements — `_filter_raw_pages_by_domain`, `_filter_contacts_by_domain`, and both L10 strengthening checks — now call `self._target_match_params()` instead of computing `target_host` + `target_hint` inline. Non-diocesan callers get exactly the same values as before. Post-commit grep gate: `grep 'self\._district_name_hint(self\.district_name)' tools/research_engine.py` returns exactly 1 hit (inside `_target_match_params` itself, the legacy fallback path).
+
+**Verified 16 diocesan domains (Serper top-rank + HTTP root fetch + title confirmation, 2026-04-10):** Chicago `schools.archchicago.org`, Boston `bostoncatholic.org`, Pittsburgh `diopitt.org`, Philadelphia `archphila.org`, Cleveland `dioceseofcleveland.org`, Cincinnati `catholicaoc.org`, Detroit `aod.org`, OKC `archokc.org`, Tulsa `dioceseoftulsa.org`, Nashville `dioceseofnashville.com`, Memphis `cdom.org`, Fort Worth `fwdioc.org`, Galveston-Houston `archgh.org`, LA `lacatholicschools.org`, Lincoln `lincolndiocese.org`, Omaha `schools.archomaha.org`.
+
+**Pre-flight (8 checks, all passed locally before push):** canonical key normalizes variants; `DIOCESAN_DOMAIN_MAP` has exactly 16 entries; `_base_domain` handles both subdomain and bare cases; playbook activation sets `_diocesan_filter_base` correctly; `_target_match_params` returns strict mode for playbook runs; filter correctly accepts `schools.archchicago.org`/`archchicago.org`/`parish.archchicago.org` and rejects `cps.edu`/`chicagopublicschools.org`/`rowva.k12.il.us`/`chsd218.org`; public-district path unchanged (`Austin ISD` still gets `("austinisd.org", "austin")`); grep gate confirms only 1 stale `_district_name_hint(self.district_name)` call inside the helper itself.
+
+**Live smoke test on Archdiocese of Chicago via Telethon (2026-04-11 05:01 UTC):** Research completed in 3m 27s (1.5 min faster than Session 53 pre-playbook). Research Log shows `Cross-Contam Dropped: 28` (strict filter actively rejected 28 cross-district pages), L12 correctly absent from `layers_used`, L4 pre-seed confirmed via `[DIOCESAN] playbook active` log line in Railway. Zero hard cross-contamination (no cps.edu/rowva/chsd218/k12.il.us rows). But 0 verified emails — diocesan websites don't publish email addresses publicly, so L8 pattern inference + L15 verification can't produce VERIFIED emails. The plan's "≥3 @archchicago.org emails" pass criterion was miscalibrated for this reality.
+
+**What was actually extracted:** From the earlier Session 53 re-run that persisted name-only in the "No Email" tab, plus today's smoke test:
+- Greg Richmond, Superintendent of Catholic Schools (schools.archchicago.org/meet-our-team)
+- Therese Craig, Deputy Superintendent for Academics (schools.archchicago.org/meet-our-team)
+- Erin Simunovic, Leadership Coach (schools.archchicago.org/meet-our-team)
+- John DiCello, Chief Information Officer (ZoomInfo / archdiocese-of-chicago)
+- Paul Mannino, Chief Financial Officer (LeadNear / archdiocese-of-chicago)
+- Ellie Anderson, Director Information Technology (ZoomInfo)
+- Nancy Taylor, School Principal (ZoomInfo)
+- Jackie Filippone, Computer Teacher (ZoomInfo)
+- Ursula Kunath, Computer Science Teacher of the Year (facebook.com/catholicschools)
+- Michael Carlson + Michael Cassidy (marianchs.com — Marian Catholic HS, an Archdiocese-affiliated parish school; soft leak but still Archdiocese territory)
+
+All real. No cross-district contamination.
+
+**Priority 0 post-playbook cleanup of the No Email tab:** Deleted 25 stale pre-playbook rows from Session 53 that were sitting in the No Email tab with contaminated sources — 21 confirmed `cs4allcps.github.io` / `cpsstem.cps.edu` / `chicagoacademyhs.org` Chicago Public Schools rows plus 4 uncertain LinkedIn/ICE-conference sources whose CS-focused titles pattern-matched the contamination set. Kept 10 strong Archdiocese rows + 1 uncertain (Ursula Kunath — the `catholicschools` Facebook source is the strongest signal she's Catholic). Net: 36 → 11 clean Archdiocese rows.
+
+**Queue rollout:** Fired `/prospect_private_networks` via Telethon. Scout queued 23 of 24 networks (Chicago already in queue as draft → deduped). 16 Catholic dioceses now pending, will auto-activate the playbook when Steven runs `/prospect_approve`. 7 non-Catholic networks (BASIS, Great Hearts, Primrose, Stratford, Waldorf, Challenger) queued alongside but will use default engine.
+
+### Key decisions archived
+
+- **Strict base-domain filter for diocesan runs** (not augment with a compound hint, not keep legacy hint logic). Approved by Steven during plan-mode AskUserQuestion. Rationale: if we have a pre-seeded diocesan domain, trust it as ground truth; ignore the name-derived hint that would otherwise let cross-tenant city-name collisions (cps.edu) through.
+- **Research all 16 diocesan domains up front during planning** (not hardcode Chicago + pattern-guess, not leave seed blank). Added ~5 minutes to planning but meant the fix shipped with complete coverage and empirical verification of each domain's reachability.
+- **Informational success gate only** (not ≥3 high-confidence hard gate). Engine returns whatever it finds; contact counts surface in Research Log. No automatic pass/fail blocking — matches how public district runs already behave. Good decision given that the smoke test revealed the email ceiling.
+- **16 Catholic dioceses only** scope (not all 24 private_school_network entries, not "Catholic + Great Hearts + BASIS"). Tightest blast radius. The 8 non-Catholic networks run through default engine unchanged.
+- **Diocesan-specific L1 titles list + separate L2/L3/L11 template lists** (not merge + cap, not reuse public templates). Each layer swaps to a dedicated diocesan list; no cap bloat.
+- **Kill switch + Chicago smoke test** (not validate on 3 dioceses, not ship without smoke test). Single-diocese validation was sufficient — the failure modes would have been visible on the first run regardless of which diocese I'd picked.
+
+### Lessons archived (new memory files)
+
+- **`feedback_plans_are_one_shot.md`** (Critical): Every plan is a one-shot. Self-pressure-test hard; never rely on Steven doing refinement rounds. Explicit correction from Steven after I wrote v1 of the BUG 4 plan with "ready for your 7-step pressure test" framing. He considered that lazy — pushing rigor onto him instead of producing his best work first time.
+- **`reference_serper_snippets_as_raw_pages.md`** (Reference): `_add_raw_from_serper` at research_engine.py:1428 pushes Serper snippet text directly into `raw_pages`. L9 Claude extraction operates on those tuples, so search-index layers (L1/L2/L4/L5/L11/L12/L13/L14/L16/L17/L20) contribute to yield without direct HTTP fetch. Critical for JS-rendered sites where BeautifulSoup sees nothing.
+- Plus the in-file Session 56 lessons block appended to CLAUDE.md covering: empirical foundation verification before planning, canonical key normalization, single-source-of-truth helpers, L6 blindness to modern CMS, Scout slash command naming inconsistency (`/prospect_private_networks` not `/queue_private_school_networks`).
+
+### Commits
+
+- `06f8386` feat(bug4): F8 diocesan research playbook (Commits A+B+C bundled per per-feature-commit pattern with a multi-section message). 244 insertions, 59 deletions across `tools/private_schools.py` and `tools/research_engine.py`. Zero main.py changes.
+
+### State at end of session
+
+- 2 bugs remaining (BUG 1 F4 funding scanner, BUG 2 F5 CSTA strategic decision)
+- 16 Catholic dioceses pending in Prospecting Queue, ready for `/prospect_approve`
+- 11 clean Archdiocese of Chicago rows in No Email tab
+- Leads from Research tab: 482 rows, zero real cross-contamination
+- Sequence builder diocesan branch still not written (known carryover)
+- Diocesan email verification ceiling still open (would require paid tools)
+
+---
+
 ## Session 55 (2026-04-10/11) — BUG 3 Close-Out + BUG 5 Two-Stage Filter + Telethon Bridge
 
 **Session theme:** Priority 0 close out BUG 3 Phase 6 sentinel test from Session 54. Priority 1 plan + ship BUG 5 (research cross-contamination). Bonus: built out Claude Code's operator capabilities — Telethon Telegram bridge and screenshot capture — so future sessions can run end-to-end smoke tests without Steven manually relaying messages.
