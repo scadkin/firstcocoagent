@@ -1,0 +1,388 @@
+{
+  "state_abbr": "OH",
+  "state_name": "ohio",
+  "captured_at": "2026-04-11T13:16:16",
+  "query_count": 7,
+  "queries": [
+    "\"awarded\" \"computer science\" grant Ohio \"school district\"",
+    "\"STEM grant\" awarded school district \"Ohio\"",
+    "site:.gov Ohio \"school district\" \"computer science\" grant",
+    "\"Ohio Department of Education\" \"computer science\" grant recipients",
+    "\"Ohio Department of Education\" \"computer science\" OR \"STEM\" grant awarded",
+    "\"Computer Science Promise\" Ohio district",
+    "\"Ohio Department of Education\" \"Computer Science Promise\" district"
+  ],
+  "snippets": [
+    {
+      "title": "Sandusky High School Unveils State-of-the-Art Computer Science Lab",
+      "snippet": "... awarded a $110,000 grant from the Pinkerton Foundation to expand its efforts ... Vrain Valley School District continues to build an ecosystem where ...",
+      "url": "https://www.linkedin.com/posts/greatersandusky_last-night-we-had-the-privilege-of-attending-activity-7430279207357898752-XAe1",
+      "searched_state": "OH",
+      "query": "\"awarded\" \"computer science\" grant Ohio \"school district\""
+    },
+    {
+      "title": "Grants, which totaled $10.35 million, were awarded to 55 ...",
+      "snippet": "Local Schools Awarded Computer Science Grants The ... \"The Lake school district has won a $473,000 state grant ... grants from Ohio. The grant total is ...",
+      "url": "https://www.facebook.com/100064499091816/posts/1072533598239933/",
+      "searched_state": "OH",
+      "query": "\"awarded\" \"computer science\" grant Ohio \"school district\""
+    },
+    {
+      "title": "[PDF] DEPARTMENT OF EDUCATION AND WORKFORCE",
+      "snippet": "awarded a state scholarship. School district operational revenue and expenditure report ... individual be licensed in computer science to teach those courses.",
+      "url": "https://www.lsc.ohio.gov/assets/legislation/136/hb96/ph/files/hb96-edu-bill-analysis-as-passed-by-the-house-136th-general-assembly.pdf",
+      "searched_state": "OH",
+      "query": "\"awarded\" \"computer science\" grant Ohio \"school district\""
+    },
+    {
+      "title": "Ford Middle School receives grant for new STEM program - Facebook",
+      "snippet": "... district is going to receive one of the Straight A Fund grants from Ohio. ... We are thrilled to announce that our school has been awarded a STEM grant from the @ ...",
+      "url": "https://www.facebook.com/southcoasttoday/posts/albert-f-ford-middle-school-secured-a-28000-grant-from-the-one8-foundation-for-a/1934381330834258/",
+      "searched_state": "OH",
+      "query": "\"STEM grant\" awarded school district \"Ohio\""
+    },
+    {
+      "title": "Garaway Local Schools Awarded $5000 Ohio STEM Learning ...",
+      "snippet": "Garaway Local Schools Awarded $5,000 Ohio STEM ... The Middle Georgia Chapter is proud to announce the awarding of a STEM Grant to HoCo's Engineering Club.",
+      "url": "https://www.instagram.com/p/DVGRQo4CUjt/",
+      "searched_state": "OH",
+      "query": "\"STEM grant\" awarded school district \"Ohio\""
+    },
+    {
+      "title": "Bryan Teacher Jason Brown Earns Ohio STEM Classroom Grant",
+      "snippet": "STEM GRANT \u2026 Bryan High School and Middle School Science Teacher Jason Brown received a $5,000 Ohio STEM Classroom Grant for the purchase of 26 Pasco Code ...",
+      "url": "https://thevillagereporter.com/bryan-teacher-jason-brown-earns-ohio-stem-classroom-grant/",
+      "searched_state": "OH",
+      "query": "\"STEM grant\" awarded school district \"Ohio\""
+    },
+    {
+      "title": "Expand Energy - Community Foundation for the Ohio Valley",
+      "snippet": "... Ohio, Marshall and Wetzel county schools for projects that incorporate ... EXPAND ENERGY STEM grant program will NOT fund: School laboratory supplies ...",
+      "url": "https://cfov.org/expand-energy/",
+      "searched_state": "OH",
+      "query": "\"STEM grant\" awarded school district \"Ohio\""
+    },
+    {
+      "title": "Five Licking Heights Local Schools educators have been awarded ...",
+      "snippet": "\udb84\udf96. Crossville Elementary receives STEM grant. Crossville Elementary School \u25bb Crossville Elementary School ; \udb84\udf96. AEP Ohio grant for Licking Heights West Elementary.",
+      "url": "https://www.facebook.com/NewarkAdvocate/posts/five-licking-heights-local-schools-educators-have-been-awarded-ohio-stem-learnin/1422586439867679/",
+      "searched_state": "OH",
+      "query": "\"STEM grant\" awarded school district \"Ohio\""
+    },
+    {
+      "title": "We are so proud of Candy's Creek Cherokee for being awarded a ...",
+      "snippet": "We are so proud of Candy's Creek Cherokee for being awarded a $5,000 TVA STEM Grant! ... Education Foundation in Westerville, Ohio. May be a graphic of text. 6.",
+      "url": "https://www.instagram.com/p/DWZmr8GiU9w/",
+      "searched_state": "OH",
+      "query": "\"STEM grant\" awarded school district \"Ohio\""
+    },
+    {
+      "title": "[PDF] A Central Ohio Community Challenge - Battelle",
+      "snippet": "Central Ohio. Request for Proposals and Guidelines for Submission. Proposals Due March 24, 2026. Page 2. 2026 Central Ohio STEM Grant RFP. 1. Introduction.",
+      "url": "https://www.battelle.org/docs/default-source/stem-education/2026-new-funding-rfp.pdf",
+      "searched_state": "OH",
+      "query": "\"STEM grant\" awarded school district \"Ohio\""
+    },
+    {
+      "title": "Central Ohio STEM Grant 2026 - LEGO\u00ae Education",
+      "snippet": "Central Ohio STEM Grant 2026 ... Ready to bring LEGO\u00ae Education to your district? Request a meeting.",
+      "url": "https://education.lego.com/en-us/grants-and-funding/ohio/stem-grant/",
+      "searched_state": "OH",
+      "query": "\"STEM grant\" awarded school district \"Ohio\""
+    },
+    {
+      "title": "Pickerington Schools - PLSD's post - Facebook",
+      "snippet": "Both Diley and Harmon Middle Schools have each been awarded a $5,000 Ohio STEM Learning Network Classroom Grant, funded by Battelle. ... SD awarded STEM grant for ...",
+      "url": "https://www.facebook.com/PickeringtonSchools/posts/exciting-stem-news-both-diley-and-harmon-middle-schools-have-each-been-awarded-a/1293981236103975/",
+      "searched_state": "OH",
+      "query": "\"STEM grant\" awarded school district \"Ohio\""
+    },
+    {
+      "title": "Battelle invests $1.1M in STEM education for YMCA of Central Ohio ...",
+      "snippet": "Battelle invests $1.1M in STEM education for YMCA of Central Ohio ... North Middlesex Regional School District Awarded More Than $18,000 in State STEM Grant ...",
+      "url": "https://www.linkedin.com/posts/ymca-of-central-ohio_stemwithbattelle-ymcacentralohio-activity-7351337969787572224-ZHA3",
+      "searched_state": "OH",
+      "query": "\"STEM grant\" awarded school district \"Ohio\""
+    },
+    {
+      "title": "[PDF] Greenbook Department of Education and Workforce",
+      "snippet": "eliminates the express authorization for a school district to use their associated services funds ... Rural computer science programming. $0. $100,000.",
+      "url": "https://www.lsc.ohio.gov/assets/legislation/136/hb96/en0/files/hb96-edu-greenbook-as-enacted-136th-general-assembly.pdf",
+      "searched_state": "OH",
+      "query": "site:.gov Ohio \"school district\" \"computer science\" grant"
+    },
+    {
+      "title": "[PDF] DEPARTMENT OF EDUCATION AND WORKFORCE",
+      "snippet": "OhioRISE Program to the school district in which the child's parent resides. ... program that provides computer science content knowledge specific to the ...",
+      "url": "https://www.lsc.ohio.gov/assets/legislation/136/hb96/ps/files/hb96-edu-bill-analysis-as-passed-by-the-senate-136th-general-assembly.pdf",
+      "searched_state": "OH",
+      "query": "site:.gov Ohio \"school district\" \"computer science\" grant"
+    },
+    {
+      "title": "Education Innovation and Research | U.S. Department of Education",
+      "snippet": "Community Unit School District 60, Computer Science and Engineering and Design STEM Program and K-12 Computer Science Pathway, 5, $694,176, $2,171,699 ...",
+      "url": "http://www.ed.gov/grants-and-programs/grants-special-populations/grants-economically-disadvantaged-students/education-innovation-and-research",
+      "searched_state": "OH",
+      "query": "site:.gov Ohio \"school district\" \"computer science\" grant"
+    },
+    {
+      "title": "Advanced Learning Opportunities in Mathematics | Ohio Department ...",
+      "snippet": "button for Computer Science. Mathematics FAQs. button for Transitions ... A school district is not required to offer \u201cadvanced learning opportunities ...",
+      "url": "https://education.ohio.gov/getdoc/36ac6c11-2b8d-4629-8ddc-cafe42367584/Advanced-Learning-Opportunities-in-Mathematics",
+      "searched_state": "OH",
+      "query": "site:.gov Ohio \"school district\" \"computer science\" grant"
+    },
+    {
+      "title": "Education Committee Committee Meeting - May 14, 2025 | Ohio ...",
+      "snippet": "Ohio Computer Science Advocacy Coalition, Interested Party, Download. Renee S ... Madison Local School District - Richland County, Opponent, Download. Rev ...",
+      "url": "https://ohiosenate.gov/committees/education/meetings/cmte_s_education_1_2025-05-14-0900_437",
+      "searched_state": "OH",
+      "query": "site:.gov Ohio \"school district\" \"computer science\" grant"
+    },
+    {
+      "title": "House Bill 96 Committee | 136th General Assembly",
+      "snippet": "Ohio Computer Science Advocacy Coalition, Ohio Computer Science Advocacy ... Wickliffe City School District, Ohio School-Based Health Alliance ...",
+      "url": "https://www.ohiohouse.gov/legislation/136/hb96/committee",
+      "searched_state": "OH",
+      "query": "site:.gov Ohio \"school district\" \"computer science\" grant"
+    },
+    {
+      "title": "[PDF] FY 2027 Budget Request to Congress April 3, 2026",
+      "snippet": "Computer Science Education Research Report ... track includes a collaboration involving the Chicago public school district (CPS) to increase enrollment.",
+      "url": "https://nsf-gov-resources.nsf.gov/files/FY-2027-NSF-Budget-Request-to-Congress.pdf",
+      "searched_state": "OH",
+      "query": "site:.gov Ohio \"school district\" \"computer science\" grant"
+    },
+    {
+      "title": "[PDF] DEPARTMENT OF HIGHER EDUCATION",
+      "snippet": "The bill permits any school district, community school, STEM school, or chartered ... support the expansion of computer science education.",
+      "url": "https://www.lsc.ohio.gov/assets/legislation/136/hb96/ph/files/hb96-bor-bill-analysis-as-passed-by-the-house-136th-general-assembly.pdf",
+      "searched_state": "OH",
+      "query": "site:.gov Ohio \"school district\" \"computer science\" grant"
+    },
+    {
+      "title": "[PDF] FY26 CJS CDS - Senate Appropriations Committee",
+      "snippet": "Engineering and Computer Science. Program Capacity Building. San Marcos ... School District (UCISD) Law Enforce- ment and School Security Enhance- ments.",
+      "url": "https://www.appropriations.senate.gov/download/fy26-cjs-cds",
+      "searched_state": "OH",
+      "query": "site:.gov Ohio \"school district\" \"computer science\" grant"
+    },
+    {
+      "title": "Career and Technical Education: A Primer | Congress.gov",
+      "snippet": "... computer science and math;; retaining industry-experienced CTE teachers once ... One school district administrator used Perkins V funding to hire a work ...",
+      "url": "https://www.congress.gov/crs-product/R47166",
+      "searched_state": "OH",
+      "query": "site:.gov Ohio \"school district\" \"computer science\" grant"
+    },
+    {
+      "title": "Fall 2025 Classroom Grant Awards - Ohio STEM Learning Network",
+      "snippet": "Computer Science \u00b7 Ignite Computer Science (Open) ... The Ohio STEM Learning Network is a public partnership between the Ohio Department of Education ...",
+      "url": "https://osln.org/how-we-help/classroom-opportunities/classroom-grant-program/fall-2025-classroom-grant-awards/",
+      "searched_state": "OH",
+      "query": "\"Ohio Department of Education\" \"computer science\" grant recipients"
+    },
+    {
+      "title": "$1 Million Choose Ohio First Grant Selects Cedarville University",
+      "snippet": "Cedarville University received its first Choose Ohio First grant in 2019 for its computer science and computer engineering programs. Since then, the ...",
+      "url": "https://www.cedarville.edu/news/2025/1-million-choose-ohio-first-grant-selects-cedarville-university",
+      "searched_state": "OH",
+      "query": "\"Ohio Department of Education\" \"computer science\" grant recipients"
+    },
+    {
+      "title": "[PDF] May 12, 2025 Ohio STEM Committee Meeting Minutes",
+      "snippet": "Workforce, Ohio Department of Education and Workforce (designee for Director of the ... Every student (K-8) takes a computer science class. They have intentional.",
+      "url": "https://education.ohio.gov/getattachment/Topics/STEM-Science-Technology-Engineering-and-Mathem/STEM-Committee/STEM-Committee-Meeting-Minutes/Approved-STEM-Committee-Meeting-Minutes-5-12-2025-ACC.pdf.aspx?lang=en-US",
+      "searched_state": "OH",
+      "query": "\"Ohio Department of Education\" \"computer science\" grant recipients"
+    },
+    {
+      "title": "[PDF] The University of Toledo Research and Sponsored Programs FY ...",
+      "snippet": "U.S. Department of Education through Ohio Department of Education. 7/1/23 to ... Electrical Engineering and Computer Science, Department of. 13. Co-I. Sun ...",
+      "url": "https://www.utoledo.edu/research/rsp/pdfs/2024SharedCredit_revised.pdf",
+      "searched_state": "OH",
+      "query": "\"Ohio Department of Education\" \"computer science\" grant recipients"
+    },
+    {
+      "title": "Two Ohio State Marion professors recently won a $20,000 Ohio ...",
+      "snippet": "If you teach high school science or math and would like to occasionally teach computer science (CS), the Ohio Department of Education just announced a ...",
+      "url": "https://www.facebook.com/MarionStar/posts/two-ohio-state-marion-professors-recently-won-a-20000-ohio-state-energy-partners/1244027304400450/",
+      "searched_state": "OH",
+      "query": "\"Ohio Department of Education\" \"computer science\" grant recipients"
+    },
+    {
+      "title": "Funding Career and Technical Education in Ohio: An overview and ...",
+      "snippet": "Career technical FTE enrollments were pulled from Ohio Department of Education and Workforce, FY23 Final No. ... computer science industries.[25].",
+      "url": "https://fordhaminstitute.org/ohio/research/funding-career-and-technical-education-ohio-overview-and-policy-recommendations",
+      "searched_state": "OH",
+      "query": "\"Ohio Department of Education\" \"computer science\" grant recipients"
+    },
+    {
+      "title": "[PDF] Funding - Ohio School Boards Association",
+      "snippet": "Provides $100,000 in each year for Tech Corps to support career-connected rural computer science programming. \u2022 Provides $250,000 in each year for the ...",
+      "url": "https://www.ohioschoolboards.org/sites/default/files/uploads/HB%2096-%20House%20sub%20bill%20summary.pdf",
+      "searched_state": "OH",
+      "query": "\"Ohio Department of Education\" \"computer science\" grant recipients"
+    },
+    {
+      "title": "Empowering the next generation of innovators - Instagram",
+      "snippet": "We're proud to partner with the Tennessee Department of Education in advancing high\u2011quality STEM and computer science learning across the state.",
+      "url": "https://www.instagram.com/p/DTf-NyPkxHb/",
+      "searched_state": "OH",
+      "query": "\"Ohio Department of Education\" \"computer science\" grant recipients"
+    },
+    {
+      "title": "Akron Public Schools (APS) is proud to announce that our educators ...",
+      "snippet": "... Computer Science Academy at Francis Tuttle Technology Center (Rockwell Campus). ... The Ohio Department of Education released Tuesday the report cards that ...",
+      "url": "https://www.facebook.com/330togo/posts/aps-a-win-for-akron-our-akron-public-schools-teachers-are-setting-the-standard-i/1236402655174376/",
+      "searched_state": "OH",
+      "query": "\"Ohio Department of Education\" \"computer science\" grant recipients"
+    },
+    {
+      "title": "Budget: Computer Science Teacher Licensure Waiver Enacted",
+      "snippet": "... computer science licensure. The extension (Ohio Revised ... The Ohio STEM Learning Network is a public partnership between the Ohio Department of Education ...",
+      "url": "https://osln.org/2025/07/budget-computer-science-teacher-licensure-waiver-enacted/",
+      "searched_state": "OH",
+      "query": "\"Ohio Department of Education\" \"computer science\" grant recipients"
+    },
+    {
+      "title": "Battelle Awards $900,000 in STEM Education Grants to Ohio Schools",
+      "snippet": "COLUMBUS, Ohio (Nov. 10, 2024) \u2013 Battelle announced today the funding of 194 grants totaling $900,000 to enhance STEM learning in classrooms across Ohio.",
+      "url": "https://www.battelle.org/insights/newsroom/press-release-details/battelle-awards--900-000-in-stem-education-grants-to-ohio-schools",
+      "searched_state": "OH",
+      "query": "\"Ohio Department of Education\" \"computer science\" OR \"STEM\" grant awarded"
+    },
+    {
+      "title": "Ohio awarded nearly $105 million to expand high-performing ...",
+      "snippet": "STEM Education \u00b7 Student Wellness and Success \u00b7 Testing \u00b7 Ohio's Education ... Ohio Department of Education and Workforce Director Stephen D. Dackin is ...",
+      "url": "https://education.ohio.gov/Media/Ed-Connection/Sept-30-2025/Ohio-awarded-nearly-$105-million-to-expand-high-pe",
+      "searched_state": "OH",
+      "query": "\"Ohio Department of Education\" \"computer science\" OR \"STEM\" grant awarded"
+    },
+    {
+      "title": "Ohio has been awarded federal funding to support the growth of ...",
+      "snippet": "EdChoice Scholarship Program | Ohio Department of Education. 0 reactions ... The [Expand Energy STEM Grant](https://cfov. org/expand-energy/) program is ...",
+      "url": "https://www.facebook.com/OHEducation/posts/ohio-has-been-awarded-federal-funding-to-support-the-growth-of-high-performing-c/1300579828769175/",
+      "searched_state": "OH",
+      "query": "\"Ohio Department of Education\" \"computer science\" OR \"STEM\" grant awarded"
+    },
+    {
+      "title": "Licking Heights educators get more than $20,000 in Ohio STEM grants",
+      "snippet": "The program, part of a partnership between Battelle and the Ohio Department of Education and Workforce, recognizes educators who bring creative STEM ideas to ...",
+      "url": "https://www.newarkadvocate.com/story/news/local/pataskala/2025/11/21/licking-heights-educators-get-more-than-20000-in-ohio-stem-grants/87356122007/",
+      "searched_state": "OH",
+      "query": "\"Ohio Department of Education\" \"computer science\" OR \"STEM\" grant awarded"
+    },
+    {
+      "title": "Ohio receives $105 million in federal grants for community schools",
+      "snippet": "Ohio Department of Education and Workforce ... https://lnkd.in/gAkzKxhe \ud83c\udfeb North Carolina secured $53M in federal funds to open seats, support CTE/STEM/AI pathways ...",
+      "url": "https://www.linkedin.com/posts/oheducation_big-news-ohio-has-been-awarded-nearly-105-activity-7377085376001175552-TRHk",
+      "searched_state": "OH",
+      "query": "\"Ohio Department of Education\" \"computer science\" OR \"STEM\" grant awarded"
+    },
+    {
+      "title": "July 29, 2025 | Ohio Department of Education and Workforce",
+      "snippet": "With funding from Battelle, the Ohio STEM Learning Network Classroom Grant ... Ohio Department of Education and Workforce and the Ohio ACTE 2025 All Ohio ...",
+      "url": "https://education.ohio.gov/Media/Ed-Connection/July-29-2025",
+      "searched_state": "OH",
+      "query": "\"Ohio Department of Education\" \"computer science\" OR \"STEM\" grant awarded"
+    },
+    {
+      "title": "[PDF] Proposal to establish a Computer Science Endorsement 5b Certificate",
+      "snippet": "CS and STEM education in a K12 setting, and three courses related to programming and technical skills in computer science. The pedagogy core consists of: 1 ...",
+      "url": "https://oaa.osu.edu/sites/default/files/documents/EHE%20-%20Proposal%20to%20establish%20a%20Computer%20Science%20Endorsement%205b%20Certificate.pdf",
+      "searched_state": "OH",
+      "query": "\"Ohio Department of Education\" \"computer science\" OR \"STEM\" grant awarded"
+    },
+    {
+      "title": "The school received a $1.6 million grant from the Ohio Department ...",
+      "snippet": "The school received a $1.6 million grant from the Ohio Department of Education ... STEM-focused extracurricular activities for students and teachers. West ...",
+      "url": "https://www.facebook.com/ChronicleTelegram/posts/the-school-received-a-16-million-grant-from-the-ohio-department-of-education-and/1380144010786195/",
+      "searched_state": "OH",
+      "query": "\"Ohio Department of Education\" \"computer science\" OR \"STEM\" grant awarded"
+    },
+    {
+      "title": "CS Promise | Ohio Department of Education and Workforce",
+      "snippet": "Ohio House Bill 33 created the Ohio Computer Science Promise (CS Promise) program. ORC 3322.20 requires the Ohio Department of Education and Workforce to ...",
+      "url": "https://education.ohio.gov/Topics/Learning-in-Ohio/Computer-Science/CS-Promise",
+      "searched_state": "OH",
+      "query": "\"Computer Science Promise\" Ohio district"
+    },
+    {
+      "title": "Release of Computer Science Promise course, provider list",
+      "snippet": "5/20/2025. Program-eligible providers, courses now available. Ohio House Bill 33 created the Ohio Computer Science Promise (CS Promise) program.",
+      "url": "https://education.ohio.gov/Media/Ed-Connection/May-20-2025/Release-of-Computer-Science-Promise-course-provide",
+      "searched_state": "OH",
+      "query": "\"Computer Science Promise\" Ohio district"
+    },
+    {
+      "title": "[PDF] Policy No. 3690 Ohio Computer Science Promise Program",
+      "snippet": "In accordance with Ohio law, the School shall count courses successfully completed under the. Ohio Computer Science Promise Program for high school credit ...",
+      "url": "https://earlycollegecolumbus.com/wp-content/uploads/2025/08/Policy-No.-3690-Ohio-Computer-Science-Promise-Program.pdf",
+      "searched_state": "OH",
+      "query": "\"Computer Science Promise\" Ohio district"
+    },
+    {
+      "title": "Edmentum offers 6 CS Promise courses in Ohio | Edmentum posted ...",
+      "snippet": "Edmentum is an approved provider for Ohio's Computer Science Promise\u2014making it easier to expand Computer Science course access in grades 7\u201312.",
+      "url": "https://www.linkedin.com/posts/edmentum_edmentum-is-an-approved-provider-for-ohio-activity-7346220818776936450-ilVY",
+      "searched_state": "OH",
+      "query": "\"Computer Science Promise\" Ohio district"
+    },
+    {
+      "title": "Educational Service Center awarded Teach Computer Science 2.0 ...",
+      "snippet": "The funding supports Ohio's Computer Science Promise by removing financial barriers for educators seeking additional licensure. Ohio educators participating in ...",
+      "url": "https://www.news-herald.com/2026/03/22/educational-service-center-awarded-teach-computer-science-2-0-grant/",
+      "searched_state": "OH",
+      "query": "\"Computer Science Promise\" Ohio district"
+    },
+    {
+      "title": "OH HB594 - BillTrack50",
+      "snippet": "This bill requires Ohio school districts ... level. (H) A student enrolled in a school district or school may. participate in the computer science promise program ...",
+      "url": "https://www.billtrack50.com/billdetail/1911811",
+      "searched_state": "OH",
+      "query": "\"Computer Science Promise\" Ohio district"
+    },
+    {
+      "title": "Educational Service Center awarded Teach Computer Science 2.0 ...",
+      "snippet": "The funding supports Ohio's Computer Science Promise by removing financial barriers for educators seeking additional licensure. Ohio educators participating ...",
+      "url": "https://www.yahoo.com/news/articles/educational-center-awarded-teach-computer-035900478.html",
+      "searched_state": "OH",
+      "query": "\"Computer Science Promise\" Ohio district"
+    },
+    {
+      "title": "State & Agency Approvals | Edmentum",
+      "snippet": "... Ohio Department of Education Computer Science Promise Approval. State and Agency Approvals. Ohio Department of Education Computer Science ...",
+      "url": "https://www.edmentum.com/impact/approvals/",
+      "searched_state": "OH",
+      "query": "\"Computer Science Promise\" Ohio district"
+    },
+    {
+      "title": "[PDF] ohio legislative service commission - Bill Analysis",
+      "snippet": "Finally, the bill addresses the Computer Science Promise. Program and permits community colleges to partner with public schools to satisfy both the offering and ...",
+      "url": "https://www.legislature.ohio.gov/download?key=26947",
+      "searched_state": "OH",
+      "query": "\"Computer Science Promise\" Ohio district"
+    },
+    {
+      "title": "Events | Sebring Local Schools",
+      "snippet": "Ohio Computer Science Promise Program. Photos - Flickr. Show submenu for ... Sebring Testing ScheduleSebring District Calendar 2025-2026Sebring District Calendar ...",
+      "url": "https://www.sebring.k12.oh.us/events?id=39185558",
+      "searched_state": "OH",
+      "query": "\"Computer Science Promise\" Ohio district"
+    },
+    {
+      "title": "EdConnection | Ohio Department of Education and Workforce",
+      "snippet": "Release of Computer Science Promise course, provider list. Ohio law requires ... Ohio Department of Education and Workforce. Stephen D. Dackin, Director ...",
+      "url": "https://education.ohio.gov/Media/Ed-Connection?page=67&rss=NewsletterRSS",
+      "searched_state": "OH",
+      "query": "\"Ohio Department of Education\" \"Computer Science Promise\" district"
+    },
+    {
+      "title": "[PDF] Skyway - Proposed 2025-2026 Parent Student Handbook ...",
+      "snippet": "Ohio Computer Science Promise Program ... For more information about this matter, please contact the School administration or the Ohio Department of Education and ...",
+      "url": "https://careerprepschool.org/hubfs/Skyway%20-%202025-2026%20Parent%20Student%20Handbook.pdf?hsLang=en",
+      "searched_state": "OH",
+      "query": "\"Ohio Department of Education\" \"Computer Science Promise\" district"
+    }
+  ]
+}

@@ -1,0 +1,120 @@
+{
+  "_comment": "F4 CS funding scanner — HIGH-confidence validation oracle. Hand-verified 2026-04-11 against snapshots in scripts/f4_snapshots/ against the tightened extraction prompt (strict HIGH requires 'computer science'/'coding'/'programming'/'CS' verbatim in snippet or title). Gate threshold: ≥60% of labeled HIGH extractions must have is_real_lea_award=true. Oracle is a point-in-time artifact — regenerate when re-verifying F4 after query/prompt revisions.",
+  "created": "2026-04-11",
+  "snapshot_date": "2026-04-11",
+  "threshold": 0.60,
+  "rows": [
+    {
+      "district": "Berwick Area School District",
+      "state": "PA",
+      "source_url": "https://www.berwicksd.org/article/2188574",
+      "expected_confidence": "HIGH",
+      "is_real_lea_award": true,
+      "notes": "PAsmart competitive grant explicitly for K-12 CS + Technical Skills. Published on the district's own website. Real."
+    },
+    {
+      "district": "Community Consolidated School District 15",
+      "state": "IL",
+      "source_url": "https://www.ccsd15.net/dbpp/~board/staff-recognition/post/announce",
+      "expected_confidence": "HIGH",
+      "is_real_lea_award": true,
+      "notes": "Borderline — Google.org / CS education context. CCSD 15 is a real IL district. Snippet mentions computer science education so passes strict HIGH bar."
+    },
+    {
+      "district": "Community Unit School District 60",
+      "state": "IL",
+      "source_url": "http://www.ed.gov/grants-and-programs/grants-special-populations/grants-economically-disadvantaged-students/eir/awards/fy-2023-awards/",
+      "expected_confidence": "HIGH",
+      "is_real_lea_award": true,
+      "notes": "Federal ed.gov EIR FY2023 award: 'Computer Science and Engineering and Design STEM Program and K-12 Computer Science Pathway', $694,176 / $2,171,699 total. Real."
+    },
+    {
+      "district": "Coronado Unified School District",
+      "state": "CA",
+      "source_url": "https://coronadousd.net/Announcements/",
+      "expected_confidence": "HIGH",
+      "is_real_lea_award": true,
+      "notes": "District announcement: 'Coronado Schools Awarded $1.25 Million Computer Science Grant'. Real."
+    },
+    {
+      "district": "DuBois Area School District",
+      "state": "PA",
+      "source_url": "https://www.facebook.com/exploreJefferson/posts/dubois-area-school-district-has-been-awarded-a-450000-grant-to",
+      "expected_confidence": "HIGH",
+      "is_real_lea_award": true,
+      "notes": "Palumbo Grant as part of PA Governor Wolf's $8.7M package to expand CS classes. Real."
+    },
+    {
+      "district": "Lake Public Schools",
+      "state": "OK",
+      "source_url": "https://www.facebook.com/100064499091816/posts/1072533598239933/",
+      "expected_confidence": "HIGH",
+      "is_real_lea_award": false,
+      "notes": "Haiku mistagged the state. The underlying article is about 55 Ohio local districts (including Lake Local SD OH) winning $10.35M in Ohio Computer Science Promise grants. There is no 'Lake Public Schools' in Oklahoma. False positive at the (district, state) level even though the grant is real."
+    },
+    {
+      "district": "McKenzie Special School District",
+      "state": "IN",
+      "source_url": "https://www.facebook.com/jessebringsthenews/posts/mckenzie-special-school-district-has-been",
+      "expected_confidence": "HIGH",
+      "is_real_lea_award": false,
+      "notes": "Haiku mistagged state — McKenzie Special School District is in Tennessee, not Indiana. Grant is a real $179,326 CS education award but the district/state tuple is wrong."
+    },
+    {
+      "district": "McKenzie Special School District",
+      "state": "PA",
+      "source_url": "https://www.facebook.com/jessebringsthenews/posts/mckenzie-special-school-district-has-been",
+      "expected_confidence": "HIGH",
+      "is_real_lea_award": false,
+      "notes": "Haiku mistagged state — same facebook post as above, real district is TN. False (PA)."
+    },
+    {
+      "district": "Midland Independent School District",
+      "state": "TX",
+      "source_url": "https://www.oaoa.com/local-news/education/midland-isd-awarded-laso-grants-to-strengthen-teaching-and",
+      "expected_confidence": "HIGH",
+      "is_real_lea_award": true,
+      "notes": "Midland ISD awarded $674,000 LASO grants including Advanced Placement Computer Science Principles (APCSP). Real."
+    },
+    {
+      "district": "Northern Valley Regional High School District",
+      "state": "NJ",
+      "source_url": "https://www.nj.gov/education/sprreports/202324/District-Detail/03-3710.pdf",
+      "expected_confidence": "HIGH",
+      "is_real_lea_award": true,
+      "notes": "NJ DOE official District Detail PDF: 'Awarded NJDOE: Advanced Computer Science Grant, Career Pathways CTE grant'. Real — out-of-territory but the oracle labels by truthfulness, not by territory. Territory filter is a separate downstream concern."
+    },
+    {
+      "district": "RIMSD 41",
+      "state": "IL",
+      "source_url": "https://files-backend.assets.thrillshare.com/documents/asset/uploaded_file/5384/Rimsd/41c7",
+      "expected_confidence": "HIGH",
+      "is_real_lea_award": true,
+      "notes": "Rock Island-Milan SD 41 Summer 2025 Newsletter explicitly lists 'Computer Science Equity Grant' as a secured funding source. Real."
+    },
+    {
+      "district": "Riverside Unified School District",
+      "state": "CA",
+      "source_url": "https://www.raincrossgazette.com/riverside-unified-expands-career-training-programs-with-5-5-million",
+      "expected_confidence": "HIGH",
+      "is_real_lea_award": true,
+      "notes": "Golden State Pathways Program grant from CDE for $5.5M expanding computer science and other career pathways. Real."
+    },
+    {
+      "district": "School District of Philadelphia",
+      "state": "PA",
+      "source_url": "https://www.facebook.com/RepGiral/photos/the-school-district-of-philadelphia-was-awarded-450000-in-p",
+      "expected_confidence": "HIGH",
+      "is_real_lea_award": true,
+      "notes": "$450,000 in PAsmart Advancing Grants for CTE programs expanding computer science access. Real."
+    },
+    {
+      "district": "Sto-Rox School District",
+      "state": "PA",
+      "source_url": "https://www.srsd.k12.pa.us/sto-roxnews/8ctk5szxtt1tm6reiiaundj76jz6xi",
+      "expected_confidence": "HIGH",
+      "is_real_lea_award": true,
+      "notes": "District announcement: Sto-Rox SD awarded $75,000 by the Pennsylvania Department of Education for computer science + STEM programming. Real."
+    }
+  ]
+}

@@ -3027,10 +3027,15 @@ For each award, return JSON:
 }}
 
 CONFIDENCE RULES:
-- HIGH: district named clearly, amount present, CS-specific purpose confirmed,
-        K-12 context unambiguous, source date present
-- MEDIUM: district + CS context clear, amount or date missing
-- LOW: program-level announcement without specific recipient OR partial entity match
+- HIGH: district named clearly AND amount present AND the snippet OR title
+        contains the exact phrase "computer science" OR "coding" OR
+        "programming" OR "CS" (NOT just "STEM" or "robotics") AND K-12 context
+        unambiguous. This is the HIGHEST bar — err toward MEDIUM when unsure.
+- MEDIUM: district + STEM/CS context clear but snippet does NOT contain
+          "computer science"/"coding"/"programming" verbatim, OR amount
+          missing, OR date missing. This is where generic STEM grants live.
+- LOW: program-level announcement without specific recipient OR partial
+       entity match OR snippet mentions only a single school.
 
 DISTRICT NAME RULES:
 - Must be a specific named Local Education Agency (LEA) — the exact legal
@@ -3097,9 +3102,12 @@ def _f4_extract_items(client, combined_text: str, state_abbr: str) -> list:
         return []
     prompt = _F4_EXTRACTION_PROMPT_TEMPLATE.format(combined_text=combined_text)
     try:
+        # temperature=0 for deterministic extraction — critical for the
+        # oracle-gated harness in scripts/f4_serper_replay.py.
         response = client.messages.create(
             model="claude-haiku-4-5-20251001",
             max_tokens=3000,
+            temperature=0.0,
             messages=[{"role": "user", "content": prompt}],
         )
         _track_usage(response)

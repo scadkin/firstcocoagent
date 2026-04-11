@@ -1,0 +1,402 @@
+{
+  "state_abbr": "PA",
+  "state_name": "pennsylvania",
+  "captured_at": "2026-04-11T13:16:32",
+  "query_count": 7,
+  "queries": [
+    "\"awarded\" \"computer science\" grant Pennsylvania \"school district\"",
+    "\"STEM grant\" awarded school district \"Pennsylvania\"",
+    "site:.gov Pennsylvania \"school district\" \"computer science\" grant",
+    "\"Pennsylvania Department of Education\" \"computer science\" grant recipients",
+    "\"Pennsylvania Department of Education\" \"computer science\" OR \"STEM\" grant awarded",
+    "\"PAsmart\" Pennsylvania district",
+    "\"Pennsylvania Department of Education\" \"PAsmart\" district"
+  ],
+  "snippets": [
+    {
+      "title": "District Awarded $75000 Grant for STEM-Related Programming and ...",
+      "snippet": "Sto-Rox School District was recently awarded $75000 by the Pennsylvania ... computer science and science, technology, engineering, and math (STEM) ...",
+      "url": "https://www.srsd.k12.pa.us/sto-roxnews/8ctk5szxtt1tm6reiiaundj76jz6xi",
+      "searched_state": "PA",
+      "query": "\"awarded\" \"computer science\" grant Pennsylvania \"school district\""
+    },
+    {
+      "title": "$79000 in CFFC Grants are at Work in Local Schools",
+      "snippet": "Frazier School District was awarded one grant for physics lab equipment. In addition to supporting education through competitive grant opportunities, CFFC is ...",
+      "url": "https://www.cffayettepa.org/79000-in-cffc-grants-are-at-work-in-local-schools/",
+      "searched_state": "PA",
+      "query": "\"awarded\" \"computer science\" grant Pennsylvania \"school district\""
+    },
+    {
+      "title": "The Ted K Center has won a grant that will pay for new computers ...",
+      "snippet": "NH-M got great news today. Thanks to Mr. Todd Dugan our school was awarded the Lowes Toolbox for Education grant in the amount of $4500. The grant will help ...",
+      "url": "https://www.facebook.com/WCAXTV/posts/the-ted-k-center-has-won-a-grant-that-will-pay-for-new-computers-and-other-elect/1385565663599182/",
+      "searched_state": "PA",
+      "query": "\"awarded\" \"computer science\" grant Pennsylvania \"school district\""
+    },
+    {
+      "title": "The Shapiro Administration has awarded PAsmart Advancing Grants ...",
+      "snippet": "... computer science education across Pennsylvania ... School District ... 11 likes \u00b7 senmartyflynn. The Pennsylvania Historical & Museum Commission has awarded ...",
+      "url": "https://www.instagram.com/p/DJFaUVzx8wM/",
+      "searched_state": "PA",
+      "query": "\"awarded\" \"computer science\" grant Pennsylvania \"school district\""
+    },
+    {
+      "title": "Berwick Area School District Awarded PAsmart Grant to Build K\u201312 ...",
+      "snippet": "The Berwick Area School District (BASD) has been awarded a competitive PAsmart Grant ... Computer Science and Technical Skills: Grow participation in CS ...",
+      "url": "https://www.berwicksd.org/article/2188574",
+      "searched_state": "PA",
+      "query": "\"awarded\" \"computer science\" grant Pennsylvania \"school district\""
+    },
+    {
+      "title": "Berwick Area School District receives grant for Career and Technical ...",
+      "snippet": "Department of Education has awarded Berwick Area School District with a ... computer science. \u201cThis is great news for our community, as these funds ...",
+      "url": "https://www.northcentralpa.com/education/berwick-area-school-district-receives-grant-for-career-and-technical-education-program/article_398bfe01-ad48-478f-8f94-d1c177cbd918.html",
+      "searched_state": "PA",
+      "query": "\"awarded\" \"computer science\" grant Pennsylvania \"school district\""
+    },
+    {
+      "title": "McKenzie Special School District has been awarded up ... - Facebook",
+      "snippet": "McKenzie Special School District has been awarded up to $179326 through a ... Grant awarded for computer science education. Tina Adams-Wallen \u25bb Berlin ...",
+      "url": "https://www.facebook.com/jessebringsthenews/posts/mckenzie-special-school-district-has-been-awarded-up-to-179326-through-a-usda-di/122217123596352208/",
+      "searched_state": "PA",
+      "query": "\"awarded\" \"computer science\" grant Pennsylvania \"school district\""
+    },
+    {
+      "title": "PASS Expands to PA, NJ, and DE with Google.org Funding - LinkedIn",
+      "snippet": "... School District Neshaminy, PA School District Paterson, NJ ... Computer Science Teachers Association has officially been awarded an $11 million grant ...",
+      "url": "https://www.linkedin.com/posts/penngse_penn-gse-announces-expansion-of-pioneering-activity-7435009962248073219-XyE_",
+      "searched_state": "PA",
+      "query": "\"awarded\" \"computer science\" grant Pennsylvania \"school district\""
+    },
+    {
+      "title": "Project Grant 2524330 - GovTribe",
+      "snippet": "This $399,841 Project Grant awarded by the National Science Foundation's (NSF) STEM Education program (CFDA 47.076) will support a collaborative research- ...",
+      "url": "https://govtribe.com/award/federal-grant-award/project-grant-2524330",
+      "searched_state": "PA",
+      "query": "\"awarded\" \"computer science\" grant Pennsylvania \"school district\""
+    },
+    {
+      "title": "Farmingdale State College has been awarded a National Science ...",
+      "snippet": "... awarded a National Science Foundation grant of more ... Christina School District has been selected for the next phase of the University of Pennsylvania ...",
+      "url": "https://www.instagram.com/p/DSpdOTQjehr/",
+      "searched_state": "PA",
+      "query": "\"awarded\" \"computer science\" grant Pennsylvania \"school district\""
+    },
+    {
+      "title": "STEM GRANT: The district was recently awarded a $75,000 grant ...",
+      "snippet": "STEM GRANT: The district was recently awarded a $75,000 grant from the Pennsylvania Department of Education to support STEM-related programming and so much more ...",
+      "url": "https://www.facebook.com/StoRoxSD/posts/stem-grant-the-district-was-recently-awarded-a-75000-grant-from-the-pennsylvania/1271538167927050/",
+      "searched_state": "PA",
+      "query": "\"STEM grant\" awarded school district \"Pennsylvania\""
+    },
+    {
+      "title": "DuBois Area School District has been awarded a $450,000 grant to ...",
+      "snippet": "DuBois Area School District has been awarded ... Pennsylvania schools receive computer education grants ... school be applying for an Indiana STEM grant this year?",
+      "url": "https://www.facebook.com/exploreJefferson/posts/dubois-area-school-district-has-been-awarded-a-450000-grant-to-expand-stem-and-t/1272369504890366/",
+      "searched_state": "PA",
+      "query": "\"STEM grant\" awarded school district \"Pennsylvania\""
+    },
+    {
+      "title": "NASA pulls DEI-focused STEM grant from Kutztown University",
+      "snippet": "Kutztown is the only college or university in Pennsylvania that was part of the NASA program. While Penn State University students can access other scholarships ...",
+      "url": "https://www.spotlightpa.org/berks/2025/04/kutztown-university-nasa-grant-cut/",
+      "searched_state": "PA",
+      "query": "\"STEM grant\" awarded school district \"Pennsylvania\""
+    },
+    {
+      "title": "We're proud to partner with the @CalRipkenSrFdn to open these ...",
+      "snippet": "... District of Columbia, Illinois, Maryland, New Jersey and Pennsylvania. ... \ud83c\udfce\ufe0f\u2600\ufe0f A big thank you to NextEra and the EmPOWERing STEM Grant for making these innovative ...",
+      "url": "https://www.instagram.com/reel/DOOYx5EDPWW/",
+      "searched_state": "PA",
+      "query": "\"STEM grant\" awarded school district \"Pennsylvania\""
+    },
+    {
+      "title": "How to Find Technology Grants for K-12 Schools & Districts",
+      "snippet": "... Pennsylvania Rhode Island South Carolina South Dakota Tennessee Texas Utah ... Burns & McDonnell Foundation STEM Grant Program offers grants of up to ...",
+      "url": "https://progresslearning.com/news-blog/find-tech-grants-for-schools-districts/",
+      "searched_state": "PA",
+      "query": "\"STEM grant\" awarded school district \"Pennsylvania\""
+    },
+    {
+      "title": "This Teacher Appreciation Week, we're excited to announce the ...",
+      "snippet": "Jeff Remington \u25bb Pennsylvania Science Teachers. 3y \u00b7 Public \u00b7 Congrats to ... school be applying for an Indiana STEM grant this year? The deadline to ...",
+      "url": "https://www.facebook.com/fplconnect/posts/this-teacher-appreciation-week-were-excited-to-announce-the-expansion-of-our-ste/1151598690343117/",
+      "searched_state": "PA",
+      "query": "\"STEM grant\" awarded school district \"Pennsylvania\""
+    },
+    {
+      "title": "Venango County schools played a key role in a regional STEM ...",
+      "snippet": "The [Expand Energy STEM Grant](https://cfov. org/expand-energy/) program is designed to empower teachers with resources to implement engaging STEM lessons and ...",
+      "url": "https://www.facebook.com/exploreVenango/posts/venango-county-schools-played-a-key-role-in-a-regional-stem-competition-focused-/1520559256744187/",
+      "searched_state": "PA",
+      "query": "\"STEM grant\" awarded school district \"Pennsylvania\""
+    },
+    {
+      "title": "The Science, Technology, Engineering, and Mathematics School at ...",
+      "snippet": "... STEM grant selection programs and general programs that support STEM education. ... schools in Georgia and Pennsylvania. The Fellowship has also prepared over a ...",
+      "url": "https://www.facebook.com/100063784890354/posts/the-science-technology-engineering-and-mathematics-school-at-westview-middle-sch/1409647791171371/",
+      "searched_state": "PA",
+      "query": "\"STEM grant\" awarded school district \"Pennsylvania\""
+    },
+    {
+      "title": "St Robert's hosts STEM event with Egyptian twist for local pupils ...",
+      "snippet": "North Middlesex Regional School District Awarded More Than $18,000 in State STEM Grant ... school students ... Pennsylvania, and #WestVirginia, providing ...",
+      "url": "https://www.linkedin.com/posts/north-east-stem-foundation_north-east-stem-foundation-supports-egyptian-themed-activity-7348737853377458176-Opf0",
+      "searched_state": "PA",
+      "query": "\"STEM grant\" awarded school district \"Pennsylvania\""
+    },
+    {
+      "title": "TODAY: State Treasurer Larry Pack announced that Kyler Tamburin ...",
+      "snippet": "Students attending an eligible Pennsylvania school may receive up to $600 year. If you have the need, above a 2.0gpa, and plan to attend a participating college ...",
+      "url": "https://www.instagram.com/p/DKfDJsCOdNX/",
+      "searched_state": "PA",
+      "query": "\"STEM grant\" awarded school district \"Pennsylvania\""
+    },
+    {
+      "title": "Shapiro Administration Invests $10.35 Million to Expand Access to ...",
+      "snippet": "... computer science learning and professional development opportunities in communities across Pennsylvania. ... DuBois Area School District \u2013 Clearfield ...",
+      "url": "https://www.pa.gov/agencies/education/newsroom/shapiro-administration-invests-10-million-to-expand-access-to-career-and-technical-education-strengthening-pennsylvanias-workforce-for-the-future",
+      "searched_state": "PA",
+      "query": "site:.gov Pennsylvania \"school district\" \"computer science\" grant"
+    },
+    {
+      "title": "Education Innovation and Research | U.S. Department of Education",
+      "snippet": "Community Unit School District 60, Computer Science and Engineering and Design STEM Program and K-12 Computer Science Pathway, 5, $694,176, $2,171,699 ...",
+      "url": "http://www.ed.gov/grants-and-programs/grants-special-populations/grants-economically-disadvantaged-students/education-innovation-and-research",
+      "searched_state": "PA",
+      "query": "site:.gov Pennsylvania \"school district\" \"computer science\" grant"
+    },
+    {
+      "title": "Cohort 12A | Department of Education",
+      "snippet": "School District Review Program \u00b7 School Staff \u00b7 Resources \u00b7 Application and ... computer science, and that foster innovation in learning by supporting ...",
+      "url": "https://www.pa.gov/agencies/education/programs-and-services/instruction/elementary-and-secondary-education/21st-century-community-learning-centers/cohort-12a",
+      "searched_state": "PA",
+      "query": "site:.gov Pennsylvania \"school district\" \"computer science\" grant"
+    },
+    {
+      "title": "[PDF] RFP GC25-001 STEP (Science and Technology Entry Program)",
+      "snippet": "theoretical computer science) or where 70% of the registered program ... SD = School District, CBO = Community-Based Organization, O ...",
+      "url": "https://www.nysed.gov/sites/default/files/rfp-gc25-001-step-2025-2030-final.pdf",
+      "searched_state": "PA",
+      "query": "site:.gov Pennsylvania \"school district\" \"computer science\" grant"
+    },
+    {
+      "title": "Perkins | Department of Education | Commonwealth of Pennsylvania",
+      "snippet": "School District Review Program \u00b7 School Staff \u00b7 Resources \u00b7 Application and ... Computer Science, Postsecondary. 11.0901, Female, Computer Systems Networking and ...",
+      "url": "https://www.pa.gov/agencies/education/programs-and-services/instruction/career-and-technical-education/perkins",
+      "searched_state": "PA",
+      "query": "site:.gov Pennsylvania \"school district\" \"computer science\" grant"
+    },
+    {
+      "title": "[PDF] Computer Science (CS) Education State Supervisors and their Role ...",
+      "snippet": "(2019). Equity in the who, how and what of computer science education: K\u201312 school district conceptualizations of equity in 'CS for All' Initiatives ...",
+      "url": "https://par.nsf.gov/servlets/purl/10581393",
+      "searched_state": "PA",
+      "query": "site:.gov Pennsylvania \"school district\" \"computer science\" grant"
+    },
+    {
+      "title": "Thirty-Nine School Districts Awarded READ Funds for Innovative ...",
+      "snippet": "Michigan Department of Education Awards $6.7M in Grants \u00b7 Alpena-Montmorency-Alcona Educational Service District, $187,500. \u00b7 Anchor Bay School District, $157,000 ...",
+      "url": "https://www.michigan.gov/mde/news-and-information/press-releases/2025/09/15/districts-awarded-read-funds",
+      "searched_state": "PA",
+      "query": "site:.gov Pennsylvania \"school district\" \"computer science\" grant"
+    },
+    {
+      "title": "[PDF] 21st CCLC) GRANT APPLICATION",
+      "snippet": "\u2610 STEM activities, including computer science. \u2610 Remedial ... \u2610 No private schools in the service area of (each) school district served under this grant.",
+      "url": "https://dese.mo.gov/sites/dese/files/media/pdf/2026/04/MO_500_3133_21st_CCLC_Cohort_15_Application%2520%25281%2529_AOD_0.pdf",
+      "searched_state": "PA",
+      "query": "site:.gov Pennsylvania \"school district\" \"computer science\" grant"
+    },
+    {
+      "title": "Products | IES - Institute of Education Sciences",
+      "snippet": "... computer science coursework. The partnership will build local ... School District of Philadelphia (SDP) announced its goal to ...",
+      "url": "https://ies.ed.gov/use-work/regional-educational-laboratories-rel/mid-atlantic/products",
+      "searched_state": "PA",
+      "query": "site:.gov Pennsylvania \"school district\" \"computer science\" grant"
+    },
+    {
+      "title": "Department seeks committee members for computer science, data ...",
+      "snippet": "School District Maps \u00b7 School Operations & Support Services \u00b7 Senior Year Plus ... Credentials to Computer Science Careers Grant \u00b7 Perkins V Toggle submenu.",
+      "url": "https://educate.iowa.gov/headline-story/2025-11-17/department-seeks-committee-members-computer-science-data-science-and-ai-standards",
+      "searched_state": "PA",
+      "query": "site:.gov Pennsylvania \"school district\" \"computer science\" grant"
+    },
+    {
+      "title": "[PDF] FINAL 2025-26 Grant Book",
+      "snippet": "The Pennsylvania Department of Education (PDE) oversees 500 public school ... To expand access to STEM and computer science teaching and learning, and to help.",
+      "url": "https://www.pabudget.com/Display/SiteFiles/426/OtherDocuments/2025/FINAL%202025-26%20Grant%20Book%20(8).pdf",
+      "searched_state": "PA",
+      "query": "\"Pennsylvania Department of Education\" \"computer science\" grant recipients"
+    },
+    {
+      "title": "1 day ago - Instagram",
+      "snippet": "Wonderful news! Pennsylvania Department of Education has awarded P.I.T. with new Parent Pathways grant ... computer science, AP science, and AP mathematics.",
+      "url": "https://www.instagram.com/p/DWpGBLKllxQ/",
+      "searched_state": "PA",
+      "query": "\"Pennsylvania Department of Education\" \"computer science\" grant recipients"
+    },
+    {
+      "title": "[PDF] Administrative Manual for ESSA Programming March 2026",
+      "snippet": "eGrants \u2013 The Pennsylvania Department of Education's grants management system that ... STEM, including computer science, and increasing access to these.",
+      "url": "https://www.pa.gov/content/dam/copapwp-pagov/en/education/documents/federal-programs/essa/administrative%20manual%20for%20essa%20programming.pdf",
+      "searched_state": "PA",
+      "query": "\"Pennsylvania Department of Education\" \"computer science\" grant recipients"
+    },
+    {
+      "title": "Junior Achievement's BizTown program is creating more ... - Facebook",
+      "snippet": "... computer science learning and professional development opportunities to communities ... Award from the Pennsylvania Department of Education (PDE). \u201cMy ...",
+      "url": "https://www.facebook.com/governorshapiro/posts/junior-achievements-biztown-program-is-creating-more-opportunities-for-our-kids-/1449595089856173/",
+      "searched_state": "PA",
+      "query": "\"Pennsylvania Department of Education\" \"computer science\" grant recipients"
+    },
+    {
+      "title": "Congratulations to this year's PSEA Innovative Teaching Grant ...",
+      "snippet": "... computer science learning and professional development opportunities to ... HARRISBURG \u2014 The Pennsylvania Department of Education recently announced ...",
+      "url": "https://www.facebook.com/PennsylvaniaEA/posts/congratulations-to-this-years-psea-innovative-teaching-grant-winners-susan-elnit/1190511959778920/",
+      "searched_state": "PA",
+      "query": "\"Pennsylvania Department of Education\" \"computer science\" grant recipients"
+    },
+    {
+      "title": "Grants Received - Duquesne University",
+      "snippet": "Samantha Allen, Mathematics & Computer Science ... Karen Levitt, School of Education, $100,000 from the Pennsylvania Department of Education to support the ...",
+      "url": "https://www.duq.edu/research/sponsored-research/grants-received/index.php",
+      "searched_state": "PA",
+      "query": "\"Pennsylvania Department of Education\" \"computer science\" grant recipients"
+    },
+    {
+      "title": "[PDF] Perkins Local Application Funding Guidelines Title I Strengthening ...",
+      "snippet": "computer science, technology, and other current and emerging ... Agreements for funding between the Pennsylvania Department of Education and the eligible.",
+      "url": "https://www.pa.gov/content/dam/copapwp-pagov/en/education/documents/instruction/career-and-technical-education/grants/perkins/perkins%20v%20local%20application%20funding.pdf",
+      "searched_state": "PA",
+      "query": "\"Pennsylvania Department of Education\" \"computer science\" grant recipients"
+    },
+    {
+      "title": "Good news for higher education in our region - Instagram",
+      "snippet": "Chatham University has once again been awarded a $20,000 PA Hunger-Free Campus Grant from the Pennsylvania Department of Education. The grant will support ...",
+      "url": "https://www.instagram.com/p/DVbjva9Ed0w/",
+      "searched_state": "PA",
+      "query": "\"Pennsylvania Department of Education\" \"computer science\" grant recipients"
+    },
+    {
+      "title": "Bucks STEM Program Gets $90000 Grant to Expand to More Schools",
+      "snippet": "DOYLESTOWN, PA\u2014A program that teaches students how to design and lead STEM projects has received a $90,000 grant to expand to more schools across Bucks County.",
+      "url": "https://www.tapinto.net/towns/doylestown/sections/education/articles/bucks-stem-program-gets-90-000-grant-to-expand-to-more-schools",
+      "searched_state": "PA",
+      "query": "\"Pennsylvania Department of Education\" \"computer science\" OR \"STEM\" grant awarded"
+    },
+    {
+      "title": "Bucks IU Awarded $90K Grant To Expand Chief Science Officer ...",
+      "snippet": "The grant, awarded through the Pennsylvania Department of Education Job ... The goal is to build a stronger STEM culture, expand STEM career awareness ...",
+      "url": "https://patch.com/pennsylvania/doylestown/bucks-iu-awarded-90k-grant-expand-chief-science-officer-program",
+      "searched_state": "PA",
+      "query": "\"Pennsylvania Department of Education\" \"computer science\" OR \"STEM\" grant awarded"
+    },
+    {
+      "title": "Expanding Computer Science and STEM Teacher Professional ...",
+      "snippet": "... computer science (CS) and STEM education, particularly for traditionally underserved students ... In partnership with the Pennsylvania Department of Education ...",
+      "url": "https://www.air.org/project/expanding-computer-science-and-stem-teacher-professional-development-and-student-learning",
+      "searched_state": "PA",
+      "query": "\"Pennsylvania Department of Education\" \"computer science\" OR \"STEM\" grant awarded"
+    },
+    {
+      "title": "Pennsylvania College of Technology wins $1M grant for dual credit ...",
+      "snippet": "... STEM and career and technical education (CTE) fields. Thanks to this innovation-focused grant from the Pennsylvania Department of Education, the College ...",
+      "url": "https://www.linkedin.com/posts/elizabeth-biddle-5509586_college-to-expand-dual-enrollment-via-innovation-activity-7330250308100489219-mcnm",
+      "searched_state": "PA",
+      "query": "\"Pennsylvania Department of Education\" \"computer science\" OR \"STEM\" grant awarded"
+    },
+    {
+      "title": "State Grant for Continued Support of It's On Us PA",
+      "snippet": "\u2013 Kutztown University was awarded a $40,000 grant from the Shapiro Administration and the Pennsylvania Department of Education for the It's On Us PA program in ...",
+      "url": "https://www.kutztown.edu/news-and-media/news-releases/march-2026/state-grant-for-continued-support-of-its-on-us-pa.html",
+      "searched_state": "PA",
+      "query": "\"Pennsylvania Department of Education\" \"computer science\" OR \"STEM\" grant awarded"
+    },
+    {
+      "title": "This week, the Pennsylvania Department of Education announced ...",
+      "snippet": "This week, the Pennsylvania Department of Education announced grants ... STEM and computer science. In our area, the ... In our area, the School District of ...",
+      "url": "https://www.facebook.com/RepCephas/posts/this-week-the-pennsylvania-department-of-education-announced-grants-to-help-expa/1069331445016100/",
+      "searched_state": "PA",
+      "query": "\"Pennsylvania Department of Education\" \"computer science\" OR \"STEM\" grant awarded"
+    },
+    {
+      "title": "Industry Partnerships - Commonwealth of Pennsylvania",
+      "snippet": "Identifying opportunities for collaboration. PAsmart Industry Partnership Grants. PAsmart Industry Partnership grants provide funds to support the development ...",
+      "url": "https://www.pa.gov/agencies/dli/programs-services/workforce-development-home/grant-opportunities/industry-partnerships",
+      "searched_state": "PA",
+      "query": "\"PAsmart\" Pennsylvania district"
+    },
+    {
+      "title": "$399812 PAsmart Investment Builds Philadelphia's Advanced ...",
+      "snippet": "Philadelphia, PA, Feb. 26, 2026 (GLOBE NEWSWIRE) \u2014 Philadelphia Works has been awarded $399,812 through Pennsylvania's PAsmart Advanced Manufacturing initiative ...",
+      "url": "https://philaworks.org/399812-pasmart-investment-builds-philadelphias-advanced-manufacturing-talent-pipeline/",
+      "searched_state": "PA",
+      "query": "\"PAsmart\" Pennsylvania district"
+    },
+    {
+      "title": "Rep. - The School District of Philadelphia was awarded $450,000 in ...",
+      "snippet": "The School District of Philadelphia was awarded $450,000 in PAsmart Advancing Grants for Career and Technical Education (CTE) programs that expand access to ...",
+      "url": "https://www.facebook.com/RepGiral/photos/the-school-district-of-philadelphia-was-awarded-450000-in-pasmart-advancing-gran/645642851643897/",
+      "searched_state": "PA",
+      "query": "\"PAsmart\" Pennsylvania district"
+    },
+    {
+      "title": "$399,812 PAsmart Investment Builds Philadelphia's Advanced",
+      "snippet": "Philadelphia, PA, Feb. 26, 2026 (GLOBE NEWSWIRE) -- Philadelphia Works has been awarded $399,812 through Pennsylvania's PAsmart Advanced Manufacturing ...",
+      "url": "https://www.globenewswire.com/news-release/2026/02/26/3245977/0/en/399-812-PAsmart-Investment-Builds-Philadelphia-s-Advanced-Manufacturing-Talent-Pipeline.html",
+      "searched_state": "PA",
+      "query": "\"PAsmart\" Pennsylvania district"
+    },
+    {
+      "title": "Bucks IU Launches Third Mobile Fab Lab - Bucks County Education",
+      "snippet": "The 2025 PAsmart award marks the third PAsmart grant to directly Lab program. The initiative began with a PAsmart Innovation Grant that launched the first ...",
+      "url": "https://buckscountyeducation.com/2026/02/another-milestone-for-bucks-iu-steam-programs-bucks-iu-launches-third-mobile-fab-lab/",
+      "searched_state": "PA",
+      "query": "\"PAsmart\" Pennsylvania district"
+    },
+    {
+      "title": "The Pennsylvania Department of Education (PDE) today announced ...",
+      "snippet": "The Pennsylvania Department of Education (PDE) today announced $10.35 million in PAsmart Advancing Grants for Career and Technical Education (CTE)...",
+      "url": "https://www.facebook.com/EasternCenter/posts/the-pennsylvania-department-of-education-pde-today-announced-1035-million-in-pas/1247449884056817/",
+      "searched_state": "PA",
+      "query": "\"Pennsylvania Department of Education\" \"PAsmart\" district"
+    },
+    {
+      "title": "CS@AIR partners with PDE and PaTTAN to evaluate PAsmart initiative",
+      "snippet": "... Pennsylvania Department of Education (PDE) and Pennsylvania Training and Technical Assistance Network (PaTTAN) to evaluate PAsmart, a $60M initiative ...",
+      "url": "https://www.linkedin.com/posts/cs-air-the-center-for-evolving-computer-science-education_stem-computerscience-teachers-activity-7376586221679992832-1GzY",
+      "searched_state": "PA",
+      "query": "\"Pennsylvania Department of Education\" \"PAsmart\" district"
+    },
+    {
+      "title": "The Pennsylvania Department of Education announced ... - Facebook",
+      "snippet": "The Pennsylvania Department of Education announced $10.35 million in PAsmart Advancing Grants for Career and Technical Education (CTE) programs that...",
+      "url": "https://www.facebook.com/RepMihalek/posts/the-pennsylvania-department-of-education-announced-1035-million-in-pasmart-advan/1063759618907824/",
+      "searched_state": "PA",
+      "query": "\"Pennsylvania Department of Education\" \"PAsmart\" district"
+    },
+    {
+      "title": "How to tell a story of collective impact: insights from PAsmart Retreat",
+      "snippet": "That was the question at the heart of this week's PAsmart Retreat with the Pennsylvania Department of Education. I always love teaming up with the work ...",
+      "url": "https://www.linkedin.com/posts/spudmarshall_collectiveimpact-storytelling-pasmart-activity-7367216026167513088-MPEQ",
+      "searched_state": "PA",
+      "query": "\"Pennsylvania Department of Education\" \"PAsmart\" district"
+    },
+    {
+      "title": "STEM | Department of Education | Commonwealth of Pennsylvania",
+      "snippet": "Resources. PAsmart Grants \u00b7 Science Standards. STEM on Social Media ... The Pennsylvania Department of Education (PDE) facilitates the annual competition.",
+      "url": "https://www.pa.gov/agencies/education/programs-and-services/instruction/elementary-and-secondary-education/stem-in-pa",
+      "searched_state": "PA",
+      "query": "\"Pennsylvania Department of Education\" \"PAsmart\" district"
+    },
+    {
+      "title": "Last week we were excited to host a VEX Robotics tournament ...",
+      "snippet": "We had the honor of helping to launch some of these teams through #TSCT's PASmart Advancing grant through the Pennsylvania Department of Education in the past.",
+      "url": "https://www.facebook.com/ThaddeusStevensCollegeofTechnology/videos/last-week-we-were-excited-to-host-a-vex-robotics-tournament-champs-classic-at-ou/953003740720297/",
+      "searched_state": "PA",
+      "query": "\"Pennsylvania Department of Education\" \"PAsmart\" district"
+    }
+  ]
+}
