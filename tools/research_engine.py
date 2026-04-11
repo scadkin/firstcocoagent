@@ -77,6 +77,52 @@ SERPER_REQUESTS_PER_JOB = int(os.environ.get("SERPER_REQUESTS_PER_JOB", "100")) 
 # cross-district email check only. See Session 55 plan + feedback_kill_switches.
 ENABLE_RESEARCH_CONTAM_FILTER = True
 
+# BUG 4 Session 56 — diocesan central-office research playbook.
+# When True, districts whose canonicalized names hit DIOCESAN_DOMAIN_MAP
+# (from tools.private_schools) activate a preprocessing path that pre-seeds
+# the domain, swaps L1/L2/L3/L4-site/L11 queries to diocesan terminology,
+# skips L12 (diocesan networks have no public school board), and forces the
+# BUG 5 filter into strict base-domain-only mode so shared-city hints like
+# "chicago" can't match cps.edu alongside archchicago.org. Set False to
+# fall back to the default 20-layer flow.
+ENABLE_DIOCESAN_PLAYBOOK = True
+
+DIOCESAN_PRIORITY_TITLES = [
+    "Superintendent of Schools",
+    "Director of Catholic Schools",
+    "Associate Superintendent",
+    "Assistant Superintendent of Schools",
+    "Director of Curriculum and Instruction",
+    "Director of Elementary Education",
+    "Director of Secondary Education",
+    "Director of Educational Technology",
+]
+
+DIOCESAN_L2_QUERIES_TEMPLATE = [
+    '"{district}" "superintendent of schools" email',
+    '"{district}" "director of catholic schools" contact',
+    '"{district}" "office of catholic schools" staff',
+    '"{district}" "meet our team" OR "our staff"',
+    '"{district}" director curriculum instruction',
+]
+
+DIOCESAN_L3_QUERIES_TEMPLATE = [
+    'site:linkedin.com "{district}" "superintendent of schools"',
+    'site:linkedin.com "{district}" "director of catholic schools"',
+    'site:linkedin.com "{district}" "office of catholic schools"',
+]
+
+DIOCESAN_L4_SITE_QUERIES_TEMPLATE = [
+    'site:{domain} "superintendent of schools" OR "director of schools"',
+    'site:{domain} "office of catholic schools" staff OR leadership',
+    'site:{domain} "meet our team" OR "our staff" OR directory',
+]
+
+DIOCESAN_L11_QUERIES_TEMPLATE = [
+    'site:{domain} "meet our team" OR "office of catholic schools"',
+    'site:{domain} staff OR leadership OR directory',
+]
+
 # Shared school-host pattern set for cross-district detection. Affirmative test:
 # if a hostname contains any of these, treat it as a school-owned domain.
 # Everything else is "generic" (news/DOE/LinkedIn/conference) and gets benefit
@@ -101,7 +147,15 @@ class ResearchJob:
     Call run() to execute. Progress callback fires at key milestones.
     """
 
-    def __init__(self, district_name: str, state: str, progress_callback=None, serper_cap_override: int = None):
+    def __init__(
+        self,
+        district_name: str,
+        state: str,
+        progress_callback=None,
+        serper_cap_override: int = None,
+        diocesan_domain: str = "",
+        diocesan_playbook: bool = False,
+    ):
         self.district_name = district_name
         self.state = state
         self.progress_callback = progress_callback  # async func(message: str)
@@ -128,6 +182,20 @@ class ResearchJob:
         self._contam_pages_filtered: int = 0
         self._contam_contacts_filtered: int = 0
         self._contam_l10_cleared: int = 0
+
+        # BUG 4 Session 56 — diocesan central-office playbook. Pre-seeds the
+        # domain (bypassing L4 discovery), swaps L1/L2/L3/L4-site/L11 queries
+        # to diocesan terminology, skips L12, and forces strict base-domain
+        # matching in the cross-district filter. Kill switch gated.
+        self._diocesan_playbook = bool(diocesan_playbook) and ENABLE_DIOCESAN_PLAYBOOK
+        self._diocesan_filter_base: str = ""
+        if self._diocesan_playbook and diocesan_domain:
+            self.district_domain = diocesan_domain
+            self._diocesan_filter_base = self._base_domain(diocesan_domain)
+            logger.info(
+                f"[DIOCESAN] playbook active for {district_name!r} "
+                f"domain={diocesan_domain} filter_base={self._diocesan_filter_base}"
+            )
 
     # ─────────────────────────────────────────────
     # BUG 5 shared matching helpers (Session 55)
@@ -202,6 +270,42 @@ class ResearchJob:
             return False
         domain = email.rsplit("@", 1)[1].lower()
         return ResearchJob._host_matches_target(domain, target_host, target_hint)
+
+    @staticmethod
+    def _base_domain(host: str) -> str:
+        """Return the 2-part base domain for .org/.com hosts.
+
+        BUG 4 diocesan playbook assumption: all 16 diocesan domains use
+        simple TLDs (.org / .com), so naive last-2-parts is correct. Does
+        NOT handle compound TLDs like .co.uk or .k12.il.us — the diocesan
+        seed is validated to contain no such domains.
+
+        Examples:
+          schools.archchicago.org → archchicago.org
+          archchicago.org         → archchicago.org
+          www.diopitt.org         → diopitt.org
+          parish.archomaha.org    → archomaha.org
+        """
+        if not host:
+            return ""
+        h = host.lower().replace("www.", "")
+        parts = h.split(".")
+        return ".".join(parts[-2:]) if len(parts) >= 2 else h
+
+    def _target_match_params(self) -> tuple[str, str]:
+        """Return (target_host, target_hint) for BUG 5 cross-district filtering.
+
+        Single source of truth — used by Stage 1 page filter, Stage 2 contact
+        filter, and both L10 strengthening checks. Diocesan playbook runs
+        force strict base-domain-only matching (empty hint) so a 'chicago'
+        hint derived from 'Archdiocese of Chicago Schools' can't match both
+        archchicago.org AND cps.edu (Chicago Public Schools). Non-playbook
+        callers get the exact same values as the previous inline logic.
+        """
+        if self._diocesan_playbook and self._diocesan_filter_base:
+            return (self._diocesan_filter_base, "")
+        target_host = self.district_domain.lower().replace("www.", "") if self.district_domain else ""
+        return (target_host, self._district_name_hint(self.district_name))
 
     async def run(self) -> dict:
         """
@@ -298,9 +402,10 @@ class ResearchJob:
 
     async def _layer1_direct_title_search(self):
         self.layers_used.append("L1:direct-title")
+        titles = DIOCESAN_PRIORITY_TITLES if self._diocesan_playbook else SERPER_PRIORITY_TITLES
         queries = [
             f'"{title}" "{self.district_name}" email'
-            for title in SERPER_PRIORITY_TITLES[:8]
+            for title in titles[:8]
         ]
         results = await self._serper_batch(queries[:5])
         self._add_raw_from_serper(results, "L1:direct-title")
@@ -312,13 +417,19 @@ class ResearchJob:
     async def _layer2_title_variation_sweep(self):
         self.layers_used.append("L2:title-variations")
         # Use different title phrasings — different results than Layer 1
-        varied = [
-            f'"{self.district_name}" "computer science" coordinator contact',
-            f'"{self.district_name}" STEM director',
-            f'"{self.district_name}" CTE director email',
-            f'"{self.district_name}" instructional technology coordinator',
-            f'"{self.district_name}" curriculum director',
-        ]
+        if self._diocesan_playbook:
+            varied = [
+                q.format(district=self.district_name)
+                for q in DIOCESAN_L2_QUERIES_TEMPLATE
+            ]
+        else:
+            varied = [
+                f'"{self.district_name}" "computer science" coordinator contact',
+                f'"{self.district_name}" STEM director',
+                f'"{self.district_name}" CTE director email',
+                f'"{self.district_name}" instructional technology coordinator',
+                f'"{self.district_name}" curriculum director',
+            ]
         results = await self._serper_batch(varied)
         self._add_raw_from_serper(results, "L2:title-variations")
 
@@ -328,11 +439,17 @@ class ResearchJob:
 
     async def _layer3_linkedin_search(self):
         self.layers_used.append("L3:linkedin")
-        queries = [
-            f'site:linkedin.com "computer science" "{self.district_name}"',
-            f'site:linkedin.com "STEM" "{self.district_name}" director',
-            f'site:linkedin.com "instructional technology" "{self.district_name}"',
-        ]
+        if self._diocesan_playbook:
+            queries = [
+                q.format(district=self.district_name)
+                for q in DIOCESAN_L3_QUERIES_TEMPLATE
+            ]
+        else:
+            queries = [
+                f'site:linkedin.com "computer science" "{self.district_name}"',
+                f'site:linkedin.com "STEM" "{self.district_name}" director',
+                f'site:linkedin.com "instructional technology" "{self.district_name}"',
+            ]
         results = await self._serper_batch(queries[:3])
         self._add_raw_from_serper(results, "L3:linkedin")
 
@@ -343,25 +460,38 @@ class ResearchJob:
     async def _layer4_district_site_search(self):
         self.layers_used.append("L4:district-site")
 
-        # Find the district domain first
-        domain_query = f'"{self.district_name}" official website {self.state}'
-        results = await self._serper_batch([domain_query])
+        if self._diocesan_playbook and self.district_domain:
+            # Diocesan playbook pre-seeded the domain at __init__ — skip the
+            # Serper "official website" discovery query entirely.
+            logger.info(
+                f"L4 pre-seeded diocesan domain {self.district_domain}, skipping discovery"
+            )
+        else:
+            # Find the district domain first
+            domain_query = f'"{self.district_name}" official website {self.state}'
+            results = await self._serper_batch([domain_query])
 
-        if results:
-            for item in results[0].get("organic", []):
-                link = item.get("link", "")
-                if link and self._looks_like_district_domain(link, self.district_name):
-                    parsed = urlparse(link)
-                    self.district_domain = parsed.netloc
-                    break
+            if results:
+                for item in results[0].get("organic", []):
+                    link = item.get("link", "")
+                    if link and self._looks_like_district_domain(link, self.district_name):
+                        parsed = urlparse(link)
+                        self.district_domain = parsed.netloc
+                        break
 
         if self.district_domain:
             # Search within the domain
-            site_queries = [
-                f'site:{self.district_domain} "computer science" OR "coding" OR "STEM"',
-                f'site:{self.district_domain} staff directory',
-                f'site:{self.district_domain} department contact',
-            ]
+            if self._diocesan_playbook:
+                site_queries = [
+                    q.format(domain=self.district_domain)
+                    for q in DIOCESAN_L4_SITE_QUERIES_TEMPLATE
+                ]
+            else:
+                site_queries = [
+                    f'site:{self.district_domain} "computer science" OR "coding" OR "STEM"',
+                    f'site:{self.district_domain} staff directory',
+                    f'site:{self.district_domain} department contact',
+                ]
             results = await self._serper_batch(site_queries[:3])
             self._add_raw_from_serper(results, "L4:district-site")
 
@@ -500,8 +630,7 @@ class ResearchJob:
             logger.info("L9 page filter skipped: no district_domain from L4")
             return
 
-        target_host = self.district_domain.lower().replace("www.", "")
-        target_hint = self._district_name_hint(self.district_name)
+        target_host, target_hint = self._target_match_params()
 
         before = len(self.raw_pages)
         kept: list[tuple[str, str]] = []
@@ -633,8 +762,7 @@ class ResearchJob:
         if not self.all_contacts:
             return
 
-        target_host = self.district_domain.lower().replace("www.", "")
-        target_hint = self._district_name_hint(self.district_name)
+        target_host, target_hint = self._target_match_params()
 
         before = len(self.all_contacts)
         kept: list[dict] = []
@@ -740,8 +868,7 @@ class ResearchJob:
             # because parts[0] = "centralislip" contains no district pattern.
             if email and "@" in email and domain and ENABLE_RESEARCH_CONTAM_FILTER:
                 email_domain = email.rsplit("@", 1)[1]
-                target_host_l10 = self.district_domain.lower().replace("www.", "") if self.district_domain else ""
-                target_hint_l10 = self._district_name_hint(self.district_name)
+                target_host_l10, target_hint_l10 = self._target_match_params()
                 if (
                     email_domain
                     and self._is_school_host(email_domain)
@@ -760,8 +887,7 @@ class ResearchJob:
             if ENABLE_RESEARCH_CONTAM_FILTER and self.district_domain:
                 source_url = c.get("source_url", "")
                 source_host = urlparse(source_url).netloc.lower().replace("www.", "")
-                target_host_l10 = self.district_domain.lower().replace("www.", "")
-                target_hint_l10 = self._district_name_hint(self.district_name)
+                target_host_l10, target_hint_l10 = self._target_match_params()
                 if (
                     source_host
                     and self._is_school_host(source_host)
@@ -816,10 +942,16 @@ class ResearchJob:
         if not self.district_domain:
             self._skipped_layers.append("L11:school-staff (no domain)")
             return
-        queries = [
-            f'site:{self.district_domain} "staff directory" OR "staff" OR "faculty"',
-            f'site:{self.district_domain} "computer science" OR "coding" teacher',
-        ]
+        if self._diocesan_playbook:
+            queries = [
+                q.format(domain=self.district_domain)
+                for q in DIOCESAN_L11_QUERIES_TEMPLATE
+            ]
+        else:
+            queries = [
+                f'site:{self.district_domain} "staff directory" OR "staff" OR "faculty"',
+                f'site:{self.district_domain} "computer science" OR "coding" teacher',
+            ]
         results = await self._serper_batch(queries)
         self._add_raw_from_serper(results, "L11:school-staff")
 
@@ -828,6 +960,12 @@ class ResearchJob:
     # ─────────────────────────────────────────────
 
     async def _layer12_board_agenda_search(self):
+        # BUG 4 Session 56 — diocesan networks don't have public K-12 school
+        # boards. Running L12 against them returns noise (parish council
+        # agendas, USCCB filings) that contaminates raw_pages. Skip entirely.
+        if self._diocesan_playbook:
+            self._skipped_layers.append("L12:board-agendas (diocesan — no public board)")
+            return
         self.layers_used.append("L12:board-agendas")
         queries = [
             f'site:{self.district_domain} "board meeting" "computer science" OR "STEM"' if self.district_domain else f'"{self.district_name}" site:.gov "board meeting" "computer science" OR "STEM"',
@@ -1558,13 +1696,27 @@ class ResearchQueue:
         Add a job to the queue.
         completion_callback(result: dict) is called when done.
         serper_cap_override: if set, overrides SERPER_REQUESTS_PER_JOB for this job.
+
+        BUG 4 Session 56: if district_name canonicalizes into DIOCESAN_DOMAIN_MAP,
+        the job automatically activates the diocesan research playbook. Lazy
+        import keeps the dependency direction one-way (research_engine does
+        not appear in private_schools imports).
         """
+        diocesan_domain = ""
+        try:
+            from tools.private_schools import DIOCESAN_DOMAIN_MAP, _canonical_diocesan_key
+            diocesan_domain = DIOCESAN_DOMAIN_MAP.get(_canonical_diocesan_key(district_name), "")
+        except Exception as e:
+            logger.debug(f"DIOCESAN_DOMAIN_MAP lookup failed for {district_name!r}: {e}")
+
         await self._queue.put({
             "district_name": district_name,
             "state": state,
             "progress_callback": progress_callback,
             "completion_callback": completion_callback,
             "serper_cap_override": serper_cap_override,
+            "diocesan_domain": diocesan_domain,
+            "diocesan_playbook": bool(diocesan_domain),
         })
 
         if not self._running:
@@ -1601,6 +1753,8 @@ class ResearchQueue:
                     state=job["state"],
                     progress_callback=job["progress_callback"],
                     serper_cap_override=job.get("serper_cap_override"),
+                    diocesan_domain=job.get("diocesan_domain", ""),
+                    diocesan_playbook=job.get("diocesan_playbook", False),
                 )
                 result = await engine.run()
                 await job["completion_callback"](result)

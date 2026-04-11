@@ -46,23 +46,25 @@ _STATE_NAMES = {
 # Static seed of multi-school private networks with presence in territory
 # states. One relationship = multiple schools. Not exhaustive.
 PRIVATE_SCHOOL_NETWORKS = [
-    # Catholic diocesan systems — each runs 10-100+ schools
-    {"name": "Archdiocese of Chicago Schools", "state": "IL", "schools": 125, "notes": "Largest Catholic school system in IL. ~125 schools, ~49K students."},
-    {"name": "Archdiocese of Boston Catholic Schools", "state": "MA", "schools": 100, "notes": "~100 Catholic schools across MA."},
-    {"name": "Diocese of Pittsburgh Schools", "state": "PA", "schools": 55, "notes": "Pittsburgh-area Catholic schools."},
-    {"name": "Archdiocese of Philadelphia Schools", "state": "PA", "schools": 120, "notes": "Philadelphia Catholic schools, one of the largest dioceses by school count."},
-    {"name": "Diocese of Cleveland Schools", "state": "OH", "schools": 90, "notes": "NE Ohio Catholic schools."},
-    {"name": "Archdiocese of Cincinnati Schools", "state": "OH", "schools": 110, "notes": "SW Ohio Catholic schools."},
-    {"name": "Archdiocese of Detroit Schools", "state": "MI", "schools": 80, "notes": "SE Michigan Catholic schools."},
-    {"name": "Archdiocese of Oklahoma City Schools", "state": "OK", "schools": 20, "notes": "Central/western OK Catholic schools."},
-    {"name": "Diocese of Tulsa Schools", "state": "OK", "schools": 10, "notes": "Eastern OK Catholic schools."},
-    {"name": "Diocese of Nashville Schools", "state": "TN", "schools": 18, "notes": "Middle TN Catholic schools."},
-    {"name": "Diocese of Memphis Schools", "state": "TN", "schools": 10, "notes": "Western TN Catholic schools."},
-    {"name": "Diocese of Fort Worth Schools", "state": "TX", "schools": 20, "notes": "North TX Catholic schools."},
-    {"name": "Archdiocese of Galveston-Houston Schools", "state": "TX", "schools": 55, "notes": "Greater Houston Catholic schools."},
-    {"name": "Archdiocese of Los Angeles Schools", "state": "CA", "schools": 215, "notes": "LARGEST Catholic school system in US. 215+ schools."},
-    {"name": "Diocese of Lincoln Schools", "state": "NE", "schools": 28, "notes": "Eastern NE Catholic schools."},
-    {"name": "Archdiocese of Omaha Schools", "state": "NE", "schools": 70, "notes": "Eastern NE Catholic schools."},
+    # Catholic diocesan systems — each runs 10-100+ schools.
+    # `domain` fields added Session 56 (BUG 4) for the diocesan research
+    # playbook. Verified 2026-04-10 via Serper + HTTP title fetch.
+    {"name": "Archdiocese of Chicago Schools", "state": "IL", "schools": 125, "domain": "schools.archchicago.org", "notes": "Largest Catholic school system in IL. ~125 schools, ~49K students."},
+    {"name": "Archdiocese of Boston Catholic Schools", "state": "MA", "schools": 100, "domain": "bostoncatholic.org", "notes": "~100 Catholic schools across MA."},
+    {"name": "Diocese of Pittsburgh Schools", "state": "PA", "schools": 55, "domain": "diopitt.org", "notes": "Pittsburgh-area Catholic schools."},
+    {"name": "Archdiocese of Philadelphia Schools", "state": "PA", "schools": 120, "domain": "archphila.org", "notes": "Philadelphia Catholic schools, one of the largest dioceses by school count."},
+    {"name": "Diocese of Cleveland Schools", "state": "OH", "schools": 90, "domain": "dioceseofcleveland.org", "notes": "NE Ohio Catholic schools."},
+    {"name": "Archdiocese of Cincinnati Schools", "state": "OH", "schools": 110, "domain": "catholicaoc.org", "notes": "SW Ohio Catholic schools."},
+    {"name": "Archdiocese of Detroit Schools", "state": "MI", "schools": 80, "domain": "aod.org", "notes": "SE Michigan Catholic schools."},
+    {"name": "Archdiocese of Oklahoma City Schools", "state": "OK", "schools": 20, "domain": "archokc.org", "notes": "Central/western OK Catholic schools."},
+    {"name": "Diocese of Tulsa Schools", "state": "OK", "schools": 10, "domain": "dioceseoftulsa.org", "notes": "Eastern OK Catholic schools."},
+    {"name": "Diocese of Nashville Schools", "state": "TN", "schools": 18, "domain": "dioceseofnashville.com", "notes": "Middle TN Catholic schools."},
+    {"name": "Diocese of Memphis Schools", "state": "TN", "schools": 10, "domain": "cdom.org", "notes": "Western TN Catholic schools."},
+    {"name": "Diocese of Fort Worth Schools", "state": "TX", "schools": 20, "domain": "fwdioc.org", "notes": "North TX Catholic schools."},
+    {"name": "Archdiocese of Galveston-Houston Schools", "state": "TX", "schools": 55, "domain": "archgh.org", "notes": "Greater Houston Catholic schools."},
+    {"name": "Archdiocese of Los Angeles Schools", "state": "CA", "schools": 215, "domain": "lacatholicschools.org", "notes": "LARGEST Catholic school system in US. 215+ schools."},
+    {"name": "Diocese of Lincoln Schools", "state": "NE", "schools": 28, "domain": "lincolndiocese.org", "notes": "Eastern NE Catholic schools."},
+    {"name": "Archdiocese of Omaha Schools", "state": "NE", "schools": 70, "domain": "schools.archomaha.org", "notes": "Eastern NE Catholic schools."},
     # National independent school networks
     {"name": "BASIS Charter Schools (Independent branch)", "state": "TX", "schools": 12, "notes": "BASIS Independent branch — tuition private schools. TX, DC, NY, VA, CA."},
     {"name": "Great Hearts Academies", "state": "TX", "schools": 8, "notes": "Classical liberal arts. TX network (also listed under charter for public charter schools)."},
@@ -74,6 +76,35 @@ PRIVATE_SCHOOL_NETWORKS = [
     {"name": "Yeshiva University of Los Angeles (YULA)", "state": "CA", "schools": 3, "notes": "LA Jewish day school network."},
     {"name": "Solomon Schechter Day School (various)", "state": "MA", "schools": 3, "notes": "Conservative Jewish day schools in Boston/Newton."},
 ]
+
+
+def _canonical_diocesan_key(name: str) -> str:
+    """Normalize diocesan district names for robust lookup.
+
+    Lowercases and strips trailing ' schools' / ' catholic schools' so
+    variations like 'Archdiocese of Chicago', 'archdiocese of chicago schools',
+    and 'Archdiocese of Chicago Catholic Schools' all resolve to the same key.
+    Used on both DIOCESAN_DOMAIN_MAP keys at build time and lookup input at
+    runtime in ResearchQueue.enqueue.
+    """
+    h = (name or "").strip().lower()
+    for suf in (" catholic schools", " schools"):
+        if h.endswith(suf):
+            h = h[: -len(suf)]
+            break
+    return h
+
+
+# BUG 4 Session 56 — diocesan research playbook activation map. Built from
+# PRIVATE_SCHOOL_NETWORKS at import time so it can't drift from the seed.
+# Keys are canonicalized (via _canonical_diocesan_key); lookup must use the
+# same function on the query district name.
+DIOCESAN_DOMAIN_MAP: dict[str, str] = {
+    _canonical_diocesan_key(n["name"]): n["domain"]
+    for n in PRIVATE_SCHOOL_NETWORKS
+    if n.get("domain")
+    and (n["name"].startswith("Archdiocese") or n["name"].startswith("Diocese"))
+}
 
 
 def list_private_school_networks(state: Optional[str] = None) -> list[dict]:
