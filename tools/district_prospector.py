@@ -2542,7 +2542,11 @@ def add_district(name: str, state: str, notes: str = "", strategy: str = "cold",
         est_enrollment = int(kwargs.pop("est_enrollment", 0) or 0)
         school_count = int(kwargs.pop("school_count", 0) or 0)
         total_licenses = int(kwargs.pop("total_licenses", 0) or 0)
+        # BUG 2 Session 57 — enrichment-driven priority bump. Pop BEFORE
+        # forwarding to _calculate_priority (which doesn't accept this kwarg).
+        priority_bonus = int(kwargs.pop("priority_bonus", 0) or 0)
         priority = _calculate_priority(strategy, school_count, total_licenses, est_enrollment, **kwargs)
+        priority += priority_bonus
 
         # Size metadata → queue columns 15-17
         est_enrollment_cell = str(est_enrollment) if est_enrollment else ""

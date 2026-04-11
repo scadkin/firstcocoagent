@@ -3603,27 +3603,52 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await send_message(f"❌ Homeschool discovery failed: {e}")
         return
 
-    elif user_text.lower() in ["/signal_csta", "signal csta", "scan csta"]:
-        await send_message("🎓 Scanning for CSTA chapter leaders (~$1.20)...")
+    elif user_text.lower() in ["/signal_csta", "signal csta", "csta roster", "scan csta"]:
+        # Session 57 BUG 2: F5 daily scanner retired. This command now displays
+        # the cached CSTA roster used for F2 enrichment. Refresh manually:
+        # python3 scripts/fetch_csta_roster.py
         try:
-            loop = asyncio.get_event_loop()
-            csta_signals = await loop.run_in_executor(
-                None, signal_processor.scan_csta_chapters, None, None)
-            if csta_signals:
-                write_result = await loop.run_in_executor(
-                    None, signal_processor.write_signals, csta_signals)
-                lines = [f"🎓 *CSTA Scan Complete* — {len(csta_signals)} members found\n"]
-                for i, sig in enumerate(csta_signals[:10], 1):
-                    headline = sig.get("headline", "")[:80]
-                    lines.append(f"  {i}. {headline}")
-                if len(csta_signals) > 10:
-                    lines.append(f"\n  ... and {len(csta_signals) - 10} more")
-                lines.append(f"\nWritten: {write_result['written']} | Deduped: {write_result['skipped']}")
-                await send_message("\n".join(lines))
-            else:
-                await send_message("No CSTA chapter members found.")
+            import json as _json
+            from pathlib import Path as _Path
+            root = _Path(__file__).resolve().parent.parent
+            path = root / "memory" / "csta_roster.json"
+            if not path.exists():
+                await send_message(
+                    "📚 CSTA roster not built yet. Run "
+                    "`python3 scripts/fetch_csta_roster.py` from Claude Code."
+                )
+                return
+            data = _json.loads(path.read_text())
+            entries = data.get("entries", [])
+            fetched = data.get("fetched_at", "unknown")
+            with_district = [e for e in entries if e.get("district")]
+            lines = [
+                f"🎓 *CSTA Roster* — {len(entries)} entries "
+                f"({len(with_district)} with district)",
+                f"_Fetched: {fetched}. F5 daily scanner retired Session 57 — "
+                f"CSTA is now F2 enrichment. Refresh: "
+                f"`scripts/fetch_csta_roster.py`_",
+                "",
+            ]
+            from collections import defaultdict
+            by_state = defaultdict(list)
+            for e in entries:
+                by_state[(e.get("state", "??") or "??").upper()].append(e)
+            for st in sorted(by_state.keys()):
+                lines.append(f"*{st}* ({len(by_state[st])})")
+                for e in by_state[st][:8]:
+                    d = e.get("district") or "_no district_"
+                    lines.append(
+                        f"  • {e.get('name','')} — {e.get('role','')} — {d}"
+                    )
+                if len(by_state[st]) > 8:
+                    lines.append(f"  _…and {len(by_state[st]) - 8} more_")
+            msg = "\n".join(lines)
+            if len(msg) > 3900:
+                msg = msg[:3900].rsplit("\n", 1)[0] + "\n…_(truncated)_"
+            await send_message(msg)
         except Exception as e:
-            await send_message(f"CSTA scan failed: {e}")
+            await send_message(f"CSTA roster display failed: {e}")
         return
 
     elif user_text.lower() in ["/signal_scan", "signal scan", "scan signals"]:

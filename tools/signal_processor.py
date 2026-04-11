@@ -1127,8 +1127,114 @@ SERPER_URL = "https://google.serper.dev/search"
 # ─────────────────────────────────────────────
 ENABLE_FUNDING_SCAN = True              # F4: Re-enabled Session 57 after BUG 1 query redesign + 84.2% gate pass (scripts/f4_serper_replay.py --gate)
 ENABLE_COMPETITOR_SCAN = True           # F2: RE-ENABLED Session 54 Phase 6. BUG 3 writer fix shipped + queue repaired. Diagnostic logging active for next run evidence capture.
-ENABLE_CSTA_SCAN = False                # F5: DISABLED Session 53 — 1.8% yield + strategic question (project_f5_csta_scanner_low_yield.md)
+ENABLE_CSTA_SCAN = False                # F5: PERMANENTLY RETIRED Session 57 BUG 2 — CSTA is now an enrichment lookup (enrich_with_csta). Function stays as dead-code rollback surface.
 ENABLE_HOMESCHOOL_COOP_DISCOVERY = True # F10: discover_homeschool_coops
+
+
+# ─────────────────────────────────────────────
+# BUG 2 Session 57 — CSTA chapter roster enrichment lookup
+# ─────────────────────────────────────────────
+# Retires F5 daily scanner. CSTA rosters are static directory data, better
+# used as a lookup than scanned nightly. Roster is built once via
+# scripts/fetch_csta_roster.py → memory/csta_roster.json and loaded eagerly
+# at module import. Other scanners (F2 primary, extensible) call
+# enrich_with_csta(district, state) inline when auto-queuing a prospect.
+_CSTA_ROSTER_INDEX: dict = {}          # {(state_upper, district_normalized): entry}
+_CSTA_ROSTER_BY_STATE: dict = {}       # {state_upper: [(district_normalized, entry)]}
+_CSTA_ROSTER_LOADED = False
+
+
+def _load_csta_roster() -> None:
+    """Eager-load memory/csta_roster.json into module globals. Graceful
+    degrade to empty index if the file is missing or malformed."""
+    global _CSTA_ROSTER_LOADED
+    if _CSTA_ROSTER_LOADED:
+        return
+    _CSTA_ROSTER_LOADED = True
+    try:
+        from pathlib import Path as _Path
+        root = _Path(__file__).resolve().parent.parent
+        path = root / "memory" / "csta_roster.json"
+        if not path.exists():
+            logger.info("CSTA roster not present — enrichment will no-op")
+            return
+        data = json.loads(path.read_text())
+        for e in data.get("entries", []):
+            district_norm = (e.get("district_normalized") or "").strip()
+            state_up = (e.get("state") or "").strip().upper()
+            if not district_norm or not state_up:
+                continue  # entries without district are ignored for matching
+            _CSTA_ROSTER_INDEX[(state_up, district_norm)] = e
+            _CSTA_ROSTER_BY_STATE.setdefault(state_up, []).append((district_norm, e))
+        logger.info(
+            f"CSTA roster loaded: {len(_CSTA_ROSTER_INDEX)} matchable entries "
+            f"across {len(_CSTA_ROSTER_BY_STATE)} states"
+        )
+    except Exception as e:
+        logger.warning(f"CSTA roster load failed: {e} — enrichment will no-op")
+
+
+def _csta_match_shape(entry: dict) -> dict:
+    return {
+        "name": entry.get("name", ""),
+        "role": entry.get("role", ""),
+        "chapter": entry.get("chapter", ""),
+        "source_url": entry.get("source_url", ""),
+    }
+
+
+def enrich_with_csta(district_name: str, state: str) -> "dict | None":
+    """Return a CSTA enrichment dict if a chapter board member works at the
+    given district, else None. Side-effect-free pure lookup.
+
+    Shape: {"name", "role", "chapter", "source_url"}
+    Matching order: exact → token-subset (only if exactly one candidate) →
+    fuzzy (0.7 threshold, matches csv_importer convention).
+    """
+    _load_csta_roster()
+    if not _CSTA_ROSTER_INDEX:
+        return None
+    state_up = (state or "").strip().upper()
+    if not state_up:
+        return None
+    norm = csv_importer.normalize_name(district_name or "")
+    if not norm:
+        return None
+
+    # 1. Exact match
+    exact = _CSTA_ROSTER_INDEX.get((state_up, norm))
+    if exact:
+        return _csta_match_shape(exact)
+
+    # 2. Token-subset — only fire if EXACTLY ONE candidate matches
+    state_entries = _CSTA_ROSTER_BY_STATE.get(state_up, [])
+    if not state_entries:
+        return None
+    norm_tokens = set(norm.split())
+    if norm_tokens:
+        subset_hits = []
+        for cand_key, cand_entry in state_entries:
+            cand_tokens = set(cand_key.split())
+            if not cand_tokens:
+                continue
+            if norm_tokens.issubset(cand_tokens) or cand_tokens.issubset(norm_tokens):
+                subset_hits.append(cand_entry)
+        if len(subset_hits) == 1:
+            return _csta_match_shape(subset_hits[0])
+
+    # 3. Fuzzy fallback (0.7 — matches csv_importer convention)
+    match_key = csv_importer.fuzzy_match_name(
+        norm, [k for k, _ in state_entries], threshold=0.7
+    )
+    if match_key:
+        for cand_key, cand_entry in state_entries:
+            if cand_key == match_key:
+                return _csta_match_shape(cand_entry)
+    return None
+
+
+# Eager-load at module import — no race, no lazy-init pattern
+_load_csta_roster()
 
 
 def _normalize_enum(val: str) -> str:
@@ -3842,14 +3948,32 @@ Search results:
         if confidence == "HIGH":
             try:
                 enrollment = territory_data.lookup_district_enrollment(district, state)
+
+                # BUG 2 Session 57 — CSTA enrichment lookup
+                csta_match = enrich_with_csta(district, state)
+                enriched_notes = notes
+                priority_bonus = 0
+                if csta_match:
+                    enriched_notes = (
+                        f"CSTA chapter match: {csta_match['name']} "
+                        f"({csta_match['role']}, {csta_match['chapter']}). "
+                        f"Source: {csta_match['source_url']} | {notes}"
+                    )
+                    priority_bonus = 50
+                    logger.info(
+                        f"F2 CSTA enrichment hit: {district} ({state}) → "
+                        f"{csta_match['name']} ({csta_match['role']})"
+                    )
+
                 queue_result = district_prospector.add_district(
                     name=district,
                     state=state,
-                    notes=notes,
+                    notes=enriched_notes,
                     strategy="competitor_displacement",
                     source="signal",
                     signal_id=msg_id,
                     est_enrollment=enrollment,
+                    priority_bonus=priority_bonus,
                 )
                 if queue_result.get("success"):
                     queued_districts.append(f"{district} ({competitor})")
