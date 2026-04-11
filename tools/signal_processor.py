@@ -2972,16 +2972,155 @@ Search results:
 # ─────────────────────────────────────────────
 # F4: STATE CS FUNDING AWARD SCANNER (Serper + Claude)
 # ─────────────────────────────────────────────
+#
+# Session 57 (BUG 1) query redesign: six query types per state. Types A/F/G
+# always run. Type C runs when STATE_DOE_NAMES has an entry. Type B runs only
+# when STATE_CS_PROGRAMS has a verified program name for that state.
+# Empirically validated 2026-04-11 against live Serper — see
+# project_f4_funding_scanner_broken.md and
+# ~/.claude/plans/purring-crafting-scroll.md.
 
-# Tier 2 hints: known state CS program names. Tier 1 generic queries
-# always run; Tier 2 adds hints when programs are confirmed.
-STATE_CS_PROGRAMS = {
-    "TX": ["TEA Advancing CS"],
-    "IL": ["CS Equity Grant"],
-    "MA": ["Innovation Pathways CS"],
-    "PA": ["PAsmart"],
-    "OH": ["Computer Science Promise"],
+# Proper name of each territory state's grant-issuing education agency.
+# Used verbatim in quoted Type C queries, so the string must match how the
+# agency is actually referenced in press releases. NOT "State Board of
+# Education" for all states — Texas uses TEA, California uses CDE, etc.
+STATE_DOE_NAMES = {
+    "IL": "Illinois State Board of Education",
+    "PA": "Pennsylvania Department of Education",
+    "OH": "Ohio Department of Education",
+    "MI": "Michigan Department of Education",
+    "CT": "Connecticut State Department of Education",
+    "OK": "Oklahoma State Department of Education",
+    "MA": "Massachusetts Department of Elementary and Secondary Education",
+    "IN": "Indiana Department of Education",
+    "NV": "Nevada Department of Education",
+    "TN": "Tennessee Department of Education",
+    "NE": "Nebraska Department of Education",
+    "TX": "Texas Education Agency",
+    "CA": "California Department of Education",
 }
+
+# Verified named CS grant programs by state. Empirically probed 2026-04-11.
+# Do NOT re-add TX ("TEA Advancing CS") or MA ("Innovation Pathways CS")
+# without a harness probe confirming ≥3 real hits in the first 10 organic
+# results. Program-name queries are high-signal but fragile — wrong names
+# burn Serper budget and add zero signal.
+STATE_CS_PROGRAMS = {
+    "IL": ["Computer Science Equity Grant"],  # verified 2026-04-11 (NOT "CS Equity Grant" — full name is what Google indexes)
+    "PA": ["PAsmart"],                        # verified 2026-04-11
+    "OH": ["Computer Science Promise"],       # verified 2026-04-11
+}
+
+
+_F4_EXTRACTION_PROMPT_TEMPLATE = """Extract K-12 school district CS funding awards from these search results.
+
+For each award, return JSON:
+{{
+  "district": "Exact district name",
+  "state": "2-letter state code",
+  "program": "name of grant program",
+  "amount": "$X,XXX or empty if unknown",
+  "award_date": "YYYY-MM or empty if unknown",
+  "purpose": "CS curriculum | teacher PD | equipment | general",
+  "confidence": "HIGH | MEDIUM | LOW",
+  "source_url": "Copy the URL line from the specific search result that mentions this district. Use the URL exactly as shown in the results below — do not fabricate or guess. Empty string if you can't identify which URL the mention came from."
+}}
+
+CONFIDENCE RULES:
+- HIGH: district named clearly, amount present, CS-specific purpose confirmed,
+        K-12 context unambiguous, source date present
+- MEDIUM: district + CS context clear, amount or date missing
+- LOW: program-level announcement without specific recipient OR partial entity match
+
+DISTRICT NAME RULES:
+- Must be a specific named Local Education Agency (LEA) — the exact legal
+  name of one K-12 school district.
+- REJECT program descriptions (e.g. "23 west central Illinois schools")
+- REJECT aggregate phrases ("CS grant recipients", "participating districts")
+- REJECT charter networks, CMOs, ESCs, BOCES unless the snippet clearly
+  names a single LEA as the direct recipient
+- Single school without district context → confidence=LOW, mark for review
+
+EXCLUDE:
+- Universities, community colleges, individual schools without district context
+- Private schools
+- General STEM grants without clear CS component
+- Construction/facilities grants
+- Device/hardware-only grants (1:1 laptop, Chromebook)
+- E-Rate or telecom infrastructure
+
+Return ONLY a valid JSON array — no commentary.
+
+Search results:
+{combined_text}"""
+
+
+def _f4_build_queries(state_abbr: str, state_name: str) -> list:
+    """Build the F4 Serper query list for one territory state.
+
+    Types A, F, G always emitted. Type C emitted when STATE_DOE_NAMES has an
+    entry for the state. Type B emitted once per verified program name.
+    Empirically validated 2026-04-11 against live Serper.
+    """
+    # ABBR_TO_STATE_NAME stores lowercase ("illinois"). Press releases read
+    # naturally in Title Case. State name is NOT quoted in queries — empirical
+    # 2026-04-11 probe showed that `"X"` + `"school district"` co-occurrence
+    # requirement collapses yield to 0 on most states.
+    state_name = (state_name or "").title()
+    doe_name = STATE_DOE_NAMES.get(state_abbr, "")
+    queries = [
+        # Type A — natural-language award announcement (highest-yield baseline).
+        # State name unquoted; "school district" quoted to require the phrase.
+        f'"awarded" "computer science" grant {state_name} "school district"',
+        # Type F — retain existing STEM-grant pattern (PA probe confirmed).
+        f'"STEM grant" awarded school district "{state_name}"',
+        # Type G — generic .gov filter (catches federal EIR + state.gov PDFs).
+        f'site:.gov {state_name} "school district" "computer science" grant',
+    ]
+    if doe_name:
+        # Type C — state DOE by proper name (no site filter)
+        queries.append(f'"{doe_name}" "computer science" grant recipients')
+        queries.append(f'"{doe_name}" "computer science" OR "STEM" grant awarded')
+    for program_name in STATE_CS_PROGRAMS.get(state_abbr, []):
+        # Type B — verified program name, standalone
+        queries.append(f'"{program_name}" {state_name} district')
+        # Type B2 — program name + DOE proper noun (higher precision when both exist)
+        if doe_name:
+            queries.append(f'"{doe_name}" "{program_name}" district')
+    return queries
+
+
+def _f4_extract_items(client, combined_text: str, state_abbr: str) -> list:
+    """Run Haiku on one state's snippets. Returns extracted items or [] on any
+    failure — per-state isolation so one bad response can't kill the scan."""
+    if not combined_text.strip():
+        return []
+    prompt = _F4_EXTRACTION_PROMPT_TEMPLATE.format(combined_text=combined_text)
+    try:
+        response = client.messages.create(
+            model="claude-haiku-4-5-20251001",
+            max_tokens=3000,
+            messages=[{"role": "user", "content": prompt}],
+        )
+        _track_usage(response)
+        raw_text = response.content[0].text.strip()
+    except Exception as e:
+        logger.warning(f"F4 {state_abbr}: Haiku call failed: {e}")
+        return []
+    try:
+        clean = raw_text
+        if "```" in clean:
+            clean = clean.split("```")[1]
+            if clean.startswith("json"):
+                clean = clean[4:]
+        start, end = clean.find("["), clean.rfind("]")
+        if start == -1 or end == -1:
+            logger.warning(f"F4 {state_abbr}: no JSON array in Haiku response")
+            return []
+        return json.loads(clean[start:end + 1])
+    except json.JSONDecodeError as e:
+        logger.warning(f"F4 {state_abbr}: JSON parse failed: {e}")
+        return []
 
 
 # ─────────────────────────────────────────────
@@ -3190,19 +3329,10 @@ def scan_cs_funding_awards(states=None, progress_callback=None) -> dict:
     for state_abbr in scan_states:
         state_name = ABBR_TO_STATE_NAME.get(state_abbr, state_abbr)
 
-        # Tier 1: generic queries (always run)
-        queries = [
-            f'"computer science" OR "CS" grant awarded school district "{state_name}"',
-            f'"received" grant "computer science" OR "coding" school "{state_name}"',
-            f'"STEM grant" awarded school district "{state_name}"',
-            f'"{state_name} Department of Education" grant "computer science" OR "STEM" awarded',
-        ]
-
-        # Tier 2: state-specific program hints (only when known)
-        for program_name in STATE_CS_PROGRAMS.get(state_abbr, []):
-            queries.append(
-                f'"{program_name}" awarded district "{state_name}"'
-            )
+        # BUG 1 Session 57: query redesign via _f4_build_queries.
+        # Six query types (A/F/G always, C when DOE name present, B when
+        # program name verified). See project_f4_funding_scanner_broken.md.
+        queries = _f4_build_queries(state_abbr, state_name)
 
         for query in queries:
             try:
@@ -3235,79 +3365,34 @@ def scan_cs_funding_awards(states=None, progress_callback=None) -> dict:
 
     logger.info(f"CS funding scan: {len(all_snippets)} articles from {len(scan_states)} states")
 
-    # Build combined text for Claude
-    combined_text = ""
-    for s in all_snippets:
-        combined_text += f"\n[{s['searched_state']}] {s['title']}\n{s['snippet']}\nURL: {s['url']}\n"
-    combined_text = combined_text[:14000]
-
     if progress_callback:
         progress_callback(f"Extracting CS funding awards from {len(all_snippets)} articles...")
 
+    # BUG 1 Session 57: per-state chunked Haiku extraction. One call per state
+    # (isolated JSON parse failures, per-state log visibility) replaces the old
+    # global-concat + single-call pattern that truncated at 14K chars and
+    # dropped ~90% of production-scale content.
     import anthropic
     try:
         client = anthropic.Anthropic(timeout=90.0)
-        prompt = f"""Extract K-12 school district CS funding awards from these search results.
-
-For each award, return JSON:
-{{
-  "district": "Exact district name",
-  "state": "2-letter state code",
-  "program": "name of grant program",
-  "amount": "$X,XXX or empty if unknown",
-  "award_date": "YYYY-MM or empty if unknown",
-  "purpose": "CS curriculum | teacher PD | equipment | general",
-  "confidence": "HIGH | MEDIUM | LOW",
-  "source_url": "Copy the URL line from the specific search result that mentions this district. Use the URL exactly as shown in the results below — do not fabricate or guess. Empty string if you can't identify which URL the mention came from."
-}}
-
-CONFIDENCE RULES:
-- HIGH: district named clearly, amount present, CS-specific purpose confirmed,
-        K-12 context unambiguous, source date present
-- MEDIUM: district + CS context clear, amount or date missing
-- LOW: program-level announcement without specific recipient OR partial entity match
-
-EXCLUDE:
-- Universities, community colleges, individual schools without district context
-- Private schools
-- General STEM grants without clear CS component
-- Construction/facilities grants
-- Device/hardware-only grants (1:1 laptop, Chromebook)
-- E-Rate or telecom infrastructure
-- Awards >12 months old
-
-Return ONLY a valid JSON array — no commentary.
-
-Search results:
-{combined_text}"""
-
-        response = client.messages.create(
-            model="claude-haiku-4-5-20251001",
-            max_tokens=2500,
-            messages=[{"role": "user", "content": prompt}],
-        )
-        _track_usage(response)
-        raw_text = response.content[0].text.strip()
     except Exception as e:
-        logger.error(f"Claude CS funding extraction failed: {e}")
+        logger.error(f"Anthropic client init failed: {e}")
         return {"signals": [], "queued": [], "customer_intel": [], "raw_count": 0}
 
-    # Parse JSON
-    try:
-        clean = raw_text
-        if "```" in clean:
-            clean = clean.split("```")[1]
-            if clean.startswith("json"):
-                clean = clean[4:]
-        start = clean.find("[")
-        end = clean.rfind("]")
-        if start == -1 or end == -1:
-            logger.warning("CS funding scan: no JSON array in response")
-            return {"signals": [], "queued": [], "customer_intel": [], "raw_count": 0}
-        items = json.loads(clean[start:end + 1])
-    except json.JSONDecodeError as e:
-        logger.warning(f"CS funding scan JSON parse failed: {e}")
-        return {"signals": [], "queued": [], "customer_intel": [], "raw_count": 0}
+    items = []
+    for state_abbr in scan_states:
+        state_snippets = [s for s in all_snippets if s["searched_state"] == state_abbr]
+        if not state_snippets:
+            continue
+        combined_text = ""
+        for s in state_snippets:
+            combined_text += f"\n[{state_abbr}] {s['title']}\n{s['snippet']}\nURL: {s['url']}\n"
+        combined_text = combined_text[:20000]
+        state_items = _f4_extract_items(client, combined_text, state_abbr)
+        logger.info(
+            f"F4 {state_abbr}: {len(state_snippets)} snippets → {len(state_items)} extracted"
+        )
+        items.extend(state_items)
 
     # Post-process: route HIGH→queue, MEDIUM/LOW→signals, customer matches→intel
     signals_to_write = []
