@@ -263,6 +263,8 @@ def queue_private_school_networks(state: Optional[str] = None) -> dict:
         full_notes = f"Private school network. {schools} schools. {notes_extra}".strip()
 
         try:
+            from tools.signal_processor import build_csta_enrichment
+            full_notes, priority_bonus = build_csta_enrichment(name, st, full_notes)
             result = district_prospector.add_district(
                 name=name,
                 state=st,
@@ -270,6 +272,7 @@ def queue_private_school_networks(state: Optional[str] = None) -> dict:
                 strategy="private_school_network",
                 source="manual",
                 schools=schools,
+                priority_bonus=priority_bonus,
             )
             if result.get("success"):
                 queued.append({"name": name, "state": st, "schools": schools})

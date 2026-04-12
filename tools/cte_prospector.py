@@ -128,6 +128,8 @@ def queue_cte_centers(
             full_notes += f". {ctr_notes}"
 
         try:
+            from tools.signal_processor import build_csta_enrichment
+            full_notes, priority_bonus = build_csta_enrichment(name, state_code, full_notes)
             result = district_prospector.add_district(
                 name=name,
                 state=state_code,
@@ -136,6 +138,7 @@ def queue_cte_centers(
                 source="manual",
                 sending_districts=sending_districts,
                 est_enrollment=est_enrollment,
+                priority_bonus=priority_bonus,
             )
             if result.get("success"):
                 queued.append({

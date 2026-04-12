@@ -1237,6 +1237,21 @@ def enrich_with_csta(district_name: str, state: str) -> "dict | None":
 _load_csta_roster()
 
 
+def build_csta_enrichment(district: str, state: str, base_notes: str) -> "tuple[str, int]":
+    """Enrich notes + compute priority bonus from CSTA roster lookup.
+    Returns (enriched_notes, priority_bonus). Falls back to (base_notes, 0)."""
+    match = enrich_with_csta(district, state)
+    if not match:
+        return base_notes, 0
+    enriched = (
+        f"CSTA chapter match: {match['name']} "
+        f"({match['role']}, {match['chapter']}). "
+        f"Source: {match['source_url']} | {base_notes}"
+    )
+    logger.info(f"CSTA enrichment hit: {district} ({state}) → {match['name']} ({match['role']})")
+    return enriched, 50
+
+
 def _normalize_enum(val: str) -> str:
     """Normalize a Claude-extracted enum value for case-insensitive comparison."""
     return (val or "").strip().lower().replace("-", "_").replace(" ", "_")
@@ -3578,14 +3593,16 @@ def scan_cs_funding_awards(states=None, progress_callback=None) -> dict:
         if confidence == "HIGH":
             try:
                 enrollment = territory_data.lookup_district_enrollment(district, state)
+                enriched_notes, priority_bonus = build_csta_enrichment(district, state, notes)
                 queue_result = district_prospector.add_district(
                     name=district,
                     state=state,
-                    notes=notes,
+                    notes=enriched_notes,
                     strategy="cs_funding_recipient",
                     source="signal",
                     signal_id=msg_id,
                     est_enrollment=enrollment,
+                    priority_bonus=priority_bonus,
                 )
                 if queue_result.get("success"):
                     queued_districts.append(district)
