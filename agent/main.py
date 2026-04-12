@@ -3581,6 +3581,29 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await send_message(f"❌ Charter CMO queueing failed: {e}")
         return
 
+    elif user_text.lower().startswith(("/signal_compliance", "/scan_compliance", "compliance scan")):
+        # F9: compliance gap scanner (Signals-only pilot — CA/IL/MA)
+        # Usage: /signal_compliance CA  (required state, must be in PILOT_STATES)
+        parts = user_text.strip().split(None, 1)
+        if len(parts) < 2 or not parts[1].strip():
+            pilot = ", ".join(sorted(compliance_gap_scanner.PILOT_STATES))
+            await send_message(
+                f"📋 Usage: `/signal_compliance [state]` — pilot scope: {pilot}. e.g. `/signal_compliance CA`"
+            )
+            return
+        state_arg = parts[1].strip()
+        await send_message(f"📋 Scanning {state_arg.upper()} for compliance gaps (F9 pilot, Signals-only)...")
+        try:
+            loop = asyncio.get_event_loop()
+            result = await loop.run_in_executor(
+                None, compliance_gap_scanner.scan_compliance_gaps, state_arg
+            )
+            output = compliance_gap_scanner.format_scan_result_for_telegram(result)
+            await send_message(output)
+        except Exception as e:
+            await send_message(f"❌ Compliance scan failed: {e}")
+        return
+
     elif user_text.lower().startswith(("/discover_coops", "/discover_homeschool", "discover homeschool")):
         # F10: on-demand homeschool co-op discovery
         # Usage: /discover_coops TX  OR  /discover_homeschool_coops Texas
