@@ -1466,11 +1466,33 @@ def suggest_intra_district_expansion(max_per_district: int = 5) -> dict:
                 if covered_sample:
                     break
 
+            # Session 58 — CSTA enrichment lookup per parent district (once,
+            # reused across all sibling candidates). Lazy import avoids the
+            # signal_processor → district_prospector circular.
+            csta_prefix = ""
+            csta_bonus = 0
+            try:
+                from tools.signal_processor import enrich_with_csta
+                csta_match = enrich_with_csta(parent_display, state)
+                if csta_match:
+                    csta_prefix = (
+                        f"CSTA chapter match: {csta_match['name']} "
+                        f"({csta_match['role']}, {csta_match['chapter']}). "
+                        f"Source: {csta_match['source_url']} | "
+                    )
+                    csta_bonus = 50
+                    logger.info(
+                        f"F1 CSTA enrichment hit: {parent_display} ({state}) → "
+                        f"{csta_match['name']} ({csta_match['role']})"
+                    )
+            except Exception as e:
+                logger.warning(f"F1 CSTA enrichment lookup failed for {parent_display}: {e}")
+
             for cand in candidates:
                 priority = _calculate_priority(
                     "intra_district", 0, 0, cand["enrollment"]
-                )
-                note = (
+                ) + csta_bonus
+                note = csta_prefix + (
                     f"Sibling-school expansion. Parent district: {parent_display}. "
                     f"District has {dist['school_count']} active CodeCombat school(s)"
                     + (f" (e.g., {covered_sample})." if covered_sample else ".")
