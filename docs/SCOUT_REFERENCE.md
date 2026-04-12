@@ -196,3 +196,17 @@ firstcocoagent/
 | send a `.csv` file | Auto-detects opp vs lead vs contact vs account CSV; or Salesforce active accounts import (merge by default) |
 | describe CSV before upload | "these are my salesforce leads" / "contacts from salesforce" / "pipeline opps" — sets routing for next CSV upload |
 | caption on CSV upload | Same as above — type description as caption when sending the file |
+
+---
+
+## SESSION WORKFLOW
+
+*Moved from CLAUDE.md during Session 58 trim. The `scout` wrapper and transcript pipeline are static workflow reference, not active rules.*
+
+- Steven starts sessions with `scout` in terminal (not `claude`). This wraps Claude Code with `script` to capture full transcripts.
+- Transcripts save to `docs/sessions/session_N.md`. Raw captures in `docs/sessions/.raw/` (gitignored).
+- During end-of-session routine: run `python3 scripts/clean_transcript.py "$SCOUT_RAW_TRANSCRIPT" "$SCOUT_CLEAN_TRANSCRIPT"`, then include the clean file in the commit.
+- Env vars available: `SCOUT_SESSION_NUM`, `SCOUT_RAW_TRANSCRIPT`, `SCOUT_CLEAN_TRANSCRIPT`.
+- Steven uses `/exit` between sessions (not `/clear`) so each `scout` run = one transcript file.
+- Wrapper script auto-commits as fallback if end-of-session routine is skipped.
+- **Session numbering source of truth is CLAUDE.md header** (`Session N`). The `scout_session.sh` script parses this, transcript files on disk, and raw files — uses the highest. This prevents drift when sessions run without the `scout` wrapper.
