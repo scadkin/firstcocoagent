@@ -144,15 +144,17 @@ def body_text_to_html(body: str) -> str:
     return html
 
 
-def day_to_interval_minutes(day: int, prev_day: int) -> int:
-    """Convert day offset to interval_minutes since previous step.
-       Step 1 fires immediately (5 min per feedback_sequence_copy_rules.md — or
-       we can use 5 min standard). Other steps fire N days after previous.
+def day_to_interval_seconds(day: int, prev_day: int) -> int:
+    """Convert day offset to interval_SECONDS since previous step.
+       Outreach sequenceStep.interval is in SECONDS (not minutes —
+       memory/feedback_outreach_intervals.md).
+       Enforces the ≥5-day minimum cold cadence from
+       memory/feedback_sequence_copy_rules.md.
     """
     if day == 0:
-        return 5  # step 1 fires ~immediately
-    delta_days = max(1, day - prev_day)
-    return delta_days * 24 * 60  # days to minutes
+        return 300  # step 1: 5 min after add
+    delta_days = max(5, day - prev_day)  # enforce 5-day minimum
+    return delta_days * 24 * 60 * 60  # days to seconds
 
 
 # Dioceses to regenerate (abandon LA)
@@ -207,17 +209,17 @@ for district_name, state in TARGETS:
     print(f'  meeting link in steps: {meeting_link_count}   schools URL in steps: {schools_url_count}')
     print(f'  "one pager" count: {one_pager_count}   awkward repetition: {schools_school_by_school}')
 
-    # Build Outreach-format steps
+    # Build Outreach-format steps (interval in SECONDS, not minutes)
     prev_day = 0
     outreach_steps = []
     for i, s in enumerate(steps):
         body_html = body_text_to_html(s['body'])
-        interval_minutes = day_to_interval_minutes(s['day'], prev_day if i > 0 else 0)
+        interval_seconds = day_to_interval_seconds(s['day'], prev_day if i > 0 else 0)
         prev_day = s['day']
         outreach_steps.append({
             "subject": s['subject'],
             "body_html": body_html,
-            "interval_minutes": interval_minutes,
+            "interval_seconds": interval_seconds,
         })
 
     # Write Google Doc (for review)
@@ -226,12 +228,19 @@ for district_name, state in TARGETS:
     print(f'  Doc: {doc_url}')
 
     # Push to Outreach
+    # Schedule 19 = cold admin to Superintendents/Principals (matches target role).
+    # Description is VISIBLE to Steven's manager + teammates — zero automation language.
     try:
         out_result = outreach_client.create_sequence(
             name=campaign_name,
             steps=outreach_steps,
-            description=f"Session 59 diocesan cold outreach — auto-generated via Scout sequence_builder diocesan branch. Campaign meeting link: {MEETING_LINK}",
-            tags=["diocesan_central_office_2026", "session_59", "cold"],
+            description=(
+                f"Cold outreach to the central office of {district_name}, targeting the "
+                f"Superintendent of Catholic Schools. Frames CS + safe AI curriculum for "
+                f"parochial school networks. 5-step graduated cadence (5/6/7/8 days), admin schedule."
+            ),
+            tags=["diocesan_central_office_2026", "cold"],
+            schedule_id=19,
         )
         seq_id = out_result.get("sequence_id")
         errors = out_result.get("errors", [])
