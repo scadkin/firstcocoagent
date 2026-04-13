@@ -2338,11 +2338,14 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if not args or not _last_prospect_batch:
             await send_message("No prospect batch to approve. Use `/prospect` first.")
             return
-        try:
-            indices = [int(x.strip()) for x in args.split(",")]
-        except ValueError:
-            await send_message("Usage: `/prospect_approve 1,3,5`")
-            return
+        if args.lower() == "all":
+            indices = list(range(1, len(_last_prospect_batch) + 1))
+        else:
+            try:
+                indices = [int(x.strip()) for x in args.split(",")]
+            except ValueError:
+                await send_message("Usage: `/prospect_approve 1,3,5` or `/prospect_approve all`")
+                return
         try:
             loop = asyncio.get_event_loop()
             approved = await loop.run_in_executor(
@@ -2408,11 +2411,14 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if not args or not _last_prospect_batch:
             await send_message("No prospect batch to skip. Use `/prospect` first.")
             return
-        try:
-            indices = [int(x.strip()) for x in args.split(",")]
-        except ValueError:
-            await send_message("Usage: `/prospect_skip 2,4`")
-            return
+        if args.lower() == "all":
+            indices = list(range(1, len(_last_prospect_batch) + 1))
+        else:
+            try:
+                indices = [int(x.strip()) for x in args.split(",")]
+            except ValueError:
+                await send_message("Usage: `/prospect_skip 2,4` or `/prospect_skip all`")
+                return
         try:
             loop = asyncio.get_event_loop()
             skipped = await loop.run_in_executor(
