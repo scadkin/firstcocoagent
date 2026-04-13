@@ -1,0 +1,82 @@
+{
+  "purpose": "Post-research contamination guard. When a diocesan research job writes to Leads from Research, every extracted email domain should be checked against this list. Matches indicate the row was actually a public-district leak (BUG 5 shared-city gap) and should be deleted.",
+  "created": "2026-04-13",
+  "created_by": "Session 59 Section 3",
+  "related_bug": "BUG 5 _target_match_params shared-city gap in tools/research_engine.py",
+  "related_memory": "memory/project_bug5_shared_city_gap.md",
+
+  "exact_domains": [
+    "detroitk12.org",
+    "pghschools.org",
+    "okcps.org",
+    "tulsaschools.org",
+    "mnps.org",
+    "scsk12.org",
+    "fwisd.org",
+    "houstonisd.org",
+    "lps.org",
+    "ops.org"
+  ],
+
+  "pattern_matches": {
+    "_comment": "Regex-style patterns — if a diocesan lead's email domain matches any of these, flag as public-district contamination",
+    "patterns": [
+      "^k12\\.[a-z]{2}\\.us$",
+      ".*\\.k12\\.[a-z]{2}\\.us$",
+      "^[a-z]+k12\\.org$",
+      "^[a-z]+isd\\.org$",
+      "^[a-z]+isd\\.net$",
+      "^[a-z]+schools\\.org$",
+      "^[a-z]+publicschools\\.org$",
+      "^[a-z]+psd\\.org$"
+    ]
+  },
+
+  "per_diocese_exclusions": {
+    "_comment": "When research targets a specific diocese, any email on one of these domains is automatically a contamination hit. Keyed by the canonical account name in Prospecting Queue.",
+    "Archdiocese of Detroit Schools": ["detroitk12.org"],
+    "Diocese of Pittsburgh Schools": ["pghschools.org"],
+    "Archdiocese of Oklahoma City Schools": ["okcps.org"],
+    "Diocese of Tulsa Schools": ["tulsaschools.org"],
+    "Diocese of Nashville Schools": ["mnps.org"],
+    "Diocese of Memphis Schools": ["scsk12.org"],
+    "Diocese of Fort Worth Schools": ["fwisd.org"],
+    "Archdiocese of Galveston-Houston Schools": ["houstonisd.org"],
+    "Diocese of Lincoln Schools": ["lps.org"],
+    "Archdiocese of Omaha Schools": ["ops.org"],
+    "Archdiocese of Chicago Schools": ["cps.edu"]
+  },
+
+  "whitelisted_diocesan_domains": {
+    "_comment": "Known-good archdiocesan and parochial school domains seen in Session 58 research. Use as a positive signal when checking an uncertain row.",
+    "archdiocesan_central": [
+      "archphila.org",
+      "catholicaoc.org",
+      "dioceseofcleveland.org",
+      "aod.org",
+      "archchicago.org",
+      "rcab.org",
+      "bostoncatholic.org",
+      "csoboston.org"
+    ],
+    "parochial_schools_observed": [
+      "hssala.org",
+      "st-helen-school.com",
+      "ndatyngsboro.org",
+      "ebccs.org",
+      "cheverusschool.com",
+      "blessedsacrament.org",
+      "smspa.org",
+      "svfschool.org",
+      "stbernadetteamelia.org",
+      "rogerbacon.net",
+      "stteresaofavila.org",
+      "stceciliacincinnati.org",
+      "motherbrunner.org",
+      "stmargaretofyork.org",
+      "ihmgradeschool.org"
+    ]
+  },
+
+  "usage_example_python": "import json, re\nbl = json.load(open('memory/public_district_email_blocklist.json'))\ndef is_public_leak(email: str, diocese_name: str) -> bool:\n    dom = email.lower().split('@')[-1]\n    if dom in bl['exact_domains']: return True\n    if dom in bl['per_diocese_exclusions'].get(diocese_name, []): return True\n    for pat in bl['pattern_matches']['patterns']:\n        if re.match(pat, dom): return True\n    return False"
+}

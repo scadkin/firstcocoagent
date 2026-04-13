@@ -331,9 +331,23 @@ async def _on_prospect_research_complete(result: dict, prospect: dict):
     # Auto-build a sequence for this prospect
     try:
         import tools.sequence_builder as sequence_builder
-        strategy_labels = {"upward": "Upward", "winback": "Winback", "cold": "Cold", "cold_license_request": "License Request Re-engagement"}
-        campaign_name = f"{district_name} — {strategy_labels.get(strategy, 'Cold')} Prospecting"
-        target_role = "CS/CTE Director"
+        strategy_labels = {
+            "upward": "Upward",
+            "winback": "Winback",
+            "cold": "Cold",
+            "cold_license_request": "License Request Re-engagement",
+            "private_school_network": "Private School Network",
+        }
+        # Diocesan campaigns get a distinct label + target role
+        _is_diocesan = strategy == "private_school_network" and any(
+            token in district_name.lower() for token in ("archdiocese", "diocese")
+        )
+        if _is_diocesan:
+            campaign_name = f"{district_name} — Diocesan Central Office Outreach"
+            target_role = "Superintendent of Catholic Schools"
+        else:
+            campaign_name = f"{district_name} — {strategy_labels.get(strategy, 'Cold')} Prospecting"
+            target_role = "CS/CTE Director"
 
         # Build context based on strategy
         extra_context = f"State: {state}. Strategy: {strategy}."
@@ -374,6 +388,59 @@ async def _on_prospect_research_complete(result: dict, prospect: dict):
                 extra_context += f"\n\nPrior deal info: {notes}"
         elif strategy == "cold":
             extra_context += " No existing CodeCombat presence in this district."
+        elif strategy == "private_school_network":
+            if _is_diocesan:
+                extra_context += (
+                    f"\n\nThis is a COLD diocesan central-office outreach sequence for a Catholic archdiocese/diocese."
+                    f"\n\nTARGET AUDIENCE: The Superintendent of Catholic Schools at the diocesan central office."
+                    f" This role oversees a network of parochial K-12 schools under the diocese. They are"
+                    f" administrators, not classroom teachers — outreach should feel peer-to-peer at the admin level,"
+                    f" not classroom-level."
+                    f"\n\nCRITICAL TONE REQUIREMENTS:"
+                    f"\n- NO dollar figures. NO unverified peer district/diocese names. NO assumed success claims."
+                    f"\n- Frame CodeCombat as 'CS/coding & safe AI curriculum' — the safe AI angle matters for"
+                    f"  Catholic schools that are rightfully cautious about AI exposure for minors."
+                    f"\n- Lead with student engagement (video-game feel, rigorous curriculum underneath), NOT with AI as the main hook."
+                    f"\n- Acknowledge the diocesan structure: central office serves many parochial school principals,"
+                    f"  so the pitch should emphasize how one central relationship helps the superintendent standardize"
+                    f"  CS curriculum across all member schools."
+                    f"\n- Reference the mission alignment (equity of access to CS, preparing students for the workforce)"
+                    f"  without being saccharine or leaning on religious language."
+                    f"\n- Turn-key for teachers angle is critical — most parochial schools have teachers without"
+                    f"  CS backgrounds, and superintendents worry about implementation burden on their principals."
+                    f"\n- Soft, colleague-level language throughout. 'Throw our hat in early' beats 'want to be considered.'"
+                    f"  'Would it be worth sending over some info?' beats 'can we hop on a call?'"
+                    f"\n\nCTA PATTERN (Steven's approved 3-option format, use across the sequence):"
+                    f"\n- A one-pager overview (NOT 'licensing + pricing guide' — too transactional)"
+                    f"\n- Free trial licenses for any teachers the superintendent wants to pilot with, no strings"
+                    f"\n- Some data, case studies, or efficacy reports (Bobby Duke MS is Steven's verified case study;"
+                    f"  do NOT name peer dioceses unless research confirmed them as Active Accounts)"
+                    f"\n\nSTRUCTURE:"
+                    f"\n- 5 steps, graduated spacing (5+ days between each), ~4 weeks total"
+                    f"\n- Step 1 under 80 words, single low-friction CTA"
+                    f"\n- Other steps under 120 words"
+                    f"\n- Each step needs a DISTINCT angle: engagement, turn-key for parochial teachers,"
+                    f"  K-12 vertical alignment (replaces Scratch/Code.org patchwork), budget/timing, breakup"
+                    f"\n- Final step is a breakup email under 60 words (pulls 20-30% reply rate)"
+                    f"\n- Use Outreach merge fields: {{{{first_name}}}}, {{{{company}}}}, {{{{state}}}}"
+                    f"\n\nBANNED PHRASES (Steven rejected these in 5+ sequence iterations):"
+                    f"\n- 'Just checking in', 'circling back', 'touch base', 'reach out', 'I'd love to',"
+                    f"  'quick call', 'hop on a call', 'I'm Steven', 'I wanted to reach out',"
+                    f"  'The #1 thing teachers tell me', 'Are you the right person?' (except in breakup),"
+                    f"  'I dropped the ball', 'sorry' openers, 'I hope this email finds you well'"
+                    f"\n- NO em dashes — use commas or periods"
+                    f"\n- NOT vendor-y, NOT formulaic, NOT AI-sounding — must read like a human wrote it"
+                )
+            else:
+                # Non-diocesan private school network (Cristo Rey, independent Catholic academies, etc.)
+                extra_context += (
+                    f"\n\nThis is a COLD outreach to a private school network HQ (NOT a public district)."
+                    f" Target is the network-level curriculum/academics lead."
+                    f"\n- Frame around network-level CS adoption and consistent curriculum across member schools"
+                    f"\n- Emphasize turn-key implementation for small parochial/independent schools with limited CS staff"
+                    f"\n- Same anti-fabrication rules: no dollar figures, no unverified peer names, no assumed success claims"
+                    f"\n- Lead with engagement, not AI. Safe AI is a supporting feature."
+                )
 
         voice_profile = None
         try:
@@ -390,6 +457,9 @@ async def _on_prospect_research_complete(result: dict, prospect: dict):
             voice_profile=voice_profile,
             additional_context=extra_context,
         )
+        # Diocesan runs auto-tag the campaign label so Steven can filter
+        if _is_diocesan and seq_result.get("success"):
+            logger.info(f"Diocesan sequence built for {district_name} ({len(seq_result.get('steps', []))} steps)")
 
         doc_url = ""
         if seq_result["success"]:
