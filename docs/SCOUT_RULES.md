@@ -37,6 +37,12 @@ This file holds the full rule set. CLAUDE.md keeps the top 15 session-critical r
 
 **Signal vs. Prospect routing for new lead-gen scanners.** HIGH confidence → auto-queue via `district_prospector.add_district()` as `pending`. MEDIUM/LOW → Signals tab only via `write_signals()`. Active customer match → `customer_intel` log only (don't sell, don't discard). Pattern established in F4 + F2 scanners (Session 49). All queue writes are `pending` — Steven manually approves via `/prospect_approve`. No auto-elevation logic. *(Top-15)*
 
+**Write the audit question in plain English BEFORE running code.** Before any audit, analysis, or aggregate stat: (1) write the question in 1-3 sentences, (2) map every concept in the question to a literal column in a literal tab, (3) dump the header row of each tab being read. If a concept has no backing column, you're reading the wrong tab. Clean 100% aggregate numbers are a red flag, not a confirmation. Session 59 case study: the F1 audit counted sibling school accounts in `Active Accounts` (a tab with zero contact-level columns) and labeled them as "contacts at the parent district." A header dump would have caught the category error before the audit was built. Saved as `memory/feedback_category_error_audit_the_question.md`. *(Session 59 lesson)*
+
+**Never cite cost, time, count, or percentage numbers without labeling provenance.** Label every number: `measurement:` / `real sample:` / `extrapolation:` / `estimate:` / `unknown`. A range like "$200-800" presented without a label reads as a measurement and sets Steven up to trust it. Before quoting, grep telemetry (`Research Log`, `Activities`, provider dashboards). If the number matters to the recommendation and isn't measurable, say "unknown — here's how to find out." Session 59 case study: cited $200-800 / 30 hours for 384 research jobs as if measured. Real numbers: $135-365 and 47 hours. Both directions wrong. Saved as `memory/feedback_never_cite_made_up_numbers.md`. *(Session 59 lesson)*
+
+**Never present a guess as a fact.** If you don't know something, say "I don't know — here's how to find out." Do not infer from name-similarity clusters, do not fill in plausible values, do not mix speculation with established facts in a recommendation. Session 59 case studies: (a) recommended schedule 19 via sample-cluster inference when 19 wasn't one of Steven's 5 named schedules, (b) said F3 was retired when F3 is the active RFP scanner. Both were guesses dressed as facts. *(Session 59 lesson)*
+
 ---
 
 ## 2. Python & Async Safety

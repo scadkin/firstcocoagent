@@ -1218,54 +1218,101 @@ The full Session 56 "What's working" + "What's still in-progress / unresolved" +
 
 ---
 
-## Session 59 (2026-04-13) — Diocesan Value Extraction: Sequence Builder Branch Shipped, 6 Docs Regenerated Clean
+## Session 59 (2026-04-13) — Diocesan Value Extraction + Tool Hardening (4 rounds, 12 failures caught, 8 made impossible)
 
-### What changed
+### Timeline
 
-Session 59 was originally framed (by CLAUDE.md Session 58 handoff) as low-risk cleanup: drip the backlog, delete a backup tab, check diocesan yield. Empirical probing in the planning phase uncovered a completely different picture. The v1 plan was pressure-tested and rewritten from scratch as a **value-extraction session** focused on the single biggest pipeline gap: `_on_prospect_research_complete` at `agent/main.py:333-376` had elif branches for `upward`/`winback`/`cold`/`cold_license_request` but **no `private_school_network` branch**. Every diocesan approval since Session 56 had routed through the generic cold fallback and produced broken drafts (52-73 em dashes per doc, AI leading in subject lines, banned phrases like "I'd love to" and "quick call", zero match on any diocesan framing element). 7 existing draft docs were all unusable.
+Session 59 was originally framed as low-risk cleanup (drip the backlog, delete a backup tab, check diocesan yield). It became a 4-round session with 12 user-visible failures — every one caught by Steven in the Outreach UI or sheet audit, not self-caught. Round 4 installed tool hardening that makes 8 of 12 failure modes structurally impossible going forward.
 
-**Commits shipped (2 total):**
+**Round 1** — shipped diocesan branch in `_on_prospect_research_complete` + regenerated 6 of 7 existing sequence docs. Steven reviewed and flagged 4 content problems plus the framing error of recommending manual Outreach upload.
 
-1. **`042f146` feat(sequences): add diocesan branch to _on_prospect_research_complete**
-   - `agent/main.py` — added `_is_diocesan` token detection (`"archdiocese"/"diocese" in district_name.lower()`), new elif branch for `strategy == "private_school_network"` with diocesan sub-branch (target_role = "Superintendent of Catholic Schools", campaign_name = "<diocese> — Diocesan Central Office Outreach") and non-diocesan sub-branch for private school networks. Diocesan `extra_context` inlines the full tone rules from `feedback_bond_trigger_outreach_tone.md` + `feedback_sequence_copy_rules.md` + `feedback_sequence_iteration_learnings.md`: no dollar figures, no unverified peer names, CS/safe-AI framing, 3-CTA pattern (one-pager + free trial + case study), banned-phrase list, structure constraints (Step 1 ≤80 words, 5 steps, graduated spacing, breakup ≤60 words), merge-field requirements.
-   - `memory/public_district_email_blocklist.json` (new) — Scout runtime contamination guard. 10 exact public-district domains (pghschools.org, okcps.org, tulsaschools.org, mnps.org, scsk12.org, fwisd.org, houstonisd.org, lps.org, ops.org, detroitk12.org) + 8 regex patterns + per-diocese exclusions for all 16 Catholic dioceses + whitelist of 23 known-good archdiocesan/parochial school domains from Session 58 research. Resolved via Serper lookups for each of the 9 pending diocesan public-district counterparts.
-   - Additive change — `strategy == "private_school_network"` previously fell through with empty `extra_context`. Cannot regress any existing strategy.
-   - Local test against Philadelphia data passed all tone checks: 0 banned phrases, 0 em dashes, Bobby Duke MS case study only, all 3 CTA variants, "throw our hat in early" framing, parochial/diocesan language throughout. Step 1 was ~100 words vs 80-word target — minor iteration nit.
+**Round 2** — re-regen with content fixes + pushed to Outreach. Steven caught 3 more problems in the UI: 60× too-short intervals, auto-gen language in descriptions, rogue schedule 19 via name-cluster inference.
 
-2. **`<TBD>` docs(session-59): SESSION_59_DIOCESAN_REVIEW + SESSION_59_INTRA_DISTRICT_AUDIT + project docs + memory**
-   - `docs/SESSION_59_DIOCESAN_REVIEW.md` (new) — full triage of the 7 existing diocesan sequence docs. Original violation counts (50-73 em dashes each, AI in subjects, banned phrases, 0/9 tone match). Regenerated 6 via the new branch; per-regen quality: Philadelphia (63/0/0 — GOLD), Cleveland (69/0/0), Boston (56/0/0), Chicago (57/0/0), Cincinnati (98/0/0 — minor Step 1 nit), Detroit (79/0/0). LA abandoned (only 2 leads from 1 parochial school). New Doc URLs linked for all 6; Prospecting Queue `Sequence Doc URL` column updated for the 6 rows.
-   - `docs/SESSION_59_INTRA_DISTRICT_AUDIT.md` (new) — 384 pending `intra_district` rows audited. Stratified sample (6 high + 7 mid + 6 low = 19 rows) returned **19/19 REDUNDANT** against Active Accounts. Full-queue check confirmed **100% of 384 rows have ≥1 active contact at parent district**, 7.8% have 2+. Root cause: F1 is structurally redundant by design (finds sibling schools inside Active Account districts, where the parent-district contacts are already known). Recommended Option C: retire F1 + bulk-skip 384.
-   - `memory/project_bug5_shared_city_gap.md` (Claude auto-memory, new) — BUG 5 shared-city contamination gap. Detroit Cummings row was the confirmed hit (1.4% contamination rate across 71 diocesan leads). 7 of 9 remaining pending dioceses carry the same risk (Pittsburgh, OKC, Tulsa, Fort Worth, Houston, Lincoln, Omaha). The `_target_match_params` code in `tools/research_engine.py` needs per-account-type matching, but that's a future plan-mode session. Session 59's runtime patch is the blocklist JSON asset.
-   - CLAUDE.md Current State block rewritten for Session 59 reality.
-   - SCOUT_PLAN.md `YOU ARE HERE` block rewritten with v2 plan deliverables + v1→v2 changelog.
-   - MEMORY.md index updated with `project_bug5_shared_city_gap.md` pointer.
+**Round 3** — PATCHed the live sequences + refactored `create_sequence`. Ran a flawed F1 audit and proposed retiring the intra_district scanner. Steven pushed back: category error (conflated sibling school accounts with contacts at parent district), fabricated cost/time numbers, fabricated "F3 retired" fact.
 
-### Section-by-section execution
+**Round 4** — shipped tool hardening. Split validation into two standalone helpers (`validate_sequence_inputs` pre-write, `verify_sequence` post-write). 14 unit tests. Ran the verifier on all 6 live sequences; caught 2 real violations missed in rounds 1-3 ("15 minutes" in Philadelphia + Cincinnati step 3 bodies). PATCHed in place. 5-sequence spot check on recent Steven-owned sequences surfaced legacy findings (not fixed without Steven sign-off).
 
-**Section 2 — Delete backup tab (5 min):** Pre-check on 3 live `Prospecting Queue` rows confirmed expected winback data. `batchUpdate(deleteSheet)` on sheetId=793937698. Tab count 15 → 14, live queue unchanged at 38,932 rows.
+### The 12 failures
 
-**Section 3 — Blocklist + Detroit cleanup (30 min):** 9 Serper lookups resolved public-district domains. Wrote `memory/public_district_email_blocklist.json`. Pulled all 71 existing diocesan leads, found 23 distinct email domains — 22 were legit archdiocesan (archphila.org, catholicaoc.org, aod.org, etc.) or parochial school (st-helen-school.com, rogerbacon.net, etc.). Only 1 contamination: `nicole.cummings@detroitk12.org` (row 545, Detroit Public Schools leak into Archdiocese of Detroit Schools). Re-verified row 545 was correct target before deletion. `batchUpdate(deleteDimension)` removed the row. Diocesan count 71 → 70.
+| # | Failure | Caught at | Fix mechanism |
+|---|---|---|---|
+| 1 | Missing meeting link in diocesan sequences | Steven round 1 UI review | Round 2 re-regen with meeting link baked in; round 4 validator refuses creation if `meeting_link` kwarg set but not in body |
+| 2 | "one pager" CTA repeated across every step | Steven round 1 UI review | Round 2 re-regen with CTA variety rule; round 4 validator rejects via `max_repetition={"one pager": 1}` |
+| 3 | No `codecombat.com/schools` link in bodies | Steven round 1 UI review | Round 2 re-regen; round 4 validator requires ≥2 step bodies via `require_cc_schools_link=True` (default) |
+| 4 | "schools school by school" awkward repetition | Steven round 1 UI review | Round 2 re-regen; round 4 validator bans the exact phrase in bodies |
+| 5 | Manual Outreach copy/paste recommendation | Steven round 1 (framing correction) | `feedback_never_manual_outreach_upload.md` memory banked; round 2 pushed to Outreach API |
+| 6 | "auto-generated via Scout sequence_builder" in descriptions | Steven round 2 UI review | Round 3 PATCHed live; round 4 validator rejects name/description against `_BANNED_META_PHRASES` |
+| 7 | No delivery schedule attached to any sequence | Steven round 2 UI review | Round 3 attached schedule 52; round 4 validator requires `schedule_id` unless `allow_no_schedule=True` |
+| 8 | Rogue schedule 19 recommendation via name-cluster inference | Steven round 3 pushback | Round 3 fixed after Steven attached schedule 52 to Chicago; round 4 validator enforces allowlist `{1, 48, 50, 52, 53}` via env var or default |
+| 9 | 60× too-short email intervals (hours, not days) | Steven round 2 UI review | Round 3 PATCHed all 6 sequenceSteps; round 4 validator requires subsequent steps ≥432000s unless `min_interval_seconds` override |
+| 10 | F1 audit category error (accounts vs contacts) | Steven round 3 pushback | Round 4 banked `feedback_category_error_audit_the_question.md` + `feedback_f1_intra_district_is_important.md` + new `docs/SCOUT_RULES.md` rule "write the audit question in plain English BEFORE running code" |
+| 11 | Fabricated cost/time estimates ($200-800, ~30hr) | Steven round 3 pushback | Round 4 banked `feedback_never_cite_made_up_numbers.md` + new `docs/SCOUT_RULES.md` rule "never cite numbers without labeling provenance" |
+| 12 | "F3 is retired" fabrication (F3 is the active RFP scanner) | Steven round 3 correction | Round 4 banked new `docs/SCOUT_RULES.md` rule "never present a guess as a fact" |
 
-**Section 4 — Sequence builder diocesan branch (60 min):** Read `agent/main.py:319-428` and `tools/sequence_builder.py:88-217` to understand the edit site. Read `memory/feedback_bond_trigger_outreach_tone.md`, `feedback_sequence_copy_rules.md`, `feedback_sequence_iteration_learnings.md` from Claude auto-memory for authoritative tone rules. Added the diocesan branch inline (not externalized) for iteration velocity. Syntax-checked via `ast.parse`. Ran local test against Philadelphia data — first-pass output read like a human wrote it, used all the approved phrasings, no banned patterns. Committed + pushed.
+**Unifying pattern:** I declared tasks "done" on API response codes + memory I never loaded, not on visual verification in the UI Steven actually uses. Every failure would have been caught by opening the output in Outreach/Sheets/Docs and reading it before shipping.
 
-**Section 5 — Triage + regenerate 7 existing docs (45 min):** Discovered Google Docs/Drive APIs disabled for service account project 878527098006. Fell back to `https://docs.google.com/document/d/<id>/export?format=txt` — works for any doc accessible to anyone with the link. Downloaded all 7 docs as plain text. Programmatic scoring confirmed every doc scored 0/9 on diocesan tone match, 50+ em dashes each, AI in subjects. Wrote `scripts/s59_regen_diocesan_sequences.py` mirroring the handler logic, ran it against 6 targets (abandoned LA). Each regen took ~30 seconds via Claude Sonnet. All 6 produced clean output (5 fully pass, 1 Cincinnati minor length nit). Wrote 6 new Google Docs via GAS bridge. Updated Prospecting Queue `Sequence Doc URL` column (col O) via `batchUpdate(values)`. Wrote `docs/SESSION_59_DIOCESAN_REVIEW.md` summary.
+### 8 code-enforced fixes (Session 59 round 4 tool hardening, commit `1f22991`)
 
-**Section 6 — intra_district 384 audit (30 min):** Stratified sample from the 384 rows (seed 42, 6 high + 7 mid + 6 low). For each: `csv_importer.get_active_accounts()` + `normalize_name()` lookup against parent district, fuzzy-match fallback at 0.75. All 19 samples hit REDUNDANT. Extended the check to all 384 rows — 100% hit rate. 7.8% have 2+ contacts. Concluded F1 is structurally redundant by design and recommended Option C (retire + bulk-skip). Wrote `docs/SESSION_59_INTRA_DISTRICT_AUDIT.md`.
+Two new standalone helpers in `tools/outreach_client.py`:
 
-**Session wrap (15 min):** Wrote BUG 5 project memory, updated MEMORY.md index, rewrote CLAUDE.md Current State block + SCOUT_PLAN.md YOU ARE HERE + SCOUT_HISTORY.md Session 59 entry. Single docs commit at end.
+- **`validate_sequence_inputs(name, steps, description, schedule_id, ...) -> {passed, failures, warnings}`** — pre-write validation. Zero API calls. Unit-testable. Callable from ANY code path (scripts, handler, future auto-push), not just `create_sequence`. 12 checks: name/description automation language, schedule_id required + allowlisted, step count ≥1, step 1 interval sanity, step 2+ interval min (cold default 432000s = 5 days, overridable), body banned-phrase scan (16 phrases), em/en dash detection, required `codecombat.com/schools` in ≥2 bodies (opt-in), meeting link required in ≥1 body if provided, repetition policy (default `{"one pager": 1}`), merge field warning.
+- **`verify_sequence(seq_id, expected=None) -> {passed, failures, warnings, errors, fetched}`** — post-write / audit verification. Fetches live state via API with retry + 2s backoff on transients. Returns `passed=None` if couldn't verify, distinguishing from `passed=False` (verified and failed). Same 12 checks applied against live state. Catches post-write drift and malformed sequences.
 
-### Session 59 lessons (to be distilled into memory files)
+`create_sequence` refactored to auto-call both:
+- At function start: calls `validate_sequence_inputs(...)`. If failures, returns `{error, validation_failures, validation_warnings}` with ZERO API writes.
+- At function end: calls `verify_sequence(seq_id, expected=...)` unless `verify_after_create=False` (bulk creation override).
+- New kwargs: `allow_no_schedule`, `meeting_link`, `require_cc_schools_link`, `min_interval_seconds`, `verify_after_create`, `max_repetition`.
+- Schedule allowlist via `OUTREACH_ALLOWED_SCHEDULE_IDS` env var → default `{1, 48, 50, 52, 53}`.
 
-1. **Empirical probing before plan mode catches frame errors, not just detail errors.** v1 plan focused on backlog drain. 15 min of pre-plan probing (Research Log row counts, reading the elif chain, queue row counts, ResearchQueue singleton verification) revealed (a) the sequence builder had no diocesan branch, (b) Steven's review bandwidth was saturated not his queue capacity, (c) diocesan yield was 3x better than CLAUDE.md predicted. The pressure-test pass caught what the first plan missed by holding the full pipeline in head instead of reacting to CLAUDE.md's stated priorities.
-2. **Stale-by-design backlogs are always worth auditing before approving.** 384 `intra_district` rows had been sitting pending since March. 100% structurally redundant. Audit first, approve second.
-3. **Google Docs/Drive APIs are often disabled per service-account project, but public `/export?format=txt` URL works without auth.** Critical fallback when service account is stuck.
-4. **Inline tone rules in `extra_context` beat externalized prompt files for iteration velocity.** One edit site in `agent/main.py`, no cross-file coordination.
-5. **GAS bridge is fine for one-off scripts.** `write_sequence_to_doc(campaign_name, steps, gas)` works outside the live agent context as long as `GAS_WEBHOOK_URL` + `GAS_SECRET_TOKEN` env vars are loaded.
-6. **`Sequence Doc URL` is Prospecting Queue column 14 (O in A1 notation).** Noted for future writes.
+**14 unit tests** in `scripts/test_outreach_validator.py` cover every failure mode + hot-lead override. Runs in <1 second, zero API calls. All green.
 
-### Session 59 commits (2 total)
-1. `042f146` feat(sequences): add diocesan branch + public_district_email_blocklist.json
-2. `<TBD>` docs(session-59): review + audit + history + CLAUDE.md + plan + memory
+**Live verification** on the 6 diocesan sequences (2008-2013) caught 2 real violations I had missed in rounds 1-3: Philadelphia template 43923 and Cincinnati template 43928 both contained "15 minutes" in step 3 bodies (Claude had expanded my "15 min" prompt suggestion to the long form, which is in the banned list as a classic sales cliché — "If 15 minutes works, you can..." / "walk through how this maps across your schools in 15 minutes"). Both templates PATCHed in place via `_api_patch` to replace the banned lead-ins. Re-verified; all 6 now pass clean.
+
+### 3 process rules added (`docs/SCOUT_RULES.md` Section 1)
+
+- **"Write the audit question in plain English BEFORE running code."** Map every concept to a literal column in a literal tab. Dump the header row first. Distrust clean 100% aggregate numbers.
+- **"Never cite cost, time, count, or percentage numbers without labeling provenance."** Label every number: `measurement / sample / extrapolation / estimate / unknown`.
+- **"Never present a guess as a fact."** Say "I don't know" explicitly.
+
+### 4 preflight checklists added (`CLAUDE.md` new Preflight section)
+
+Each triggers on task type. Outreach work, Sequence content, Sheet audit, Cost/time estimate. 3-5 bullets max per checklist. Always in session context (CLAUDE.md is loaded every session).
+
+### 14 memory files banked (`~/.claude/projects/.../memory/`)
+
+1. `feedback_category_error_audit_the_question.md`
+2. `feedback_never_cite_made_up_numbers.md`
+3. `feedback_verify_units_at_layer_boundaries.md`
+4. `feedback_outreach_interval_is_seconds.md`
+5. `feedback_outreach_no_automation_language.md`
+6. `feedback_outreach_delivery_schedule_required.md`
+7. `feedback_outreach_schedule_id_map.md`
+8. `feedback_outreach_sequence_owner_required.md`
+9. `feedback_never_manual_outreach_upload.md`
+10. `user_meeting_link_pattern.md`
+11. `feedback_f1_intra_district_is_important.md`
+12. `feedback_scout_data_mostly_untested.md`
+13. `project_research_engine_needs_cost_redesign.md`
+14. `project_bug5_shared_city_gap.md`
+
+### Commits (6 total on main)
+
+1. `042f146` feat(sequences): add diocesan branch to _on_prospect_research_complete + public_district_email_blocklist.json
+2. `4051f53` docs(session-59): diocesan review + intra_district audit + plan/history/CLAUDE.md (round 1)
+3. `7c162b6` feat(sequences): diocesan branch round 2 — meeting link + CTA variety + Outreach push
+4. `eff3786` fix(outreach): always set owner=Steven on sequence creation (round 2 retroactive)
+5. `880d77b` fix(outreach): interval in seconds, schedule_id required, banned automation language (round 3)
+6. `1f22991` fix(outreach): harden create_sequence with validate_sequence_inputs + verify_sequence (round 4 tool hardening + unit tests + live verification)
+
+Plus the final docs/project-state commit for this session wrap.
+
+### Session 59 lessons (5 key takeaways — mirrors the process rules above)
+
+1. **Code > process where code can enforce.** The F1 category error, fabricated numbers, and "F3 retired" fabrication are the only failures a validator couldn't have caught. The other 8 are now structurally impossible. Tool hardening is ~2 orders of magnitude more reliable than rules in a document that might not get loaded.
+2. **Memory files require loading discipline.** `feedback_outreach_intervals.md` has said "interval is in SECONDS not minutes" since Session 38. I didn't load it. The interval bug happened. Memory is the accumulated cost of past mistakes — skipping loads re-runs those mistakes. Preflight checklists force the load.
+3. **Verification happens in the user-facing UI, not the API response.** HTTP 201 means "request accepted," not "result is correct." Every task's definition-of-done must include reading the output in the exact UI Steven would open.
+4. **Reasoning failures need different prevention than process failures.** Code guards can't catch category errors or judgment failures. Those need the audit-question rule, the number-provenance rule, and the never-present-guess rule.
+5. **Don't guess — say "I don't know."** Schedule 19 and "F3 retired" were both guesses dressed as facts. Steven caught both. If I don't know something, saying it costs nothing; faking it costs trust.
 
 ---
 
