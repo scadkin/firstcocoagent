@@ -1215,3 +1215,96 @@ BUG 2 closed end-to-end.
 ### Archived from CLAUDE.md CURRENT STATE (Session 57)
 
 The full Session 56 "What's working" + "What's still in-progress / unresolved" + "2 remaining bugs" + "What still needs to be done (Session 57 — continue fix sprint)" narrative blocks were moved here IN FULL because both referenced bugs are now closed and the todo list is now executed. Session 56 lesson blocks (5 bullets on plan-as-one-shot, empirical foundation verification, Serper snippets as raw_pages, canonical lookup keys, single source of truth helpers, L6 architectural blindness, slash command naming inconsistency) stayed in CLAUDE.md — still evergreen rules guiding current behavior. Session 55 lesson block also stayed for the same reason.
+
+---
+
+## Session 58 (2026-04-12/13) — Priorities 1–4 Knockdown: Stage 6-8 + Diocesan Drip + CSTA Everywhere + Roster Triple
+
+### What changed
+
+Session 58 was the comprehensive post-bug-sprint session. With zero Fire Drill Audit bugs remaining after Session 57, the focus was on the four Session 58 priorities defined in CLAUDE.md handoff: (1) Session 52 Stages 6-8 carryover, (2) diocesan approval drip, (3) CSTA enrichment wired to remaining scanners, (4) CSTA roster growth. All four were knocked down in order. Plus an unrelated doc restructure (CLAUDE.md 41.8K → 12.5K) done at the session start because CLAUDE.md had crossed the 40K char ceiling again.
+
+**7 commits shipped:**
+
+1. **`185a3f2` docs: trim CLAUDE.md + extract SCOUT_RULES.md (Session 58 trim)**
+   - CLAUDE.md: 41,817 → 12,543 chars (70% reduction).
+   - Extracted 80-rule `## CRITICAL RULES` section to new `docs/SCOUT_RULES.md` organized by 13 topic sections (Workflow, Async Safety, Architecture, Priority Scoring, Data Model, GAS, Research, Signals, Telegram, Sequences, Outreach, Design Constraints, Ops) + Session 55/57 lesson appendices.
+   - Moved Session transcript capture to `docs/SCOUT_REFERENCE.md`.
+   - Deleted duplicated sections: Current status, Completed features, Outreach.io API gotchas, Email Reply Drafting, Session 55/56 lesson prose, Session 57 close paragraph.
+   - Top-15 rules kept inline in CLAUDE.md with pointer to SCOUT_RULES.md.
+   - Zero info loss verified via grep audit across 103 distinctive keywords. `validate_email` and `static finite directories` flagged initially as "missing" but verified as case-sensitivity false positives.
+   - Plan file: `~/.claude/plans/mellow-bouncing-lemur.md` (v2 pressure-tested from v1).
+
+2. **`c947681` feat(f9): add /signal_compliance handler for CA/IL/MA pilot scan**
+   - F9 compliance_gap_scanner had no Telegram dispatch path since Session 51. Added handler in `agent/main.py` after the `/prospect_charter_cmos` handler cloning the F7 CTE pattern.
+   - Parses required state arg, validates against `compliance_gap_scanner.PILOT_STATES` (CA/IL/MA), calls `scan_compliance_gaps(state)` via `run_in_executor`, formats via `format_scan_result_for_telegram`.
+   - Live CA pilot scan ran: 4 PDFs processed, 0 HIGH-confidence districts extracted, 0 signals written. Handler works end-to-end. **Scanner quality (Serper PDF discovery surfacing "Faculty Qualifications" policy docs instead of district compliance rosters) is a pre-existing issue, not a regression. F9 query redesign is a future session, same shape as BUG 1 Session 57.**
+
+3. **`e52ce25` feat(f1): wire CSTA enrichment into intra_district expansion**
+   - F1 `suggest_intra_district_expansion` writes rows directly via `_write_rows` (not `district_prospector.add_district` like F2), so the literal "one-line call" from CLAUDE.md Priority 3 didn't apply.
+   - Per-parent-district CSTA lookup once before the candidate loop, cached across all sibling candidates. Lookup uses `parent_display` (district), not `cand["name"]` (school).
+   - On CSTA match: `csta_prefix` prepended to note, `csta_bonus = 50` added to `_calculate_priority("intra_district", 0, 0, cand["enrollment"])`.
+   - Lazy import of `signal_processor.enrich_with_csta` to avoid circular (signal_processor already imports district_prospector at module top).
+   - Wrapped in try/except with warning logger — enrichment failure degrades to baseline priority/note.
+   - 384 existing pending intra_district rows are NOT retroactively enriched. "Drip" is Steven's manual approval cadence via `/prospect_approve all`, no code needed. Retrofit script is future work if wanted.
+
+4. **`3ea1be1` feat: extend CSTA enrichment to F4/F6/F7/F8 via build_csta_enrichment helper**
+   - Added `build_csta_enrichment(district, state, base_notes) -> (enriched_notes, priority_bonus)` helper in `tools/signal_processor.py` next to `enrich_with_csta`. Returns `(base_notes, 0)` on miss — safe fallback. Prepends CSTA note, adds +50 priority bonus.
+   - **F4 cs_funding_recipient** wired in same file (no import needed) at line ~3595 (inside `scan_cs_funding` HIGH-confidence auto-queue block).
+   - **F6 charter_cmo** (`tools/charter_prospector.py`) at line ~128 — lazy import.
+   - **F7 cte_center** (`tools/cte_prospector.py`) at line ~131 — lazy import.
+   - **F8 private_school_network** (`tools/private_schools.py`) at line ~266 — lazy import.
+   - F1 and F2 kept inline (pre-helper). Refactoring all 6 to the helper is optional Session 59+ cleanup — at 3+ non-helper sites the Rule of Three kicks in.
+   - Smoke tested: all modules import cleanly, `build_csta_enrichment('Fake District', 'XX', 'test')` → `('test', 0)` correctly falls back on miss.
+   - F6/F7/F8 seed data (CMO names, tech center names, private network names) won't realistically match CSTA roster entries (public K-12 districts) but wiring is correct and harmless.
+
+5. **`69a3e9c` fix: support 'all' in /prospect_approve and /prospect_skip**
+   - Latent bug since Session 49. Scout's own output at `main.py:2532` tells users to type `/prospect_approve all` but the handler only parsed `int(x)` on comma-separated indices, falling through to `Usage: /prospect_approve 1,3,5` on any `all` attempt. Same for `/prospect_skip`.
+   - This blocked Session 58 Priority 2 diocesan drip — the paging loop needed `all` to work. Discovered when a bash loop skipped 10 rounds in a row returning the same 5 prospects each time.
+   - Fixed both handlers: check `args.lower() == "all"` first, expand to `list(range(1, len(_last_prospect_batch) + 1))`. 16-line diff.
+   - Also updated the `Usage:` error messages to mention the `all` alias.
+   - Required git pull --rebase because Railway had pushed an auto-commit during session.
+
+6. **`529a919` feat(csta): rewrite fetcher with per-state extraction + resolver + merge**
+   - Full rewrite of `scripts/fetch_csta_roster.py` after empirical probes identified two root causes:
+     - **Saturation:** 610K-char single-call corpus silently dropped state chapter content. Focused 22K-char MI/NE/MA-only corpus extracted 14 entries perfectly. Haiku attention/quality saturation on mixed-topic corpora.
+     - **Regional subdomain mapping gap:** CA/PA/TX don't have state-level `{state}.csteachers.org` subdomains (DNS-fail). They use regional chapters only (goldengate, greaterlosangeles, siliconvalley, pittsburgh, philly, dallasfortworth, etc.). Fetcher bucketed these as "national" → lost.
+   - Changes:
+     - `REGIONAL_SUBDOMAIN_TO_STATE` map — 18 regional subdomains → parent state (CA/PA/TX/MA/IL plus NJ catch).
+     - Per-state Haiku extraction with state code injected into prompt template.
+     - `EXPLICIT_STATE_CHAPTER_URLS` rewritten — removed DNS-broken CA/PA/TX state seeds, added regional subdomains and community forum URLs.
+     - `COMMUNITY_SEED_URLS` — CSTA community digest viewer URL added as explicit seed (source of ~30 baseline entries, was being discovered intermittently via Serper).
+     - `NATIONAL_URL_WHITELIST_PATTERNS` — filters national bucket from 84 → 23 URLs (keeps only `/team/`, `/volunteer-spotlight`, `/csta-board-corner`, `/meet-*`, `/award-winners`, community digestviewer).
+     - National corpus capped at 150K chars to prevent Haiku token overflow.
+     - **District resolver pass** — for territory-state entries with empty district, runs `"{name}" "computer science" teacher {state_name}` Serper query + Haiku reverse-lookup with confidence gating (`high`/`medium` only). Resolved ~50% of attempts at high confidence.
+     - **Merge-with-previous dedup** — loads existing roster, preserves any entries not in current run. **Critical because Haiku is nondeterministic across runs even at `temperature=0.0`** — three consecutive identical calls produced different subsets of people. Without merge, roster would flip-flop between subsets instead of converging upward.
+   - Ran 3 times to saturate. **Final: 77 entries / 41 matchable (+193% over 39/14 baseline).**
+   - Territory coverage: CA=9, CT=1, IL=2, MA=6, MI=2, NE=7, NV=3, OH=3, PA=2, TX=2 = 37 territory matchable (vs 13 baseline).
+   - IN/OK/TN still at 0 (chapter subdomains exist but pages list no board). Hand-curation work, tracked in `memory/project_csta_roster_hand_curation_gaps.md`.
+   - Cost: ~$0.40/run (Serper + Haiku), up from ~$0.10 for single-call version.
+
+### Key decisions
+
+- **Doc trim architecture** — Three-tier split: Tier 1 (CLAUDE.md always-loaded, top-15 rules), Tier 2 (SCOUT_RULES.md on-demand grep-able full rule set), Tier 3 (existing peer files). Rejected alternatives: (a) mild trim (rejected — file will cross 40K in 2 sessions), (b) push rules to `agent/CLAUDE.md` + `tools/CLAUDE.md` (rejected — those are module-scoped API docs, cross-cutting rules don't fit), (c) delete CRITICAL RULES entirely (rejected — Claude doesn't know what to grep for at session start).
+
+- **F1 CSTA wire-in Option A** — Three options considered: (A) inline wire-in ~8 lines, (B) extract helper 15 lines across 2 files, (C) refactor F1 to use `add_district` ~40 lines. Chose A as smallest safe change. Then at the 3rd call site (F4/F6/F7/F8), extracted the helper anyway (Rule of Three). F1's inline was kept to avoid touching deployed code.
+
+- **Diocesan drip stopped at 6 of 16 (Option A).** Steven chose to accept the 6 biggest territory archdioceses without hunting the deeper 10 after the drip loop hit 4 consecutive rounds with no diocesan prospects. Rationale: the 6 approved are the largest Catholic school systems in territory; research + BUG 4 playbook can validate yield quality before approving more.
+
+- **F9 scanner quality deferred.** Handler wired + end-to-end dispatch confirmed, but the scan returned 0 signals because Serper PDF discovery surfaces wrong doc types. **Classified as pre-existing bug, not Session 58 regression.** Future session needs plan-mode redesign with empirical Serper PDF probes first — same shape as BUG 1 Session 57.
+
+- **Merge-with-previous dedup for Haiku extraction scripts.** Built into `scripts/fetch_csta_roster.py` after discovering 3 consecutive runs produced different subsets. Pattern bankable for any future Haiku-based extraction script — runs are lossy, persist with merge. Memory entry: `feedback_haiku_nondeterminism_merge_previous.md`.
+
+- **Per-state Haiku extraction for large mixed-topic corpora.** Saturation discovery: big mixed corpora silently drop minority content. Pattern bankable. Memory entry: `feedback_haiku_saturation_large_corpus.md`.
+
+### Blockers + resolutions
+
+- **`/prospect_approve all` / `/prospect_skip all` didn't work** — latent bug since Session 49, blocked diocesan drip loop. Fixed in commit `69a3e9c`.
+- **CSTA roster fetcher single-call saturation** — diagnosed via focused-corpus probe (the same Session 57 empirical-probe discipline that caught BUG 1/BUG 2 silent bugs). Fixed via per-state bucketing.
+- **CA/PA/TX state-level subdomains DNS-fail** — diagnosed via `httpx.head()` probe on all 13 territory explicit seed URLs. Fixed by replacing with regional subdomains.
+- **Railway remote had auto-commit during session** — `git pull --rebase` before second push. Had to stash `.DS_Store` + `scripts/scout_session.sh` changes, rebase, pop.
+- **`scripts/scout_session.sh` `--effort high` flag** — added locally to prevent Opus 4.6 medium-effort regression but not committed (intentional, local preference).
+
+### Archived from CLAUDE.md CURRENT STATE (Session 58)
+
+The full Session 57 "What's working after Session 57" narrative block (F4 scanner live, F2 CSTA wired, CSTA roster at 39/14, kill switches, BUG 4 playbook live, Telethon/screencapture/Railway) plus the full "What still needs to be done (Session 58)" numbered list (Priorities 1–4 + cleanup) were updated in CLAUDE.md — Priority 1-4 items are now marked complete and replaced with the Session 58 state + Session 59 cleanup priorities. The Session 57 lesson block stayed (still evergreen rules). Session 58 deliverables are now in SCOUT_PLAN.md for the detailed narrative.

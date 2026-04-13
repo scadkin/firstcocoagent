@@ -1,52 +1,67 @@
 # SCOUT — Claude Code Reference
-*Last updated: 2026-04-11 — End of Session 57 (BUG 1 + BUG 2 closed — zero Fire Drill Audit bugs remain)*
+*Last updated: 2026-04-13 — End of Session 58 (Priorities 1–4 all knocked down — Stage 6-8 carryover shipped, diocesan drip started, CSTA enrichment wired to all 6 scanners, CSTA roster tripled)*
 
 ---
 
 ## CURRENT STATE — update this after each session
 
-**What's working after Session 57:**
-- **F4 CS funding scanner live** (`ENABLE_FUNDING_SCAN=True`). 6–7 queries × 13 states × ~$0.09/scan. Per-state chunked Haiku at `temperature=0`, `STATE_DOE_NAMES` constant mapped to actual proper agency names, `STATE_CS_PROGRAMS` shrunk to verified-3. Oracle gate (`scripts/f4_oracle.json`, 14 rows) + replay harness (`scripts/f4_serper_replay.py`). Live Railway run via `/signal_funding`: 43 signals + 8 HIGH auto-queued prospects.
-- **F2 CSTA enrichment wired and live.** F2's HIGH-confidence auto-queue block calls `enrich_with_csta(district, state)` and augments the queue row on match (notes prepended, priority +50). F1/F4/F9/F6/F7/F8 wiring pending.
-- **CSTA roster is static reference data** at `memory/csta_roster.json` (39 entries, 14 matchable across CA/PA/OH/TX). Refresh manually via `python3 scripts/fetch_csta_roster.py`. Committed to git.
-- **`district_prospector.add_district` accepts `priority_bonus: int = 0`** kwarg — default 0 preserves every existing call site. Any enrichment source can use it.
-- **`ENABLE_CSTA_SCAN=False` permanently.** Old `scan_csta_chapters` is dead code kept for rollback safety. `/signal_csta` now displays roster grouped by state.
-- **BUG 4 diocesan research playbook live** (`ENABLE_DIOCESAN_PLAYBOOK=True`). 16 Catholic dioceses pending approval — Session 58 Priority 2.
+**What's working after Session 58:**
+- **F1 intra_district CSTA enrichment wired and live** (commit `e52ce25`). Per-parent-district lookup, inline `_calculate_priority(...) + csta_bonus`, lazy import to avoid circular. 384 existing pending intra_district rows are NOT retroactively enriched (drip is Steven's manual approval cadence).
+- **F4/F6/F7/F8 CSTA enrichment wired via `build_csta_enrichment` helper** (commit `3ea1be1`) in `tools/signal_processor.py` next to `enrich_with_csta`. Returns `(enriched_notes, priority_bonus)`, `(base_notes, 0)` on miss. F4 uses it in-file, F6/F7/F8 via lazy import. F1/F2 kept inline (pre-helper).
+- **CSTA roster at 77 entries / 41 matchable** (commit `529a919`, up from 39/14 baseline = +193%). Territory coverage: CA=9, CT=1, IL=2, MA=6, MI=2, NE=7, NV=3, OH=3, PA=2, TX=2. Still zero: IN/OK/TN (hand-curation work, see `memory/project_csta_roster_hand_curation_gaps.md`). Refresh: `python3 scripts/fetch_csta_roster.py` — **rerun 2-3 times to let merge-with-previous saturate** (Haiku is nondeterministic across runs even at temp=0). Cost ~$0.40/run.
+- **F6 Stage 6 complete** — 26 charter CMOs queued (KIPP Texas 57 schools, KIPP SoCal/TN/MA/PA, IDEA 135 schools, Harmony 60 schools, Aspire, Uplift, ResponsiveEd, etc.).
+- **F7 Stage 6 complete** — 41 CTE centers queued (OK tech centers dominant: Autry, Caddo Kiowa, Canadian Valley, Central, Chisholm Trail, Eastern OK County, etc.).
+- **F9 `/signal_compliance <state>` handler live** (commit `c947681`). Dispatch path works end-to-end — ran CA pilot, 4 PDFs processed, 0 signals written this run. Handler is fine; scanner quality (Serper PDF discovery surfacing "Faculty Qualifications" style docs instead of district compliance rosters) is a **pre-existing issue, future bug with BUG 1 shape**.
+- **`/prospect_approve all` + `/prospect_skip all` now work** (commit `69a3e9c`). Latent bug since Session 49 — Scout's own output told users to type `all` but handlers only parsed integer indices. Fixed by expanding `all` to `range(1, len(_last_prospect_batch)+1)`.
+- **6 top-territory archdioceses approved for research via BUG 4 playbook:** Archdiocese of Boston (MA), Philadelphia (PA), Cincinnati (OH), Los Angeles (CA), Cleveland (OH), Detroit (MI). Research running at session end — validate yield in Leads from Research tab at Session 59 start (~15-30 min post-session for all 6 to complete). Remaining 10 dioceses still `pending` in queue.
+- **F4 CS funding scanner still live** (`ENABLE_FUNDING_SCAN=True`). 8 HIGH auto-queued prospects from Session 57 run still pending in queue.
+- **F2 CSTA enrichment still live.** Competitor displacement scanner augments queue rows on CSTA hit.
+- **BUG 4 diocesan research playbook live** (`ENABLE_DIOCESAN_PLAYBOOK=True`).
 - **BUG 5 two-stage cross-district filter live** (`ENABLE_RESEARCH_CONTAM_FILTER=True`).
-- **Telethon bridge + screencapture + Railway log API** all functional for Claude Code → Scout end-to-end orchestration.
+- **Telethon bridge + screencapture + Railway log API** all functional.
 - **Leads from Research tab is clean** (Session 56). 482 rows, zero real cross-contamination.
+- **CLAUDE.md is lean** — trimmed 41.8K → 12.5K chars this session. Full rule set now at `docs/SCOUT_RULES.md` (13 topic sections + Session 55/57 lesson appendices).
 
-**What's still in-progress / unresolved (carryover for Session 58):**
+**What's still in-progress / unresolved (carryover for Session 59):**
 - **`Prospecting Queue BACKUP 2026-04-10 0010` tab** still in the sheet. Safe to delete.
-- **Sequence builder diocesan branch not written.** 16 pending Catholic dioceses will produce cold-framed sequence docs needing manual rewrites if approved as-is.
-- **Diocesan email verification ceiling.** Playbook finds central-office names but can't produce VERIFIED emails without paid tools (Apollo/RocketReach/Hunter) or L8 pattern inference.
-- **CSTA enrichment only wired to F2.** F1/F4/F9/F6/F7/F8 integrations pending — one-line add per scanner.
-- **Session 52 Stages 6-8 carryover still untouched.** Charter CMOs + CTE centers, F9 CA pilot, F1 backlog drip (384 pending `intra_district` rows).
+- **Prospecting Queue is deeply backlogged with pending prospects** — roughly 475+ total across all strategies. Priority tiers (highest first): charter_cmo 780-899 (26 from Stage 6), cs_funding_recipient 800-899 (8 from Session 57), cte_center 760-879 (41 from Stage 6), intra_district 750-849 (384 pending), private_school_network 740-839 (10 dioceses remaining), plus smaller backlogs. Steven's manual approval cadence via `/prospect_approve all` on displayed batches is the "drip."
+- **Diocesan email verification ceiling still unresolved.** BUG 4 playbook finds central-office names, not verified emails. Apollo/RocketReach/Hunter is future decision.
+- **Sequence builder diocesan branch still not written.** Any approved diocese gets a cold-framed sequence needing manual rewrite.
+- **F9 scanner quality (not handler)** — 0 signals produced on CA pilot run. Serper PDF discovery surfaces wrong doc types. Needs BUG 1-shape plan-mode session: empirical Serper probes first, then query redesign.
+- **IN/OK/TN CSTA roster still at zero.** Chapter subdomains exist but fetched HTML doesn't list boards. Hand-curation is future work for +15 matchable.
+- **`scripts/scout_session.sh` `--effort high` flag** is UNCOMMITTED local-only change. Not pushed, but takes effect next `scout` session regardless.
+- **`.DS_Store` showing up in git status** — macOS noise, safe to ignore or commit.
 
 ### Recent sessions (details in SCOUT_PLAN.md + SCOUT_HISTORY.md)
-- **Session 57:** BUG 1 (F4 query redesign + harness + oracle gate + enable flip) + BUG 2 (F5 retired, CSTA enrichment lookup built, F2 wired). 4 commits (`54e7fed`, `2c8ebfb`, `a2d43ea`, `69ec3b8`). Plans: `~/.claude/plans/purring-crafting-scroll.md` + `~/.claude/plans/bug2-csta-enrichment.md`
+- **Session 58:** Priorities 1–4 comprehensive knockdown. Stage 6/7/8 (F6/F7/F9/F1), diocesan drip started (6 of 16 approved), CSTA enrichment wired to F4/F6/F7/F8 via helper, CSTA roster 39/14 → 77/41, `/prospect_approve all` bug fixed, CLAUDE.md doc trim. 7 commits (`185a3f2`, `c947681`, `e52ce25`, `3ea1be1`, `69a3e9c`, `529a919`, end-of-session). Plans: `~/.claude/plans/mellow-bouncing-lemur.md` (CLAUDE.md trim).
+- **Session 57:** BUG 1 (F4 query redesign + harness + oracle gate + enable flip) + BUG 2 (F5 retired, CSTA enrichment lookup built, F2 wired). 4 commits. Plans: `~/.claude/plans/purring-crafting-scroll.md` + `~/.claude/plans/bug2-csta-enrichment.md`
 - **Session 56:** Historical contamination cleanup + BUG 4 diocesan research playbook shipped. 1 commit (`06f8386`). Plan: `~/.claude/plans/frolicking-swimming-sedgewick.md`
 - **Session 55:** BUG 3 sentinel close-out + BUG 5 two-stage filter + Telethon bridge. 8 commits. Plan: `~/.claude/plans/abundant-finding-riddle.md`
-- **Session 54:** BUG 3 repair + writer fixes. 7 commits. Plan: `~/.claude/plans/sunny-riding-aurora.md`
-- **Session 53:** Fire drill audit. F2 max_tokens fix (commit `7c345a07`). 5 silent-failure bugs discovered.
+- **Session 54:** BUG 3 repair + writer fixes. 7 commits.
+- **Session 53:** Fire drill audit. F2 max_tokens fix. 5 silent-failure bugs discovered.
 - **Session 52:** Session 51 audit + 3 BLOCKER fixes. 6 commits.
-- **Session 51:** Tier B+C Lead Gen (F5/F6/F7/F8/F9/F10 shipped), F4+F2 URL bug fix, F2 complete rewrite.
 
-### What still needs to be done (Session 58 — post-bug-sprint)
+### What still needs to be done (Session 59 — cleanup + optional sprint)
 
-1. **PRIORITY 1 — Session 52 Stages 6-8 carryover.** Charter CMOs + CTE centers (Stage 6), F9 compliance CA pilot (Stage 7, Signals-only validation toward ≥60% exit criterion), F1 backlog drip (Stage 8 — 384 pending `intra_district` rows). All parked since Session 52 behind the bug-fix sprint. Now unblocked.
-2. **PRIORITY 2 — Diocesan approval drip.** 16 Catholic dioceses pending in the Prospecting Queue since Session 56. Approve in batches via `/prospect_approve` — playbook activates automatically. Expect name-only yield. Write sequence_builder diocesan branch BEFORE approving OR accept cold-framed fallback + manual rewrites.
-3. **PRIORITY 3 — Extend CSTA enrichment to other scanners.** Wire `enrich_with_csta` into F1/F4/F9 auto-queue blocks (one-line call each, same pattern as F2). F6/F7/F8 seed-queuers get it too.
-4. **PRIORITY 4 — Grow the CSTA roster.** Current fetcher surfaced 14 matchable entries. Options: (a) hand-curate known board members for sparse states (IL, TX, MA, NE, etc.); (b) iterate fetcher queries for non-csteachers.org sources; (c) accept current yield and let it grow organically on quarterly refresh.
-5. **Cleanup items:**
-   - Delete `Prospecting Queue BACKUP 2026-04-10 0010` tab
-   - Approve 8 F4 auto-queued prospects from Session 57's live run (Midland ISD, Berwick, Northwest Local, Sto-Rox, Philadelphia, DuBois, Riverside, Tippecanoe — Tippecanoe is borderline Indiana DOE robotics, consider skipping)
-   - Consider diocesan email verification upgrade (paid Apollo/RocketReach/Hunter, or L8 pattern inference seeding)
+1. **CLEANUP — drip-approve the queue backlog.** ~475 pending prospects across charter_cmo/cs_funding/cte_center/intra_district/private_school_network strategies. Use `/prospect` + `/prospect_approve all` cadence at Steven's preferred pace. The 384 intra_district rows are the largest bucket — they'll need the most approval rounds. Consider `/prospect_skip all` on low-value strategies if too many.
+2. **CLEANUP — delete `Prospecting Queue BACKUP 2026-04-10 0010` tab.** Safe operation, one Telegram instruction.
+3. **CLEANUP — validate BUG 4 diocesan playbook yield.** 6 archdioceses are in research at session end. Check `Leads from Research` tab at session start — expect central-office NAMES without verified emails. If yield is poor, Apollo/RocketReach decision becomes urgent.
+4. **OPTIONAL — hand-curate IN/OK/TN CSTA board members.** See `memory/project_csta_roster_hand_curation_gaps.md`. Expected +15 matchable entries if done. ~15-30 min manual Google+LinkedIn work.
+5. **OPTIONAL — F9 compliance scanner query redesign.** Separate plan-mode session. Same shape as BUG 1 Session 57: empirical Serper PDF probes first (what does `site:ca.gov filetype:pdf "computer science" compliance` actually return vs intended target like district compliance rosters), then iterate query templates. Exit criterion from Session 52 is ≥60% HIGH-confidence validation rate — can't measure until queries return actual district compliance data.
+6. **OPTIONAL — approve remaining 10 dioceses** from Session 56 batch if Session 58's first 6 produced useful yield.
+7. **OPTIONAL — diocesan email verification upgrade decision** (Apollo/RocketReach/Hunter paid tools, or L8 pattern inference seeding).
 
-### Session 57 lessons (full prose in `docs/SCOUT_RULES.md` Appendix A)
+### Session 58 lessons (most recent, still load-bearing)
+- **Haiku saturates on large mixed-topic corpora.** A 610K-char corpus of 101 URLs silently dropped state chapter content; a focused 22K-char corpus extracted the same entries perfectly. Split by topic bucket + run per-bucket extraction. Saved as `memory/feedback_haiku_saturation_large_corpus.md`.
+- **Haiku is nondeterministic across runs even at `temperature=0.0`.** Three consecutive identical calls produced different subsets. Data scripts that persist extractions must merge-with-previous, never overwrite. Saved as `memory/feedback_haiku_nondeterminism_merge_previous.md`.
+- **Explicit state chapter URLs must be DNS-verified before seeding.** `california.csteachers.org`, `pennsylvania.csteachers.org`, `texas.csteachers.org` all DNS-fail — those states use regional chapter subdomains only (goldengate, pittsburgh, dallasfortworth). `httpx.head()` probe is the fastest check.
+- **Scout's `/prospect_approve all` was always broken despite its own output telling users to use it.** Latent bug since Session 49 — handlers parsed `int(x)` on `"all"` and fell through to `Usage:` error. Lesson: when a command help message promises a syntax, actually test that syntax.
+- **`build_csta_enrichment(district, state, base_notes) -> (enriched_notes, priority_bonus)`** lives in `tools/signal_processor.py`. F4 uses it in-file; F6/F7/F8 use lazy imports to avoid circulars. F1/F2 kept inline (predate helper). If you add a 3rd non-helper call site, refactor everything to use the helper (Rule of Three).
+
+### Session 57 lessons (still load-bearing, full prose in `docs/SCOUT_RULES.md` Appendix A)
 - Static finite directories are **lookups, not scanners** (CSTA, dioceses, CTE, charters → `memory/*.json` + enrichment helper, not daily scan).
 - Haiku extractions in validation harnesses need `temperature=0.0` or the gate flip-flops between runs.
-- **Empirical Serper/httpx probes BEFORE plan mode** — both BUG 1 and BUG 2 had silent rev-1s that only surfaced via live probing.
+- **Empirical Serper/httpx probes BEFORE plan mode** — both BUG 1 and BUG 2 had silent rev-1s that only surfaced via live probing. Session 58 Priority 4 reinforced this same lesson (CSTA fetcher saturation found only via focused corpus probe).
 - Browser User-Agent is OK for one-shot local scripts (not Scout's global UA).
 - **Eager-load lookup indexes at module import time** — lazy patterns are overkill for read-only JSON.
 - Pressure-test only catches silent bugs if you HOLD THE FULL PLAN IN HEAD before reacting.
