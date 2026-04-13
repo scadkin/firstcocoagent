@@ -1,0 +1,44 @@
+{
+  "carbondale elementary": {
+    "change_type": "hired",
+    "name": "Janiece Blake",
+    "source": "leadership_scan",
+    "state": "IL",
+    "updated": "2026-04-13"
+  },
+  "cartwright": {
+    "change_type": "resigned",
+    "name": "Steve Watson",
+    "source": "leadership_scan",
+    "state": "TN",
+    "updated": "2026-04-13"
+  },
+  "effingham unit": {
+    "change_type": "appointed",
+    "name": "Kelsey Baker",
+    "source": "leadership_scan",
+    "state": "IL",
+    "updated": "2026-04-13"
+  },
+  "memphisshelby county": {
+    "change_type": "appointed",
+    "name": "Roderick Richmond",
+    "source": "leadership_scan",
+    "state": "TN",
+    "updated": "2026-04-13"
+  },
+  "rockford": {
+    "change_type": "hired",
+    "name": "Riise",
+    "source": "leadership_scan",
+    "state": "IL",
+    "updated": "2026-04-13"
+  },
+  "st louis": {
+    "change_type": "appointed",
+    "name": "Myra Berry",
+    "source": "leadership_scan",
+    "state": "MO",
+    "updated": "2026-04-13"
+  }
+}
