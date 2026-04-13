@@ -29,8 +29,8 @@
 - **Sequence builder diocesan branch still not written.** Any approved diocese gets a cold-framed sequence needing manual rewrite.
 - **F9 scanner quality (not handler)** — 0 signals produced on CA pilot run. Serper PDF discovery surfaces wrong doc types. Needs BUG 1-shape plan-mode session: empirical Serper probes first, then query redesign.
 - **IN/OK/TN CSTA roster still at zero.** Chapter subdomains exist but fetched HTML doesn't list boards. Hand-curation is future work for +15 matchable.
-- **`scripts/scout_session.sh` `--effort high` flag** is UNCOMMITTED local-only change. Not pushed, but takes effect next `scout` session regardless.
-- **`.DS_Store` showing up in git status** — macOS noise, safe to ignore or commit.
+- **`scripts/scout_session.sh` `--effort high` flag** committed in session wrap (commit `1525a7c`). Takes effect on next `scout` session to work around Opus 4.6 medium-effort regression.
+- **`.DS_Store` showing up in git status** — macOS noise, safe to ignore.
 
 ### Recent sessions (details in SCOUT_PLAN.md + SCOUT_HISTORY.md)
 - **Session 58:** Priorities 1–4 comprehensive knockdown. Stage 6/7/8 (F6/F7/F9/F1), diocesan drip started (6 of 16 approved), CSTA enrichment wired to F4/F6/F7/F8 via helper, CSTA roster 39/14 → 77/41, `/prospect_approve all` bug fixed, CLAUDE.md doc trim. 7 commits (`185a3f2`, `c947681`, `e52ce25`, `3ea1be1`, `69a3e9c`, `529a919`, end-of-session). Plans: `~/.claude/plans/mellow-bouncing-lemur.md` (CLAUDE.md trim).
