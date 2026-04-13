@@ -744,6 +744,10 @@ def create_sequence(
     logger.info(f"Creating Outreach sequence: {name} ({len(steps)} steps)")
 
     # Step 1: Create the sequence
+    # Owner is REQUIRED for Steven to see the sequence in his "My Sequences"
+    # view and be able to activate it. The POST /sequences endpoint defaults
+    # owner to null if not explicitly set — even when creator=authenticated
+    # user. Always set owner to the authenticated user's ID (Steven = 11).
     seq_attrs = {
         "name": name,
         "sequenceType": "interval",
@@ -753,10 +757,23 @@ def create_sequence(
     if tags:
         seq_attrs["tags"] = tags
 
+    # Resolve owner ID: explicit env var first, then cached _user_id, then fall
+    # back to 11 (Steven) as the hard default for single-operator Scout.
+    owner_user_id = os.environ.get("OUTREACH_OWNER_USER_ID") or _user_id or "11"
+    try:
+        owner_user_id_int = int(owner_user_id)
+    except (TypeError, ValueError):
+        owner_user_id_int = 11
+
     seq_payload = {
         "data": {
             "type": "sequence",
             "attributes": seq_attrs,
+            "relationships": {
+                "owner": {
+                    "data": {"type": "user", "id": owner_user_id_int}
+                }
+            },
         }
     }
 
@@ -769,7 +786,7 @@ def create_sequence(
     if not seq_id:
         return {"error": f"No sequence ID returned: {seq_result}"}
 
-    logger.info(f"  Created sequence ID: {seq_id}")
+    logger.info(f"  Created sequence ID: {seq_id} (owner user_id={owner_user_id_int})")
 
     created_steps = []
 
