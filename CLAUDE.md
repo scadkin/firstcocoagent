@@ -45,7 +45,8 @@
 
 - **4 new preflight checklists** added to this file's Preflight section below — Outreach work, Sequence content, Sheet audit, Cost/time estimate. Must be loaded at the start of any task matching those categories.
 
-- **11 memory files banked** in `~/.claude/projects/-Users-stevenadkins-Code-Scout/memory/`:
+- **15 memory files banked** in `~/.claude/projects/-Users-stevenadkins-Code-Scout/memory/`:
+  - `feedback_code_enforcement_beats_process_rules.md` — the meta-lesson: tool guards > doc rules wherever code can enforce
   - `feedback_category_error_audit_the_question.md` — the F1 category error post-mortem
   - `feedback_never_cite_made_up_numbers.md` — fabricated $200-800 / 30hr post-mortem
   - `feedback_verify_units_at_layer_boundaries.md` — the 4 "I should have"s from the interval bug
@@ -72,7 +73,7 @@
 - **Silent failure spot-check** (5 recent non-diocesan Steven-owned sequences, loose expectations): findings documented — all 5 have at least one banned-phrase or dash failure. Not fixed without Steven's sign-off (legacy sequences are Steven's own work). Notable: seq 1999 "2026 License Request Seq (April)" uses `schedule=51` which is NOT in Steven's 5 named schedules — flag for Steven attention. Validator's en-dash (U+2013) detection is producing false positives on legitimate date ranges; future iteration should make en dash a warning not a failure.
 
 ### Recent sessions (details in SCOUT_PLAN.md + SCOUT_HISTORY.md)
-- **Session 59:** Diocesan value extraction + tool hardening. Rounds 1-3 shipped 12 user-visible failures (missing meeting link, "one pager" CTA repetition, em dashes, auto-gen descriptions, rogue schedule 19, 60x-too-short intervals, F1 audit category error, fabricated cost numbers, "F3 retired" fabrication, etc.) — every one caught by Steven in the Outreach UI or sheet audit, not self-caught. Root cause was shipping on API 2xx + memory not loaded, not reasoning quality per se. Round 4 installed tool hardening: `validate_sequence_inputs` + `verify_sequence` in `tools/outreach_client.py` make 8 of 12 failure modes structurally impossible at the code boundary, plus 14 unit tests. All 6 diocesan sequences 2008-2013 verified clean in Outreach with correct schedule/owner/intervals/bodies. Added 3 process rules to `docs/SCOUT_RULES.md` + 4 preflight checklists to this file. 14 memory files banked. F1 stays active after Steven pushback on flawed audit. Research engine bulk-mode optimization deferred to Session 60 as a blocker for backlog drain. Commits: `042f146`, `4051f53`, `7c162b6`, `eff3786`, `880d77b`, `1f22991`. Plan: `~/.claude/plans/lexical-swinging-pelican.md` (v3 after 2 pressure-test passes).
+- **Session 59:** Diocesan value extraction + tool hardening. Rounds 1-3 shipped 12 user-visible failures (missing meeting link, "one pager" CTA repetition, em dashes, auto-gen descriptions, rogue schedule 19, 60x-too-short intervals, F1 audit category error, fabricated cost numbers, "F3 retired" fabrication, etc.) — every one caught by Steven in the Outreach UI or sheet audit, not self-caught. Root cause was shipping on API 2xx + memory not loaded, not reasoning quality per se. Round 4 installed tool hardening: `validate_sequence_inputs` + `verify_sequence` in `tools/outreach_client.py` make 8 of 12 failure modes structurally impossible at the code boundary, plus 14 unit tests. All 6 diocesan sequences 2008-2013 verified clean in Outreach with correct schedule/owner/intervals/bodies. Added 3 process rules to `docs/SCOUT_RULES.md` + 4 preflight checklists to this file. 15 memory files banked. F1 stays active after Steven pushback on flawed audit. Research engine bulk-mode optimization deferred to Session 60 as a blocker for backlog drain. Commits: `042f146`, `4051f53`, `7c162b6`, `eff3786`, `880d77b`, `1f22991`, `08c8f98` (+ wrap commit). Plan: `~/.claude/plans/lexical-swinging-pelican.md` (v3 after 2 pressure-test passes).
 - **Session 58:** Priorities 1–4 comprehensive knockdown. Stage 6/7/8 (F6/F7/F9/F1), diocesan drip started (6 of 16 approved), CSTA enrichment wired to F4/F6/F7/F8 via helper, CSTA roster 39/14 → 77/41, `/prospect_approve all` bug fixed, CLAUDE.md doc trim. 7 commits (`185a3f2`, `c947681`, `e52ce25`, `3ea1be1`, `69a3e9c`, `529a919`, end-of-session). Plans: `~/.claude/plans/mellow-bouncing-lemur.md` (CLAUDE.md trim).
 - **Session 57:** BUG 1 (F4 query redesign + harness + oracle gate + enable flip) + BUG 2 (F5 retired, CSTA enrichment lookup built, F2 wired). 4 commits. Plans: `~/.claude/plans/purring-crafting-scroll.md` + `~/.claude/plans/bug2-csta-enrichment.md`
 - **Session 56:** Historical contamination cleanup + BUG 4 diocesan research playbook shipped. 1 commit (`06f8386`). Plan: `~/.claude/plans/frolicking-swimming-sedgewick.md`
@@ -108,13 +109,8 @@
 - **Scout's `/prospect_approve all` was always broken despite its own output telling users to use it.** Latent bug since Session 49 — handlers parsed `int(x)` on `"all"` and fell through to `Usage:` error. Lesson: when a command help message promises a syntax, actually test that syntax.
 - **`build_csta_enrichment(district, state, base_notes) -> (enriched_notes, priority_bonus)`** lives in `tools/signal_processor.py`. F4 uses it in-file; F6/F7/F8 use lazy imports to avoid circulars. F1/F2 kept inline (predate helper). If you add a 3rd non-helper call site, refactor everything to use the helper (Rule of Three).
 
-### Session 57 lessons (still load-bearing, full prose in `docs/SCOUT_RULES.md` Appendix A)
-- Static finite directories are **lookups, not scanners** (CSTA, dioceses, CTE, charters → `memory/*.json` + enrichment helper, not daily scan).
-- Haiku extractions in validation harnesses need `temperature=0.0` or the gate flip-flops between runs.
-- **Empirical Serper/httpx probes BEFORE plan mode** — both BUG 1 and BUG 2 had silent rev-1s that only surfaced via live probing. Session 58 Priority 4 reinforced this same lesson (CSTA fetcher saturation found only via focused corpus probe).
-- Browser User-Agent is OK for one-shot local scripts (not Scout's global UA).
-- **Eager-load lookup indexes at module import time** — lazy patterns are overkill for read-only JSON.
-- Pressure-test only catches silent bugs if you HOLD THE FULL PLAN IN HEAD before reacting.
+### Session 57 lessons
+*Archived to `docs/SCOUT_RULES.md` Appendix A (full prose) — no longer duplicated here.*
 
 ---
 
