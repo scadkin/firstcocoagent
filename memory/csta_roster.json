@@ -1,8 +1,248 @@
 {
-  "_comment": "CSTA state/regional chapter roster \u2014 enrichment source for F2 (and extensible to other scanners). Built by scripts/fetch_csta_roster.py. Refresh manually quarterly or when CSTA announces new chapter boards. Each entry's `state` is the person's K-12 EMPLOYER state, NOT their chapter's state. Entries with empty `district` are kept for /signal_csta display but ignored during enrich_with_csta matching.",
-  "fetched_at": "2026-04-11",
-  "source": "csteachers.org direct fetch + Serper LinkedIn snippets via Claude Haiku",
+  "_comment": "CSTA state/regional chapter roster \u2014 enrichment source for F1/F2/F4/F6/F7/F8 (via signal_processor.build_csta_enrichment). Built by scripts/fetch_csta_roster.py with per-state Haiku extraction + district resolver pass. Refresh manually quarterly or when CSTA announces new chapter boards. Each entry's `state` is the person's K-12 EMPLOYER state, NOT their chapter's state. Entries with empty `district` are kept for /signal_csta display but ignored during enrich_with_csta matching.",
+  "fetched_at": "2026-04-13",
+  "source": "csteachers.org per-state fetch + Serper LinkedIn snippets + Haiku extraction + district resolver (Session 58 rewrite)",
   "entries": [
+    {
+      "name": "Vicky Sedgwick",
+      "role": "President",
+      "chapter": "CSTA Greater Los Angeles",
+      "state": "CA",
+      "district": "",
+      "source_url": "https://greaterlosangeles.csteachers.org/",
+      "district_normalized": ""
+    },
+    {
+      "name": "Richard Kick",
+      "role": "Vice-President (Communications)",
+      "chapter": "CSTA Greater Los Angeles",
+      "state": "CA",
+      "district": "Conejo Valley Unified School District",
+      "source_url": "https://greaterlosangeles.csteachers.org/",
+      "district_normalized": "conejo valley",
+      "district_resolver_confidence": "high"
+    },
+    {
+      "name": "JD DeVaughn-Brown",
+      "role": "Vice-President (Advocacy)",
+      "chapter": "CSTA Greater Los Angeles",
+      "state": "CA",
+      "district": "Sierra Canyon School",
+      "source_url": "https://greaterlosangeles.csteachers.org/",
+      "district_normalized": "sierra canyon school",
+      "district_resolver_confidence": "high"
+    },
+    {
+      "name": "Myra Deister",
+      "role": "Secretary",
+      "chapter": "CSTA Greater Los Angeles",
+      "state": "CA",
+      "district": "Fullerton Joint Union High School District",
+      "source_url": "https://greaterlosangeles.csteachers.org/",
+      "district_normalized": "fullerton joint union high",
+      "district_resolver_confidence": "high"
+    },
+    {
+      "name": "Allison Jonas",
+      "role": "Treasurer",
+      "chapter": "CSTA Greater Los Angeles",
+      "state": "CA",
+      "district": "Los Angeles Unified School District",
+      "source_url": "https://greaterlosangeles.csteachers.org/",
+      "district_normalized": "los angeles",
+      "district_resolver_confidence": "high"
+    },
+    {
+      "name": "Gloria Amador",
+      "role": "K-8 (Elementary) Representative",
+      "chapter": "CSTA Greater Los Angeles",
+      "state": "CA",
+      "district": "Los Angeles Unified School District",
+      "source_url": "https://greaterlosangeles.csteachers.org/",
+      "district_normalized": "los angeles",
+      "district_resolver_confidence": "high"
+    },
+    {
+      "name": "Sara Gifford",
+      "role": "K-8 (Middle School) Representative",
+      "chapter": "CSTA Greater Los Angeles",
+      "state": "CA",
+      "district": "",
+      "source_url": "https://greaterlosangeles.csteachers.org/",
+      "district_normalized": ""
+    },
+    {
+      "name": "Lisa Moe",
+      "role": "Regional Representative (Riverside County)",
+      "chapter": "CSTA Greater Los Angeles",
+      "state": "CA",
+      "district": "Corona-Norco Unified School District",
+      "source_url": "https://greaterlosangeles.csteachers.org/",
+      "district_normalized": "coronanorco",
+      "district_resolver_confidence": "high"
+    },
+    {
+      "name": "Tonya Coats",
+      "role": "Regional Representative (San Bernardino County)",
+      "chapter": "CSTA Greater Los Angeles",
+      "state": "CA",
+      "district": "Jurupa Unified School District",
+      "source_url": "https://greaterlosangeles.csteachers.org/",
+      "district_normalized": "jurupa",
+      "district_resolver_confidence": "high"
+    },
+    {
+      "name": "John Tusch",
+      "role": "President",
+      "chapter": "CSTA Connecticut",
+      "state": "CT",
+      "district": "CREC Academy of Computer Science and Engineering",
+      "source_url": "https://connecticut.csteachers.org/",
+      "district_normalized": "crec academy of computer science and engineering",
+      "district_resolver_confidence": "high"
+    },
+    {
+      "name": "Luke Frauenhoff",
+      "role": "Vice President",
+      "chapter": "CSTA Illinois",
+      "state": "IL",
+      "district": "OSWEGO CUSD 308",
+      "source_url": "https://cz.linkedin.com/pub/dir/+/Frauenhoff",
+      "district_normalized": "oswego"
+    },
+    {
+      "name": "Anita F. Debarlaben",
+      "role": "Chapter Leader",
+      "chapter": "CSTA Illinois",
+      "state": "IL",
+      "district": "",
+      "source_url": "https://www.linkedin.com/in/anita-f-debarlaben-1a892b18",
+      "district_normalized": ""
+    },
+    {
+      "name": "Melissa Z.",
+      "role": "President",
+      "chapter": "CSTA Massachusetts",
+      "state": "MA",
+      "district": "Springfield Public Schools",
+      "source_url": "https://www.linkedin.com/in/whisperingedtech",
+      "district_normalized": "springfield"
+    },
+    {
+      "name": "Ryan Robidoux",
+      "role": "Co President",
+      "chapter": "CSTA Massachusetts",
+      "state": "MA",
+      "district": "Mendon-Upton School District",
+      "source_url": "https://www.linkedin.com/in/ryanrobidoux",
+      "district_normalized": "mendonupton"
+    },
+    {
+      "name": "Josh Pudaloff",
+      "role": "Chapter President",
+      "chapter": "CSTA Michigan",
+      "state": "MI",
+      "district": "Troy Public Schools",
+      "source_url": "https://michigan.csteachers.org/",
+      "district_normalized": "troy",
+      "district_resolver_confidence": "high"
+    },
+    {
+      "name": "Vinos Kassab",
+      "role": "Chapter Secretary",
+      "chapter": "CSTA Michigan",
+      "state": "MI",
+      "district": "",
+      "source_url": "https://michigan.csteachers.org/",
+      "district_normalized": ""
+    },
+    {
+      "name": "Cheryl Wilson",
+      "role": "State DOE Liaison",
+      "chapter": "CSTA Michigan",
+      "state": "MI",
+      "district": "",
+      "source_url": "https://michigan.csteachers.org/",
+      "district_normalized": ""
+    },
+    {
+      "name": "Heidi Kattula",
+      "role": "Chapter Vice President",
+      "chapter": "CSTA Michigan",
+      "state": "MI",
+      "district": "East Grand Rapids Public School District",
+      "source_url": "https://michigan.csteachers.org/",
+      "district_normalized": "east grand rapids public",
+      "district_resolver_confidence": "high"
+    },
+    {
+      "name": "Larry Wyn",
+      "role": "Ed Org Liaison",
+      "chapter": "CSTA Michigan",
+      "state": "MI",
+      "district": "",
+      "source_url": "https://michigan.csteachers.org/",
+      "district_normalized": ""
+    },
+    {
+      "name": "Tiffiny Widdifield",
+      "role": "President",
+      "chapter": "CSTA Nebraska",
+      "state": "NE",
+      "district": "Minden Public Schools",
+      "source_url": "https://nebraska.csteachers.org/",
+      "district_normalized": "minden",
+      "district_resolver_confidence": "high"
+    },
+    {
+      "name": "Kimberly Ingraham-Beck",
+      "role": "Vice President",
+      "chapter": "CSTA Nebraska",
+      "state": "NE",
+      "district": "Gretna Public Schools",
+      "source_url": "https://nebraska.csteachers.org/",
+      "district_normalized": "gretna",
+      "district_resolver_confidence": "high"
+    },
+    {
+      "name": "Alan Holdorf",
+      "role": "Vice President",
+      "chapter": "CSTA Nebraska",
+      "state": "NE",
+      "district": "Lincoln Public Schools",
+      "source_url": "https://nebraska.csteachers.org/",
+      "district_normalized": "lincoln",
+      "district_resolver_confidence": "high"
+    },
+    {
+      "name": "Jeanne Pope",
+      "role": "Treasurer",
+      "chapter": "CSTA Nebraska",
+      "state": "NE",
+      "district": "Shelton Public Schools",
+      "source_url": "https://nebraska.csteachers.org/",
+      "district_normalized": "shelton",
+      "district_resolver_confidence": "high"
+    },
+    {
+      "name": "Kristeen Shabram",
+      "role": "Communications",
+      "chapter": "CSTA Nebraska",
+      "state": "NE",
+      "district": "Westside Community Schools",
+      "source_url": "https://nebraska.csteachers.org/",
+      "district_normalized": "westside",
+      "district_resolver_confidence": "high"
+    },
+    {
+      "name": "John Dutton",
+      "role": "President",
+      "chapter": "CSTA Ohio",
+      "state": "OH",
+      "district": "Cleveland Metropolitan School District",
+      "source_url": "https://www.linkedin.com/in/john-dutton-941953231",
+      "district_normalized": "cleveland metropolitan"
+    },
     {
       "name": "Evonne Hackett",
       "role": "President",
@@ -23,17 +263,18 @@
     },
     {
       "name": "Jeffrey Wile",
-      "role": "President",
+      "role": "Chapter Leader",
       "chapter": "CSTA Susquehanna Valley",
       "state": "PA",
-      "district": "Warwick",
+      "district": "Warwick School District",
       "source_url": "https://community.csteachers.org/communities/community-home/digestviewer/viewthread?GroupId=121&MessageKey=1675f53d-3da1-49d2-bbb7-687c03b42080&CommunityKey=3fe0a7c8-7160-491f-905f-390b7dbc0e92&hlmlt=VT",
-      "district_normalized": "warwick"
+      "district_normalized": "warwick",
+      "district_resolver_confidence": "high"
     },
     {
       "name": "Shane Wines",
       "role": "President",
-      "chapter": "CSTA Maryland",
+      "chapter": "Maryland Chapter",
       "state": "MD",
       "district": "",
       "source_url": "https://community.csteachers.org/communities/community-home/digestviewer/viewthread?GroupId=121&MessageKey=1675f53d-3da1-49d2-bbb7-687c03b42080&CommunityKey=3fe0a7c8-7160-491f-905f-390b7dbc0e92&hlmlt=VT",
@@ -44,27 +285,20 @@
       "role": "President",
       "chapter": "CSTA Philly",
       "state": "PA",
-      "district": "",
+      "district": "Jenkintown School District",
       "source_url": "https://community.csteachers.org/communities/community-home/digestviewer/viewthread?GroupId=121&MessageKey=1675f53d-3da1-49d2-bbb7-687c03b42080&CommunityKey=3fe0a7c8-7160-491f-905f-390b7dbc0e92&hlmlt=VT",
-      "district_normalized": ""
-    },
-    {
-      "name": "Jared Amalong",
-      "role": "Chapter Leader",
-      "chapter": "CSTA Sacramento",
-      "state": "CA",
-      "district": "Sacramento County Office of Education",
-      "source_url": "https://community.csteachers.org/communities/community-home/digestviewer/viewthread?GroupId=121&MessageKey=1675f53d-3da1-49d2-bbb7-687c03b42080&CommunityKey=3fe0a7c8-7160-491f-905f-390b7dbc0e92&hlmlt=VT",
-      "district_normalized": "sacramento county office of education"
+      "district_normalized": "jenkintown",
+      "district_resolver_confidence": "high"
     },
     {
       "name": "Javier Aguilar",
-      "role": "Chapter Leader",
-      "chapter": "CSTA Dallas Fort Worth",
+      "role": "Chapter Member",
+      "chapter": "CSTA Sacramento",
       "state": "TX",
       "district": "East Fort Worth Montessori Academy",
       "source_url": "https://community.csteachers.org/communities/community-home/digestviewer/viewthread?GroupId=121&MessageKey=1675f53d-3da1-49d2-bbb7-687c03b42080&CommunityKey=3fe0a7c8-7160-491f-905f-390b7dbc0e92&hlmlt=VT",
-      "district_normalized": "east fort worth montessori academy"
+      "district_normalized": "east fort worth montessori academy",
+      "district_resolver_confidence": "high"
     },
     {
       "name": "Anne Kohart",
@@ -78,17 +312,8 @@
     {
       "name": "Cheryl Bobo",
       "role": "Chapter Leader",
-      "chapter": "Alaska Staff Development Network",
+      "chapter": "Alaska Chapter",
       "state": "AK",
-      "district": "",
-      "source_url": "https://community.csteachers.org/communities/community-home/digestviewer/viewthread?GroupId=121&MessageKey=1675f53d-3da1-49d2-bbb7-687c03b42080&CommunityKey=3fe0a7c8-7160-491f-905f-390b7dbc0e92&hlmlt=VT",
-      "district_normalized": ""
-    },
-    {
-      "name": "Jared O'Leary",
-      "role": "Chapter Leader",
-      "chapter": "CSTA",
-      "state": "",
       "district": "",
       "source_url": "https://community.csteachers.org/communities/community-home/digestviewer/viewthread?GroupId=121&MessageKey=1675f53d-3da1-49d2-bbb7-687c03b42080&CommunityKey=3fe0a7c8-7160-491f-905f-390b7dbc0e92&hlmlt=VT",
       "district_normalized": ""
@@ -96,25 +321,26 @@
     {
       "name": "Audra Kaplan",
       "role": "Co-President",
-      "chapter": "CSTA Greater Boston",
+      "chapter": "Greater Boston",
       "state": "MA",
+      "district": "Arlington Public Schools",
+      "source_url": "https://community.csteachers.org/communities/community-home/digestviewer/viewthread?GroupId=121&MessageKey=1675f53d-3da1-49d2-bbb7-687c03b42080&CommunityKey=3fe0a7c8-7160-491f-905f-390b7dbc0e92&hlmlt=VT",
+      "district_normalized": "arlington",
+      "district_resolver_confidence": "high"
+    },
+    {
+      "name": "Lilibeth Mora",
+      "role": "Vice President",
+      "chapter": "CSTA Chapter",
+      "state": "",
       "district": "",
       "source_url": "https://community.csteachers.org/communities/community-home/digestviewer/viewthread?GroupId=121&MessageKey=1675f53d-3da1-49d2-bbb7-687c03b42080&CommunityKey=3fe0a7c8-7160-491f-905f-390b7dbc0e92&hlmlt=VT",
       "district_normalized": ""
     },
     {
-      "name": "Lilibeth Mora",
-      "role": "Vice President",
-      "chapter": "CSTA Sacramento",
-      "state": "CA",
-      "district": "Vallejo City Unified School District",
-      "source_url": "https://community.csteachers.org/communities/community-home/digestviewer/viewthread?GroupId=121&MessageKey=1675f53d-3da1-49d2-bbb7-687c03b42080&CommunityKey=3fe0a7c8-7160-491f-905f-390b7dbc0e92&hlmlt=VT",
-      "district_normalized": "vallejo city"
-    },
-    {
       "name": "Rob Gibson",
       "role": "President",
-      "chapter": "CSTA Delaware",
+      "chapter": "Delaware Chapter",
       "state": "DE",
       "district": "",
       "source_url": "https://community.csteachers.org/communities/community-home/digestviewer/viewthread?GroupId=121&MessageKey=1675f53d-3da1-49d2-bbb7-687c03b42080&CommunityKey=3fe0a7c8-7160-491f-905f-390b7dbc0e92&hlmlt=VT",
@@ -123,11 +349,12 @@
     {
       "name": "Art Lopez",
       "role": "President",
-      "chapter": "CSTA San Diego",
+      "chapter": "CSTA - San Diego Chapter",
       "state": "CA",
       "district": "Sweetwater Union High School District",
       "source_url": "https://community.csteachers.org/communities/community-home/digestviewer/viewthread?GroupId=121&MessageKey=1675f53d-3da1-49d2-bbb7-687c03b42080&CommunityKey=3fe0a7c8-7160-491f-905f-390b7dbc0e92&hlmlt=VT",
-      "district_normalized": "sweetwater union high"
+      "district_normalized": "sweetwater union high",
+      "district_resolver_confidence": "high"
     },
     {
       "name": "Sean Wasson",
@@ -150,7 +377,7 @@
     {
       "name": "Wren Hoffman",
       "role": "Advocacy Agent",
-      "chapter": "CSTA Iowa",
+      "chapter": "Iowa Chapter",
       "state": "IA",
       "district": "",
       "source_url": "https://community.csteachers.org/communities/community-home/digestviewer/viewthread?GroupId=121&MessageKey=1675f53d-3da1-49d2-bbb7-687c03b42080&CommunityKey=3fe0a7c8-7160-491f-905f-390b7dbc0e92&hlmlt=VT",
@@ -159,20 +386,285 @@
     {
       "name": "Steven Svetlik",
       "role": "President/Founder",
-      "chapter": "Chicago Suburban CSTA",
+      "chapter": "Chicago Suburban",
       "state": "IL",
-      "district": "",
+      "district": "Ridgewood Community High School District 234",
       "source_url": "https://community.csteachers.org/communities/community-home/digestviewer/viewthread?GroupId=121&MessageKey=1675f53d-3da1-49d2-bbb7-687c03b42080&CommunityKey=3fe0a7c8-7160-491f-905f-390b7dbc0e92&hlmlt=VT",
-      "district_normalized": ""
+      "district_normalized": "ridgewood community high",
+      "district_resolver_confidence": "high"
     },
     {
       "name": "Paula Caso",
       "role": "President",
-      "chapter": "CSTA Ohio",
+      "chapter": "Ohio Chapter",
       "state": "OH",
-      "district": "North Olmsted High School",
+      "district": "North Olmsted City School District",
       "source_url": "https://community.csteachers.org/communities/community-home/digestviewer/viewthread?GroupId=121&MessageKey=1675f53d-3da1-49d2-bbb7-687c03b42080&CommunityKey=3fe0a7c8-7160-491f-905f-390b7dbc0e92&hlmlt=VT",
-      "district_normalized": "north olmsted high school"
+      "district_normalized": "north olmsted city"
+    },
+    {
+      "name": "Carla Neely",
+      "role": "K-8 Board Representative",
+      "chapter": "Ohio Chapter",
+      "state": "OH",
+      "district": "Warrensville Heights City School District",
+      "source_url": "https://csteachers.org/csta-board-corner-carla-neely/",
+      "district_normalized": "warrensville heights city"
+    },
+    {
+      "name": "Cindi Chang",
+      "role": "State Department Representative",
+      "chapter": "Silver State Chapter",
+      "state": "NV",
+      "district": "Clark County School District",
+      "source_url": "https://csteachers.org/csta-board-corner-cindi-chang/",
+      "district_normalized": "clark county",
+      "district_resolver_confidence": "high"
+    },
+    {
+      "name": "Denise M. Snow",
+      "role": "Regional Member, Conference Committee",
+      "chapter": "Nevada Silver State Chapter",
+      "state": "NV",
+      "district": "Clark County School District",
+      "source_url": "https://csteachers.org/csta-volunteer-spotlight-denise-m-snow/",
+      "district_normalized": "clark county",
+      "district_resolver_confidence": "high"
+    },
+    {
+      "name": "Jigar Patel",
+      "role": "Equity Strand Lead, Conference Committee",
+      "chapter": "CSTA Susquehanna Valley",
+      "state": "PA",
+      "district": "",
+      "source_url": "https://csteachers.org/csta-volunteer-spotlight-meet-jigar-patel/",
+      "district_normalized": ""
+    },
+    {
+      "name": "Nancy Kiscadden",
+      "role": "CSHS Committee Member",
+      "chapter": "CSTA Chapter",
+      "state": "",
+      "district": "",
+      "source_url": "https://csteachers.org/csta-volunteer-spotlight-meet-nancy-kiscadden/",
+      "district_normalized": ""
+    },
+    {
+      "name": "Willy Orozco",
+      "role": "Chapter Leader Committee Member",
+      "chapter": "CSTA Chapter",
+      "state": "",
+      "district": "",
+      "source_url": "https://csteachers.org/csta-volunteer-spotlight-meet-willy-orozco/",
+      "district_normalized": ""
+    },
+    {
+      "name": "Linda Roh",
+      "role": "CSHS Advisor",
+      "chapter": "Nebraska Huskers",
+      "state": "NE",
+      "district": "Lincoln Public Schools",
+      "source_url": "https://csteachers.org/meet-linda-roh-computer-science-honor-society-advisor/",
+      "district_normalized": "lincoln"
+    },
+    {
+      "name": "Delmar Wilson",
+      "role": "9-12 Board Representative",
+      "chapter": "Florida Chapter",
+      "state": "FL",
+      "district": "Miami-Dade County Public Schools",
+      "source_url": "https://csteachers.org/meet-your-new-csta-board-of-directors-representatives/",
+      "district_normalized": "miamidade county"
+    },
+    {
+      "name": "Rudy Escobar",
+      "role": "At-Large Representative",
+      "chapter": "California Chapter",
+      "state": "CA",
+      "district": "",
+      "source_url": "https://csteachers.org/meet-your-new-csta-board-of-directors-representatives/",
+      "district_normalized": ""
+    },
+    {
+      "name": "Fran Bromley-Norwood",
+      "role": "Founding Member, Chapter Leaders Committee Member",
+      "chapter": "Nevada Silver State Chapter",
+      "state": "NV",
+      "district": "Clark County School District",
+      "source_url": "https://csteachers.org/team/fran-bromley-norwood/",
+      "district_normalized": "clark county"
+    },
+    {
+      "name": "Krystal Ingraham-Beck",
+      "role": "Past President",
+      "chapter": "Metro Omaha Chapter",
+      "state": "NE",
+      "district": "Gretna Public Schools",
+      "source_url": "https://csteachers.org/team/krystal-ingraham-beck/",
+      "district_normalized": "gretna",
+      "district_resolver_confidence": "high"
+    },
+    {
+      "name": "Sean Glantz",
+      "role": "Chapter Leader",
+      "chapter": "CSTA Sacramento",
+      "state": "CA",
+      "district": "Davis Joint Unified School District",
+      "source_url": "https://csteachers.org/team/sean-glantz/",
+      "district_normalized": "davis joint"
+    },
+    {
+      "name": "Shaina Glass",
+      "role": "Past President",
+      "chapter": "CSTA Greater Houston",
+      "state": "TX",
+      "district": "Aldine Independent School District",
+      "source_url": "https://csteachers.org/team/shaina-glass-m-ed/",
+      "district_normalized": "aldine"
+    },
+    {
+      "name": "Yolanda Lozano",
+      "role": "President",
+      "chapter": "New Mexico Chapter",
+      "state": "NM",
+      "district": "",
+      "source_url": "https://csteachers.org/team/yolanda-lozano/",
+      "district_normalized": ""
+    },
+    {
+      "name": "Michelle Coots",
+      "role": "President",
+      "chapter": "CSTA Arizona",
+      "state": "AZ",
+      "district": "Deer Valley USD",
+      "source_url": "http://arizona.csteachers.org/sectiondirectory/chapterleaders",
+      "district_normalized": "deer valley"
+    },
+    {
+      "name": "Diana Guzman",
+      "role": "Vice President",
+      "chapter": "CSTA Arizona",
+      "state": "AZ",
+      "district": "",
+      "source_url": "http://arizona.csteachers.org/sectiondirectory/chapterleaders",
+      "district_normalized": ""
+    },
+    {
+      "name": "Daniel Schneider",
+      "role": "Treasurer",
+      "chapter": "CSTA Arizona",
+      "state": "AZ",
+      "district": "",
+      "source_url": "http://arizona.csteachers.org/sectiondirectory/chapterleaders",
+      "district_normalized": ""
+    },
+    {
+      "name": "Jessie McKinley",
+      "role": "Secretary",
+      "chapter": "CSTA Arizona",
+      "state": "AZ",
+      "district": "",
+      "source_url": "http://arizona.csteachers.org/sectiondirectory/chapterleaders",
+      "district_normalized": ""
+    },
+    {
+      "name": "Tara Menghini",
+      "role": "K-8 Director",
+      "chapter": "CSTA Arizona",
+      "state": "AZ",
+      "district": "Chandler Unified School District",
+      "source_url": "http://arizona.csteachers.org/sectiondirectory/chapterleaders",
+      "district_normalized": "chandler"
+    },
+    {
+      "name": "Sanjiv Thompson",
+      "role": "Northern Arizona Director",
+      "chapter": "CSTA Arizona",
+      "state": "AZ",
+      "district": "",
+      "source_url": "http://arizona.csteachers.org/sectiondirectory/chapterleaders",
+      "district_normalized": ""
+    },
+    {
+      "name": "Jaime Hansen",
+      "role": "Maricopa County Co-Director",
+      "chapter": "CSTA Arizona",
+      "state": "AZ",
+      "district": "",
+      "source_url": "http://arizona.csteachers.org/sectiondirectory/chapterleaders",
+      "district_normalized": ""
+    },
+    {
+      "name": "Joseph Troxel",
+      "role": "Maricopa County Co-Director",
+      "chapter": "CSTA Arizona",
+      "state": "AZ",
+      "district": "Paradise Valley Unified School District",
+      "source_url": "http://arizona.csteachers.org/sectiondirectory/chapterleaders",
+      "district_normalized": "paradise valley"
+    },
+    {
+      "name": "Abraham Delos Reyes",
+      "role": "Southern Arizona Director",
+      "chapter": "CSTA Arizona",
+      "state": "AZ",
+      "district": "",
+      "source_url": "http://arizona.csteachers.org/sectiondirectory/chapterleaders",
+      "district_normalized": ""
+    },
+    {
+      "name": "Joe Mazzone",
+      "role": "President",
+      "chapter": "CSTA Rhode Island",
+      "state": "RI",
+      "district": "",
+      "source_url": "https://rhodeisland.csteachers.org/",
+      "district_normalized": ""
+    },
+    {
+      "name": "Michael Deslauriers",
+      "role": "Vice President 9-12",
+      "chapter": "CSTA Rhode Island",
+      "state": "RI",
+      "district": "",
+      "source_url": "https://rhodeisland.csteachers.org/",
+      "district_normalized": ""
+    },
+    {
+      "name": "Vanessa Miller",
+      "role": "Vice President K-8",
+      "chapter": "CSTA Rhode Island",
+      "state": "RI",
+      "district": "",
+      "source_url": "https://rhodeisland.csteachers.org/",
+      "district_normalized": ""
+    },
+    {
+      "name": "Anna Larson",
+      "role": "Treasurer",
+      "chapter": "CSTA Rhode Island",
+      "state": "RI",
+      "district": "",
+      "source_url": "https://rhodeisland.csteachers.org/",
+      "district_normalized": ""
+    },
+    {
+      "name": "Patricia Piros",
+      "role": "Secretary",
+      "chapter": "CSTA Rhode Island",
+      "state": "RI",
+      "district": "",
+      "source_url": "https://rhodeisland.csteachers.org/",
+      "district_normalized": ""
+    },
+    {
+      "name": "Jared Amalong",
+      "role": "Chapter Leader",
+      "chapter": "CSTA Sacramento",
+      "state": "CA",
+      "district": "",
+      "source_url": "https://community.csteachers.org/communities/community-home/digestviewer/viewthread?GroupId=121&MessageKey=1675f53d-3da1-49d2-bbb7-687c03b42080&CommunityKey=3fe0a7c8-7160-491f-905f-390b7dbc0e92&hlmlt=VT",
+      "district_normalized": ""
     },
     {
       "name": "Mark Miller",
@@ -184,174 +676,51 @@
       "district_normalized": ""
     },
     {
-      "name": "Katherine Goyette",
-      "role": "President",
-      "chapter": "CSTA California Central Valley",
-      "state": "CA",
-      "district": "Reedley",
-      "source_url": "https://community.csteachers.org/discussion/welcome-california-chapter-leaders",
-      "district_normalized": "reedley"
-    },
-    {
-      "name": "Sarah Watanabe",
-      "role": "Co-Leader",
-      "chapter": "CSTA San Mateo County",
-      "state": "CA",
-      "district": "San Mateo County Office of Education",
-      "source_url": "https://community.csteachers.org/discussion/welcome-california-chapter-leaders",
-      "district_normalized": "san mateo county office of education"
-    },
-    {
-      "name": "Jessica Hexsel",
-      "role": "Vice President",
-      "chapter": "CSTA Silicon Valley",
-      "state": "CA",
-      "district": "Gunn High School",
-      "source_url": "https://community.csteachers.org/discussion/welcome-california-chapter-leaders",
-      "district_normalized": "gunn high school"
-    },
-    {
-      "name": "Rudy Escobar",
-      "role": "Technology Manager",
-      "chapter": "CSTA Sacramento and California Far North",
-      "state": "CA",
-      "district": "Stanislaus County Office of Education",
-      "source_url": "https://community.csteachers.org/discussion/welcome-california-chapter-leaders",
-      "district_normalized": "stanislaus county office of education"
-    },
-    {
-      "name": "Myra Deister",
-      "role": "Communications Chair",
-      "chapter": "CSTA Orange County",
-      "state": "CA",
-      "district": "Sunny Hills High School",
-      "source_url": "https://community.csteachers.org/discussion/welcome-california-chapter-leaders",
-      "district_normalized": "sunny hills high school"
-    },
-    {
-      "name": "Rebecca Bailey",
-      "role": "Chapter Leader",
-      "chapter": "CSTA Sacramento and California Far North",
-      "state": "CA",
-      "district": "Mendocino County Office of Education",
-      "source_url": "https://community.csteachers.org/discussion/welcome-california-chapter-leaders",
-      "district_normalized": "mendocino county office of education"
-    },
-    {
-      "name": "Sean Glantz",
-      "role": "Chapter Leader",
-      "chapter": "CSTA Sacramento",
-      "state": "CA",
-      "district": "Da Vinci Charter Academy",
-      "source_url": "https://community.csteachers.org/discussion/welcome-california-chapter-leaders",
-      "district_normalized": "da vinci charter academy"
-    },
-    {
-      "name": "Mitch Middler",
-      "role": "Co-Founder",
-      "chapter": "CSTA SoCal South Bay",
-      "state": "CA",
-      "district": "",
-      "source_url": "https://community.csteachers.org/discussion/welcome-california-chapter-leaders",
-      "district_normalized": ""
-    },
-    {
-      "name": "Vicky Sedgwick",
-      "role": "Chapter Leader",
+      "name": "Debbie Spear",
+      "role": "Regional Representative (Los Angeles County)",
       "chapter": "CSTA Greater Los Angeles",
       "state": "CA",
       "district": "",
-      "source_url": "https://community.csteachers.org/cstagreaterlosangelesca/discussion/join-us-for-csta-gla-october-2024-chapter-meeting",
+      "source_url": "https://greaterlosangeles.csteachers.org/",
       "district_normalized": ""
     },
     {
-      "name": "Rachel Pierson",
+      "name": "Laura Peters",
       "role": "Chapter Leader",
-      "chapter": "CSTA South Dakota",
-      "state": "SD",
-      "district": "",
-      "source_url": "https://community.csteachers.org/discussion/endorsement-of-state-standards",
-      "district_normalized": ""
-    },
-    {
-      "name": "Becky Ashe",
-      "role": "Director of Professional",
-      "chapter": "CSTA Tennessee",
-      "state": "TN",
-      "district": "",
-      "source_url": "https://community.csteachers.org/discussion/endorsement-of-state-standards",
-      "district_normalized": ""
-    },
-    {
-      "name": "Kristen Tanner",
-      "role": "Chapter Leader",
-      "chapter": "CSTA Oklahoma",
-      "state": "OK",
-      "district": "",
-      "source_url": "https://community.csteachers.org/discussion/looking-for-state-leaders-who-may-be-interested-in-hearing-more-about-ecep",
-      "district_normalized": ""
-    },
-    {
-      "name": "Joelle Henry",
-      "role": "CSTA President",
-      "chapter": "CSTA New Hampshire",
-      "state": "NH",
-      "district": "",
-      "source_url": "https://community.csteachers.org/discussion/looking-for-state-leaders-who-may-be-interested-in-hearing-more-about-ecep",
-      "district_normalized": ""
-    },
-    {
-      "name": "Tamar McPherson",
-      "role": "President",
-      "chapter": "CSTA Pittsburgh",
-      "state": "PA",
-      "district": "Plum Borough School District",
-      "source_url": "https://csteachers.org/ai-grounded-in-sound-pedagogy-with-csta-responsible-ai-fellow-tamar-mcpherson/",
-      "district_normalized": "plum borough"
-    },
-    {
-      "name": "John Tusch",
-      "role": "President",
-      "chapter": "CSTA Connecticut",
-      "state": "CT",
-      "district": "",
-      "source_url": "https://community.csteachers.org/cstaconnecticut/home",
-      "district_normalized": ""
-    },
-    {
-      "name": "Danielle Bodine",
-      "role": "Chapter Member",
       "chapter": "CSTA Massachusetts",
       "state": "MA",
-      "district": "",
-      "source_url": "https://community.csteachers.org/cstamassachusetts/discussion/march-2023-meeting-ai-in-education",
-      "district_normalized": ""
+      "district": "Somerville Public Schools",
+      "source_url": "https://massachusetts.csteachers.org/",
+      "district_normalized": "somerville",
+      "district_resolver_confidence": "high"
     },
     {
-      "name": "Kerri Murphy",
-      "role": "Chapter Member",
+      "name": "Elaine Griggs",
+      "role": "Chapter Leader",
       "chapter": "CSTA Massachusetts",
       "state": "MA",
-      "district": "",
-      "source_url": "https://community.csteachers.org/cstamassachusetts/discussion/march-2023-meeting-ai-in-education",
-      "district_normalized": ""
+      "district": "Pembroke Public Schools",
+      "source_url": "https://massachusetts.csteachers.org/",
+      "district_normalized": "pembroke",
+      "district_resolver_confidence": "high"
     },
     {
       "name": "Diane Horvath",
-      "role": "Chapter Member",
+      "role": "Chapter Leader",
       "chapter": "CSTA Massachusetts",
       "state": "MA",
-      "district": "",
-      "source_url": "https://community.csteachers.org/cstamassachusetts/discussion/march-2023-meeting-ai-in-education",
-      "district_normalized": ""
+      "district": "Medfield Public Schools",
+      "source_url": "https://massachusetts.csteachers.org/",
+      "district_normalized": "medfield",
+      "district_resolver_confidence": "high"
     },
     {
-      "name": "Ludnie Deneus",
-      "role": "Program Director",
-      "chapter": "CSTA Massachusetts",
-      "state": "MA",
+      "name": "Renee Coley",
+      "role": "Board Member - Advocacy Chair",
+      "chapter": "CSTA Ohio",
+      "state": "OH",
       "district": "",
-      "source_url": "https://community.csteachers.org/cstamassachusetts/discussion/stem-youth-program-at-northeastern-university-2",
+      "source_url": "https://www.linkedin.com/in/reneecoley614740",
       "district_normalized": ""
     }
   ]
