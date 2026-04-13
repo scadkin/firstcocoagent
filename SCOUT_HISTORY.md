@@ -1218,6 +1218,57 @@ The full Session 56 "What's working" + "What's still in-progress / unresolved" +
 
 ---
 
+## Session 59 (2026-04-13) — Diocesan Value Extraction: Sequence Builder Branch Shipped, 6 Docs Regenerated Clean
+
+### What changed
+
+Session 59 was originally framed (by CLAUDE.md Session 58 handoff) as low-risk cleanup: drip the backlog, delete a backup tab, check diocesan yield. Empirical probing in the planning phase uncovered a completely different picture. The v1 plan was pressure-tested and rewritten from scratch as a **value-extraction session** focused on the single biggest pipeline gap: `_on_prospect_research_complete` at `agent/main.py:333-376` had elif branches for `upward`/`winback`/`cold`/`cold_license_request` but **no `private_school_network` branch**. Every diocesan approval since Session 56 had routed through the generic cold fallback and produced broken drafts (52-73 em dashes per doc, AI leading in subject lines, banned phrases like "I'd love to" and "quick call", zero match on any diocesan framing element). 7 existing draft docs were all unusable.
+
+**Commits shipped (2 total):**
+
+1. **`042f146` feat(sequences): add diocesan branch to _on_prospect_research_complete**
+   - `agent/main.py` — added `_is_diocesan` token detection (`"archdiocese"/"diocese" in district_name.lower()`), new elif branch for `strategy == "private_school_network"` with diocesan sub-branch (target_role = "Superintendent of Catholic Schools", campaign_name = "<diocese> — Diocesan Central Office Outreach") and non-diocesan sub-branch for private school networks. Diocesan `extra_context` inlines the full tone rules from `feedback_bond_trigger_outreach_tone.md` + `feedback_sequence_copy_rules.md` + `feedback_sequence_iteration_learnings.md`: no dollar figures, no unverified peer names, CS/safe-AI framing, 3-CTA pattern (one-pager + free trial + case study), banned-phrase list, structure constraints (Step 1 ≤80 words, 5 steps, graduated spacing, breakup ≤60 words), merge-field requirements.
+   - `memory/public_district_email_blocklist.json` (new) — Scout runtime contamination guard. 10 exact public-district domains (pghschools.org, okcps.org, tulsaschools.org, mnps.org, scsk12.org, fwisd.org, houstonisd.org, lps.org, ops.org, detroitk12.org) + 8 regex patterns + per-diocese exclusions for all 16 Catholic dioceses + whitelist of 23 known-good archdiocesan/parochial school domains from Session 58 research. Resolved via Serper lookups for each of the 9 pending diocesan public-district counterparts.
+   - Additive change — `strategy == "private_school_network"` previously fell through with empty `extra_context`. Cannot regress any existing strategy.
+   - Local test against Philadelphia data passed all tone checks: 0 banned phrases, 0 em dashes, Bobby Duke MS case study only, all 3 CTA variants, "throw our hat in early" framing, parochial/diocesan language throughout. Step 1 was ~100 words vs 80-word target — minor iteration nit.
+
+2. **`<TBD>` docs(session-59): SESSION_59_DIOCESAN_REVIEW + SESSION_59_INTRA_DISTRICT_AUDIT + project docs + memory**
+   - `docs/SESSION_59_DIOCESAN_REVIEW.md` (new) — full triage of the 7 existing diocesan sequence docs. Original violation counts (50-73 em dashes each, AI in subjects, banned phrases, 0/9 tone match). Regenerated 6 via the new branch; per-regen quality: Philadelphia (63/0/0 — GOLD), Cleveland (69/0/0), Boston (56/0/0), Chicago (57/0/0), Cincinnati (98/0/0 — minor Step 1 nit), Detroit (79/0/0). LA abandoned (only 2 leads from 1 parochial school). New Doc URLs linked for all 6; Prospecting Queue `Sequence Doc URL` column updated for the 6 rows.
+   - `docs/SESSION_59_INTRA_DISTRICT_AUDIT.md` (new) — 384 pending `intra_district` rows audited. Stratified sample (6 high + 7 mid + 6 low = 19 rows) returned **19/19 REDUNDANT** against Active Accounts. Full-queue check confirmed **100% of 384 rows have ≥1 active contact at parent district**, 7.8% have 2+. Root cause: F1 is structurally redundant by design (finds sibling schools inside Active Account districts, where the parent-district contacts are already known). Recommended Option C: retire F1 + bulk-skip 384.
+   - `memory/project_bug5_shared_city_gap.md` (Claude auto-memory, new) — BUG 5 shared-city contamination gap. Detroit Cummings row was the confirmed hit (1.4% contamination rate across 71 diocesan leads). 7 of 9 remaining pending dioceses carry the same risk (Pittsburgh, OKC, Tulsa, Fort Worth, Houston, Lincoln, Omaha). The `_target_match_params` code in `tools/research_engine.py` needs per-account-type matching, but that's a future plan-mode session. Session 59's runtime patch is the blocklist JSON asset.
+   - CLAUDE.md Current State block rewritten for Session 59 reality.
+   - SCOUT_PLAN.md `YOU ARE HERE` block rewritten with v2 plan deliverables + v1→v2 changelog.
+   - MEMORY.md index updated with `project_bug5_shared_city_gap.md` pointer.
+
+### Section-by-section execution
+
+**Section 2 — Delete backup tab (5 min):** Pre-check on 3 live `Prospecting Queue` rows confirmed expected winback data. `batchUpdate(deleteSheet)` on sheetId=793937698. Tab count 15 → 14, live queue unchanged at 38,932 rows.
+
+**Section 3 — Blocklist + Detroit cleanup (30 min):** 9 Serper lookups resolved public-district domains. Wrote `memory/public_district_email_blocklist.json`. Pulled all 71 existing diocesan leads, found 23 distinct email domains — 22 were legit archdiocesan (archphila.org, catholicaoc.org, aod.org, etc.) or parochial school (st-helen-school.com, rogerbacon.net, etc.). Only 1 contamination: `nicole.cummings@detroitk12.org` (row 545, Detroit Public Schools leak into Archdiocese of Detroit Schools). Re-verified row 545 was correct target before deletion. `batchUpdate(deleteDimension)` removed the row. Diocesan count 71 → 70.
+
+**Section 4 — Sequence builder diocesan branch (60 min):** Read `agent/main.py:319-428` and `tools/sequence_builder.py:88-217` to understand the edit site. Read `memory/feedback_bond_trigger_outreach_tone.md`, `feedback_sequence_copy_rules.md`, `feedback_sequence_iteration_learnings.md` from Claude auto-memory for authoritative tone rules. Added the diocesan branch inline (not externalized) for iteration velocity. Syntax-checked via `ast.parse`. Ran local test against Philadelphia data — first-pass output read like a human wrote it, used all the approved phrasings, no banned patterns. Committed + pushed.
+
+**Section 5 — Triage + regenerate 7 existing docs (45 min):** Discovered Google Docs/Drive APIs disabled for service account project 878527098006. Fell back to `https://docs.google.com/document/d/<id>/export?format=txt` — works for any doc accessible to anyone with the link. Downloaded all 7 docs as plain text. Programmatic scoring confirmed every doc scored 0/9 on diocesan tone match, 50+ em dashes each, AI in subjects. Wrote `scripts/s59_regen_diocesan_sequences.py` mirroring the handler logic, ran it against 6 targets (abandoned LA). Each regen took ~30 seconds via Claude Sonnet. All 6 produced clean output (5 fully pass, 1 Cincinnati minor length nit). Wrote 6 new Google Docs via GAS bridge. Updated Prospecting Queue `Sequence Doc URL` column (col O) via `batchUpdate(values)`. Wrote `docs/SESSION_59_DIOCESAN_REVIEW.md` summary.
+
+**Section 6 — intra_district 384 audit (30 min):** Stratified sample from the 384 rows (seed 42, 6 high + 7 mid + 6 low). For each: `csv_importer.get_active_accounts()` + `normalize_name()` lookup against parent district, fuzzy-match fallback at 0.75. All 19 samples hit REDUNDANT. Extended the check to all 384 rows — 100% hit rate. 7.8% have 2+ contacts. Concluded F1 is structurally redundant by design and recommended Option C (retire + bulk-skip). Wrote `docs/SESSION_59_INTRA_DISTRICT_AUDIT.md`.
+
+**Session wrap (15 min):** Wrote BUG 5 project memory, updated MEMORY.md index, rewrote CLAUDE.md Current State block + SCOUT_PLAN.md YOU ARE HERE + SCOUT_HISTORY.md Session 59 entry. Single docs commit at end.
+
+### Session 59 lessons (to be distilled into memory files)
+
+1. **Empirical probing before plan mode catches frame errors, not just detail errors.** v1 plan focused on backlog drain. 15 min of pre-plan probing (Research Log row counts, reading the elif chain, queue row counts, ResearchQueue singleton verification) revealed (a) the sequence builder had no diocesan branch, (b) Steven's review bandwidth was saturated not his queue capacity, (c) diocesan yield was 3x better than CLAUDE.md predicted. The pressure-test pass caught what the first plan missed by holding the full pipeline in head instead of reacting to CLAUDE.md's stated priorities.
+2. **Stale-by-design backlogs are always worth auditing before approving.** 384 `intra_district` rows had been sitting pending since March. 100% structurally redundant. Audit first, approve second.
+3. **Google Docs/Drive APIs are often disabled per service-account project, but public `/export?format=txt` URL works without auth.** Critical fallback when service account is stuck.
+4. **Inline tone rules in `extra_context` beat externalized prompt files for iteration velocity.** One edit site in `agent/main.py`, no cross-file coordination.
+5. **GAS bridge is fine for one-off scripts.** `write_sequence_to_doc(campaign_name, steps, gas)` works outside the live agent context as long as `GAS_WEBHOOK_URL` + `GAS_SECRET_TOKEN` env vars are loaded.
+6. **`Sequence Doc URL` is Prospecting Queue column 14 (O in A1 notation).** Noted for future writes.
+
+### Session 59 commits (2 total)
+1. `042f146` feat(sequences): add diocesan branch + public_district_email_blocklist.json
+2. `<TBD>` docs(session-59): review + audit + history + CLAUDE.md + plan + memory
+
+---
+
 ## Session 58 (2026-04-12/13) — Priorities 1–4 Knockdown: Stage 6-8 + Diocesan Drip + CSTA Everywhere + Roster Triple
 
 ### What changed

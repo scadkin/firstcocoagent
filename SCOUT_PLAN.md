@@ -1,9 +1,89 @@
 # SCOUT MASTER PLAN
-*Last updated: 2026-04-13 — End of Session 58 (Priorities 1–4 all knocked down: Stage 6-8 carryover shipped, diocesan drip started, CSTA enrichment across all 6 scanners, CSTA roster tripled)*
+*Last updated: 2026-04-13 — End of Session 59 (diocesan value extraction: sequence_builder diocesan branch shipped, 6 diocesan sequence docs regenerated clean, 1 contamination row deleted, intra_district 384-row audit produced retire-F1 recommendation)*
 
 ---
 
-## YOU ARE HERE → Session 58 was a comprehensive knockdown. **Priorities 1–4 all complete** with 7 commits shipped. Stage 6: F6 charter CMOs (26 queued across KIPP/IDEA/Harmony/etc.) + F7 CTE centers (41 queued, OK tech centers dominant). Stage 7: F9 `/signal_compliance` handler wired (Telegram dispatch now works for CA/IL/MA pilot — CA scan ran end-to-end, 0 signals this time as scanner surfaced wrong PDFs; handler works, scanner query redesign is a separate future bug). Stage 8: F1 `suggest_intra_district_expansion` got per-parent-district CSTA enrichment (inline `_calculate_priority + csta_bonus`, lazy import to avoid circular). Priority 2: **6 of 16 top-territory archdioceses approved** (Boston, Philadelphia, Cincinnati, LA, Cleveland, Detroit) + research running via BUG 4 playbook — stopped at Option A (accept high-value 6 without hunting the deeper 10). Priority 3: **`build_csta_enrichment` helper** added to signal_processor.py, wired to F4/F6/F7/F8 (lazy imports for the three prospector modules). F1/F2 kept inline. Priority 4: **CSTA roster rewrite** — per-state Haiku extraction + whitelist-filtered national bucket + regional subdomain mapping (goldengate/pittsburgh/dallasfortworth/etc.) + district resolver pass (Serper + Haiku reverse-lookup with confidence gating) + merge-with-previous dedup (Haiku is nondeterministic across runs, additive merge prevents per-run regression). **Roster: 39/14 matchable → 77/41 matchable (+193%).** Territory coverage: from 4 states → 10 states. IN/OK/TN still at zero (chapter subdomains exist but pages list no board — hand-curation work for future session). Also fixed a latent bug that blocked all this drip work: `/prospect_approve` and `/prospect_skip` didn't handle `all` despite Scout's own output telling users to type it. Also docs: CLAUDE.md trimmed 41.8K → 12.5K by extracting full rules to new `docs/SCOUT_RULES.md` with grep-audit verification across 103 keywords (zero info loss). Also committed in session wrap: `scripts/scout_session.sh` updated to pass `--effort high` to the `claude` wrapper (works around Opus 4.6 medium-effort regression, takes effect on next `scout` launch).
+## YOU ARE HERE → Session 59 was a **frame-change session**, not a backlog-drain session. Planning-phase empirical probing discovered that (a) `_on_prospect_research_complete` at `agent/main.py:333-376` had `elif` branches for `upward`/`winback`/`cold`/`cold_license_request` but **no `private_school_network` branch** — every diocesan approval since Session 56 routed through the generic cold fallback and produced broken drafts (52-73 em dashes per doc, AI leading in subject lines, banned phrases, zero match on diocesan framing elements); (b) diocesan research yield was **dramatically better than CLAUDE.md Session 58 predicted** (72 verified emails across 6 archdioceses = 67% rate, with Philadelphia 87% and Cincinnati 88% delivering gold central-office Superintendents on `@archphila.org` / `@catholicaoc.org`); (c) `ResearchQueue` is explicitly single-job-at-a-time (`tools/research_engine.py:1666`) — approving 9 dioceses + 63 Tier-1 rows would take 6+ hours serial wall clock and generate 72 more unreviewed sequence docs; (d) the 384 `intra_district` pending rows are **100% redundant** against Active Accounts (every parent district already has ≥1 known contact, 7.8% have 2+). The v1 plan tried to approve all of them; v2 (after Steven's ruthless pressure test) reframed Session 59 as **value extraction** — fix the broken sequence builder, regenerate the 7 existing docs through the new branch, audit intra_district into a retire-F1 recommendation, and leave the actual backlog approvals for Session 60 once Steven has reviewed the new diocesan sequence quality.
+
+**Next up:** Session 60 execution — (a) Steven reviews `docs/SESSION_59_DIOCESAN_REVIEW.md` to approve/iterate Philadelphia + Cincinnati as the first actually-sendable diocesan campaigns, (b) Steven decides intra_district Option C (retire F1 + bulk-skip 384), (c) approve remaining 9 pending dioceses with per-diocese blocklist-gated cleanup (7 of 9 have BUG 5 shared-city contamination risk — Pittsburgh, OKC, Tulsa, Fort Worth, Houston, Lincoln, Omaha), (d) approve the 63-row Session 58 non-diocesan Tier-1 backlog (cs_funding 7 → charter_cmo 15 → cte_center 34 → other private_school_network 7), (e) optional: BUG 5 code fix in `tools/research_engine.py:_target_match_params`, F9 query redesign, IN/OK/TN CSTA hand-curate, LA archdiocese research restart.
+
+### Session 59 deliverables
+
+**Priority 0 — Empirical probing in planning phase:**
+- Pulled full Research Log for 6 Session 58 diocesan jobs — found 72 verified emails / 107 total leads (67% rate). Previous CLAUDE.md expected "central-office NAMES without verified emails." Completely flipped the Apollo/RocketReach decision (defer indefinitely, the existing stack is doing the job).
+- Sample-inspected `Leads from Research` diocesan rows — confirmed 1 cross-contamination (`nicole.cummings@detroitk12.org` = Detroit Public Schools, not Archdiocese). BUG 5 shared-city gap. Other 70 rows are legit archdiocesan or parochial Catholic school domains.
+- Verified `ResearchQueue` is explicitly single-job-at-a-time (`tools/research_engine.py:1666`): "Prevents parallel jobs from hammering Serper API." 9 dioceses × 6 min + 63 Tier-1 × 5 min = 6+ hours wall clock. Reshaped Session 59 to prioritize review bandwidth over queue throughput.
+- Counted the actual queue: 1,990 pending across all strategies (not ~475 as CLAUDE.md stated). CLAUDE.md's 475 was correct for the 5 named strategies but missed 1,245 cold_license_request + 247 winback (both stale March 2026 backlogs, out of Session 59 scope).
+- Read `_on_prospect_research_complete` at `agent/main.py:319-428` — discovered the missing `private_school_network` elif branch. **Highest-leverage finding of the session.** Every diocesan sequence since Session 56 had the wrong tone.
+
+**Priority 1 — Deleted backup tab:**
+- `Prospecting Queue BACKUP 2026-04-10 0010` (sheetId=793937698, 38,837 rows) deleted via `batchUpdate(deleteSheet)`. Pre-check on 3 live queue rows confirmed shape. Tab count 15 → 14. Live queue intact at 38,932 rows.
+
+**Priority 2 — Public-district email blocklist + Detroit cleanup:**
+- Resolved 9 public-district domains via Serper (Pittsburgh PS → pghschools.org, OKCPS → okcps.org, TPS → tulsaschools.org, MNPS → mnps.org, SCSK12 → scsk12.org, FWISD → fwisd.org, Houston ISD → houstonisd.org, LPS → lps.org, OPS → ops.org).
+- Shipped `memory/public_district_email_blocklist.json` as a Scout runtime contamination-guard asset: 10 exact domains + 8 regex patterns (`^k12\.[a-z]{2}\.us$`, `^[a-z]+isd\.org$`, etc) + per-diocese exclusions for all 16 Catholic dioceses + whitelist of 23 known-good archdiocesan/parochial domains from Session 58 research.
+- Deleted row 545 in `Leads from Research` (D. Nicole Cummings, `nicole.cummings@detroitk12.org`, Archdiocese of Detroit Schools) via `batchUpdate(deleteDimension)`. Re-verified row was the correct target before deletion. Diocesan row count 71 → 70. Zero `detroitk12.org` references remaining.
+- Wrote `memory/project_bug5_shared_city_gap.md` in Claude auto-memory documenting the 7-of-9 at-risk pending dioceses and the runtime blocklist as the Session 59 patch.
+
+**Priority 3 — Sequence builder diocesan branch (commit `042f146`):**
+- Added `_is_diocesan` token match (`"archdiocese" in district_name.lower() or "diocese" in district_name.lower()`) in `_on_prospect_research_complete` around the elif chain starting at `agent/main.py:334`.
+- Added `strategy_labels["private_school_network"] = "Private School Network"` and two new elif branches:
+  - Diocesan: target_role → "Superintendent of Catholic Schools", campaign_name → "<diocese> — Diocesan Central Office Outreach", extra_context inlines the full tone rules (central-office audience definition, CS/safe-AI framing, 3-CTA pattern, structure/length constraints, banned-phrase list, merge-field requirements). Rules sourced from `feedback_bond_trigger_outreach_tone.md` + `feedback_sequence_copy_rules.md` + `feedback_sequence_iteration_learnings.md`.
+  - Non-diocesan private_school_network: network-level framing for Cristo Rey, independent Catholic academies, etc.
+- Additive change — `strategy == "private_school_network"` previously fell through with empty `extra_context`. Cannot regress any other strategy.
+- **Local test against Philadelphia data passed all tone checks:** 0 banned phrases, 0 em dashes, 1 verified case study reference (Bobby Duke MS), all 3 CTA variants present, "throw our hat in early" framing, parochial / diocesan framing throughout. Step 1 was ~100 words vs the 80-word target — minor iteration target but not blocking.
+
+**Priority 4 — Regenerated 6 of 7 existing diocesan sequence docs (Session 59 Section 5):**
+- Confirmed Google Docs/Drive APIs were disabled for the service account project 878527098006 — fell back to public `/export?format=txt` URL (works for any doc accessible to anyone with the link). Pulled all 7 existing docs as plain text.
+- Programmatic scoring of the 7 originals: **every one scored 0/9 on diocesan tone match**, 52-73 em dashes each, AI in subject lines, 4 docs had banned phrases ("I'd love to", "quick call"). Confirmed all 7 were unsendable as-is.
+- Ran `scripts/s59_regen_diocesan_sequences.py` — regenerated Philadelphia, Cincinnati, Detroit, Cleveland, Boston, Chicago through the new branch. Per-regen quality:
+  - Philadelphia: 63 words Step 1 ✓, 0 em dashes ✓, 0 banned ✓
+  - Cleveland: 69 words Step 1 ✓, 0 em dashes ✓, 0 banned ✓
+  - Boston: 56 words Step 1 ✓, 0 em dashes ✓, 0 banned ✓
+  - Chicago: 57 words Step 1 ✓, 0 em dashes ✓, 0 banned ✓
+  - Detroit: 79 words Step 1 ✓, 0 em dashes ✓ (final exported text), 0 banned ✓
+  - Cincinnati: **98 words Step 1 (over 80 target)**, 0 em dashes ✓, 0 banned ✓
+- Wrote 6 new Google Docs via GAS bridge `write_sequence_to_doc`, updated Prospecting Queue `Sequence Doc URL` column for all 6 rows via `batchUpdate(values)`.
+- **LA abandoned** — 2 leads from 1 parochial school (`hssala.org`) is not an actionable central-office campaign. Original broken doc left in place as a placeholder. Session 60 candidate: hand-seed research with `lacatholicschools.org`.
+- Wrote `docs/SESSION_59_DIOCESAN_REVIEW.md` summarizing the 7 verdicts, new Doc URLs, quality table, what to watch for in Steven's review.
+
+**Priority 5 — intra_district 384-row desk audit:**
+- Pulled all 384 `intra_district` pending rows. Stratified sample: 6 high (780-785, all), 7 mid (765-775), 6 low (750-764) = 19 rows with random seed 42.
+- For each sample row: exact-matched `Parent District` against `Active Accounts` via `csv_importer.get_active_accounts()`; fuzzy-matched at threshold 0.75 on miss.
+- **Sample hit rate: 19/19 (100%) REDUNDANT** — every sampled sibling school had ≥1 known contact at its parent district (LAUSD had 6, Corona-Norco 4, ABC Unified 2, etc.).
+- Full-queue check across all 384: **384/384 (100%) with ≥1 active contact at parent**, 7.8% have 2+. No cohort of rows would produce net-new marketing surface.
+- Root cause: F1 is designed to find sibling schools inside districts that ARE Active Accounts. By definition, every parent district has a pre-existing relationship. Research mostly rediscovers the parent's known contacts.
+- Wrote `docs/SESSION_59_INTRA_DISTRICT_AUDIT.md` with the methodology, sample table, full-queue stats, and three options:
+  - **A (approve all 384):** ~$400 research + 384 docs, low marginal value — NOT recommended
+  - **B (approve top 50):** smaller but same structural problem — NOT recommended
+  - **C (retire F1 + bulk-skip 384):** RECOMMENDED, $0, clears 20% of pending backlog, shifts sibling-school expansion to warm channels (upward_auto, signals, proximity_engine)
+- Also noted a future-session alternative: replace F1 with a "referral target" talking-point generator using known parent-district contacts as warm vectors instead of cold research.
+
+**Commits this session (expected ~2):**
+1. `042f146` feat(sequences): add diocesan branch to _on_prospect_research_complete + memory/public_district_email_blocklist.json
+2. (incoming) docs(session-59): SESSION_59_DIOCESAN_REVIEW + SESSION_59_INTRA_DISTRICT_AUDIT + CLAUDE.md + SCOUT_PLAN.md + SCOUT_HISTORY.md + MEMORY.md
+
+### Session 59 v1 vs v2 plan (why it was rewritten)
+
+The v1 plan focused on approving more prospects and cleaning the backlog — the frame CLAUDE.md Session 58 handoff set. Steven's ruthless pressure-test prompt caught the frame error. The v2 rewrite's most important changes:
+
+1. v1 missed the `sequence_builder` diocesan branch gap entirely. v2 makes fixing it the primary work.
+2. v1 tried to approve 9 dioceses + 72 Tier-1 rows. After verifying `ResearchQueue` is serial, the math showed 6+ hours of wall clock and 72+ new sequence docs for Steven to review. v2 caps diocesan approvals at 3 (stretch) and Tier-1 at 7 cs_funding rows (stretch) — bounded by review bandwidth.
+3. v1 buried the 7 existing diocesan docs under a caveat. v2 made triage of those 7 docs a primary section.
+4. v1's intra_district probe was a 3-row live approval probe. v2 replaced with a 20-row desk audit against Active Accounts — 30 min, not $400.
+5. v1 ignored shared-city contamination risk on 7 of 9 pending dioceses. v2 built the blocklist as a reusable asset.
+6. v1 was vague on cost estimates and stop conditions. v2 had dollar ranges and 2-iteration caps per section.
+7. v1's verification was aspirational. v2 was specific (file paths, row counts, tab names).
+
+Net effect: v2 shipped materially less motion (0 new approvals vs 9 + 63) but materially more value (broken pipeline gap fixed + 6 docs made sendable + reusable blocklist + clear intra_district retire recommendation).
+
+Plan file: `~/.claude/plans/lexical-swinging-pelican.md` (v2).
+
+---
+
+---
+
+## Session 58 archive → comprehensive knockdown. **Priorities 1–4 all complete** with 7 commits shipped. Stage 6: F6 charter CMOs (26 queued across KIPP/IDEA/Harmony/etc.) + F7 CTE centers (41 queued, OK tech centers dominant). Stage 7: F9 `/signal_compliance` handler wired (Telegram dispatch now works for CA/IL/MA pilot — CA scan ran end-to-end, 0 signals this time as scanner surfaced wrong PDFs; handler works, scanner query redesign is a separate future bug). Stage 8: F1 `suggest_intra_district_expansion` got per-parent-district CSTA enrichment (inline `_calculate_priority + csta_bonus`, lazy import to avoid circular). Priority 2: **6 of 16 top-territory archdioceses approved** (Boston, Philadelphia, Cincinnati, LA, Cleveland, Detroit) + research running via BUG 4 playbook — stopped at Option A (accept high-value 6 without hunting the deeper 10). Priority 3: **`build_csta_enrichment` helper** added to signal_processor.py, wired to F4/F6/F7/F8 (lazy imports for the three prospector modules). F1/F2 kept inline. Priority 4: **CSTA roster rewrite** — per-state Haiku extraction + whitelist-filtered national bucket + regional subdomain mapping (goldengate/pittsburgh/dallasfortworth/etc.) + district resolver pass (Serper + Haiku reverse-lookup with confidence gating) + merge-with-previous dedup (Haiku is nondeterministic across runs, additive merge prevents per-run regression). **Roster: 39/14 matchable → 77/41 matchable (+193%).** Territory coverage: from 4 states → 10 states. IN/OK/TN still at zero (chapter subdomains exist but pages list no board — hand-curation work for future session). Also fixed a latent bug that blocked all this drip work: `/prospect_approve` and `/prospect_skip` didn't handle `all` despite Scout's own output telling users to type it. Also docs: CLAUDE.md trimmed 41.8K → 12.5K by extracting full rules to new `docs/SCOUT_RULES.md` with grep-audit verification across 103 keywords (zero info loss). Also committed in session wrap: `scripts/scout_session.sh` updated to pass `--effort high` to the `claude` wrapper (works around Opus 4.6 medium-effort regression, takes effect on next `scout` launch).
 
 **Next up:** Session 59 cleanup — (a) delete `Prospecting Queue BACKUP 2026-04-10 0010` tab, (b) drip-approve the backlog (8 F4 Session 57 prospects + 67 Stage 6 prospects + the remaining 10 dioceses if interested), (c) validate BUG 4 yield on the 6 approved dioceses (check Leads from Research tab in ~15-30 min after session start for research completion), (d) optional: hand-curate IN/OK/TN CSTA board members for +15 roster matches (see `memory/project_csta_roster_hand_curation_gaps.md`), (e) F9 scanner quality redesign — separate plan-mode session, same shape as BUG 1 Session 57 (Serper PDF discovery query redesign, empirical probe first).
 
