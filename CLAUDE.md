@@ -1,5 +1,5 @@
 # SCOUT — Claude Code Reference
-*Last updated: 2026-04-13 — End of Session 59 (diocesan value extraction + tool hardening: 6 diocesan sequences live in Outreach with correct state, `validate_sequence_inputs` + `verify_sequence` helpers shipped, Steven's 5 schedule IDs fully mapped, 3 process rules + 4 preflight checklists added)*
+*Last updated: 2026-04-13 — Mid Session 60 (schedule ID map correction: S59 had schedule 1 wrongly labeled as "Hot Lead Mon-Fri"; the real "Hot Lead Mon-Fri" is schedule 51. Allowlist corrected to `{48, 50, 51, 52, 53}`.)*
 
 ---
 
@@ -21,7 +21,7 @@
   - `validate_sequence_inputs(...)` — standalone pre-write validator, 12 checks, zero API calls, unit-testable
   - `verify_sequence(seq_id, expected=...)` — standalone post-write / audit fetch + validation with network error handling
   - `create_sequence` refactored to auto-call both (input validation blocks writes; post-write verify catches drift)
-  - Schedule allowlist via `OUTREACH_ALLOWED_SCHEDULE_IDS` env var → default `{1, 48, 50, 52, 53}`
+  - Schedule allowlist via `OUTREACH_ALLOWED_SCHEDULE_IDS` env var → default `{48, 50, 51, 52, 53}` (corrected in S60 — S59 had schedule 1 incorrectly labeled as "Hot Lead Mon-Fri"; the real "Hot Lead Mon-Fri" is schedule 51)
   - Banned-phrase body scan (16 phrases + em/en dash detection)
   - Required `codecombat.com/schools` in ≥2 step bodies (opt-in via `require_cc_schools_link`, default True)
   - Meeting link (if provided) required in ≥1 step body
@@ -31,12 +31,13 @@
   - **Live-tested:** all 6 diocesan sequences verified. Philadelphia + Cincinnati initially failed on "15 minutes" in step 3 bodies (validator caught real violations rounds 1-3 had missed); PATCHed templates 43923 and 43928 in place; re-verified clean.
   - **Unit tests:** `scripts/test_outreach_validator.py` — 14 cases, all pass in <1s, zero API calls.
 
-- **Steven's 5 delivery schedule IDs confirmed** (stored in `memory/feedback_outreach_schedule_id_map.md`):
-  - `1` = Hot Lead Mon-Fri (confirmed via AI Webinar seq)
-  - `48` = SA Workdays (confirmed via ACTE '25 Seq)
-  - `50` = C4 Tue-Thu Morning (confirmed via C4 License Re-Engage cluster)
-  - `52` = Admin Mon-Thurs Multi-Window (confirmed after Steven attached it to Chicago seq)
-  - `53` = Teacher Tue-Thu Multi-Window (confirmed via FETC 2025 seq)
+- **Steven's 5 delivery schedule IDs — verified S60 against Outreach UI dropdown screenshots** (stored in `memory/feedback_outreach_schedule_id_map.md`):
+  - `48` = SA Workdays (seq 1939 "ACTE '25 Seq")
+  - `50` = C4 Tue-Thu Morning (seq 1995 "C4 License Re-Engage — Teachers" cluster)
+  - `51` = **Hot Lead Mon-Fri** (seq 1999 "!!!2026 License Request Seq (April)") — **S59 had schedule 1 wrongly labeled as "Hot Lead Mon-Fri"; corrected in S60 after Steven read the UI dropdown**
+  - `52` = Admin Mon-Thurs Multi-Window (the 6 diocesan sequences 2008–2013)
+  - `53` = Teacher Tue-Thu Multi-Window (seq 1857 "FETC 2025")
+  - Schedule 1 is **"Weekday Business Hours"** — a legacy default with 131 sequences on it, but NOT one of the 5 targeted schedules. Out of the allowlist.
 
 - **3 new process rules** appended to `docs/SCOUT_RULES.md` Section 1:
   - Write the audit question in plain English BEFORE running code
@@ -45,7 +46,8 @@
 
 - **4 new preflight checklists** added to this file's Preflight section below — Outreach work, Sequence content, Sheet audit, Cost/time estimate. Must be loaded at the start of any task matching those categories.
 
-- **15 memory files banked** in `~/.claude/projects/-Users-stevenadkins-Code-Scout/memory/`:
+- **16 memory files banked** in `~/.claude/projects/-Users-stevenadkins-Code-Scout/memory/`:
+  - `feedback_schedule_map_wrong_in_s59.md` — S60 meta-lesson: never cite an ID→name map as confirmed without reading the name from the UI
   - `feedback_code_enforcement_beats_process_rules.md` — the meta-lesson: tool guards > doc rules wherever code can enforce
   - `feedback_category_error_audit_the_question.md` — the F1 category error post-mortem
   - `feedback_never_cite_made_up_numbers.md` — fabricated $200-800 / 30hr post-mortem
@@ -119,7 +121,7 @@
 Session 59 shipped 12 failures across 3 rounds because memory files weren't loaded before touching the topics they covered. These checklists are MANDATORY reads at the start of any task matching the trigger. They live in CLAUDE.md (not a separate file) so they're always in session context.
 
 **PREFLIGHT: Outreach work** — triggers on any task creating/modifying Outreach sequences, templates, prospects, or schedules.
-- Confirm `tools/outreach_client.py::validate_sequence_inputs` is callable and knows the current allowlist (env `OUTREACH_ALLOWED_SCHEDULE_IDS` or default `{1, 48, 50, 52, 53}`)
+- Confirm `tools/outreach_client.py::validate_sequence_inputs` is callable and knows the current allowlist (env `OUTREACH_ALLOWED_SCHEDULE_IDS` or default `{48, 50, 51, 52, 53}`)
 - Ask Steven for the campaign-specific meeting link BEFORE building (if the sequence is cold — see `user_meeting_link_pattern.md`)
 - After creation, check `validation_failures` in the return dict. If non-empty, PATCH before declaring done. If the result has `validation_errors`, the post-write fetch failed — retry or investigate.
 - Never bypass the validator. Never recommend manual Outreach copy/paste when `create_sequence` exists (see `feedback_never_manual_outreach_upload.md`).

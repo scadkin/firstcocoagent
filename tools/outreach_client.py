@@ -750,9 +750,19 @@ _BANNED_META_PHRASES = [
     "automated", "bot-built",
 ]
 
-# Steven's 5 named delivery schedules (IDs confirmed Session 59).
+# Steven's 5 named delivery schedules (verified in S60 from Outreach UI
+# dropdown screenshots — S59 map had schedule 1 incorrectly labeled as
+# "Hot Lead Mon-Fri"; the real "Hot Lead Mon-Fri" is schedule 51).
+#   48 = SA Workdays
+#   50 = C4 Tue-Thu Morning
+#   51 = Hot Lead Mon-Fri
+#   52 = Admin Mon-Thurs Multi-Window
+#   53 = Teacher Tue-Thu Multi-Window
+# Schedule 1 "Weekday Business Hours" is a legacy default (131 of Steven's
+# sequences are on it) but is NOT one of the 5 targeted schedules Scout
+# should use for new sequences.
 # Overridable via OUTREACH_ALLOWED_SCHEDULE_IDS env var (comma-separated).
-_DEFAULT_ALLOWED_SCHEDULE_IDS = {1, 48, 50, 52, 53}
+_DEFAULT_ALLOWED_SCHEDULE_IDS = {48, 50, 51, 52, 53}
 
 
 def _get_allowed_schedule_ids() -> set[int]:
@@ -1219,7 +1229,8 @@ def create_sequence(
         tags: Optional list of tags.
         schedule_id: REQUIRED unless allow_no_schedule=True. Must be in the
             allowlist (env var OUTREACH_ALLOWED_SCHEDULE_IDS or default
-            {1, 48, 50, 52, 53}).
+            {48, 50, 51, 52, 53} — Steven's 5 named schedules, see
+            feedback_outreach_schedule_id_map.md).
         allow_no_schedule: Override for hot-lead flows where no schedule is
             intentional. Default False.
         meeting_link: Campaign-specific booking URL. If provided, must appear
