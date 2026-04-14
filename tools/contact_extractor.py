@@ -211,14 +211,62 @@ Extract all CS/STEM/CTE/EdTech contacts. Return JSON array only."""
         return []
 
 
+# ─────────────────────────────────────────────
+# Shared dedup upgrade helper (Round 1 Part 0)
+# ─────────────────────────────────────────────
+# When two pages return the same person, the old logic silently dropped the
+# second copy. If page 1 had "John Smith no email" and page 2 had "John Smith
+# + VERIFIED email", the VERIFIED version was lost. This helper implements
+# upgrade-on-collision: new info is strictly additive, never downgrading.
+
+_EMAIL_CONFIDENCE_RANK = {"UNKNOWN": 0, "INFERRED": 1, "LIKELY": 2, "VERIFIED": 3}
+
+
+def _merge_contact_upgrade(existing: dict, new: dict) -> None:
+    """
+    Upgrade `existing` in place using any richer fields from `new`.
+
+    Rules (evaluated in order):
+      1. If new has an email and existing has none → copy email + confidence + source_url
+      2. Elif new.email_confidence outranks existing.email_confidence → upgrade email + confidence + source_url
+      3. If new has a non-empty title and existing has empty title → copy title
+      4. Otherwise leave existing alone
+
+    Never drops, never downgrades. Identity fields (first_name, last_name,
+    district_name) are not touched — the caller owns the dedup key.
+    """
+    new_email = (new.get("email") or "").strip()
+    existing_email = (existing.get("email") or "").strip()
+    new_conf = (new.get("email_confidence") or "UNKNOWN").upper()
+    existing_conf = (existing.get("email_confidence") or "UNKNOWN").upper()
+    new_rank = _EMAIL_CONFIDENCE_RANK.get(new_conf, 0)
+    existing_rank = _EMAIL_CONFIDENCE_RANK.get(existing_conf, 0)
+
+    if new_email and not existing_email:
+        existing["email"] = new_email
+        existing["email_confidence"] = new_conf
+        if new.get("source_url"):
+            existing["source_url"] = new["source_url"]
+    elif new_email and new_rank > existing_rank:
+        existing["email"] = new_email
+        existing["email_confidence"] = new_conf
+        if new.get("source_url"):
+            existing["source_url"] = new["source_url"]
+
+    new_title = (new.get("title") or "").strip()
+    existing_title = (existing.get("title") or "").strip()
+    if new_title and not existing_title:
+        existing["title"] = new_title
+
+
 def extract_from_multiple(pages: list[tuple[str, str]], district_name: str) -> list[dict]:
     """
     Extract contacts from multiple (url, content) pairs.
-    Deduplicates by (first_name, last_name, district_name).
-    Returns merged, deduped list.
+    Deduplicates by (first_name, last_name, district_name) and upgrades
+    existing entries on collision so richer info from later pages wins.
     """
-    all_contacts = []
-    seen = set()
+    all_contacts: list[dict] = []
+    index: dict[tuple[str, str, str], dict] = {}
 
     for url, content in pages:
         contacts = extract_contacts(content, url, district_name)
@@ -226,11 +274,14 @@ def extract_from_multiple(pages: list[tuple[str, str]], district_name: str) -> l
             key = (
                 c["first_name"].lower(),
                 c["last_name"].lower(),
-                c["district_name"].lower()
+                c["district_name"].lower(),
             )
-            if key not in seen:
-                seen.add(key)
+            existing = index.get(key)
+            if existing is None:
+                index[key] = c
                 all_contacts.append(c)
+            else:
+                _merge_contact_upgrade(existing, c)
 
     return all_contacts
 

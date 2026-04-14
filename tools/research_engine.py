@@ -1633,20 +1633,32 @@ class ResearchJob:
         return False
 
     def _merge_contacts(self, new_contacts: list[dict]):
-        """Merge new contacts into all_contacts, avoiding duplicates."""
-        existing_keys = set()
+        """
+        Merge new contacts into all_contacts. On name collision, upgrade the
+        existing entry (fill missing email, raise confidence, fill empty title)
+        instead of silently dropping the newer contact.
+
+        Uses the shared helper in contact_extractor so the merge rule is
+        consistent across every call site in the research pipeline.
+        """
+        from tools.contact_extractor import _merge_contact_upgrade
+
+        index: dict[str, dict] = {}
         for c in self.all_contacts:
-            fn = c.get("first_name", "").lower()
-            ln = c.get("last_name", "").lower()
-            existing_keys.add(f"{fn}|{ln}")
+            fn = (c.get("first_name") or "").lower()
+            ln = (c.get("last_name") or "").lower()
+            index[f"{fn}|{ln}"] = c
 
         for c in new_contacts:
-            fn = c.get("first_name", "").lower()
-            ln = c.get("last_name", "").lower()
+            fn = (c.get("first_name") or "").lower()
+            ln = (c.get("last_name") or "").lower()
             key = f"{fn}|{ln}"
-            if key not in existing_keys:
-                existing_keys.add(key)
+            existing = index.get(key)
+            if existing is None:
+                index[key] = c
                 self.all_contacts.append(c)
+            else:
+                _merge_contact_upgrade(existing, c)
 
     async def _progress(self, message: str):
         """Fire progress callback if set."""
