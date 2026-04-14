@@ -1939,17 +1939,30 @@ def export_sequence(sequence_id: int | str) -> dict:
             "task_note": s_attrs.get("taskNote", ""),
         })
 
-    # 3. Get sequenceTemplates to find template IDs for each step
-    seq_templates_raw = _api_get_all("/sequenceTemplates", {
-        "filter[sequence][id]": str(sequence_id),
-    })
+    # 3. Get sequenceTemplates to find template IDs for each step.
+    # Outreach's JSON:API does NOT support filter[sequence][id] on
+    # /sequenceTemplates (returns 400). The working pattern is
+    # filter[sequenceStep][id]=<step_id> one call per step — same as
+    # validate_sequence_inputs at line 1115.
     step_to_template = {}
-    for st in seq_templates_raw:
-        rels = st.get("relationships", {})
-        step_rel = rels.get("sequenceStep", {}).get("data", {})
-        tmpl_rel = rels.get("template", {}).get("data", {})
-        if step_rel and tmpl_rel:
-            step_to_template[str(step_rel.get("id"))] = str(tmpl_rel.get("id"))
+    for step in steps:
+        step_id = step.get("id")
+        if not step_id:
+            continue
+        try:
+            st_resp = _api_get(
+                "/sequenceTemplates",
+                {"filter[sequenceStep][id]": str(step_id)},
+            )
+        except Exception as e:
+            logger.warning(f"  sequenceTemplates fetch failed for step {step_id}: {e}")
+            continue
+        for st in st_resp.get("data", []) or []:
+            rels = st.get("relationships", {})
+            tmpl_rel = rels.get("template", {}).get("data", {})
+            if tmpl_rel:
+                step_to_template[str(step_id)] = str(tmpl_rel.get("id"))
+                break
 
     # 4. Fetch each template's content
     for step in steps:

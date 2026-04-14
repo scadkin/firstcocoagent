@@ -326,7 +326,9 @@ def dump_campaign(campaign: Campaign) -> str:
         "sleep_seconds_max": campaign.sleep_seconds[1],
         "step_intervals_days": campaign.step_intervals_days,
     }
-    fm_text = yaml.safe_dump(fm_dict, sort_keys=False, default_flow_style=False).strip()
+    fm_text = yaml.safe_dump(
+        fm_dict, sort_keys=False, default_flow_style=False, allow_unicode=True
+    ).strip()
 
     parts = ["---", fm_text, "---", ""]
 

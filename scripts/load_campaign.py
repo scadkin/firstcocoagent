@@ -61,6 +61,17 @@ from typing import Optional
 REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT))
 
+# Scout convention: every standalone script calls load_dotenv() at import
+# time. Production Railway injects env vars directly; local dev relies on
+# .env. Do NOT `source .env` from bash — line 7 has a single quote that
+# breaks bash parsing and silently empties OUTREACH_CLIENT_SECRET.
+try:
+    from dotenv import load_dotenv  # noqa: E402
+
+    load_dotenv(REPO_ROOT / ".env")
+except Exception:
+    pass
+
 from tools.campaign_file import (  # noqa: E402
     Campaign,
     CampaignFileError,
