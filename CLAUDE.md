@@ -1,5 +1,5 @@
 # SCOUT — Claude Code Reference
-*Last updated: 2026-04-14 — End of Session 62. Rule scanner (R20 + R19) shipped and live. Mon+Tue diocesan drip complete. 6 commits on main this session.*
+*Last updated: 2026-04-14 — Session 63 in progress. Commit 0 verified, wrapper bug fixed, Wed drip loaded one day early (on Tue) per Steven's go-ahead.*
 
 ---
 
@@ -7,17 +7,19 @@
 
 **Session-narrative history lives in `SCOUT_HISTORY.md`. Active plan detail lives in `SCOUT_PLAN.md §YOU ARE HERE`. This section stays ≤35 lines.**
 
-**Where we are right now (end of Session 62):**
-- **Rule scanner system LIVE.** `scripts/rule_scanner.py` + 34 passing test cases (measured). Rule 20 (every number labeled — measured/sample/estimate/extrapolation/unknown) and Rule 19 (no Outreach backend IDs in chat) are now structurally enforced via `~/.claude/hooks/scout-stop-scan.sh` + `~/.claude/hooks/scout-violation-inject.sh`. Stop hook scans every response; UserPromptSubmit hook injects correction directive on next turn if violations logged. Kill switch: `touch ~/.claude/state/scout-hooks-disabled`. Full system documentation in `~/.claude/projects/-Users-stevenadkins-Code-Scout/memory/feedback_rule_scanner_hook_installed.md`.
-- **Diocesan drip Mon+Tue complete.** 34 of 63 contacts loaded (measured) across six diocesan sequences, zero failures. 29 pending (15 Wed + 14 Thu). Jitter was tightened from 5–15 min per POST down to 10–30 sec; each day's batch now completes in roughly 6 min (measured).
-- **CLAUDE.md trimmed.** Session 60/61 full narrative moved to `SCOUT_HISTORY.md`. File dropped from roughly 46KB (measured) to roughly 20KB (measured).
+**Where we are right now (mid-Session 63):**
+- **Commit 0 empirical hook verification complete** (see scanner docstring + `feedback_rule_scanner_hook_installed.md`). Stop-`{decision:block}` forces in-turn continuation by injecting `reason` as a synthetic `"Stop hook feedback: ..."` user message; `stop_hook_active: true` is set on recursive fires and the wrapper's early-exit guard is load-bearing. UserPromptSubmit `additionalContext` reaches Claude's next turn. Stop stdin field is `last_assistant_message` (plain prose only, no tool-use JSON). Tests were run via isolated `claude -p --setting-sources project --settings /tmp/commit0/<file>` instead of mutating live `~/.claude/settings.json` — much safer pattern than the plan originally specified.
+- **Production hook bug fixed.** `~/.claude/hooks/scout-stop-scan.sh` was reading `.last_message` and has silently fail-opened every turn since S62 install. Patched to `.last_assistant_message` in S63 Commit 0. Rule scanner is now *actually* live on this session. Smoke-tested with synthetic JSON (bare percent → block, labeled percent → clean, `stop_hook_active:true` → short-circuit).
+- **Smoke-test log-poisoning lesson.** My S63 smoke test piped a bare `17%` through the live wrapper, which correctly wrote to `~/.claude/state/scout-violations.log`. The next UserPromptSubmit injector fire consumed that test entry and injected a real correction directive. The scanner did not false-positive — the test procedure poisoned its own log. Future verification runs must use a temp LOG path or clean the log after. Documented in `feedback_rule_scanner_hook_installed.md`.
+- **Wednesday diocesan drip loaded one day early.** Today is Tue 2026-04-14 but Steven approved running the Wed (2026-04-15) batch today. Ran with `--execute --force-day 2026-04-15`. 15 of 15 processed (measured): 14 created, 1 existing reused, 0 failed, 0 skipped. Verify check showed seq 2008 live-count query errored (returned -1 sentinel); all other five sequences matched expected. That verify hiccup did NOT block any writes — the execute summary confirms all 15 sequenceStates were successfully POSTed. 14 pending remain for Thu 2026-04-16 batch.
 - **Research Engine Round 1 flags still parked default-OFF.** Production `agent/main.py` is byte-for-byte v1. Round 1.1 planning is carryover.
-- **Repo state:** all Session 62 commits pushed to `origin/main`. Working tree clean except `.DS_Store`.
+- **Repo state:** one S63 commit pushed to `origin/main` (`f479241` docs/rules Commit 0 findings). Working tree clean except `.DS_Store`.
 
-**Exact next actions (Session 63 start, in order):**
+**Exact next actions (when Session 63 resumes, in order):**
 
-1. **Commit 0 empirical hook verification.** Follow the three-test procedure in `~/.claude/plans/playful-weaving-nygaard.md` §Commit 0. This MUST run in a throwaway session because it temporarily modifies `~/.claude/settings.json`. Back up first: `cp ~/.claude/settings.json ~/.claude/settings.json.bak-commit0`. Three tests verify (a) whether Stop-hook block forces in-turn correction, (b) whether UserPromptSubmit additionalContext reaches Claude, (c) whether `last_message` contains serialized tool-use blocks. After running, update the "PENDING" lines in `scripts/rule_scanner.py`'s module docstring and in `feedback_rule_scanner_hook_installed.md`.
-2. **Wednesday diocesan drip:** `cd /Users/stevenadkins/Code/Scout && .venv/bin/python scripts/diocesan_drip.py --execute`. 15 contacts, roughly 6 min (estimate) wall clock.
+1. **Thursday diocesan drip:** `.venv/bin/python scripts/diocesan_drip.py --execute`. 14 contacts for Thu 2026-04-16. Cadence note: Wed batch ran on Tue, so prospects on Wed-sequence step 1 will hit their mailbox a day earlier than the original plan; Thu-batch prospects should still run on Thu to avoid compressing two steps into one calendar day.
+2. **Investigate seq 2008 verify -1 mismatch.** Likely a query/pagination issue in `get_sequence_states`, not a write failure. The writes landed cleanly. Re-run `--verify --force-day 2026-04-15` later to confirm.
+3. **Update CURRENT STATE again at actual end of Session 63** with final counts and Thu results.
 
 **For full Session 62 narrative:** `SCOUT_HISTORY.md §Session 62`.
 **For the active, detailed plan:** `SCOUT_PLAN.md §YOU ARE HERE`.
