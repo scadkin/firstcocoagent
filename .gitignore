@@ -16,3 +16,6 @@ scripts/eval_results/
 
 # BUG 5 oracle files (contain PII)
 scripts/bug5_oracle_*.json
+
+# Round 1 A/B harness results (ephemeral, may contain PII)
+*.jsonl
