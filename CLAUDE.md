@@ -1,5 +1,5 @@
 # SCOUT — Claude Code Reference
-*Last updated: 2026-04-14 — End of Session 64. Generalized campaign loader shipped (plan rebuilt from scratch after pressure-test), OAuth + pre-existing export filter bug fixed, scripts/env.sh shim shipped, priority queue locked by Steven, BUG 5 prep note committed for next session. Ten commits on main this session, all pushed.*
+*Last updated: 2026-04-14 — Session 65 mid-session audit. Three items at top of S64 queue found stale/resolved: F2 column corruption RESOLVED S55, research cross-contamination RESOLVED S55, BUG 5 permanent code fix CLOSED as WONTFIX after measuring 1-of-71 contamination rate on diocesan research. Priority queue reframed. BUG 5 prep note deleted. Queue is now thin.*
 
 ---
 
@@ -7,7 +7,8 @@
 
 **Session-narrative history lives in `SCOUT_HISTORY.md`. Active plan detail lives in `SCOUT_PLAN.md §YOU ARE HERE`. This section stays ≤35 lines.**
 
-**Where we are right now (end of Session 64):**
+**Where we are right now (Session 65 mid-session, 2026-04-14):**
+- **Session 65 mid-session audit reframed the queue after finding stale entries at the top.** Steven challenged "isn't diocese work small apples?" — which prompted an audit of BUG 5, F2, and research cross-contamination. F2 RESOLVED S55 (measured — 1,952 rows repaired, canonical writes verified). Research cross-contamination RESOLVED S55 (measured — two-stage filter shipped across 6 commits, 98.6% clean on diocesan sample). BUG 5 CLOSED as WONTFIX (measured — 1-of-71 contamination rate on diocesan research, 1.4%, band-aid blocklist is the permanent mechanism). `docs/session_65_prep_bug5_target_match_params.md` deleted. `project_bug5_shared_city_gap.md` marked WONTFIX with full audit writeup. `project_s64_priority_queue.md` rewritten with reframed queue. Steven's directive: finish running diocesan work quickly, do not start any new diocesan work. 23 pending diocesan networks + LA archdiocese restart parked indefinitely. **Process failure logged**: the S64 end-of-session queue was written without re-reading the memory files, copying framing from old CURRENT STATE text. Exactly the "did I already build this?" amnesia Steven has called out before. Structural fix: re-verify every queue entry against its memory file before writing.
 - **Session 64 shipped the generalized campaign loader + OAuth fix bundle (10 commits, all pushed).** Plan `~/.claude/plans/luminous-honking-cook.md` rev 2 after a full pressure-test rebuild. New in-repo: `tools/campaign_file.py` (single-file markdown schema + permissive parser), `tools/role_classifier.py` (Haiku temp=0 per-contact bucketing with pre-filter + sha1 cache), `scripts/load_campaign.py` (CLI with `--preview` / `--create` / `--execute` / `--dry-run` / `--force` + CSV/stdin contact input + sidecar state with sha1 drift detection + Rule 19 name translation), `outreach_client.export_sequence_for_editing` (fetch existing sequence as claude.ai starter markdown), `scripts/env.sh` (bash shim for python-dotenv env loading), `campaigns/canary_test.md` + `campaigns/canary_test_contacts.csv` fixtures, 47 unit tests total (10 parser + 7 export + 11 classifier + 19 CLI). Live smoke: 14/14 real K-12 titles classified correctly; `--create --dry-run` 3/3 variants pass preflight; full Chicago diocesan export + round-trip verified against the live API.
 - **The plan rebuilt from scratch mid-session after a Steven senior-reviewer pressure-test.** v1 had three structural problems: multi-file `campaigns/<slug>/config.yaml + variants/` layout that would have forced Steven to translate claude.ai output into a new schema on every round trip; rule-based role classifier that caps at 75-85% (estimate) accuracy and needs 150-300 lines (estimate) of regex; a diocesan_drip refactor mid-week with live production drip running the next two days. v2 fixed all three: single markdown file per campaign, Haiku classifier in ~50 lines, diocesan refactor dropped entirely. Plus preflight-runs-all-variants-before-any-POST, sidecar state with drift detection, stdin contact input. **Plan-mode pressure-test was the highest-value meta-lesson of the session.**
 - **Reframe #1 (the big one)**: I started on the S63 prep note's handler-wiring path. Steven said "haven't we got these features built already?" and described his real workflow: drafts in claude.ai, role segmentation, multi-variant sequences, staggered loads. That killed the handler-wiring direction entirely. Handler stays unchanged (`agent/main.py:319-528` still writes Google Doc drafts only — Steven confirmed he uses the auto-draft "almost always" as a claude.ai starter). `docs/session_64_prep_prospect_loader_wiring.md` is now historical — do not execute it.
@@ -19,28 +20,31 @@
 - **Structural enforcement (Rule 19 + Rule 20 scanner) still live** and still catching ghost-matches on stale violation log entries. Known issue, documented in S63 memory files. Not a blocker.
 - **Repo state:** all S64 commits pushed to `origin/main`. Working tree clean except `.DS_Store`.
 
-**LOCKED PRIORITY QUEUE (Steven 2026-04-14 end-of-S64, do in order, nothing else):**
+**REFRAMED PRIORITY QUEUE (Session 65 mid-session audit, 2026-04-14):**
 
 Full rationale + per-item background lives in `memory/project_s64_priority_queue.md` (auto-loaded each session). Order is load-bearing.
 
-1. **HARD DEADLINE: Thursday diocesan drip** — `.venv/bin/python scripts/diocesan_drip.py --execute` on Thu 2026-04-16 (do NOT `--force-day`). 14 contacts, roughly 6 min wall clock (sample). Then `--verify` to confirm all 63 diocesan contacts landed. This is the ONE item that can preempt the priority queue because of its fixed date.
-2. **BUG 5 permanent fix** in `tools/research_engine.py::_target_match_params`. **Plan-mode session required (Rule 1).** **READ `docs/session_65_prep_bug5_target_match_params.md` FIRST** — code paths mapped, seven open questions pre-identified, five candidate fix approaches. Current band-aid is `memory/public_district_email_blocklist.json` runtime guard. Blocks the 9 pending dioceses review.
-3. **LA archdiocese research restart** — blocked on F8 diocesan research playbook gap. Plan-mode session. Background: `memory/project_f8_diocesan_research_playbook.md`.
-4. **IN/OK/TN CSTA LinkedIn-snippet extraction** — iterate `scripts/fetch_csta_roster.py` for higher yield than hand-curation. Background: `memory/project_csta_roster_hand_curation_gaps.md`.
-5. **F2 column layout corruption** — 1,912 pre-existing scrambled rows + something bypassing the canonical writer. Highest-priority unknown. Background: `memory/project_f2_column_layout_corruption.md`.
-6. **Research cross-contamination audit** — post-extraction domain validation layer. Not F8-specific. Background: `memory/project_research_cross_contamination.md`.
-7. **Prospecting Queue / Signals / Leads cleanup** — scaffold data from test runs. One-time sweep. Background: `memory/feedback_scout_data_mostly_untested.md`.
-8. **Known debt / housekeeping** — optionally rotate `OUTREACH_CLIENT_SECRET` at Outreach app settings to remove the embedded `'` + `$` combo so `scripts/env.sh` can retire. Low priority since shim works. Other ad-hoc housekeeping as needed.
+**Session 65 audit finding (decisive):** three items at the top of the end-of-S64 queue were stale. F2 column layout corruption RESOLVED in Session 55 (measured — per `project_f2_column_layout_corruption.md` line 8). Research cross-contamination RESOLVED in Session 55 via the two-stage filter (measured — per `project_research_cross_contamination.md` line 62). BUG 5 permanent code fix CLOSED as WONTFIX in Session 65 after measuring 1-of-71 contamination rate (measured — 1.4% — per `SCOUT_PLAN.md` line 402). `docs/session_65_prep_bug5_target_match_params.md` deleted. See `project_bug5_shared_city_gap.md` for full audit writeup.
 
-**Explicitly NOT in this queue (do not start until drained):**
-- First live campaign via `load_campaign.py` — cross-session validation, opportunistic when a real campaign is on the plate.
-- Research Engine Round 1.1 — cost-ceiling blocker but not on Steven's explicit priority list. Treat as "after #8 unless Steven reprioritizes."
-- Handler wiring `_on_prospect_research_complete → execute_load_plan` — reframed during S64 plan mode, replaced by `scripts/load_campaign.py`. `docs/session_64_prep_prospect_loader_wiring.md` is now historical.
+**Steven's S65 diocesan directive:** finish the already-running diocesan work quickly; do not start any new diocesan work. The 23 pending diocesan network expansion and LA archdiocese restart are parked indefinitely.
+
+1. **HARD DEADLINE: Thursday diocesan drip** — `.venv/bin/python scripts/diocesan_drip.py --execute` on Thu 2026-04-16 (do NOT `--force-day`). 14 contacts (measured — per S64 queue), roughly 6 min wall clock (sample). Then `--verify` to confirm all 63 diocesan contacts landed. Only fixed-date item.
+2. **IN/OK/TN CSTA LinkedIn-snippet extraction** — iterate `scripts/fetch_csta_roster.py` for higher yield than hand-curation. Background: `memory/project_csta_roster_hand_curation_gaps.md`. Real primary-lane work.
+3. **Prospecting Queue / Signals / Leads scaffold cleanup** — one-time sweep. Background: `memory/feedback_scout_data_mostly_untested.md`.
+4. **Session 55 carry-over cleanups** — (a) review the S55 contam audit Google Doc at `docs.google.com/document/d/1TFle1jiyEiFqU_hv-rxIxsCf-WxXXDRoRaKW2A6MEfA/edit` (roughly 23 flagged rows — extrapolation — 4.8% measured of 483 measured — need Steven's yes-delete/no-keep judgments); (b) delete the `Prospecting Queue BACKUP 2026-04-10 0010` tab once comfortable.
+5. **Known debt / housekeeping** — optionally rotate `OUTREACH_CLIENT_SECRET` to retire `scripts/env.sh`. Low priority. Ad-hoc housekeeping as needed.
+
+**Explicitly PARKED (do not start until drained, even then only with explicit redirection):**
+- 23 pending diocesan networks expansion — small apples per S65 directive.
+- LA archdiocese research restart — diocesan, parked indefinitely.
+- BUG 5 permanent code fix — WONTFIX per S65 audit.
+- Research Engine Round 1.1 — opportunistic only, not on explicit priority list.
+- First live campaign via `load_campaign.py` — opportunistic when a real campaign is on the plate.
+- Handler wiring `_on_prospect_research_complete → execute_load_plan` — permanently historical, replaced by `scripts/load_campaign.py`.
 - 1,245 cold_license_request + 247 winback March backlogs — deferred.
 
 **For Session 62/63/64 narratives:** `SCOUT_HISTORY.md §Session 62` / `§Session 63` / `§Session 64`.
 **For the S64 plan reference (DONE):** `~/.claude/plans/luminous-honking-cook.md` rev 2 — the full pressure-test-rebuilt campaign loader plan.
-**For the S65 plan prep (NEXT):** `docs/session_65_prep_bug5_target_match_params.md` — read this BEFORE entering plan mode on BUG 5.
 **For the rule scanner plan reference:** `~/.claude/plans/playful-weaving-nygaard.md` + `~/.claude/plans/flickering-nibbling-breeze.md`.
 
 **Active kill switches:**
