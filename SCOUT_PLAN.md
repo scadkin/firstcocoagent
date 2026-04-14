@@ -1,9 +1,119 @@
 # SCOUT MASTER PLAN
-*Last updated: 2026-04-13 — End of Session 59 (diocesan value extraction + tool hardening: 6 live Outreach sequences verified, validator + verifier helpers shipped, 5 schedule IDs mapped, 3 process rules + 4 preflight checklists added, 15 memory files banked)*
+*Last updated: 2026-04-13 — End of Session 60 (schedule ID map correction shipped + research engine Round 1 plan approved; implementation pending next session. 20 memory files banked.)*
 
 ---
 
-## YOU ARE HERE → Session 59 was a 4-round session: 3 rounds of broken output that Steven caught every time, followed by round 4 tool hardening that made most of the failure modes structurally impossible going forward.
+## YOU ARE HERE → Session 60 ended mid-execution. Schedule ID map fix shipped (commit `846aaed`). Research engine Round 1 plan approved after pressure-test pass (`~/.claude/plans/spicy-sleeping-gadget.md`). Implementation starts next session at Commit 1: Part 0 shared dedup fix + 7 unit tests + Level 2 integration check + commit.
+
+### What Session 60 shipped (committed)
+
+- **Commit `846aaed` — Schedule ID map correction.** S59 memory had schedule 1 labeled as "Hot Lead Mon-Fri" based on sequence-name clustering. S60 verified from Outreach UI screenshots that the real "Hot Lead Mon-Fri" is schedule **51**, and schedule 1 is **"Weekday Business Hours"** (legacy default, 131 of Steven's 165 sequences on it, NOT one of his 5 targeted schedules). Corrected the default allowlist in `tools/outreach_client.py::_DEFAULT_ALLOWED_SCHEDULE_IDS` from `{1, 48, 50, 52, 53}` → `{48, 50, 51, 52, 53}`. 14/14 unit tests still pass (tests only reference 52 and 19, no schedule-1 assertion). Seq 1999 "!!!2026 License Request Seq (April)" was flagged in S59 but is actually correctly configured on schedule 51 — no migration needed. Files modified: `CLAUDE.md` (Current State + Preflight + memory count), `tools/outreach_client.py`, new `scripts/s60_schedule_lookup.py`. Memory files rewritten: `feedback_outreach_schedule_id_map.md`, `feedback_outreach_delivery_schedule_required.md`. New meta-lesson memory: `feedback_schedule_map_wrong_in_s59.md`.
+
+### What Session 60 approved (plan, implementation pending)
+
+**Plan file:** `~/.claude/plans/spicy-sleeping-gadget.md` — Research Engine Round 1 plan, approved after 1 pressure-test pass (feature flags replacing an earlier subclass design).
+
+**Scope of Round 1:**
+
+- **Part 0 — Shared dedup fix.** Two silent quality bugs in `_merge_contacts` (`tools/research_engine.py:1635-1649`) and `extract_from_multiple` (`tools/contact_extractor.py:214-235`) silently drop the newer contact on name collision, losing VERIFIED emails today. Unified fix: extract shared `_merge_contact_upgrade(existing, new)` helper into `contact_extractor.py`, call from both sites. Upgrade-on-collision semantics: fill email if missing, upgrade confidence VERIFIED > LIKELY > INFERRED > UNKNOWN, fill empty title. Never drop, never downgrade.
+- **Part 1 — Three feature flags on `ResearchJob.__init__`**, all defaulting to byte-for-byte v1 behavior:
+  - `enable_url_dedup: bool = False` — dedupe `raw_pages` by normalized URL (lowercase + rstrip trailing slash) at the top of `_layer9_claude_extraction`, BEFORE the BUG 5 Stage 1 page filter. Catches the case where L1/L2/L11/L16/L17 all return the same staff directory URL and L9 sends it to Claude 2-3 times.
+  - `l15_step5_skip_threshold: int | None = None` — when set, skip L15 Step 5 discovery when VERIFIED contact count ≥ threshold. Round 1 uses threshold=15. Steps 1-4 still run (verification + enrichment upgrades INFERRED/LIKELY → VERIFIED). Only Step 5 "find more" discovery is skipped.
+  - `log_claude_usage: bool = False` — capture `response.usage.input_tokens`/`output_tokens` from every Claude call via module-level `_capture_usage_enabled` + `_captured_usage` buffer in `contact_extractor.py`. Safe across `run_in_executor` thread boundaries because module globals are shared under CPython GIL + `ResearchQueue` is explicitly serial. `try/finally` in `ResearchJob.run()` ensures `stop_usage_capture` always runs. Attaches `claude_usage` key to result dict. **This is the measurement foundation for all future round cost decisions.**
+- **Part 2 — A/B test harness** (`scripts/ab_research_engine.py`, new, ~250 lines). Instantiates two `ResearchJob` objects (flags off vs flags on), runs serially with 30s delay (avoids Serper 60/min rate limit clipping), captures real per-run cost from `response.usage` token counts (not estimates), computes diff + per-target pass/fail gates (verified_quality ≥ 95%, cost ≤ 90%, wall_clock ≤ 105%), writes JSONL to `/tmp/scout_ab_results.jsonl`, enforces `--max-cost-usd` default $5 ceiling, handles exceptions without crashing. Companion `scripts/ab_analyze.py` aggregates the JSONL into a summary table.
+- **Zero changes to `agent/main.py`.** The 4 existing `research_queue.enqueue` call sites (`main.py:542`, `1591`, `2480`, `2876`) stay on v1 default behavior until Round 2 after A/B validation.
+
+**Anchoring measurement (N=20 public district jobs, real Research Log data):**
+- L2 title-variations: 90% hit rate, mean 12.6 contacts, max 30 — biggest workhorse
+- L1 direct-title: 75% hit rate, mean 10.4
+- L3 linkedin: 75% hit rate, mean 7.7
+- L14 conference: 70% hit rate, mean 3.8
+- L16 Exa broad: **25% hit rate but mean 28.6 when it hits, max 58** — variance bomb
+- L4, L5, L11, L12, L13, L20: all 10-35% hit rate, mean 1-5 — low-yield but kept (L4 is load-bearing for domain discovery)
+- Two dedup bugs confirmed by code read: both functions drop newer contact on collision
+
+**Architecture decision:** feature flags in v1, NOT `research_engine_v2.py` subclass. Rationale: subclass would require copying 200+ lines of `_layer15_email_verification` to change one if-statement, provides no real isolation benefit over flag gates, and makes the A/B harness harder not easier. Full rationale in the plan file and in `memory/feedback_feature_flags_not_subclass.md`.
+
+**Expected impact:** 10-25% cost reduction `(estimate — $0.05-0.15/job URL dedup + $0.025-0.05/job L15 skip on triggered runs). Round 1 is ~$45/week at saturation vs the $25/week hard ceiling — Round 1 does NOT solve the budget problem alone, it's the foundation for Round 2 (entity cache, Claude batching, Haiku fallback) and Round 3 (parallelism, territory L0 shortcut).
+
+**5 locked test targets (confirmed in territory_data, all cold):**
+1. Cypress-Fairbanks ISD (TX, 118,470) — large
+2. Cincinnati Public Schools (OH, 34,860) — medium
+3. Conejo Valley USD (CA, 15,999) — medium
+4. Lake Zurich CUSD 95 (IL, 5,703) — small
+5. Waverly School District 145 (NE, 2,134) — small
+
+### What Session 60 did NOT ship yet (next session work)
+
+**Commit 1 — Part 0 dedup fix** (blocked only by context window; ready to execute):
+1. Write `scripts/test_round1_unit.py` with 7 failing Part 0 tests (TDD)
+2. Implement `_merge_contact_upgrade(existing: dict, new: dict) -> None` in `tools/contact_extractor.py`
+3. Rewrite `extract_from_multiple` (lines 214-235) to use the helper
+4. Rewrite `ResearchJob._merge_contacts` (lines 1635-1649) to import + use the helper
+5. Run unit tests — must be 7/7 green
+6. Level 2 integration check: stash changes, run Waverly baseline via `ResearchJob("Waverly School District 145", "NE").run()`, save result, unstash, rerun, diff. Expected: `post.contacts_verified >= pre.contacts_verified`. Two real research jobs, ~14 min wall clock, ~$1.50 real API cost.
+7. Commit: `fix(research): upgrade-on-collision in shared dedup logic (recovers silently-lost VERIFIED emails)`
+
+**Commit 2 — Part 1 feature flags** (after Commit 1 green):
+1. Add 13 more unit tests to `scripts/test_round1_unit.py` (5 URL dedup, 4 L15 Step 5 skip, 4 usage logging)
+2. Add 3 feature flags to `ResearchJob.__init__`
+3. Add URL dedup block at top of `_layer9_claude_extraction` gated on `enable_url_dedup`
+4. Add L15 Step 5 skip check gated on `l15_step5_skip_threshold`
+5. Add module-level `_capture_usage_enabled` + `_captured_usage` + `start_usage_capture` / `stop_usage_capture` / `_log_usage` helpers in `contact_extractor.py`
+6. Wire capture start/stop in `ResearchJob.run()` via `try/finally` gated on `log_claude_usage`
+7. Add `claude_usage` key to result dict when logging enabled
+8. Run all 20 unit tests — must be 20/20 green
+9. Commit: `feat(research): add round 1 feature flags (url_dedup, l15_step5_skip, claude_usage_log)`
+
+**Commit 3 — Part 2 A/B harness** (after Commit 2 green):
+1. Create `scripts/ab_research_engine.py` (~250 lines)
+2. Create `scripts/ab_analyze.py` (~50 lines)
+3. Add `*.jsonl` to `.gitignore`
+4. Smoke test against Waverly with `--max-cost-usd 2`
+5. Commit: `feat(ab): research engine v1-vs-v1-with-flags A/B harness with real token logging`
+
+**Level 3 validation run** (after Commit 3):
+1. Run `.venv/bin/python scripts/ab_research_engine.py --district "<name>" --state <code>` for all 5 targets, starting with Waverly (smallest, cheapest), working up to Cypress-Fairbanks (largest)
+2. Stop immediately on any gate failure
+3. Aggregate via `.venv/bin/python scripts/ab_analyze.py /tmp/scout_ab_results.jsonl`
+4. Expected total real-API cost for 5 A/B runs: ~$5-10
+5. All 5 targets must pass all 3 gates (quality, cost, wall clock) for Round 1 to progress to Round 2 planning
+
+### Uncommitted working state at end of S60
+
+- `scripts/s60_test_target_lookup.py` — untracked, used to verify 5 test targets against Active Accounts + pull Research Log per-layer yields. Keep for reference, commit alongside Round 1 work.
+- `scripts/s60_verify_test_targets.py` — untracked, verified 5 candidates against `territory_data` enrollment (caught Park Ridge → Lake Zurich swap). Keep for reference, commit alongside Round 1 work.
+- `.DS_Store` — harmless, ignore.
+
+### Round 2 preview (NOT Round 1 scope — deferred after Round 1 A/B validates)
+
+1. **Entity cache** — `(normalized_district, state)` → result dict with 30-day TTL. In-memory + GitHub persistence (follows `memory/outreach_tokens.json` pattern). Biggest single cost reduction lever on repeat runs.
+2. **Claude call batching in L9 (batch mode only)** — group 5-10 pages per Claude call, saves ~50% on L9 system-prompt overhead. Adds latency (batch-mode-only flag, not interactive).
+3. **L15 full skip with stricter threshold** — Round 1 conservative Step 5 skip at 15. Round 2 considers full L15 skip at 25+ after data shows Steps 1-4 upgrade frequency.
+4. **Haiku 4.5 fallback on high-confidence structured pages** — pages with clear staff directory table structure can extract with Haiku at ~1/3 Sonnet cost. Needs page-classifier + A/B validation.
+5. **L16/L17 Exa conditional execution** — restructure phase order so L16 only fires if L9 first pass produces <15 VERIFIED. Biggest single cost amplifier today ($0.45-0.90/job indirect L9 cost when it runs).
+
+### Round 3 preview
+
+- Job-level parallelism (4-way concurrent `ResearchQueue` worker pool with shared token bucket)
+- Territory master list L0 — persist discovered district domains so L4 becomes cache lookup on repeats
+- Overnight batch scheduler (6pm-6am CST) for large-fan-out campaigns
+- Tier system by enrollment (only viable after Research Log state field is fixed upstream)
+
+### Session 60 lessons (load-bearing for next session)
+
+- **Don't default to diocese/charter/CTE examples.** Public school districts in territory states are Scout's primary lane. S58-S60 drift happened because I reached for diocesan data reflexively — the freshest thing in memory. Banked as `feedback_scout_primary_target_is_public_districts.md` + `feedback_dont_default_to_diocese_examples.md`. Hard self-check: scan drafts for the word "diocese" before sending.
+- **$25/week is the real research budget ceiling**, not the invented $50-150/week. Derived from Outreach 5k/week cap → ~100 atomic jobs/week saturation → $0.25/job max. `feedback_research_budget_25_per_week.md`.
+- **Outreach 5k/week cap is user-level, not mailbox-level.** Gmail spillover breaks tracking. Recommend second Outreach seat if Steven ever exceeds. `feedback_outreach_sending_cap_5k_weekly.md`.
+- **"Job" = user-facing prospecting request**, not atomic entity. One `/research all private schools in OK` command is ONE job containing 50-150 atomic entities. Progress + budget reporting happen at job level. `feedback_job_definition_user_request.md`.
+- **Feature flags beat subclass for shipping variant behavior on large classes.** Subclass requires copying huge methods to override one if-statement. Flags defaulting to current behavior preserve byte-for-byte production state. `feedback_feature_flags_not_subclass.md`.
+- **Steven's pressure-test ritual works.** Session 60 Round 1 plan was rebuilt from scratch after the pressure-test prompt caught: subclass architecture error, invented cost estimates, scope creep into `agent/main.py`, vague verification, floor-style success metrics. Apply the same pressure-test discipline BEFORE presenting, not after.
+- **`territory_data.lookup_district_enrollment` fails on historical Research Log rows** because old writer truncated state field to "Te"/"Oh"/"Ok". Not a current bug. Blocks enrollment-based tier routing in Round 1. Fresh rows use correct abbreviations. Separate investigation, not Round 1 blocker.
+- **L16 Exa broad is the variance bomb.** 25% hit rate but dominates when it hits (mean 28.6, max 58 contacts). Indirectly amplifies L9 Claude cost by 10-20 extra page extractions when it fires. Round 2 candidate for conditional execution.
+
+---
+
+## Session 59 archive → 4-round session: 3 rounds of broken output caught by Steven, round 4 tool hardening.
 
 ### Round-by-round narrative
 

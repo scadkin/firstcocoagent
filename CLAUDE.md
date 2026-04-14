@@ -1,11 +1,104 @@
 # SCOUT — Claude Code Reference
-*Last updated: 2026-04-13 — Mid Session 60 (schedule ID map correction: S59 had schedule 1 wrongly labeled as "Hot Lead Mon-Fri"; the real "Hot Lead Mon-Fri" is schedule 51. Allowlist corrected to `{48, 50, 51, 52, 53}`.)*
+*Last updated: 2026-04-13 — End of Session 60 (schedule ID map correction shipped; research engine Round 1 plan approved but implementation pending. 20 memory files banked.)*
 
 ---
 
 ## CURRENT STATE — update this after each session
 
-**What's live after Session 59:**
+**Session 60 ended mid-execution at context limit.** Two distinct pieces of work:
+
+### 1. Schedule ID map correction — SHIPPED (commit `846aaed`)
+
+- S59 memory had schedule 1 incorrectly labeled as "Hot Lead Mon-Fri" based on sequence-name clustering (no UI verification)
+- S60 verified from Outreach UI screenshots: schedule **1** = "Weekday Business Hours" (legacy default, 131 seqs), schedule **51** = actual "Hot Lead Mon-Fri" (only seq 1999 uses it)
+- `tools/outreach_client.py::_DEFAULT_ALLOWED_SCHEDULE_IDS` corrected from `{1, 48, 50, 52, 53}` → `{48, 50, 51, 52, 53}`
+- 14/14 outreach_validator unit tests still pass (tests never referenced schedule 1 directly)
+- Seq 1999 "!!!2026 License Request Seq (April)" is correctly configured on its real schedule — no migration needed
+- `feedback_outreach_schedule_id_map.md` rewritten with UI-verified 5 schedules + legacy/teammate/do-not-use IDs
+- `feedback_outreach_delivery_schedule_required.md` rewritten (stale per-type default table replaced)
+- New meta-lesson: `feedback_schedule_map_wrong_in_s59.md` — never confirm an ID→name map from sequence-name clustering, only from UI or Steven
+- Files committed: `CLAUDE.md`, `tools/outreach_client.py`, `scripts/s60_schedule_lookup.py`
+
+### 2. Research engine Round 1 plan — APPROVED (implementation pending)
+
+**Plan file:** `~/.claude/plans/spicy-sleeping-gadget.md`
+
+Session 60 dedicated the back half to deep exploration of `tools/research_engine.py` (1,795 lines) + `tools/contact_extractor.py`, real per-layer yield measurement from Research Log (N=20 public district jobs), and a pressure-test rebuild of the Round 1 plan. Steven explicitly approved the plan after the pressure-test pass. **Implementation has NOT started.** Next session begins at Commit 1.
+
+**Anchoring data (measurement from 20 real public district jobs):**
+- L2 title-variations is the workhorse: 90% hit rate, mean 12.6 contacts, max 30
+- L1 direct-title: 75% hit rate, mean 10.4
+- L3 linkedin: 75% hit rate, mean 7.7
+- L14 conference: 70% hit rate, mean 3.8
+- **L16 Exa broad: 25% hit rate but mean 28.6 when it hits, max 58 — variance bomb. When it fires, 10-20 extra pages feed into L9 Claude extraction, amplifying cost by $0.40-1.20/job indirect**
+- L4/L5/L11/L12/L13/L20: all low hit rate (10-35%) + low mean yield (1-5 contacts). Candidates for conditional execution in Round 2.
+
+**Two silent quality bugs confirmed by code read:**
+- `ResearchJob._merge_contacts` at `tools/research_engine.py:1635-1649` — dedupes by (first, last), silently drops newer contact on name collision
+- `extract_from_multiple` at `tools/contact_extractor.py:214-235` — identical bug
+- Impact: if page 1 returns "John Smith no email" and page 2 returns "John Smith + VERIFIED email", the page-2 version is silently dropped and the email is lost. Happens today in every research job.
+
+**Round 1 scope (3 parts, 3 commits, zero `agent/main.py` changes):**
+
+- **Part 0 — Shared dedup fix:** extract `_merge_contact_upgrade(existing, new)` helper into `contact_extractor.py`, call from both `_merge_contacts` and `extract_from_multiple`. Upgrade-on-collision: fill email if missing, upgrade confidence VERIFIED > LIKELY > INFERRED > UNKNOWN, fill empty title. Never drop, never downgrade.
+
+- **Part 1 — Three feature flags on `ResearchJob.__init__`**, all defaulting to byte-for-byte v1 behavior:
+  - `enable_url_dedup: bool = False` — dedupes `raw_pages` by `url.rstrip("/").lower()` before L9 Claude extraction
+  - `l15_step5_skip_threshold: int | None = None` — when set (Round 1 uses 15), skips L15 Step 5 discovery if VERIFIED contact count ≥ threshold. Steps 1-4 still run (verification + enrichment). Only "find more" is skipped.
+  - `log_claude_usage: bool = False` — captures `response.usage.input_tokens/output_tokens` via module-level `_capture_usage_enabled` + `_captured_usage` buffer in `contact_extractor.py`. Safe across `run_in_executor` thread boundaries because module globals are shared under CPython GIL + `ResearchQueue` is explicitly serial. `try/finally` in `ResearchJob.run()` ensures balanced start/stop. Attaches `claude_usage` key to result dict.
+
+- **Part 2 — A/B harness** (`scripts/ab_research_engine.py`, new): instantiates two `ResearchJob` objects (flags off vs flags on), runs serially with 30s delay, captures real per-run cost from `response.usage` token counts, computes diff + numerical pass/fail gates (verified_quality ≥ 95% of v1, cost ≤ 90% of v1, wall_clock ≤ 105% of v1), writes JSONL to `/tmp/scout_ab_results.jsonl`, enforces `--max-cost-usd` default $5 ceiling, handles exceptions gracefully. Companion `scripts/ab_analyze.py` aggregates the JSONL.
+
+**Architecture decision:** feature flags in v1 `ResearchJob`, NOT a `research_engine_v2.py` subclass. Rationale: subclass would require copying 200+ lines of `_layer15_email_verification` to change one if-statement. Full rationale in `feedback_feature_flags_not_subclass.md` and the plan file.
+
+**Expected impact:** 10-25% cost reduction `(estimate)`. Round 1 blended is ~$45/week at saturation vs the $25/week hard ceiling — **Round 1 does NOT solve the budget problem alone**, it's the foundation for Round 2 (entity cache, Claude batching, Haiku fallback) and Round 3 (parallelism, territory L0 shortcut) which close the gap.
+
+**5 locked test targets (confirmed in `territory_data`, all cold/no-Active-Account):**
+
+| # | District | State | Enrollment | Tier |
+|---|---|---|---|---|
+| 1 | Cypress-Fairbanks ISD | TX | 118,470 | Large |
+| 2 | Cincinnati Public Schools | OH | 34,860 | Medium |
+| 3 | Conejo Valley USD | CA | 15,999 | Medium |
+| 4 | Lake Zurich CUSD 95 | IL | 5,703 | Small |
+| 5 | Waverly School District 145 | NE | 2,134 | Small |
+
+**Next step (exact, start of next session):** execute Commit 1. Write `scripts/test_round1_unit.py` with 7 failing Part 0 tests (TDD), implement `_merge_contact_upgrade` helper in `contact_extractor.py`, rewrite both dedup functions to use it, run unit tests (must be 7/7 green), run Level 2 pre-merge integration check on Waverly (stash → baseline run → unstash → post-fix run → diff, expected ~14 min wall clock + ~$1.50 API cost), commit as `fix(research): upgrade-on-collision in shared dedup logic`.
+
+### Uncommitted files in working tree
+
+- `scripts/s60_test_target_lookup.py` — untracked. Used to verify 5 test targets against Active Accounts + pull Research Log per-layer yields. Keep for reference; commit alongside Round 1 work or as a standalone measurement-script commit.
+- `scripts/s60_verify_test_targets.py` — untracked. Verified 5 candidates against `territory_data.lookup_district_enrollment` enrollment. Caught Park Ridge-Niles CCSD 64 → Lake Zurich CUSD 95 swap (Park Ridge wasn't in the NCES territory master under that name). Keep for reference.
+- `.DS_Store` — harmless macOS noise, ignore.
+
+### Session 60 memory files banked (4 new, 2 rewritten)
+
+- NEW `feedback_schedule_map_wrong_in_s59.md` — meta-lesson on ID→name confirmation discipline
+- NEW `feedback_scout_primary_target_is_public_districts.md` — hard rule against drifting to diocesan/charter/CTE defaults
+- NEW `feedback_dont_default_to_diocese_examples.md` — self-check for "diocese" before sending messages
+- NEW `feedback_research_budget_25_per_week.md` — $25/week hard ceiling, not invented numbers
+- NEW `feedback_outreach_sending_cap_5k_weekly.md` — Outreach 5k/week user-level cap + Gmail 2k/24hr comparison + spillover analysis
+- NEW `feedback_job_definition_user_request.md` — "job" = user-facing request, not atomic entity
+- NEW `feedback_feature_flags_not_subclass.md` — architecture lesson from the S60 pressure test
+- REWRITTEN `feedback_outreach_schedule_id_map.md` — UI-verified 5 schedules + legacy table
+- REWRITTEN `feedback_outreach_delivery_schedule_required.md` — correct per-type defaults
+
+### Session 60 lessons (most recent, load-bearing)
+
+- **Don't default to diocese/charter/CTE examples.** Public school districts in territory states are Scout's primary lane. S58-S60 drift happened because diocesan data was the freshest thing in memory and I reached for it reflexively. Hard self-check for the word "diocese" before sending drafts on non-diocesan topics.
+- **Feature flags beat subclass for shipping variant behavior on large classes.** Subclass requires copying 200+ line methods to override one if-statement. Flags defaulting to current behavior preserve byte-for-byte production state with zero risk.
+- **Real token counts via `response.usage` replace formula-based cost estimation.** The Anthropic SDK returns exact input/output tokens on every call — we just weren't logging them. Module-level capture buffer is safe across `run_in_executor` thread boundaries because (a) CPython GIL makes `list.append` atomic, (b) `ResearchQueue` is explicitly serial one-job-at-a-time.
+- **`threading.local()` does NOT survive `run_in_executor`.** Initial design used thread-local for usage capture; caught during pressure-test that `extract_from_multiple` runs in the executor thread pool while `ResearchJob.run()` runs in the main asyncio thread — thread-local entries don't cross thread boundaries. Module globals do.
+- **Steven's budget is $25/week maximum, lower is better.** Not the $50-150/week I guessed earlier in S60. Derived from Outreach 5k/week cap → ~100 atomic jobs/week saturation → $0.25/job max. Do not quote higher numbers as "the target."
+- **Outreach 5k/rolling-7-days is user-level, not mailbox-level.** Adding mailboxes doesn't help. Gmail spillover breaks tracking. Second Outreach seat is the only clean escape valve.
+- **`territory_data.lookup_district_enrollment` fails on historical Research Log rows** because old writer truncated state field to "Te"/"Oh"/"Ok". Fresh rows use correct 2-letter abbreviations. Historical data quality issue, not a current bug. Blocks enrollment-based tier routing in Round 1 — deferred to Round 3.
+- **L16 Exa broad is the variance bomb.** 25% hit rate but mean 28.6 contacts when it hits, max 58 (Columbus City Schools). When fires, 10-20 extra pages feed into L9 Claude extraction, indirectly amplifying L9 cost by $0.40-1.20/job. Round 2 candidate for conditional execution only when L9 first pass finds <15 VERIFIED.
+
+---
+
+## WHAT SHIPPED BEFORE SESSION 60 (still load-bearing)
+
+**From Session 59:**
 
 - **6 diocesan sequences in Outreach**, all verified clean via `verify_sequence`:
   - 2008 Archdiocese of Philadelphia Schools
@@ -75,6 +168,7 @@
 - **Silent failure spot-check** (5 recent non-diocesan Steven-owned sequences, loose expectations): findings documented — all 5 have at least one banned-phrase or dash failure. Not fixed without Steven's sign-off (legacy sequences are Steven's own work). Notable: seq 1999 "2026 License Request Seq (April)" uses `schedule=51` which is NOT in Steven's 5 named schedules — flag for Steven attention. Validator's en-dash (U+2013) detection is producing false positives on legitimate date ranges; future iteration should make en dash a warning not a failure.
 
 ### Recent sessions (details in SCOUT_PLAN.md + SCOUT_HISTORY.md)
+- **Session 60:** Two bodies of work. (1) Schedule ID map correction — shipped (commit `846aaed`). S59 memory had schedule 1 labeled as "Hot Lead Mon-Fri" from sequence-name clustering; S60 verified from Outreach UI that schedule 1 is "Weekday Business Hours" (legacy default, 131 seqs) and the real "Hot Lead Mon-Fri" is schedule 51. Default allowlist corrected to `{48, 50, 51, 52, 53}`. Seq 1999 is correctly configured on its real schedule — no migration needed. (2) Research engine Round 1 plan — approved after pressure-test pass (plan file: `~/.claude/plans/spicy-sleeping-gadget.md`). Feature-flag architecture (not subclass), 3 flags on `ResearchJob.__init__`, A/B harness with real token logging via `response.usage`, numerical pass/fail gates, 5 locked test targets. **Implementation not yet started — next session starts at Commit 1 (Part 0 shared dedup fix + 7 unit tests + Level 2 Waverly integration check).** 4 new memory files banked (anti-drift, budget, sending cap, feature flags) + 2 rewritten (schedule map, delivery schedule required). 20 total memory files banked across S60. 1 commit: `846aaed`. Plan file: `~/.claude/plans/spicy-sleeping-gadget.md`.
 - **Session 59:** Diocesan value extraction + tool hardening. Rounds 1-3 shipped 12 user-visible failures (missing meeting link, "one pager" CTA repetition, em dashes, auto-gen descriptions, rogue schedule 19, 60x-too-short intervals, F1 audit category error, fabricated cost numbers, "F3 retired" fabrication, etc.) — every one caught by Steven in the Outreach UI or sheet audit, not self-caught. Root cause was shipping on API 2xx + memory not loaded, not reasoning quality per se. Round 4 installed tool hardening: `validate_sequence_inputs` + `verify_sequence` in `tools/outreach_client.py` make 8 of 12 failure modes structurally impossible at the code boundary, plus 14 unit tests. All 6 diocesan sequences 2008-2013 verified clean in Outreach with correct schedule/owner/intervals/bodies. Added 3 process rules to `docs/SCOUT_RULES.md` + 4 preflight checklists to this file. 15 memory files banked. F1 stays active after Steven pushback on flawed audit. Research engine bulk-mode optimization deferred to Session 60 as a blocker for backlog drain. Commits: `042f146`, `4051f53`, `7c162b6`, `eff3786`, `880d77b`, `1f22991`, `08c8f98` (+ wrap commit). Plan: `~/.claude/plans/lexical-swinging-pelican.md` (v3 after 2 pressure-test passes).
 - **Session 58:** Priorities 1–4 comprehensive knockdown. Stage 6/7/8 (F6/F7/F9/F1), diocesan drip started (6 of 16 approved), CSTA enrichment wired to F4/F6/F7/F8 via helper, CSTA roster 39/14 → 77/41, `/prospect_approve all` bug fixed, CLAUDE.md doc trim. 7 commits (`185a3f2`, `c947681`, `e52ce25`, `3ea1be1`, `69a3e9c`, `529a919`, end-of-session). Plans: `~/.claude/plans/mellow-bouncing-lemur.md` (CLAUDE.md trim).
 - **Session 57:** BUG 1 (F4 query redesign + harness + oracle gate + enable flip) + BUG 2 (F5 retired, CSTA enrichment lookup built, F2 wired). 4 commits. Plans: `~/.claude/plans/purring-crafting-scroll.md` + `~/.claude/plans/bug2-csta-enrichment.md`
@@ -84,18 +178,50 @@
 - **Session 53:** Fire drill audit. F2 max_tokens fix. 5 silent-failure bugs discovered.
 - **Session 52:** Session 51 audit + 3 BLOCKER fixes. 6 commits.
 
-### What still needs to be done (Session 60 — execute + decisions)
+### What still needs to be done (Session 61 — execute Round 1 + carryover decisions)
 
-1. **STEVEN ACTION — activate the 6 diocesan sequences** (IDs 2008-2013) in Outreach UI. All verified clean via `verify_sequence`. Open each, click Activate, toggle all 5 templates active, add prospects from `Leads from Research` tab. Philadelphia (20 verified central-office contacts on `@archphila.org`) and Cincinnati (23 contacts on `@catholicaoc.org`) are the gold targets — start there.
-2. **STEVEN DECISION — schedule 51 on seq 1999.** "2026 License Request Seq (April)" uses schedule 51, NOT in Steven's 5 named schedules. Either a legacy schedule that should be migrated to schedule 1 (Hot Lead Mon-Fri), or a 6th schedule Steven has that isn't in the allowlist. Flag was raised by Session 59 Section 3 spot-check.
-3. **SESSION 60 PRIMARY: research engine bulk-mode optimization** — plan-mode session. Measure per-layer hit rates from recent Research Log, add parallelism with rate-limit budget, add entity-level caching, introduce early termination on confidence threshold, and use the territory master list as L0 to skip re-discovery. Target: 10x cost reduction + 6-8x speed up. **Blocker for any backlog drain** (intra_district 384, charter_cmo 15, cte_center 34, private_school_network 16, cs_funding 7, cold_license_request 1,245, winback 247).
-4. **SESSION 60 — BUG 5 code fix** in `tools/research_engine.py:_target_match_params`. Shared-city gap (Detroit/Pittsburgh/OKC/Fort Worth/Houston/Lincoln/Omaha/Nashville dioceses all share city tokens with public districts). Test harness, same shape as BUG 1 Session 57. Runtime `public_district_email_blocklist.json` is current patch.
-5. **SESSION 60 — 9 pending dioceses review** with per-diocese blocklist-gated cleanup after each research job completes. Pittsburgh/OKC/Omaha first. Only after BUG 5 fix ships OR blocklist enforcement is wired into the research engine.
-6. **OPTIONAL — F9 compliance scanner query redesign.** Separate plan-mode session. Empirical Serper PDF probes first, then query iteration. Exit criterion ≥60% HIGH validation rate.
-7. **OPTIONAL — LA archdiocese research restart.** Hand-seed with `lacatholicschools.org` and rerun; regenerate sequence if yield improves.
-8. **OPTIONAL — IN/OK/TN CSTA hand-curation.** +15 matchable entries. ~15-30 min manual Google/LinkedIn work.
-9. **DEFERRED — cold_license_request 1,245 + winback 247 stale March backlogs.** Dedicated plan-mode session to decide purge vs cherry-pick vs retire. Blocked on research engine redesign.
-10. **FUTURE — wire `create_sequence` into `_on_prospect_research_complete` handler.** Tool hardening is in place so the wiring is safe when it ships. Every future auto-approved diocesan/charter/cte prospect will auto-generate a live Outreach sequence with full validation.
+**PRIMARY — execute the approved research engine Round 1 plan** (`~/.claude/plans/spicy-sleeping-gadget.md`):
+
+1. **Commit 1 — Part 0 shared dedup fix** (~2 hours including integration check):
+   - Write `scripts/test_round1_unit.py` with 7 failing TDD tests for `_merge_contact_upgrade`
+   - Implement helper in `tools/contact_extractor.py`
+   - Rewrite `extract_from_multiple` (lines 214-235) and `ResearchJob._merge_contacts` (`tools/research_engine.py:1635-1649`) to use the helper
+   - Run unit tests — must be 7/7 green
+   - Level 2 pre-merge integration check against Waverly (stash → baseline run → unstash → post-fix run → diff). Two real research jobs, ~14 min wall clock, ~$1.50 real API cost. Expected: `post.contacts_verified >= pre.contacts_verified`.
+   - Commit as `fix(research): upgrade-on-collision in shared dedup logic (recovers silently-lost VERIFIED emails)`
+2. **Commit 2 — Part 1 feature flags** (~2 hours):
+   - Add 13 more unit tests (5 URL dedup + 4 L15 Step 5 skip + 4 usage logging)
+   - Add 3 flags to `ResearchJob.__init__` defaulting to v1 behavior
+   - URL dedup block at top of `_layer9_claude_extraction` gated on `enable_url_dedup`
+   - L15 Step 5 skip check gated on `l15_step5_skip_threshold`
+   - Module-level `_capture_usage_enabled` + `_captured_usage` + helpers in `contact_extractor.py`
+   - `start_usage_capture`/`stop_usage_capture` in `ResearchJob.run()` via `try/finally` gated on `log_claude_usage`
+   - `claude_usage` key added to result dict when logging enabled
+   - Run all 20 unit tests — must be 20/20 green
+   - Commit as `feat(research): add round 1 feature flags (url_dedup, l15_step5_skip, claude_usage_log)`
+3. **Commit 3 — Part 2 A/B harness** (~2 hours):
+   - Create `scripts/ab_research_engine.py` (~250 lines)
+   - Create `scripts/ab_analyze.py` (~50 lines)
+   - Add `*.jsonl` to `.gitignore`
+   - Smoke test against Waverly with `--max-cost-usd 2`
+   - Commit as `feat(ab): research engine v1-vs-v1-with-flags A/B harness with real token logging`
+4. **Level 3 full A/B validation run** (~45 min wall clock, ~$5-10 real API cost):
+   - Run harness against all 5 locked targets (Waverly → Lake Zurich → Conejo Valley → Cincinnati → Cypress-Fairbanks)
+   - Aggregate via `ab_analyze.py`
+   - All 5 targets must pass 3 numerical gates (verified ≥ 95%, cost ≤ 90%, wall clock ≤ 105%)
+   - If all pass → Round 1 is validated, Round 2 planning unlocks
+   - If any fail → investigate, iterate, re-run
+
+**CARRYOVER FROM SESSION 59 (still pending, not Round 1 scope):**
+
+5. **STEVEN ACTION — activate the 6 diocesan sequences** (IDs 2008-2013) in Outreach UI. All verified clean via `verify_sequence`. Philadelphia + Cincinnati are the gold targets (20+ verified central-office contacts each).
+6. **BUG 5 code fix** in `tools/research_engine.py:_target_match_params`. Shared-city gap (Pittsburgh/OKC/Omaha etc dioceses share city tokens with public districts). Runtime `public_district_email_blocklist.json` is current patch. Separate plan-mode session.
+7. **9 pending dioceses review** with per-diocese blocklist-gated cleanup. Pittsburgh/OKC/Omaha first. Blocked on BUG 5 fix or blocklist enforcement wired into engine.
+8. **OPTIONAL — F9 compliance scanner query redesign.** Separate plan-mode session. Empirical Serper PDF probes first. Exit criterion ≥60% HIGH validation rate.
+9. **OPTIONAL — LA archdiocese research restart.** Hand-seed with `lacatholicschools.org` and rerun.
+10. **OPTIONAL — IN/OK/TN CSTA hand-curation.** +15 matchable entries. ~15-30 min manual work.
+11. **DEFERRED — cold_license_request 1,245 + winback 247 stale March backlogs.** Dedicated plan-mode session to decide purge vs cherry-pick vs retire. Blocked on research engine Round 2/3 completion.
+12. **FUTURE — wire `create_sequence` into `_on_prospect_research_complete` handler.** Tool hardening is in place so the wiring is safe when it ships.
 
 ### Session 59 lessons (most recent, still load-bearing)
 - **Empirical probing before plan mode catches frame errors, not just detail errors.** Session 59's v1 plan focused on backlog drain. 15 minutes of pre-plan probing (pulling Research Log row counts, checking `_on_prospect_research_complete` elif chain, counting queue rows, verifying `ResearchQueue` singleton behavior) revealed that the real bottleneck wasn't queue or cost but (a) the sequence builder had no diocesan branch, and (b) Steven's review bandwidth was saturated, not his queue capacity. Completely reframed the session. The pressure-test pass caught what the first plan missed by holding the full pipeline in head instead of reacting to CLAUDE.md's stated priorities.

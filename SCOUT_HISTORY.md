@@ -1218,6 +1218,153 @@ The full Session 56 "What's working" + "What's still in-progress / unresolved" +
 
 ---
 
+## Session 60 (2026-04-13) — Schedule ID Map Correction + Research Engine Round 1 Plan Approved
+
+**Two distinct bodies of work. Session ended at context limit mid-execution on the research engine plan; implementation deferred to Session 61.**
+
+### Part 1: Schedule ID map correction — SHIPPED (commit `846aaed`)
+
+**Problem:** Session 59 memory (`feedback_outreach_schedule_id_map.md`) claimed schedule ID 1 was "Hot Lead Mon-Fri" based on sequence-name clustering inference. Session 60 spot-check discovered seq 1999 "!!!2026 License Request Seq (April)" was attached to schedule 51, which wasn't in the allowlist `{1, 48, 50, 52, 53}`. Initial framing assumed schedule 51 was an orphan or Steven's 6th schedule.
+
+**Root cause found via Steven providing 3 UI dropdown screenshots:**
+- Schedule **1** = "Weekday Business Hours" (legacy default, 131 of Steven's 165 owned sequences use it, NOT one of the 5 targeted schedules)
+- Schedule **8** = "Sequence scheduling hours" (13 seqs, legacy)
+- Schedule **19** = "Becky - Time Schedule" (teammate's schedule, do not use)
+- Schedule **51** = "Hot Lead Mon-Fri" (Steven's real hot lead schedule — only seq 1999 uses it)
+- Schedule **48** = "SA Workdays" ✓
+- Schedule **50** = "C4 Tue-Thu Morning" ✓
+- Schedule **52** = "Admin Mon-Thurs Multi-Window" ✓
+- Schedule **53** = "Teacher Tue-Thu Multi-Window" ✓
+
+The S59 "confirmed via AI Webinar seq" note was bogus — the Algebra Webinar April 2026 sequences (2000, 2001) are actually on schedule 48, not 1. Whoever wrote the S59 memory never opened the UI to verify.
+
+**Fix:**
+- `tools/outreach_client.py::_DEFAULT_ALLOWED_SCHEDULE_IDS` corrected from `{1, 48, 50, 52, 53}` → `{48, 50, 51, 52, 53}`
+- Docstring updated with per-ID name map + S60 correction note
+- 14/14 outreach_validator unit tests still pass (tests only reference 52 and 19, never 1)
+- Seq 1999 needs NO migration — it's already correctly configured on its real schedule
+- `feedback_outreach_schedule_id_map.md` rewritten with UI-verified table + API limitation note (no `schedules.read` scope)
+- `feedback_outreach_delivery_schedule_required.md` rewritten — stale schedule 1/8/19 inferences replaced with the correct 5-schedule table
+- New meta-lesson memory: `feedback_schedule_map_wrong_in_s59.md` — never confirm an ID→name map from sequence-name clustering, only from UI or Steven
+- CLAUDE.md Current State + header + memory file count updated (15 → 16 → eventually 20)
+
+**Files modified in commit `846aaed`:**
+- `CLAUDE.md` (schedule ID map section + header)
+- `tools/outreach_client.py` (allowlist default + docstring)
+- `scripts/s60_schedule_lookup.py` (new, ~100 lines — the live API query that verified ground truth)
+
+### Part 2: Research engine Round 1 plan — APPROVED, implementation pending
+
+**Context:** Research engine bulk-mode optimization was the Session 60 primary work per CLAUDE.md. Steven's pressure from Session 59 was: "$200-800 cost, 30 hours queue time — these numbers are ABSURD, need creative rethinking, as good as possible, as fast as possible, as close to free as possible without sacrificing quality."
+
+**Exploration phase:**
+- Read `tools/research_engine.py` (1,795 lines) end-to-end
+- Read `tools/contact_extractor.py`, `agent/keywords.py`, `tools/CLAUDE.md`
+- Parsed real per-layer yield data from Research Log (N=20 public district jobs, diocesan/charter/CTE filtered out)
+- Dispatched 2 parallel Explore agents to map insertion points for v2 engine + existing cache/A-B utilities (result: no existing cache utility, no A/B harness, 4 `research_queue.enqueue` call sites in `main.py`)
+
+**Key measurements (real data):**
+
+| Layer | Hit rate | Mean yield (when present) | Notes |
+|---|---|---|---|
+| L1 direct-title | 75% | 10.4 | reliable core |
+| L2 title-variations | **90%** | **12.6** | biggest workhorse |
+| L3 linkedin | 75% | 7.7 | reliable core |
+| L14 conference | 70% | 3.8 | reliable core |
+| L16 Exa broad | 25% | **28.6** | variance bomb — max 58 (Columbus City Schools) |
+| L4-L13, L17, L20 | 10-35% | 1-5 | low-yield candidates |
+
+**Load-bearing insight:** L16 Exa broad is the variance bomb. 25% hit rate but when it fires, it dominates (mean 28.6, max 58). Each Exa result is a ~15k-char page that feeds into L9 Claude Sonnet 4.6 extraction at ~$0.04/page — so L16's indirect L9 cost is $0.40-1.20/job when it runs. Biggest single cost amplifier in the engine. Conditional execution is Round 2 candidate.
+
+**Two silent quality bugs confirmed:**
+1. `ResearchJob._merge_contacts` at `tools/research_engine.py:1635-1649` — dedupes by `(first, last)`, silently drops newer contact on name collision
+2. `extract_from_multiple` at `tools/contact_extractor.py:214-235` — identical bug, identical consequences
+
+**Impact:** If page 1 returns "John Smith no email" and page 2 returns "John Smith + VERIFIED email", the page 2 version is silently thrown away. Real VERIFIED emails are being lost today in every research job. Both functions affect both engines equally (not a v1-vs-v2 regression — a shared existing bug).
+
+**Plan iteration history:**
+- **Draft 1:** `ResearchJobV2(ResearchJob)` subclass with overridden `run()`, `_layer9_claude_extraction`, `_layer15_email_verification`. 4 Parts. Part 3 added `/research_ab` Telegram command. Cost estimation by formula ($0.045/page). Floor-style success metrics ("≥95% of v1's VERIFIED").
+- **Pressure test (Steven prompted):** rebuild from scratch, ruthless senior review, feature flags not subclass, real measurement not estimates, drop scope creep, numerical gates, pre-merge safety checks, explicit gitignore discipline, honest budget framing.
+- **Draft 2 (approved):** feature flags on v1 `ResearchJob.__init__`, drop subclass, drop Telegram command, add `log_claude_usage` flag for real `response.usage` token counts, add module-level capture buffer (not thread-local, because `run_in_executor` moves `extract_from_multiple` to a different thread than the main asyncio loop — thread-local wouldn't survive the boundary; module globals work because CPython GIL + `ResearchQueue` serial guarantee). 3 parts, 3 commits, zero `agent/main.py` changes.
+
+**Approved Round 1 scope:**
+
+- **Part 0** — Shared dedup fix: extract `_merge_contact_upgrade(existing, new)` helper into `contact_extractor.py`, call from both `_merge_contacts` and `extract_from_multiple`. Upgrade semantics: fill email if missing, upgrade confidence VERIFIED > LIKELY > INFERRED > UNKNOWN, fill empty title. Never drop, never downgrade.
+- **Part 1** — Three flags on `ResearchJob.__init__`, all defaulting to byte-for-byte v1 behavior:
+  - `enable_url_dedup: bool = False` — dedupes `raw_pages` by `url.rstrip("/").lower()` before L9
+  - `l15_step5_skip_threshold: int | None = None` — skip L15 Step 5 discovery when VERIFIED count ≥ threshold. Round 1 uses 15. Steps 1-4 still run.
+  - `log_claude_usage: bool = False` — captures `response.usage` via module-level `_capture_usage_enabled` + `_captured_usage` buffer
+- **Part 2** — A/B harness (`scripts/ab_research_engine.py`): two `ResearchJob` objects serial with 30s delay, real cost from `response.usage` tokens, JSONL output, pass/fail gates (verified ≥ 95%, cost ≤ 90%, wall clock ≤ 105%), `--max-cost-usd` ceiling, exception-safe
+
+**Verification plan:**
+- **Level 1:** 20 unit tests (7 Part 0 + 5 URL dedup + 4 L15 skip + 4 usage logging), all must pass before integration
+- **Level 2:** Pre-merge Part 0 regression check on Waverly (stash → baseline → unstash → post-fix → diff)
+- **Level 3:** Full A/B against 5 locked targets, all must pass all 3 gates
+
+**5 locked test targets:**
+- Cypress-Fairbanks ISD (TX, 118,470) — large
+- Cincinnati Public Schools (OH, 34,860) — medium
+- Conejo Valley USD (CA, 15,999) — medium
+- Lake Zurich CUSD 95 (IL, 5,703) — small (replaced Park Ridge-Niles CCSD 64 after `territory_data` lookup miss)
+- Waverly School District 145 (NE, 2,134) — small
+
+**Expected impact:** 10-25% cost reduction `(estimate)`. Round 1 does NOT hit the $25/week budget alone — it's the foundation for Round 2/3.
+
+**Round 2 preview** (after Round 1 A/B validates):
+1. Entity cache with 30-day TTL + GitHub persistence (biggest single cost reduction lever)
+2. Claude call batching in L9 (batch mode only, saves ~50% on system-prompt overhead)
+3. L15 full skip at higher threshold
+4. Haiku 4.5 fallback on high-confidence structured pages
+5. L16/L17 Exa conditional execution (only fire if L9 first pass < 15 VERIFIED)
+
+**Round 3 preview:**
+- Job-level parallelism (4-way concurrent, shared rate-limit token bucket)
+- Territory master list L0 (persist discovered district domains)
+- Overnight batch scheduler
+- Enrollment-based tier system (after Research Log state field truncation is fixed)
+
+### Session 60 memory files banked (4 new, 2 rewritten)
+
+- NEW `feedback_schedule_map_wrong_in_s59.md` — never confirm ID→name maps from sequence clustering
+- NEW `feedback_scout_primary_target_is_public_districts.md` — hard rule against drift to secondary lanes
+- NEW `feedback_dont_default_to_diocese_examples.md` — self-check for diocese references
+- NEW `feedback_research_budget_25_per_week.md` — $25/week hard ceiling, derived from Outreach 5k/week cap
+- NEW `feedback_outreach_sending_cap_5k_weekly.md` — Outreach 5k user-level + Gmail 2k/24hr + spillover analysis
+- NEW `feedback_job_definition_user_request.md` — "job" = user request, not atomic entity
+- NEW `feedback_feature_flags_not_subclass.md` — architecture lesson from pressure test
+- REWRITTEN `feedback_outreach_schedule_id_map.md` — UI-verified 5 schedules
+- REWRITTEN `feedback_outreach_delivery_schedule_required.md` — correct per-type defaults
+
+Total memory files after S60: 20.
+
+### Session 60 commits
+
+1. `846aaed` — fix(outreach): correct schedule ID map — Hot Lead Mon-Fri is 51, not 1
+
+### Session 60 uncommitted working state
+
+- `scripts/s60_test_target_lookup.py` — verified 5 test targets against Active Accounts + pulled Research Log per-layer yields. Untracked, keep for reference.
+- `scripts/s60_verify_test_targets.py` — verified 5 candidates against `territory_data` enrollment, caught Park Ridge → Lake Zurich swap. Untracked, keep for reference.
+
+### Session 60 lessons (load-bearing for Session 61)
+
+1. **Feature flags beat subclass for shipping variant behavior on large classes.** Subclass requires copying 200+ line methods to change one if-statement. Flags defaulting to current behavior preserve byte-for-byte production state. First Round 1 draft used subclass reflex; pressure test caught it.
+2. **`threading.local()` does NOT survive `run_in_executor` thread boundaries.** Module globals do, under CPython GIL. When a function is called via `run_in_executor(None, func, ...)`, it runs in the default thread pool on a DIFFERENT thread from the main asyncio loop. Thread-local storage set in the main thread is invisible from the executor thread. First draft of Flag C usage logging used `threading.local()` and would have silently no-op'd. Caught during pressure test.
+3. **Don't default to diocese/charter/CTE examples or data.** S58-S60 drift happened because diocesan data was the freshest thing in memory and I reached for it reflexively. Public school districts are Scout's primary lane — hard rule now. Self-check for the word "diocese" before sending drafts on non-diocesan topics.
+4. **Steven's budget is $25/week maximum.** Not the $50/150 numbers I invented earlier in S60. Derived from Outreach 5k/week cap → ~100 atomic jobs/week saturation → $0.25/job max. Never quote higher numbers as "the target."
+5. **Outreach 5k/rolling-7-days is user-level, not mailbox-level.** Gmail spillover breaks tracking. Second Outreach seat is the only clean escape valve.
+6. **Real `response.usage` token counts replace formula-based cost estimation.** The Anthropic SDK has always returned exact input/output tokens — we just weren't logging them. Every Round 2/3 cost decision should cite measurement, not estimate.
+7. **L16 Exa broad indirectly amplifies L9 Claude cost.** Each of the 10-20 pages L16 surfaces becomes a separate Sonnet extraction call at ~$0.04 each. When L16 hits (25% of jobs), the indirect L9 cost dwarfs the direct Exa API cost by 10x.
+8. **Steven's pressure-test ritual produces materially better plans.** Session 60 Round 1 Draft 1 had architectural errors (subclass), measurement errors (formula-based costs), scope creep (Telegram command), and threading bugs (thread-local). Draft 2 (after pressure test) fixed all of them. Apply the pressure-test discipline BEFORE presenting, not after.
+9. **`territory_data.lookup_district_enrollment` fails on historical Research Log rows** because the old writer truncated state field to "Te"/"Oh"/"Ok" instead of 2-letter abbreviations. Fresh rows use correct abbreviations. Historical data quality issue, not a current bug. Blocks enrollment-based tier routing in Round 1 — deferred to Round 3.
+10. **Public-district A/B test set spans 5 states and 4 enrollment tiers.** Cypress-Fairbanks TX (118k large) + Cincinnati OH (35k medium) + Conejo Valley CA (16k medium) + Lake Zurich IL (5.7k small) + Waverly NE (2.1k small). All cold (no Active Account overlap). Representative for the engine's variance profile.
+
+### Archived from CLAUDE.md in S60 wrap
+
+None. All Session 59 content in CLAUDE.md is still load-bearing (Preflight checklists, tool hardening state, diocesan sequence state for Steven's activation, BUG 5 blocker) — kept in place.
+
+---
+
 ## Session 59 (2026-04-13) — Diocesan Value Extraction + Tool Hardening (4 rounds, 12 failures caught, 8 made impossible)
 
 ### Timeline
