@@ -355,7 +355,7 @@ def cmd_execute(target_day: str | None) -> int:
         state_path=STATE_PATH,
         audit_path=AUDIT_PATH,
         target_day=day,
-        sleep_seconds=(300, 900),  # 5-15 min uniform
+        sleep_seconds=(10, 30),  # 10-30s uniform — fast enough to finish a day in ~6 min
         verify_sequence_active=True,
         dry_run=False,
     )
