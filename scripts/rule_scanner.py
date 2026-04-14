@@ -9,11 +9,24 @@ nothing and exits 0. Shell out target for ~/.claude/hooks/scout-stop-scan.sh.
 See /Users/stevenadkins/.claude/plans/playful-weaving-nygaard.md for the full
 plan and rationale.
 
-Claude Code hook API empirical findings:
-    - Stop-block behavior: PENDING Commit 0 test 1
-    - UserPromptSubmit injection: PENDING Commit 0 test 2
-    - last_message contents: PENDING Commit 0 test 3
-(Fill in verified findings once Commit 0 has been run in a throwaway session.)
+Claude Code hook API empirical findings (verified 2026-04-14, Session 63):
+    - Stop-block behavior: FORCES in-turn continuation. Claude Code reads
+      `{"decision":"block","reason":"..."}` from a Stop hook's stdout and injects
+      the reason as a synthetic user message ("Stop hook feedback: <reason>"),
+      prompting Claude to produce a new assistant turn. Loops until a Stop hook
+      returns clean OR Claude Code hits its internal max-turn limit.
+      Recursion guard: `stop_hook_active: true` is set on recursive fires, and
+      the wrapper's early-exit on that flag is what prevents infinite loops.
+    - UserPromptSubmit injection: CONFIRMED. A hook emitting
+      `{"hookSpecificOutput":{"hookEventName":"UserPromptSubmit","additionalContext":"..."}}`
+      reaches Claude's next turn context as extra directive text. Multiple
+      UserPromptSubmit hooks run in parallel and their additionalContext
+      values are both appended.
+    - Stop hook stdin field: the field is `last_assistant_message` (NOT
+      `last_message`). Contents are plain prose only — tool-use JSON blocks
+      are NOT serialized into it, so no extra normalization step is required.
+      Prior to 2026-04-14 the production wrapper read `.last_message` and
+      silently fail-opened every turn since install. Fixed in S63 Commit 0.
 
 Extensibility contract:
     Add a dict to RULES with number_patterns, label_roots, label_window_chars,
