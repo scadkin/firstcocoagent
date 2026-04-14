@@ -30,7 +30,7 @@ Full rationale + per-item background lives in `memory/project_s64_priority_queue
 5. **F2 column layout corruption** — 1,912 pre-existing scrambled rows + something bypassing the canonical writer. Highest-priority unknown. Background: `memory/project_f2_column_layout_corruption.md`.
 6. **Research cross-contamination audit** — post-extraction domain validation layer. Not F8-specific. Background: `memory/project_research_cross_contamination.md`.
 7. **Prospecting Queue / Signals / Leads cleanup** — scaffold data from test runs. One-time sweep. Background: `memory/feedback_scout_data_mostly_untested.md`.
-8. **Known debt / housekeeping** — refresh `SCOUT_PLAN.md` YOU ARE HERE (stale since end of S63), optionally rotate `OUTREACH_CLIENT_SECRET` to remove the embedded `'` + `$` combo.
+8. **Known debt / housekeeping** — optionally rotate `OUTREACH_CLIENT_SECRET` at Outreach app settings to remove the embedded `'` + `$` combo so `scripts/env.sh` can retire. Low priority since shim works. Other ad-hoc housekeeping as needed.
 
 **Explicitly NOT in this queue (do not start until drained):**
 - First live campaign via `load_campaign.py` — cross-session validation, opportunistic when a real campaign is on the plate.
@@ -38,10 +38,10 @@ Full rationale + per-item background lives in `memory/project_s64_priority_queue
 - Handler wiring `_on_prospect_research_complete → execute_load_plan` — reframed during S64 plan mode, replaced by `scripts/load_campaign.py`. `docs/session_64_prep_prospect_loader_wiring.md` is now historical.
 - 1,245 cold_license_request + 247 winback March backlogs — deferred.
 
-**For Session 62 + 63 narratives:** `SCOUT_HISTORY.md §Session 62` / `§Session 63`.
+**For Session 62/63/64 narratives:** `SCOUT_HISTORY.md §Session 62` / `§Session 63` / `§Session 64`.
+**For the S64 plan reference (DONE):** `~/.claude/plans/luminous-honking-cook.md` rev 2 — the full pressure-test-rebuilt campaign loader plan.
+**For the S65 plan prep (NEXT):** `docs/session_65_prep_bug5_target_match_params.md` — read this BEFORE entering plan mode on BUG 5.
 **For the rule scanner plan reference:** `~/.claude/plans/playful-weaving-nygaard.md` + `~/.claude/plans/flickering-nibbling-breeze.md`.
-
-**Session 63+ carryover (non-drip, load by demand):** see `SCOUT_PLAN.md §YOU ARE HERE` — 9 pending dioceses review blocked on BUG 5, optional F9/LA/OK-CSTA/IN-TN-script items, deferred 1,245 cold_license_request + 247 winback March backlogs (plan-mode triage session).
 
 **Active kill switches:**
 - Rule scanner hooks: `touch ~/.claude/state/scout-hooks-disabled` (both hooks short-circuit at top)
