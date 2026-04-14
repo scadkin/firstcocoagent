@@ -11,6 +11,8 @@
 
 OAuth + refresh token auto-managed. Scopes: `accounts.read`, `prospects.read/write`, `sequences.read/write`, `sequenceStates.read/write/delete`, `sequenceSteps.read/write`, `sequenceTemplates.read/write`, `templates.read/write`, `users.read`, `mailings.read`, `calls.read`, `events.read`. Base URL: `https://api.outreach.io/api/v2`.
 
+**⚠ Missing scopes (add on next OAuth re-auth):** `prospects.delete` (confirmed S61 via 403 on canary cleanup), `mailboxes.read` (confirmed S61 via 403 on get_mailboxes). Work around: no-op on the failure paths, note in audit log.
+
 **Reads:**
 - `get_sequences()` — all Scout-owned sequences (139 total)
 - `get_sequence_states(sequence_id, include_prospect=True)` — all prospect states in a seq
