@@ -57,6 +57,37 @@ RULES: list[dict[str, Any]] = [
             "Do NOT skip this acknowledgement before answering."
         ),
     },
+    {
+        "id": "R19",
+        "name": "no-outreach-backend-ids",
+        "pre_filter": r"\d",
+        "number_patterns": [
+            # prospect_id = 669325 / prospect_id: 669325 / prospect_id=669325
+            ("prospect-id",    r"\bprospect_id\s*[:=]\s*\d+"),
+            # sequenceState 522355
+            ("sequencestate",  r"\bsequenceState\s+\d+"),
+            # mailbox 11 / mailbox: 11
+            ("mailbox",        r"\bmailbox\s*[:=]?\s*\d+"),
+            # owner 11 / owner_id = 11 (the owner of a sequence/prospect)
+            ("owner-id",       r"\bowner(?:_id)?\s*[:=]?\s*\d+"),
+            # diocesan sequences 2008-2013 cited by literal ID
+            ("diocesan-seq",   r"\bsequence\s+20(?:08|09|10|11|12|13)\b"),
+            # template_id = 400 / schedule_id = 52
+            ("template-id",    r"\btemplate_id\s*[:=]?\s*\d+"),
+            ("schedule-id",    r"\bschedule_id\s*[:=]?\s*\d+"),
+        ],
+        "label_roots": [],  # no label can save you — these IDs must not appear
+        "label_window_chars": 0,
+        "correction_template": (
+            "You violated Rule 19 (no Outreach backend IDs in chat). "
+            "Matches: {match_list}. "
+            "Restate using human names: prospect ID → 'First Last (email)', "
+            "sequence ID → diocesan name (2008=Philadelphia, 2009=Cincinnati, "
+            "2010=Detroit, 2011=Cleveland, 2012=Boston, 2013=Chicago), "
+            "mailbox → 'your mailbox', owner → 'you' / 'Steven'. "
+            "Acknowledge by rule ID before proceeding."
+        ),
+    },
 ]
 
 

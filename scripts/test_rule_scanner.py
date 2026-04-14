@@ -31,6 +31,22 @@ TESTS: list[tuple[str, str, int]] = [
     ("no numbers pre-filter short-circuit",     "text with no numbers at all",                                        0),
     ("two percents share one label in window",  "17% and 18%, both measured",                                         0),
     ("two percents each with distinct labels",  "17% and 18%, first measured second guessed",                         0),
+
+    # R19 — no Outreach backend IDs
+    ("R19 prospect_id equals",                   "prospect_id = 669325 needs follow-up",                               1),
+    ("R19 prospect_id colon",                    "prospect_id: 669325",                                                1),
+    ("R19 prospect_id no spaces",                "prospect_id=669325",                                                 1),
+    ("R19 sequenceState space",                  "added to sequenceState 522355",                                      1),
+    ("R19 mailbox",                              "mailbox 11 is yours",                                                1),
+    ("R19 owner",                                "owner 11 is Steven",                                                 1),
+    ("R19 diocesan seq by number",               "added to sequence 2013",                                             1),
+    ("R19 non-diocesan seq number ignored",      "added to sequence 2015",                                             0),
+    ("R19 template_id",                          "template_id = 400 changed",                                          1),
+    ("R19 schedule_id",                          "schedule_id: 52",                                                    1),
+    ("R19 human-name restatement is clean",      "added Rosie Carollo (rcarollo@archphila.org) to Philadelphia diocesan", 0),
+    ("R19 code block strips the ID",             "```python\nprospect_id = 669325\n```",                               0),
+    ("R19 inline code strips the ID",            "inline `mailbox 11` is yours",                                       0),
+    ("R19 multiple IDs in one line",             "prospect_id = 669325 added to sequence 2013 in mailbox 11",          3),
 ]
 
 
