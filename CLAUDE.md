@@ -1,5 +1,5 @@
 # SCOUT — Claude Code Reference
-*Last updated: 2026-04-14 — End of Session 63. Commit 0 verified, wrapper bug fixed, scanner hardened with env override, Wed drip loaded early, CSTA IN/TN hand-curation shipped, hook-wrapper smoke tests committed, Session 64 prep note for prospect_loader wiring committed.*
+*Last updated: 2026-04-14 — Session 64 in progress. Generalized campaign loader shipped (campaign_file schema + role classifier + load_campaign CLI + outreach_client.export_sequence_for_editing). Four commits, 25 unit tests, 14/14 live Haiku smoke test.*
 
 ---
 
@@ -17,14 +17,17 @@
 - **Session 64 prep note committed.** `docs/session_64_prep_prospect_loader_wiring.md` maps `_on_prospect_research_complete` at `agent/main.py:319-528` and `execute_load_plan` at `tools/prospect_loader.py:259-390`, with eight open questions that the Session 64 plan-mode session must resolve — most critically the Rule 15 compatibility question (all sequences are drafts, never auto-finalize) and the contact-discovery gap (does the research `result` dict actually produce verified contact emails or only district names).
 - **Research Engine Round 1 flags still parked default-OFF.** Production `agent/main.py` is byte-for-byte v1. Round 1.1 planning is carryover.
 - **Wrap-ups are not rushed, ever.** Steven clarified end-of-S63 that the 40% / 45% / 50% context thresholds (all measured — from user CLAUDE.md) are for stopping NEW builds, not for rushing the session wrap. A wrap that crosses those lines is fine; a rushed or incomplete wrap is not. Never write "batching aggressively" during wrap — that's applying urgency to the wrong phase. Full rule in `~/.claude/projects/-Users-stevenadkins-Code-Scout/memory/feedback_wrap_ups_are_not_rushed.md` (auto-loaded each session).
-- **Repo state:** all S63 commits pushed to `origin/main`. Working tree clean except `.DS_Store`.
+- **Session 64 generalized campaign loader shipped (4 commits).** Reframes what Session 64 was going to be: instead of wiring `_on_prospect_research_complete → execute_load_plan`, Steven corrected the premise (his real drafting surface is claude.ai, not the handler auto-draft) and the actual work was the strategy-agnostic campaign loader that's been hand-coded three times before (S38 CUE / S43 C4 / S44 webinar). New files: `tools/campaign_file.py` (single-file markdown schema + parser), `tools/role_classifier.py` (Haiku temp=0 per-contact bucketing, 14/14 live smoke test), `scripts/load_campaign.py` (CLI with --preview/--create/--execute/--dry-run/--force + CSV or stdin contact input + sidecar state with drift detection + Rule 19 name translation), and `outreach_client.export_sequence_for_editing` (fetch existing sequence as claude.ai starter markdown). Canary fixtures at `campaigns/canary_test.md` + `campaigns/canary_test_contacts.csv`. 25 unit tests total across the three new modules; all pass. Plan at `~/.claude/plans/luminous-honking-cook.md` (rev 2 after pressure-test rebuild).
+- **Handler auto-draft stays unchanged.** `agent/main.py:319-528` still calls `sequence_builder.build_sequence` + writes Google Doc drafts as before. Steven uses the auto-draft "almost always" as a starter for claude.ai iteration. Diocesan drip also unchanged.
+- **Repo state:** all S63 commits pushed to `origin/main`. Session 64 commits sit on `main` ahead of `origin/main` pending push.
 
-**Exact next actions (when Session 64 starts, in order):**
+**Exact next actions (S64 still in progress; when next session starts, in order):**
 
-1. **Thursday diocesan drip:** `.venv/bin/python scripts/diocesan_drip.py --execute` — 14 contacts for Thu 2026-04-16, run on the actual day (do NOT `--force-day`). Expected wall clock roughly 6 min (sample from prior batches).
-2. **Wire `prospect_loader.execute_load_plan` into `_on_prospect_research_complete`.** The automation gap in `agent/main.py:319`. **READ `docs/session_64_prep_prospect_loader_wiring.md` FIRST** — it has the code paths mapped and the eight open questions the plan-mode session must resolve. Must be its own plan-mode session per CLAUDE.md Rule 1 (24/7 Railway handler change). Highest-leverage carryover.
+1. **Thursday diocesan drip:** `.venv/bin/python scripts/diocesan_drip.py --execute` — 14 contacts for Thu 2026-04-16, run on the actual day (do NOT `--force-day`). Expected wall clock roughly 6 min (sample from prior batches). **Still unchanged — diocesan drip was not refactored.**
+2. **First live campaign via load_campaign.py.** The generalized loader is shipped but has only been exercised against the canary fixture. First real use should be a small batch (CUE or C4 re-engagement) so Steven can validate the full round-trip: export a starter sequence → iterate in claude.ai → save to `campaigns/<slug>.md` → `--create --dry-run` → `--create` → activate in Outreach UI → `--execute --dry-run` → `--execute`. Do this in a fresh session so it gets its own wrap-up.
 3. **Research Engine Round 1.1 plan** — per-URL content MERGE rather than URL dedup. Plan-mode session.
 4. **BUG 5 code fix** in `tools/research_engine.py::_target_match_params`. Plan-mode session.
+5. **(Dropped from S64 plan)** The `_on_prospect_research_complete → execute_load_plan` wiring was reframed as the wrong problem during S64 plan mode. Steven prefers the claude.ai round-trip via `load_campaign.py` instead. `docs/session_64_prep_prospect_loader_wiring.md` is now historical — do not execute it.
 
 **For Session 62 + 63 narratives:** `SCOUT_HISTORY.md §Session 62` / `§Session 63`.
 **For the rule scanner plan reference:** `~/.claude/plans/playful-weaving-nygaard.md` + `~/.claude/plans/flickering-nibbling-breeze.md`.
@@ -99,6 +102,19 @@ Session 59 shipped 12 failures across 3 rounds because memory files weren't load
 - Dedup via `find_prospect_by_email` before `create_prospect`.
 - Stagger POSTs: never burst >20 sequenceStates within a 60-second window.
 - Never bypass `validate_prospect_inputs`.
+
+**PREFLIGHT: Campaign load** — triggers on any task running `scripts/load_campaign.py` or creating/editing files under `campaigns/`.
+- Load: `feedback_sequence_copy_rules.md`, `feedback_sequence_iteration_learnings.md`, `feedback_outreach_sending_cap_5k_weekly.md`, `feedback_outreach_schedule_id_map.md`, `feedback_timezone_required_before_sequence.md`
+- Confirm the campaign markdown file parses cleanly via `.venv/bin/python -c "from tools.campaign_file import load_campaign; print(load_campaign('campaigns/<slug>.md').variant_roles())"` — any parse error = STOP.
+- Confirm `schedule_id` is in the validator allowlist (env `OUTREACH_ALLOWED_SCHEDULE_IDS` default `{48, 50, 51, 52, 53}`). Refer to `feedback_outreach_schedule_id_map.md` for the ID → name map.
+- Confirm every variant has a meeting link hyperlink in ≥1 step and `codecombat.com/schools` hyperlink in ≥2 steps (the validator enforces this, but catch it earlier via eyeball).
+- Confirm `drip_days` are all business days, in the future, and in a reasonable range (not >30 days out).
+- ALWAYS run `scripts/load_campaign.py --campaign <slug> --create --dry-run` FIRST — this runs every variant through `validate_sequence_inputs` in a single pass and prints all failures at once. Fix them all before running `--create` without `--dry-run`.
+- After `--create`, open the Outreach UI and manually activate each new sequence (Rule 15 — no auto-activation). `--execute` will refuse to load contacts into disabled sequences (`verify_sequence_active=True` default).
+- Before `--execute`, always run `--preview` on the contact CSV first. Verify the role-classification breakdown looks right before any real POSTs.
+- Check sending cap headroom — 5,000 emails/rolling-7-days per USER (see `feedback_outreach_sending_cap_5k_weekly.md`). Large batches (>1,000 contacts in a single week) push the cap and need staggering across weeks.
+- Rule 19 compliance: the CLI translates sequence IDs to role names in stdout, but if you quote the CLI output in Telegram to Steven, double-check no raw IDs leak.
+- NEVER edit `campaigns/<slug>.md` after running `--create` without either (a) re-running `--create` to rebuild the sequences or (b) using `--execute --force` to explicitly bypass drift detection.
 
 ---
 

@@ -64,6 +64,66 @@ State file format: `data/<name>_state.json` (gitignored). Audit log: `data/<name
 
 ---
 
+## `tools/campaign_file.py` — *new S64*
+
+Single-file campaign markdown schema for multi-variant campaigns. Lives at `campaigns/<slug>.md` with YAML frontmatter + `## variant: <role>` sections. Used by `scripts/load_campaign.py` as the claude.ai round-trip surface: Steven drafts copy in claude.ai, pastes into the file, loader ingests.
+
+- `Campaign`, `CampaignVariant`, `CampaignStep` dataclasses
+- `load_campaign(path)` / `parse_campaign(text)` — permissive markdown parser (handles H2/H3/H4 step headings, `—` / `-` / `:` separators)
+- `dump_campaign(campaign)` — inverse emitter, round-trip safe
+- `VALID_ROLES` — `admin | curriculum | it | teacher | coach | other`
+- `DEFAULT_STEP_INTERVALS_DAYS = [0, 5, 6, 7, 8]` — diocesan-matching cadence
+
+Tests: `scripts/test_campaign_file.py` (10 cases, round-trip + edge cases).
+
+---
+
+## `tools/role_classifier.py` — *new S64*
+
+Haiku-backed contact role bucketing. Classifies a K-12 contact (primarily by title) into one of six buckets via Claude Haiku at `temp=0`. Used by `scripts/load_campaign.py` to route contacts to role-variant sequences in multi-variant campaigns.
+
+- `classify_contact_role(contact, *, client=None, cache_path=None)` — returns one of `admin | curriculum | it | teacher | coach | other`. Never raises.
+- Pre-filter: `agent.target_roles.is_relevant_role` drops IT infra + irrelevant CTE trades to `other` without a Claude call.
+- Cache: sha1(normalized title) → bucket, at `data/role_classifier_cache.json` (gitignored, reused across runs).
+- Kill switch: `ROLE_CLASSIFIER_MODE=pass_through` env var routes every contact to `other`.
+
+S64 live smoke test: 14/14 real K-12 titles classified correctly. Tests: `scripts/test_role_classifier.py` (11 cases using mock Anthropic client).
+
+---
+
+## `scripts/load_campaign.py` — *new S64*
+
+Generalized campaign loader CLI. Strategy-agnostic replacement for the pattern hand-coded three times (S38 CUE, S43 C4, S44 webinar) before the S61 library promotion. Ingests `campaigns/<slug>.md`, classifies contacts by role, creates Outreach sequences per variant, loads contacts into the right sequence with same-district stagger.
+
+Modes:
+- `--campaign <slug> --preview --contacts-csv <path>` — build load plan, print it, no API calls
+- `--campaign <slug> --create` — preflight all variants, then create sequences (writes IDs to `data/<slug>.state.json`)
+- `--campaign <slug> --create --dry-run` — preflight only, no POSTs
+- `--campaign <slug> --execute --contacts-csv <path>` — load contacts into already-created sequences (respects `drip_days`)
+- `--campaign <slug> --execute --dry-run` — print plan without any writes
+- `--campaign <slug> --execute --force` — bypass drift check (campaign file edited after `--create`)
+- `--contacts-stdin` instead of `--contacts-csv` — read CSV from stdin (for paste workflows)
+
+Sidecar state file: `data/<slug>.state.json` — tracks sequences per role, campaign file sha1 (drift detection), load-run history. Audit log: `data/<slug>.audit.jsonl`.
+
+CSV columns required: `first_name, last_name, email, title, company, state`. Extra columns ignored. Rule 17: contacts missing state or with non-US state are skipped (never faked). Rule 19: output translates sequence IDs to variant role names; raw IDs never appear in stdout.
+
+Canary fixture: `campaigns/canary_test.md` + `campaigns/canary_test_contacts.csv`. Verification: `.venv/bin/python scripts/load_campaign.py --campaign canary_test --create --dry-run` must preflight cleanly on all 3 variants; `.venv/bin/python scripts/load_campaign.py --campaign canary_test --preview --contacts-csv campaigns/canary_test_contacts.csv` must classify 5 contacts into 4 buckets via Haiku.
+
+---
+
+## `tools/outreach_client.py::export_sequence_for_editing` — *new S64*
+
+Thin wrapper around the existing `export_sequence(sequence_id)` helper. Fetches an Outreach sequence and renders it as a `campaigns/<slug>.md` starter in the `campaign_file` schema. Supports the "old sequence as starter" workflow — Steven pipes the output to a file, opens in claude.ai, iterates the copy, saves back into `campaigns/`.
+
+- `export_sequence_for_editing(sequence_id, *, role="other", target_role_label="", slug_override="")` → markdown string
+- v1 produces a single-variant campaign; Steven can add more variants after pasting into claude.ai
+- v1 keeps Outreach body_html as-is (parser stores opaquely; round-trip lossless)
+
+Tests: `scripts/test_export_sequence_for_editing.py` (4 cases with mock `export_sequence`, offline-safe).
+
+---
+
 ## `tools/timezone_lookup.py` — *new S61*
 
 - `state_to_timezone(state_code)` — 2-letter US state → IANA zone. 50 states + DC + PR.

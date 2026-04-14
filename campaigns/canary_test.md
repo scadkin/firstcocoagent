@@ -28,7 +28,7 @@ Steven
 ### Step 2 — Subject: Re: Quick note on your CS rollout at {{company}}
 Hey {{first_name}},
 
-Following up — wanted to mention we can spin up free trial licenses for any of your teachers to pilot with, no strings attached.
+Following up. Wanted to mention we can spin up free trial licenses for any of your teachers to pilot with, no strings attached.
 
 Happy to send more info if useful. More at <a href="https://www.codecombat.com/schools">codecombat.com/schools</a>.
 
@@ -39,14 +39,14 @@ Hi {{first_name}},
 
 Third try here. If this resonates at all, <a href="https://hello.codecombat.com/c/steven/t/130">grab 15 min here</a> and I'll walk you through what it looks like for a district your size.
 
-No pitch — just a quick look.
+No pitch. Just a quick look.
 
 Steven
 
 ### Step 4 — Subject: Data from Bobby Duke Middle School
 {{first_name}},
 
-One more note. Happy to share the data from Bobby Duke Middle School, one of our strongest case studies — they saw measurable gains across grade levels over a full year.
+One more note. Happy to share the data from Bobby Duke Middle School, one of our strongest case studies. They saw measurable gains across grade levels over a full year.
 
 More context at <a href="https://www.codecombat.com/schools">codecombat.com/schools</a> if useful.
 
@@ -68,7 +68,7 @@ num_steps: 5
 ### Step 1 — Subject: Your CS classroom at {{company}}
 Hi {{first_name}},
 
-I work with CS teachers across {{state}} and wanted to drop a quick note. We built a turn-key curriculum that looks and feels like a video game but has real rigor underneath — the kids actually want to do it.
+I work with CS teachers across {{state}} and wanted to drop a quick note. We built a turn-key curriculum that looks and feels like a video game but has real rigor underneath, and the kids actually want to do it.
 
 Want me to send over the highlights?
 
@@ -77,7 +77,7 @@ Steven
 ### Step 2 — Subject: Re: Your CS classroom at {{company}}
 {{first_name}},
 
-Following up — we can set up free trial licenses for your class anytime, no strings. Teachers tell us the hardest part is usually getting admin buy-in, and this helps make that case.
+Following up. We can set up free trial licenses for your class anytime, no strings. Teachers tell us the hardest part is usually getting admin buy-in, and this helps make that case.
 
 More at <a href="https://www.codecombat.com/schools">codecombat.com/schools</a>.
 
@@ -93,7 +93,7 @@ Steven
 ### Step 4 — Subject: What students say
 Hi {{first_name}},
 
-One more. The thing teachers love most is that students actually ask to keep playing when the bell rings. Bobby Duke Middle School is one of our strongest case studies — happy to share what they saw.
+One more. The thing teachers love most is that students actually ask to keep playing when the bell rings. Bobby Duke Middle School is one of our strongest case studies, and I'm happy to share what they saw.
 
 More at <a href="https://www.codecombat.com/schools">codecombat.com/schools</a>.
 
@@ -102,7 +102,7 @@ Steven
 ### Step 5 — Subject: Closing the loop
 {{first_name}},
 
-Final note from me. If this isn't a fit, no worries — I'll close the loop. If it is, <a href="https://hello.codecombat.com/c/steven/t/130">grab 15 min here</a> whenever works.
+Final note from me. If this isn't a fit, no worries, I'll close the loop. If it is, <a href="https://hello.codecombat.com/c/steven/t/130">grab 15 min here</a> whenever works.
 
 Steven
 
@@ -122,14 +122,14 @@ Steven
 ### Step 2 — Subject: Re: CS rollout that won't blow up your stack
 {{first_name}},
 
-Following up — for EdTech teams, the big win is that teachers can stand this up without an IT ticket for every class. No new infrastructure to manage. More at <a href="https://www.codecombat.com/schools">codecombat.com/schools</a>.
+Following up. For EdTech teams, the big win is that teachers can stand this up without an IT ticket for every class. No new infrastructure to manage. More at <a href="https://www.codecombat.com/schools">codecombat.com/schools</a>.
 
 Steven
 
 ### Step 3 — Subject: 15 minutes to walk the stack?
 {{first_name}},
 
-Third try. If any of this sounds relevant, <a href="https://hello.codecombat.com/c/steven/t/130">grab 15 min here</a> and I'll walk you through the technical side — auth, data privacy, rostering, the whole picture.
+Third try. If any of this sounds relevant, <a href="https://hello.codecombat.com/c/steven/t/130">grab 15 min here</a> and I'll walk you through the technical side: auth, data privacy, rostering, the whole picture.
 
 Steven
 
