@@ -16,7 +16,8 @@
 - **Hook-wrapper smoke tests live** (`scripts/test_hook_wrappers.sh`). Five assertions covering bare-percent block, labeled-percent clean, recursion guard, injector consumption, and production-log-untouched. Uses the new `SCOUT_VIOLATIONS_LOG` env override throughout — safe to run inside an active session. Gracefully exits 0 on fresh-clone / jq-missing / kill-switch-engaged.
 - **Session 64 prep note committed.** `docs/session_64_prep_prospect_loader_wiring.md` maps `_on_prospect_research_complete` at `agent/main.py:319-528` and `execute_load_plan` at `tools/prospect_loader.py:259-390`, with eight open questions that the Session 64 plan-mode session must resolve — most critically the Rule 15 compatibility question (all sequences are drafts, never auto-finalize) and the contact-discovery gap (does the research `result` dict actually produce verified contact emails or only district names).
 - **Research Engine Round 1 flags still parked default-OFF.** Production `agent/main.py` is byte-for-byte v1. Round 1.1 planning is carryover.
-- **Repo state:** six S63 commits pushed to `origin/main` (`f479241 → 4f434d5 → ace2abc → c5d7753 → b358819 → 78a6595`). Working tree clean except `.DS_Store`.
+- **Wrap-ups are not rushed, ever.** Steven clarified end-of-S63 that the 40% / 45% / 50% context thresholds (all measured — from user CLAUDE.md) are for stopping NEW builds, not for rushing the session wrap. A wrap that crosses those lines is fine; a rushed or incomplete wrap is not. Never write "batching aggressively" during wrap — that's applying urgency to the wrong phase. Full rule in `~/.claude/projects/-Users-stevenadkins-Code-Scout/memory/feedback_wrap_ups_are_not_rushed.md` (auto-loaded each session).
+- **Repo state:** all S63 commits pushed to `origin/main`. Working tree clean except `.DS_Store`.
 
 **Exact next actions (when Session 64 starts, in order):**
 
@@ -28,10 +29,7 @@
 **For Session 62 + 63 narratives:** `SCOUT_HISTORY.md §Session 62` / `§Session 63`.
 **For the rule scanner plan reference:** `~/.claude/plans/playful-weaving-nygaard.md` + `~/.claude/plans/flickering-nibbling-breeze.md`.
 
-**Session 63+ carryover (non-drip, load by demand):**
-1. 9 pending dioceses review (Pittsburgh/OKC/Omaha) — blocked on BUG 5.
-2. Optional: F9 compliance scanner query redesign, LA archdiocese restart, OK CSTA hand-curation, remaining IN/TN CSTA board-member extraction via `fetch_csta_roster.py` script iteration.
-3. Deferred: 1,245 cold_license_request + 247 winback March backlogs (plan-mode triage session).
+**Session 63+ carryover (non-drip, load by demand):** see `SCOUT_PLAN.md §YOU ARE HERE` — 9 pending dioceses review blocked on BUG 5, optional F9/LA/OK-CSTA/IN-TN-script items, deferred 1,245 cold_license_request + 247 winback March backlogs (plan-mode triage session).
 
 **Active kill switches:**
 - Rule scanner hooks: `touch ~/.claude/state/scout-hooks-disabled` (both hooks short-circuit at top)
