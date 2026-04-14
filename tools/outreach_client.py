@@ -2049,3 +2049,102 @@ def format_sequence_export(seq_info: dict) -> str:
         lines.append("")  # blank line between steps
 
     return "\n".join(lines)
+
+
+def export_sequence_for_editing(
+    sequence_id: int | str,
+    *,
+    role: str = "other",
+    target_role_label: str = "",
+    slug_override: str = "",
+) -> str:
+    """
+    Fetch an existing Outreach sequence and render it as a
+    campaigns/<slug>.md starter — same markdown schema as
+    tools/campaign_file.py parses.
+
+    Purpose: Steven pipes this output to a file, opens it in claude.ai,
+    iterates on the copy as a starter for a new campaign, then saves the
+    result back into campaigns/ for load_campaign.py to ingest.
+
+    v1 caveats:
+      - Only produces a single-variant campaign. Steven can add more
+        `## variant: <role>` sections manually after pasting into claude.ai.
+      - Step bodies are copied as-is (typically HTML from Outreach). The
+        parser stores them opaquely, so round-trip is lossless; claude.ai
+        can rewrite the HTML if Steven wants a cleaner starter.
+      - drip_days defaults to a single placeholder (today). Steven sets
+        the real dates when finalizing the new campaign file.
+    """
+    from datetime import date as _date
+
+    # Local import to avoid a hard dep at module import time.
+    from tools.campaign_file import (
+        Campaign,
+        CampaignStep,
+        CampaignVariant,
+        SECONDS_PER_DAY,
+        VALID_ROLES,
+        dump_campaign,
+    )
+
+    role = (role or "other").lower()
+    if role not in VALID_ROLES:
+        raise ValueError(f"role must be one of {sorted(VALID_ROLES)}, got {role!r}")
+
+    seq_info = export_sequence(sequence_id)
+
+    name = seq_info.get("name") or f"Exported Sequence {sequence_id}"
+    if slug_override:
+        slug = slug_override
+    else:
+        slug = "".join(
+            c if c.isalnum() else "_" for c in name.lower()
+        ).strip("_") or f"sequence_{sequence_id}"
+
+    schedule_id_raw = seq_info.get("schedule_id")
+    schedule_id = int(schedule_id_raw) if schedule_id_raw else 0
+
+    raw_steps = seq_info.get("steps") or []
+    campaign_steps: list[CampaignStep] = []
+    for i, s in enumerate(raw_steps, start=1):
+        subject = (s.get("subject") or s.get("name") or f"Step {i}").strip()
+        body = s.get("body_html") or s.get("body_text") or ""
+        interval_seconds = int(s.get("interval") or 0)
+        campaign_steps.append(
+            CampaignStep(
+                step_number=i,
+                subject=subject,
+                body=body,
+                interval_seconds=interval_seconds,
+            )
+        )
+
+    if not campaign_steps:
+        raise ValueError(
+            f"sequence {sequence_id} has no steps with fetched template content"
+        )
+
+    step_intervals_days = [
+        max(0, round(s.interval_seconds / SECONDS_PER_DAY)) for s in campaign_steps
+    ]
+
+    variant = CampaignVariant(
+        role=role,
+        target_role_label=target_role_label or "TBD — fill in when editing",
+        num_steps=len(campaign_steps),
+        steps=campaign_steps,
+    )
+
+    campaign = Campaign(
+        name=name,
+        slug=slug,
+        schedule_id=schedule_id,
+        drip_days=[_date.today()],
+        tag_template=f"{slug}-{{role}}",
+        sleep_seconds=(60, 180),
+        step_intervals_days=step_intervals_days,
+        variants={role: variant},
+    )
+
+    return dump_campaign(campaign)
