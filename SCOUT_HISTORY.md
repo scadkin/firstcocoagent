@@ -1218,6 +1218,98 @@ The full Session 56 "What's working" + "What's still in-progress / unresolved" +
 
 ---
 
+## Session 64 (2026-04-14) — Generalized Campaign Loader Shipped After Plan Pressure-Test Rebuild + OAuth/Export Bug Fix Bundle + Priority Queue Locked
+
+**Ten commits on `main`, all pushed to `origin/main`. Plan `~/.claude/plans/luminous-honking-cook.md` rev 2 after a full senior-reviewer pressure-test rebuild mid-session.**
+
+### The reframe that killed the prep note
+
+Session 64 was supposed to execute `docs/session_64_prep_prospect_loader_wiring.md` — a scratch note committed end-of-S63 that mapped `_on_prospect_research_complete` at `agent/main.py:319-528` and proposed wiring it to `execute_load_plan`. I entered plan mode on that track and proposed a plan that "killed the handler auto-draft and replaced it with a smart auto-load trigger." Steven read it and said:
+
+> "ok as i read through this it makes me think -- havent we got these features built already? i already have had you draft me email sequences, i have sometimes gone to claude.ai to make the copy and then brought the finshed email sequences in here. (the interface is better in claude.ai for building nad editing email copy and subject lines)"
+
+Then he walked the full workflow he actually uses: understand the sequence purpose + audience, draft copy and subjects (starter comes from the handler auto-draft OR an existing sequence), iterate in claude.ai, drop contacts into Claude Code, classify by role, make role-variant sequences, bring finalized variants back to Claude Code, create sequences in Outreach, manually verify and activate, load contacts with state + timezone + same-district stagger.
+
+The handler wiring was the wrong problem. The right problem was the strategy-agnostic campaign loader — the same pattern that had been hand-coded three times (S38 CUE conference loader `scripts/enrich_cue_leads.py`, S43 C4 cold license request loader `scripts/create_c4_sequences.py`, S44 webinar registrant tagging `aabdb0c`) before the S61 library promotion stopped short of the orchestration layer. The handler stays exactly as it was; `agent/main.py:319-528` still auto-builds a draft sequence and writes a Google Doc that Steven uses as a claude.ai starter. Steven confirmed: "i almost always use it as a starter, though sometimes i will tkae one onfmy old already created sequences or templates as a starter. we should defintiley keep it."
+
+### The plan pressure-test rebuild
+
+Steven used his standard senior-reviewer pressure-test prompt on v1 of the plan. I stopped, thought through the whole plan as a system before touching any detail, and rebuilt from scratch. v1 had three structural problems worth recording:
+
+1. **Multi-file `campaigns/<slug>/config.yaml + variants/<role>.md` directory layout.** This would have forced Steven to translate claude.ai's conversational markdown output into a new multi-file schema on every round trip. Friction at the worst point in the workflow. v2: single markdown file per campaign at `campaigns/<slug>.md` with YAML frontmatter + `## variant: <role>` H2 sections. Copy-paste-save-run.
+2. **Rule-based role classifier.** v1 proposed using `agent/target_roles.py` tier lists as seed data for a deterministic regex tree. Rule-based title parsing caps at 75-85% (estimate — ambiguous-title cases like "Director" / "Coordinator" / "Specialist" break deterministic rules) and needs 150-300 lines (estimate) of regex plus fallbacks to get there. v2: Haiku temp=0 per-contact classification in ~50 lines with sha1-keyed cache. Live smoke against 14 real K-12 titles scored 14/14 correct — well past the 9/10 threshold.
+3. **Diocesan drip refactor scheduled for mid-week when the live drip runs the next two days.** v1 put the refactor in commit 5/6. The Wed 2026-04-15 drip runs tomorrow and the Thu 2026-04-16 drip runs the day after. Refactoring live production code for zero upside is the kind of thing that turns a clean plan into a Monday-morning incident. v2: drop the refactor entirely. `scripts/diocesan_drip.py` stays exactly as-is. When diocesan next needs a change, that's when the migration happens.
+
+v2 also added:
+- **Preflight validator runs all variants BEFORE any POST.** Single dry-run pass through `validate_sequence_inputs` that prints all failures at once. v1 would have surfaced failures one-at-a-time across multiple `--create` runs.
+- **Sidecar state file for sequence IDs** at `data/<slug>.state.json` with sha1 of the campaign markdown for drift detection. v1 wanted to mutate the markdown file after `--create`, which would have polluted git diffs.
+- **Three contact input modes**: `--contacts-csv`, `--contacts-stdin`, and (v2-deferred) Google Sheets. stdin is load-bearing for the paste workflow — v1 said CSV-only.
+- **Rename `sequence_drip.py` → `load_campaign.py`** because most campaigns are one-day bulk loads, not time-spaced drips.
+
+Plan-mode pressure-test was the highest-value meta-lesson of this session. v1 would have shipped UX friction that ate every future campaign.
+
+### What shipped (10 commits)
+
+1. **`f638168` feat(campaign_file):** single-file campaign markdown schema + permissive parser. `tools/campaign_file.py` with `Campaign` / `CampaignVariant` / `CampaignStep` dataclasses, `load_campaign(path)` / `parse_campaign(text)` / `dump_campaign(campaign)`. Schema: YAML frontmatter for metadata (campaign_name, slug, schedule_id, drip_days, tag_template, sleep_seconds_min/max, optional step_intervals_days) + `## variant: <role>` H2 sections each with `target_role_label:` + `num_steps:` + `### Step N — Subject: <s>` H3s. Permissive on heading level (H2/H3/H4), subject separator (`—` / `-` / `:`), blank lines. Strict on missing frontmatter keys, duplicate roles, empty variants, unknown roles (`VALID_ROLES = admin | curriculum | it | teacher | coach | other`). 10 unit tests in `scripts/test_campaign_file.py`: round-trip, permissive heading variations, missing key rejection, duplicate rejection, unknown role rejection, empty variant rejection, custom `step_intervals_days`. Canary fixture `campaigns/canary_test.md` with 3 variants × 5 steps. All 10 pass.
+
+2. **`a530aac` feat(outreach): export_sequence_for_editing** — thin wrapper around the existing `export_sequence` helper that renders the result in the `campaign_file` schema. Supports the "old sequence as starter" flow Steven described: pipe the output to a file, iterate in claude.ai, save back into `campaigns/`. v1 produces a single-variant campaign (role selectable, defaults to `other`); Steven adds more variants after pasting into claude.ai. 4 offline unit tests in `scripts/test_export_sequence_for_editing.py` using a mock `export_sequence` so tests don't need live Outreach OAuth.
+
+3. **`27e2243` feat(role_classifier):** `tools/role_classifier.py` — Haiku temp=0 per-contact bucketing. Returns one of `admin | curriculum | it | teacher | coach | other`. Never raises (unclassifiable → `other`). Pre-filter: `agent.target_roles.is_relevant_role(title)` drops IT infra + irrelevant CTE trades without a Claude call. Cache: sha1(normalized title) → bucket at `data/role_classifier_cache.json`. Kill switch: `ROLE_CLASSIFIER_MODE=pass_through` env var routes every contact to `other` as a breakglass. 11 unit tests via mock Anthropic client in `scripts/test_role_classifier.py` covering each bucket, the IT infra pre-filter, the cache, whitespace/case normalization, malformed Claude responses, kill switch, and ambiguous titles. Live smoke against 14 real K-12 titles (Superintendent / Principal / Asst Principal / Director of C&I / Instructional Coach / Director of Technology / EdTech Coordinator / CIO / CS Teacher / Algebra Teacher / STEM Teacher / Robotics Coach / Esports Coach / Network Administrator): **14/14 correct on first run.** Network Administrator correctly pre-filtered to `other` via `is_relevant_role`, zero Claude calls on that case.
+
+4. **`09668c0` feat(load_campaign):** `scripts/load_campaign.py` — the generalized campaign loader CLI. Modes: `--preview` (build load plan + print, no API calls), `--create [--dry-run]` (preflight every variant through `validate_sequence_inputs` then create sequences, dry-run stops before any POST), `--execute [--dry-run] [--force]` (load contacts with stagger, --dry-run prints plan only, --force bypasses drift check). Contact input: `--contacts-csv <path>` or `--contacts-stdin`. Required CSV columns: `first_name, last_name, email, title, company, state` (extra columns passed through). Sidecar state at `data/<slug>.state.json` tracks sequence IDs per role, campaign file sha1 for drift detection, load-run history. Audit log at `data/<slug>.audit.jsonl`. Rule 15: never activates sequences — Steven activates manually in Outreach UI. Rule 17: contacts missing state or with non-US state are skipped (never faked). Rule 19: stdout translates sequence IDs to variant role names; no raw IDs leak. Handler decision (Rule 1): `agent/main.py:319-528` stays unchanged. Canary smoke: `--create --dry-run` passes all 3 canary variants; `--preview` against `canary_test_contacts.csv` classifies 5 fake contacts into 4 buckets (admin × 2, it × 1, teacher × 1, curriculum × 1) and correctly reports all 5 skipped because no sequences exist yet. Docs: new `tools/campaign_file.py` / `tools/role_classifier.py` / `scripts/load_campaign.py` / `outreach_client.export_sequence_for_editing` entries in `docs/SCOUT_CAPABILITIES.md`; new "PREFLIGHT: Campaign load" checklist in `CLAUDE.md`; CURRENT STATE updated to reflect the reframe.
+
+5. **`afb8680` fix(oauth + export):** three-part fix bundle. (a) `scripts/load_campaign.py` now calls `from dotenv import load_dotenv; load_dotenv(REPO_ROOT / ".env")` at import per Scout convention — previously the CLI only worked if the caller pre-sourced `.env`, which is unreliable because `.env` line 7 `OUTREACH_CLIENT_SECRET` breaks bash source silently. (b) `tools/outreach_client.export_sequence` was calling `/sequenceTemplates?filter[sequence][id]=<N>` which Outreach rejects with 400 — rewrote to loop over steps and use `filter[sequenceStep][id]=<step_id>` per step, matching the working pattern at `validate_sequence_inputs:1115`. This was a pre-existing latent bug that only surfaced when my smoke test reached it. (c) `tools/campaign_file.dump_campaign` passes `allow_unicode=True` to `yaml.safe_dump` so em-dashes in campaign names render as `—` instead of `\u2014` escapes. Cosmetic but load-bearing for claude.ai readability. End-to-end verified against the live Chicago diocesan sequence fetch: OAuth refresh OK, 5 steps + 5 templates fetched, markdown renders at 4012 chars, round-trips through `parse_campaign` cleanly.
+
+6. **`8b63d12` feat(env): scripts/env.sh shim** — 30-line bash script that uses python-dotenv internally to parse `.env` correctly, then emits `export KEY=<shlex-quoted-value>` lines that bash can eval cleanly. Proof-tested 4 candidate quoting schemes end-to-end against both bash and python-dotenv: unquoted (dotenv 43, bash 0 unmatched `'`), `"\$"`-escaped (dotenv 44 keeps `\` literal, bash 43 ✓), `'\''`-escaped (dotenv parser error, bash 43 ✓), `"$"`-unescaped (dotenv 43 ✓, bash 41 expands `$8` as positional arg). Zero universal winners. Shim is the only path that makes `source` work from bash without rotating the secret value itself. Usage: `source scripts/env.sh` instead of `source .env`.
+
+7. **`74f4c7f` feat(export): slug cleanup + HTML→markdown** — two cosmetic improvements to `export_sequence_for_editing`. `_slugify()` collapses runs of non-alphanumerics to a single underscore (Chicago slug went from `archdiocese_of_chicago_schools___diocesan_central_office_outreach` triple-underscores to `archdiocese_of_chicago_schools_diocesan_central_office_outreach` single). `_html_to_markdown()` converts Outreach's HTML bodies (`<br>` → newline, `<p>...</p>` → blank-line-separated paragraphs, `<a href="URL">TEXT</a>` → `[TEXT](URL)`, `<strong>/<em>/<b>/<i>/<span>/<div>` stripped, `&amp;` etc. unescaped) to clean markdown for claude.ai readability. Round-trip still intact — `load_campaign` passes step bodies through to `create_sequence` as-is. 3 new unit tests + live Chicago diocesan export re-verified visibly cleaner output (length dropped from 4012 to 3819 chars from HTML overhead stripping).
+
+8. **`6ea3b29` test(load_campaign):** 19 CLI unit tests in `scripts/test_load_campaign.py`. Mocks `outreach_client.validate_sequence_inputs` and `create_sequence` so everything runs offline. Coverage: `_read_contacts_csv` (rejects missing columns, accepts extras), `_hydrate_contact` (success + 5 skip reasons for missing email / state / name / non-US state / missing title-company), sidecar state I/O (atomic write/read round-trip, missing-file empty, sha1 stability), `_drift_check` (all 4 branches: matching / mismatch-without-force / mismatch-with-force / no-sha1-in-state), `_build_plans` (routes contacts via role_map to sequence IDs, warns when a classified role has no created variant sequence), `cmd_create` (three flows: dry-run no-write, idempotent re-run skips already-created variants, preflight failure aborts without calling create_sequence or writing state). 19/19 pass on first run.
+
+9. **`ea746e7` docs(session-65-prep): BUG 5 prep note + CLAUDE.md priority queue lock** — `docs/session_65_prep_bug5_target_match_params.md` maps `_target_match_params` in `tools/research_engine.py:304-317` and all 4 call sites (`658` page filter, `819` contact filter, `925` / `944` L10 dedup), explains why the substring rule is subtly wrong (hint stripping loses discriminating tokens, benefit-of-the-doubt default for unknown hosts compounds the problem, L10's cross-district check isn't complete), lists 5 candidate fix approaches with pros/cons, and surfaces 7 open questions for the plan-mode session to resolve. CLAUDE.md CURRENT STATE "exact next actions" replaced with Steven's locked 8-item priority queue.
+
+10. **(This EOS commit)** `docs(session-64): end-of-session wrap` — SCOUT_PLAN YOU ARE HERE updated for end of S64, SCOUT_HISTORY appended with this narrative entry, CLAUDE.md CURRENT STATE / header refreshed, new `reference_env_var_quoting_gotcha.md` memory with the full 4-scheme proof table.
+
+### Other reframes of note
+
+- **I almost asked Steven a question I could have answered myself.** Mid-plan, I needed to know whether the research engine's `result` dict produces verified contacts or just district names. First draft of my question was "Q2: does the research result contain verified contacts?" Steven correctly pushed back: "you should know this and can answer this yoruself. If you have a question for me , always try to dig into the abilities, learnings, history, etc of everyting we have done and built already and try to solve it first yourself before just brining it to me." I grepped `tools/research_engine.py`, found `result["contacts"]` at line 406 returning a list of dicts with `email` and `email_confidence` fields. The answer was in the code. The rule: always try to answer my own questions first before interrupting Steven with them.
+- **Option B (the `.env` cleanup) was not solvable at the quoting-scheme level.** I proposed rewriting line 7 with escaped single quotes. Before executing, I ran an empirical test against 4 candidate schemes and none worked for both bash and python-dotenv. Pivoted to a shim script at `scripts/env.sh`. This was the right move, but required doing the proof before abandoning the obvious fix. Memory saved at `reference_env_var_quoting_gotcha.md`.
+- **The `export_sequence` bug was out of the S64 plan's scope but blocked Commit 2's value.** The moment Steven tried to use `export_sequence_for_editing` against a real sequence, he would have hit the 400. Fixing it in the OAuth bundle commit was scope creep that was worth it.
+
+### Steven locked a priority queue for end-of-S64 through the rest of the roadmap
+
+Saved at `memory/project_s64_priority_queue.md` (auto-loaded every session via MEMORY.md index). Mirrored in `CLAUDE.md` CURRENT STATE "LOCKED PRIORITY QUEUE" section. Do items in order, nothing else without explicit redirection:
+
+1. HARD DEADLINE: Thursday diocesan drip on Thu 2026-04-16 (14 contacts, roughly 6 min wall clock, preempts the queue because of the fixed date).
+2. BUG 5 permanent fix — `tools/research_engine.py::_target_match_params`. Plan-mode session. Prep note at `docs/session_65_prep_bug5_target_match_params.md`.
+3. LA archdiocese research restart — blocked on F8 diocesan playbook gap.
+4. IN/OK/TN CSTA LinkedIn-snippet extraction — iterate `scripts/fetch_csta_roster.py`.
+5. F2 column layout corruption — 1,912 pre-existing scrambled rows + active writer bypass.
+6. Research cross-contamination audit — post-extraction domain validation layer.
+7. Prospecting Queue / Signals / Leads cleanup — scaffold data sweep.
+8. Known debt / housekeeping — rotate `OUTREACH_CLIENT_SECRET`, refresh stale docs.
+
+Explicitly NOT in the queue: first live campaign via `load_campaign.py` (cross-session validation, opportunistic), Research Engine Round 1.1 per-URL content MERGE (cost ceiling blocker but not on Steven's explicit list), handler wiring (reframed to `load_campaign.py`), backlogs.
+
+### Session 64 test count
+
+Cumulative 47 unit tests green across the campaign loader stack: 10 campaign_file parser + 7 export wrapper + 11 role classifier + 19 CLI. Plus the canary smoke tests (`--create --dry-run` 3/3 pass, `--preview` against 5 contacts classifies into 4 buckets), plus the 14/14 live Haiku smoke test, plus the full Chicago diocesan export round-trip against the live Outreach API.
+
+### Behavioral findings recorded in memory
+
+- `memory/reference_env_var_quoting_gotcha.md` — new. The full 4-scheme proof table for why `.env` can't be bash-sourced, with pointers to `scripts/env.sh`.
+- `memory/project_s64_priority_queue.md` — new. Steven's locked priority ordering.
+- MEMORY.md index updated with both entries. The priority queue is a top-of-index "Active priority queue (LOCKED)" entry, loaded before anything else.
+
+### Uncommitted state at end of Session 64
+
+- `.DS_Store` — harmless.
+- `/tmp/outreach_tokens.json` — ephemeral token cache, ~2h headroom after the S64 refresh. Not a repo file.
+- `data/role_classifier_cache.json` — gitignored, populated with the 14 live smoke test titles.
+- No half-built code.
+
+---
+
 ## Session 63 (2026-04-14) — Commit 0 Verified, Wrapper Bug Fixed, Scanner Hardened, Wed Drip Early-Loaded, CSTA IN/TN Curated
 
 **Five bodies of work flowing from one plan (`~/.claude/plans/flickering-nibbling-breeze.md`).**

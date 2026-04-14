@@ -1,9 +1,58 @@
 # SCOUT MASTER PLAN
-*Last updated: 2026-04-14 — End of Session 63. Commit 0 closed, two hook bugs fixed, scanner hardened (SCOUT_VIOLATIONS_LOG env override), Wed diocesan drip 15/15 loaded a day early, CSTA IN+TN curated, hook-wrapper smoke tests shipped, Session 64 prep note committed. Six new commits on main this session.*
+*Last updated: 2026-04-14 — End of Session 64. Generalized campaign loader shipped (plan `~/.claude/plans/luminous-honking-cook.md` rev 2 after pressure-test rebuild), OAuth + export bugs fixed, priority queue locked by Steven, BUG 5 prep note committed for next session. Ten new commits on main this session.*
 
 ---
 
-## YOU ARE HERE → Session 63 (end) closed Session 62's Commit 0 loop, fixed two production hook bugs, hardened the rule scanner against smoke-test log poisoning, loaded Wed diocesan drip a day early, hand-curated CSTA IN+TN roster gaps, shipped automated hook-wrapper smoke tests, and committed a Session 64 prep note for prospect_loader wiring.
+## YOU ARE HERE → Session 64 (end) reframed the "prospect_loader wiring" carryover from S63 as the wrong problem, pressure-test-rebuilt the plan, shipped a strategy-agnostic campaign loader with role segmentation and claude.ai round-trip, fixed a latent Outreach API filter bug, and left a BUG 5 prep note for the next session's top-priority plan-mode work.
+
+**Ten new commits on `main` this session (all pushed to `origin/main`):**
+
+1. **`f638168` feat(campaign_file):** single-file campaign markdown schema + permissive parser + canary fixture + 10 round-trip/edge-case tests.
+2. **`a530aac` feat(outreach): export_sequence_for_editing** — thin wrapper around `export_sequence` that renders in the campaign_file schema so Steven can fetch an existing Outreach sequence as a claude.ai starter. 4 offline unit tests.
+3. **`27e2243` feat(role_classifier):** Haiku temp=0 per-contact bucketing (admin/curriculum/it/teacher/coach/other) with `is_relevant_role` pre-filter + sha1-keyed cache. 11 unit tests via mock Anthropic client. **Live smoke: 14/14 real K-12 titles classified correctly.**
+4. **`09668c0` feat(load_campaign):** generalized campaign loader CLI with `--preview` / `--create` / `--execute` / `--dry-run` / `--force` modes, CSV and stdin contact input, sidecar state with sha1 drift detection, Rule 19 name translation on stdout. Canary fixtures + docs (SCOUT_CAPABILITIES + CLAUDE.md PREFLIGHT: Campaign load). Canary smoke: 3/3 variants pass preflight, 5 fake contacts classify into 4 buckets.
+5. **`afb8680` fix(oauth + export):** three-way bundle. (a) `load_dotenv()` added to `scripts/load_campaign.py` per Scout convention. (b) `tools/outreach_client.export_sequence` was calling `/sequenceTemplates?filter[sequence][id]=<N>` which Outreach rejects with 400 — rewrote to loop over steps and use `filter[sequenceStep][id]=<step_id>` per step, matching the working pattern at `validate_sequence_inputs:1115`. (c) `campaign_file.dump_campaign` now passes `allow_unicode=True` so em-dashes render natively instead of `\u2014`. Verified end-to-end against a live Outreach sequence fetch.
+6. **`8b63d12` feat(env): scripts/env.sh shim** — proves empirically that no quoting scheme cross-parses between bash and python-dotenv for the current `OUTREACH_CLIENT_SECRET` value (contains both `'` and `$`). Shim uses python-dotenv internally and emits shlex-quoted `export` lines bash can eval cleanly. Usage: `source scripts/env.sh` instead of `source .env`.
+7. **`74f4c7f` feat(export): slug cleanup + HTML→markdown** — `_slugify()` collapses runs of non-alphanumerics to single underscores; `_html_to_markdown()` converts Outreach's HTML bodies (`<br>`, `<p>`, `<a href>`, `<strong>`, `&amp;`) to clean markdown for claude.ai readability. 3 new unit tests + live Chicago diocesan export re-verified.
+8. **`6ea3b29` test(load_campaign):** 19 CLI unit tests covering contact hydration (5 skip paths), sidecar state round-trip, sha1 stability, drift detection (all 4 branches), plan building (role routing + warn-on-missing-variant), and three `cmd_create` flows (dry-run no-write, idempotent re-run, preflight-failure abort). Mocks `outreach_client` for offline runs.
+9. **`ea746e7` docs(session-65-prep): BUG 5 prep note + CLAUDE.md priority queue lock** — `docs/session_65_prep_bug5_target_match_params.md` with all 4 call sites of `_target_match_params` mapped, 5 candidate fix approaches, 7 open questions for the plan-mode session. CURRENT STATE "exact next actions" replaced with Steven's locked 8-item priority queue.
+10. **(This EOS commit)** `docs(session-64): end-of-session wrap` — SCOUT_PLAN / CLAUDE.md / SCOUT_HISTORY updates, new reference memory for the bash-vs-dotenv quoting gotcha.
+
+**Plan architecture reminder:** the plan went through one full pressure-test rebuild cycle (v1 → v2) per Steven's senior-reviewer prompt. v1 had three structural problems: (a) multi-file `campaigns/<slug>/config.yaml + variants/` directory layout that forced Steven to translate claude.ai output into a new schema on every round trip; (b) rule-based role classifier that caps at 75-85% accuracy (estimate) and needs 150-300 lines of regex (estimate) to get there; (c) included a diocesan_drip refactor mid-week with live production drip running the next two days (real risk, zero upside). v2 fixed all three: single-file markdown schema, Haiku temp=0 classifier in ~50 lines (estimate), diocesan refactor dropped entirely. v2 also added preflight-validator-runs-all-variants-first, sidecar state with drift detection, and stdin contact input for paste workflows. The plan pressure-test was the highest-value meta-lesson of the session — v1 would have shipped UX friction that ate every future campaign.
+
+**Session 64 key narrative moments:**
+- **First reframe**: I started by proposing the wrong plan — the S63 prep note's handler-wiring approach. Steven said "haven't we got these features built already?" and clarified his real workflow: drafts in claude.ai, role segmentation, multi-variant sequences, staggered loads. That reframe killed a whole prep-note-directed session and replaced it with what the generalized loader actually needed to be.
+- **Second reframe**: my own Q2 — "does the research result contain verified contacts?" — Steven correctly pushed back that I should investigate the codebase myself rather than bring the question. I grepped `tools/research_engine.py`, found `result["contacts"]` at line 406, and answered my own question. The coaching feedback was "always try to dig into the abilities, learnings, history, etc of everything we have done before bringing me the question."
+- **Third reframe**: Option B (the `.env` cleanup) turned out to be unsolvable at the quoting-scheme level. I proof-tested 4 schemes and none work for both bash and python-dotenv. Pivoted to a shim script. This was the right move but required the empirical tests to earn the right to abandon the obvious fix.
+- **Fourth reframe**: while testing the Chicago diocesan export, I hit a 400 on `/sequenceTemplates` that had nothing to do with OAuth — it was a pre-existing latent bug in `export_sequence()` using the wrong filter shape. Scope-creeping the fix was the right call because it blocked the value of Commit 2. One commit bundled the OAuth `load_dotenv` fix + the filter fix + the yaml unicode cosmetic fix.
+
+**Session 64 behavioral findings (no new memory needed, existing rules covered them):**
+- The rule scanner fired ghost matches repeatedly on `40%` / `20%` / `$0.30` even when those strings were not in my prose. Cause is stale entries in the production violation log from prior smoke tests. Already documented S63 in `feedback_rule_scanner_hook_installed.md`. No new findings; just lived with the false positives this session.
+- Wrap-ups-are-not-rushed rule stayed in force through this wrap. S64 crossed the 40% pause line during wrap sequence per Steven's directive, and that's the intended behavior.
+
+### Carryover into Session 65+ — LOCKED PRIORITY QUEUE
+
+Lives at `memory/project_s64_priority_queue.md` (auto-loaded every session). Mirror in `CLAUDE.md` CURRENT STATE. **Do in order, nothing else without Steven's explicit redirection:**
+
+1. **HARD DEADLINE: Thursday diocesan drip** — `.venv/bin/python scripts/diocesan_drip.py --execute` on Thu 2026-04-16. Preempts the queue because of the fixed date. 14 contacts, roughly 6 min wall clock (sample).
+2. **BUG 5 permanent fix** — `tools/research_engine.py::_target_match_params`. Plan-mode session required per Rule 1. **Read `docs/session_65_prep_bug5_target_match_params.md` FIRST.**
+3. **LA archdiocese research restart** — blocked on F8 diocesan playbook gap.
+4. **IN/OK/TN CSTA LinkedIn-snippet extraction** — iterate `scripts/fetch_csta_roster.py`.
+5. **F2 column layout corruption** — 1,912 pre-existing scrambled rows + active writer bypass, root cause unknown.
+6. **Research cross-contamination audit** — post-extraction domain validation layer.
+7. **Prospecting Queue / Signals / Leads cleanup** — scaffold data sweep.
+8. **Known debt / housekeeping** — rotate `OUTREACH_CLIENT_SECRET` to remove the `'`+`$` combo, refresh stale docs.
+
+### Explicitly NOT in the priority queue (deferred)
+
+- First live campaign via `load_campaign.py` — cross-session validation, opportunistic.
+- Research Engine Round 1.1 per-URL content MERGE — cost ceiling blocker but not on Steven's explicit list. Treat as "after #8 unless reprioritized."
+- Handler wiring `_on_prospect_research_complete → execute_load_plan` — reframed as wrong problem during S64 plan mode. Replaced by `scripts/load_campaign.py`. `docs/session_64_prep_prospect_loader_wiring.md` is now historical.
+- 1,245 cold_license_request + 247 winback March backlogs.
+
+---
+
+## Previous YOU ARE HERE (archived to Session 63 narrative below)
 
 **Six new commits on `main` this session:**
 
