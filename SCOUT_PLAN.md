@@ -1,9 +1,96 @@
 # SCOUT MASTER PLAN
-*Last updated: 2026-04-13 — End of Session 60 (schedule ID map correction shipped + research engine Round 1 plan approved; implementation pending next session. 20 memory files banked.)*
+*Last updated: 2026-04-14 — End of Session 61 (Research Engine Round 1 shipped + Level 3 Waverly gate failed + diocesan drip library shipped + amnesia root-cause fix shipped. 9 commits on main. Diocesan live writes begin Tue Apr 14 via `scripts/diocesan_drip.py --execute`.)*
 
 ---
 
-## YOU ARE HERE → Session 60 ended mid-execution. Schedule ID map fix shipped (commit `846aaed`). Research engine Round 1 plan approved after pressure-test pass (`~/.claude/plans/spicy-sleeping-gadget.md`). Implementation starts next session at Commit 1: Part 0 shared dedup fix + 7 unit tests + Level 2 integration check + commit.
+## YOU ARE HERE → Session 61 wrapped with two distinct bodies of work. First half: Research Engine Round 1 flags shipped but Level 3 Waverly A/B failed the verified_quality gate and flags are parked default-OFF. Second half: diocesan drip library (`create_prospect` + `add_prospect_to_sequence` + `validate_prospect_inputs` + `find_prospect_by_email` + `timezone_lookup` + `prospect_loader` + `diocesan_drip.py` thin CLI), 63 contacts assigned across Mon-Thu, canary verified clean and cleaned up. Amnesia root-cause fix shipped: new `docs/SCOUT_CAPABILITIES.md` inventory + SessionStart hook in `~/.claude/settings.json` that auto-injects it on every session start + CLAUDE.md Rules 17/18/19. **Next session's first action: `.venv/bin/python scripts/diocesan_drip.py --execute` to run Tuesday's live batch (17 contacts, ~2.7 hours wall clock).**
+
+### Session 61 commits (9 on main)
+
+| commit | scope |
+|---|---|
+| `978499b` | Research Engine Round 1 Part 0 — shared dedup fix (upgrade-on-collision helper). Level 2 Waverly check: 37/37 contacts preserved, zero regression. 7 unit tests green. |
+| `bd7a562` | Research Engine Round 1 Part 1 — three feature flags (`enable_url_dedup`, `l15_step5_skip_threshold`, `log_claude_usage`). All default OFF. Module-level Claude usage capture safe across `run_in_executor`. 20 unit tests green. |
+| `21d9b3b` | Research Engine Round 1 Part 2 — A/B harness (`scripts/ab_research_engine.py` + `ab_analyze.py`). Real cost from `response.usage` token counts. `--max-cost-usd` ceiling. 3 numerical gates. |
+| `e62f4be` | Round 1.1 patch attempt — URL dedup keeps longest content per URL. Waverly retry still failed (22 vs 30 verified). Level 3 halted per plan's stop-on-first-failure rule. 21 unit tests green. |
+| `163fc8f` | Session 61 research engine wrap doc — 9-commit summary, root-cause analysis, Round 1.1 options. |
+| `fdf6920` | Diocesan drip library — 4 new functions in `tools/outreach_client.py` (`validate_prospect_inputs` + `create_prospect` + `find_prospect_by_email` + `add_prospect_to_sequence`) + new `tools/timezone_lookup.py` + new `tools/prospect_loader.py` + new `scripts/diocesan_drip.py` + new `scripts/test_diocesan_drip.py` (15 tests). 29 unit tests total green. |
+| `fcd1417` | Amnesia root-cause fix — new `docs/SCOUT_CAPABILITIES.md` (~360 line inventory) + CLAUDE.md PREFLIGHT: Prospect add to sequence + Rule 17 (timezone code-enforced) + Rule 18 (no ephemeral prospect scripts) + `feedback_timezone_required_before_sequence.md`. |
+| `fb941a1` | Rule 19 — never show Outreach backend IDs in chat. Translation table in `feedback_no_outreach_ids_in_chat.md`. |
+| `4d8ec58` | Documented `prospects.delete` + `mailboxes.read` scope gaps in SCOUT_CAPABILITIES. |
+
+### First half — Research Engine Round 1 (FAILED, parked)
+
+**Plan:** `~/.claude/plans/spicy-sleeping-gadget.md` (approved Session 60).
+
+**Level 3 Waverly A/B verdict:**
+
+| metric | v1 baseline | v2 first-wins | v2 longest-wins |
+|---|---|---|---|
+| contacts total | 34 / 36 | 20 | 23 |
+| contacts verified | **30 / 30** | **19** | **22** |
+| cost usd | $0.80 / $0.81 | $0.41 | $0.44 |
+| wall clock (s) | 334 / 329 | 171 | 179 |
+| verified_quality_gate | — | **FAIL** (63%) | **FAIL** (73%) |
+
+**Root cause:** URL dedup (either first-wins or longest-wins) collapses distinct per-query Serper snippet highlighting into one entry, losing contacts that were only visible in the lost snippets. L15 Step 5 skip at threshold=15 drops 3-5 more discovery contacts. Neither path is recoverable by a small patch. The insight: `raw_pages` is an extraction-REQUEST list, not a page list — multiple entries per URL are intentional, each carrying distinct content (snippets vs full pages). Banked as `memory/feedback_raw_pages_is_extraction_requests.md`.
+
+**Round 1 code state:** flags default OFF. Production (the 4 `research_queue.enqueue` call sites in `agent/main.py`) unchanged. Test suite 21/21 green. Flags remain available as lab instruments for Round 1.1 experimentation without production risk.
+
+**Round 1.1 options (fresh planning required, NOT shipped in S61):**
+
+1. **Per-URL content MERGE** (not dedup): concatenate all distinct contents for a URL into a single Claude call. Preserves snippet text + full page. Biggest scope change. Most promising.
+2. **Raise L15 Step 5 threshold to 30+**: at 30, Waverly's 30 verified still wouldn't trigger. Larger targets likely also bypass. Savings vanish.
+3. **Ship only usage logging flag**: zero cost savings in Round 1, but gives measurement-grade cost data for Round 2 decisions. Honest minimum.
+4. **Different cost lever entirely**: batch L9 Claude calls (5-10 pages per call instead of 1 per page). Round 2 scope but might be bringable forward.
+
+**Session 61 A/B budget burn:** ~$4.00 of the $25/week ceiling (Level 2 Waverly ~$1.50 + two A/B runs ~$2.46). Level 3 targets 2-5 NOT executed — saved ~$8 + ~60 min by stopping on first failure.
+
+### Second half — Diocesan drip + amnesia root-cause fix
+
+**Plan:** `~/.claude/plans/rosy-jumping-teacup.md` (rev 2, senior-review rebuild after Steven caught a framing error in rev 1).
+
+**Context.** The rev 1 plan framed prospect-add as "net new capability." Steven caught it: *"YOU LITERALLY HELPED ME ADD ALL THE CONTACTS TO ALL THOSE OTHER SEQUENCES YOU CREATED FOR ME THIS MONTH."* Confirmed via git log: Session 38 loaded 11 CUE sequences with prospects via inline ephemeral Python, Session 43 loaded 1,119 C4 prospects the same way. Both loads happened; the code was ephemeral and never committed. Every new session I opened `tools/outreach_client.py`, saw no `create_prospect`, and concluded "this capability doesn't exist." Same amnesia had hit Session 59 earlier with diocesan sequence copy/paste. Problem B (the amnesia itself) is a root-cause issue that required a structural fix alongside the drip.
+
+**Library code shipped** (all in `tools/outreach_client.py`, `tools/prospect_loader.py`, `tools/timezone_lookup.py`, and `scripts/diocesan_drip.py`). The 4 new Outreach functions follow the Session 59 hardening pattern: validator + write function that calls it first + return-dict shape that never raises. Full inventory in `docs/SCOUT_CAPABILITIES.md`.
+
+**Amnesia fix — 2 layers.** Layer 1: ephemeral scripts promoted to canonical library code (Commit `fdf6920`) with unit tests and a preflight checklist. Layer 2: `docs/SCOUT_CAPABILITIES.md` inventory + SessionStart hook in `~/.claude/settings.json` that auto-injects the file content on every Scout session start. Next session will see "here's what's already built" before Claude proposes any work.
+
+**Diocesan drip state (pre-execution):**
+
+- `data/diocesan_drip_state.json` holds 63 contacts assigned round-robin across 4 business days, VERIFIED first within each diocese. Per-day totals: Mon 17, Tue 17, Wed 15, Thu 14.
+- **Expected 65 dropped to 63.** The 2 extras skipped: (a) the single Chicago contact (`tallen@archchicago.org`) has empty `First Name` field in the Leads tab, (b) one Philadelphia contact (last name "Ricci", `mricci@smspa.org`) has same problem. Steven's explicit call: skip both, ship 63. Both can be reclaimed later by hand-fixing first names in the sheet and re-running `--assign`.
+- Exclusion list: 3 broken emails — Michael Kennedy Cincinnati Cloudflare obfuscation placeholder, both O'Brien apostrophe-local-part variants (Cincinnati).
+- Mailbox = your mailbox. Owner = you. Tags on every prospect: `diocesan-drip-2026-04` + `diocesan-drip-<diocese-slug>`.
+
+**Canary — PASSED.** Throwaway Scout Canary at `scout-canary-<ts>@codecombat.test` (IANA-reserved `.test` TLD, unresolvable) created and added to the Chicago diocesan sequence. Steven screenshot-confirmed: Step 1 (Auto email), sending in 6h, correct sequencer. Cleaned up: sequenceState DELETE succeeded (204). Prospect DELETE returned 403 — `prospects.delete` scope not granted. Steven manually deleted the orphaned prospect from Outreach UI.
+
+**Session 61 memory files banked (3 new):**
+
+- `feedback_raw_pages_is_extraction_requests.md` — research engine lesson (first half)
+- `feedback_timezone_required_before_sequence.md` — Rule 17
+- `feedback_no_outreach_ids_in_chat.md` — Rule 19 + full translation table
+
+**Uncommitted state at end of Session 61:**
+
+- `data/diocesan_drip_state.json` — gitignored, 63-contact plan ready for `--execute`
+- `data/diocesan_drip_audit.jsonl` — will be created by first `--execute` run
+- `.DS_Store` — harmless macOS noise
+
+**Exact next step (start of Session 62):**
+
+```bash
+cd /Users/stevenadkins/Code/Scout
+.venv/bin/python scripts/diocesan_drip.py --execute
+```
+
+Runs Tuesday's 17-contact batch with 5-15 min jittered sleeps. ~2.5-3 hours wall clock. State file drives which day runs via `datetime.now(ZoneInfo('America/Chicago')).date()`. Idempotent on crash (atomic state file rewrite after every POST, `find_prospect_by_email` dedup prevents double-creates). If you want Monday's caught up too, add `--force-day 2026-04-13` and run first, then run again for Tuesday.
+
+After Tuesday's batch completes, `scripts/diocesan_drip.py --verify` reads state file and compares against live Outreach counts.
+
+Wednesday (Session 63) and Thursday (Session 64) each run `--execute` once. After Thursday, final `--verify`.
+
+---
 
 ### What Session 60 shipped (committed)
 
