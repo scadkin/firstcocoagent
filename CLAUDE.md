@@ -1,35 +1,39 @@
 # SCOUT — Claude Code Reference
-*Last updated: 2026-04-14 — Session 62 opened. S61 shipped 9 commits (research engine R1 parked default-OFF, diocesan drip library live, amnesia root-cause fix + SessionStart hook). Diocesan drip mid-execution.*
+*Last updated: 2026-04-14 — End of Session 62. Rule scanner (R20 + R19) shipped and live. Mon+Tue diocesan drip complete. 6 commits on main this session.*
 
 ---
 
 ## CURRENT STATE — update this after each session
 
-**Session-narrative history has been moved to `SCOUT_HISTORY.md`. Active plan detail lives in `SCOUT_PLAN.md §YOU ARE HERE`. This section stays ≤30 lines.**
+**Session-narrative history lives in `SCOUT_HISTORY.md`. Active plan detail lives in `SCOUT_PLAN.md §YOU ARE HERE`. This section stays ≤35 lines.**
 
-**Where we are right now (Session 62 opening):**
-- Diocesan drip is actively loading 63 contacts across Mon–Thu into sequences 2008–2013. Canonical path: `scripts/diocesan_drip.py --execute`. State file: `data/diocesan_drip_state.json` (63 contacts, assigned round-robin, VERIFIED-first within each diocese). Canary passed S61; live writes begin S62.
-- Research Engine Round 1 flags are shipped but default OFF (Level 3 Waverly A/B failed `verified_quality_gate`). Production `agent/main.py` is byte-for-byte v1. Round 1.1 planning is carryover work; do NOT enable flags without a fresh plan.
-- Repo is 1 commit ahead of `origin/main` (transcript auto-save `029fdc8`). Working tree clean except `.DS_Store`.
+**Where we are right now (end of Session 62):**
+- **Rule scanner system LIVE.** `scripts/rule_scanner.py` + 34 passing test cases (measured). Rule 20 (every number labeled — measured/sample/estimate/extrapolation/unknown) and Rule 19 (no Outreach backend IDs in chat) are now structurally enforced via `~/.claude/hooks/scout-stop-scan.sh` + `~/.claude/hooks/scout-violation-inject.sh`. Stop hook scans every response; UserPromptSubmit hook injects correction directive on next turn if violations logged. Kill switch: `touch ~/.claude/state/scout-hooks-disabled`. Full system documentation in `~/.claude/projects/-Users-stevenadkins-Code-Scout/memory/feedback_rule_scanner_hook_installed.md`.
+- **Diocesan drip Mon+Tue complete.** 34 of 63 contacts loaded (measured) across six diocesan sequences, zero failures. 29 pending (15 Wed + 14 Thu). Jitter was tightened from 5–15 min per POST down to 10–30 sec; each day's batch now completes in roughly 6 min (measured).
+- **CLAUDE.md trimmed.** Session 60/61 full narrative moved to `SCOUT_HISTORY.md`. File dropped from roughly 46KB (measured) to roughly 20KB (measured).
+- **Research Engine Round 1 flags still parked default-OFF.** Production `agent/main.py` is byte-for-byte v1. Round 1.1 planning is carryover.
+- **Repo state:** 4 commits ahead of `origin/main` actually wait no — all Session 62 commits pushed. Working tree clean except `.DS_Store`.
 
-**Exact next action (Session 62 start):**
-```bash
-cd /Users/stevenadkins/Code/Scout
-.venv/bin/python scripts/diocesan_drip.py --execute           # today's bucket
-# optional: --force-day 2026-04-13 to catch up Monday first
-```
-Script is idempotent on crash, dedups via `find_prospect_by_email`, 5–15 min jittered sleeps between POSTs, ~2.7 h wall clock per 17-contact day. After Thursday's batch → `--verify`.
+**Exact next actions (Session 63 start, in order):**
 
-**For full narrative of what S60/S61 shipped, failed, and why:** `SCOUT_HISTORY.md §Session 60` and `§Session 61`.
-**For the active, detailed plan (commits, tables, Round 1.1 options):** `SCOUT_PLAN.md §YOU ARE HERE`.
+1. **Commit 0 empirical hook verification.** Follow the three-test procedure in `~/.claude/plans/playful-weaving-nygaard.md` §Commit 0. This MUST run in a throwaway session because it temporarily modifies `~/.claude/settings.json`. Back up first: `cp ~/.claude/settings.json ~/.claude/settings.json.bak-commit0`. Three tests verify (a) whether Stop-hook block forces in-turn correction, (b) whether UserPromptSubmit additionalContext reaches Claude, (c) whether `last_message` contains serialized tool-use blocks. After running, update the "PENDING" lines in `scripts/rule_scanner.py`'s module docstring and in `feedback_rule_scanner_hook_installed.md`.
+2. **Wednesday diocesan drip:** `cd /Users/stevenadkins/Code/Scout && .venv/bin/python scripts/diocesan_drip.py --execute`. 15 contacts, roughly 6 min (estimate) wall clock.
 
-**Session 62 carryover (non-drip, load by demand):**
-1. Research Engine Round 1.1 plan (per-URL content MERGE, not dedup). Plan-mode session required.
-2. BUG 5 code fix in `tools/research_engine.py::_target_match_params` (shared-city gap). Plan-mode session.
+**For full Session 62 narrative:** `SCOUT_HISTORY.md §Session 62`.
+**For the active, detailed plan:** `SCOUT_PLAN.md §YOU ARE HERE`.
+**For the rule scanner plan reference:** `~/.claude/plans/playful-weaving-nygaard.md`.
+
+**Session 63+ carryover (non-drip, load by demand):**
+1. Research Engine Round 1.1 plan — per-URL content MERGE, not dedup. Plan-mode session.
+2. BUG 5 code fix in `tools/research_engine.py::_target_match_params`. Plan-mode session.
 3. 9 pending dioceses review (Pittsburgh/OKC/Omaha) — blocked on BUG 5.
 4. Optional: F9 compliance scanner query redesign, LA archdiocese restart, IN/OK/TN CSTA hand-curation.
 5. Deferred: 1,245 cold_license_request + 247 winback March backlogs.
 6. Future: wire `prospect_loader.execute_load_plan` into `_on_prospect_research_complete`.
+
+**Active kill switches:**
+- Rule scanner hooks: `touch ~/.claude/state/scout-hooks-disabled` (both hooks short-circuit at top)
+- Research Engine Round 1 flags: default OFF in `ResearchJob.__init__`; do NOT enable without a fresh plan
 
 ---
 

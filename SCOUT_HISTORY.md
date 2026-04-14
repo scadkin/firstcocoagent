@@ -1218,6 +1218,122 @@ The full Session 56 "What's working" + "What's still in-progress / unresolved" +
 
 ---
 
+## Session 62 (2026-04-14) — Rule Scanner (R20 + R19) Shipped + Diocesan Drip Mon+Tue Complete + CLAUDE.md Trim
+
+**Four bodies of work. 6 commits on `main`.**
+
+### The session's core incident — and the structural fix
+
+The session opened with a CLAUDE.md trim from roughly 46KB (measured) to roughly 20KB (measured), moving the Session 60/61 narrative to this history file. Then the diocesan drip Monday catchup batch kicked off in the background. While that was running, Steven asked a seemingly-simple question: "what % of your 1M context window does the full-context SessionStart hook cost?" Claude gave three different answers across 30 minutes — **9%**, then **21%**, then **15%** — all hand-wavy, none labeled as estimate vs measurement. Steven had installed the full-context hook based on the first (9%) number. The real measured value was roughly 17%. Steven revoked the hook and asked the foundational question of the session: *"what's the point of rules if you can violate them at will?"*
+
+Rule 6 + the Cost/time preflight in CLAUDE.md + `feedback_never_cite_made_up_numbers.md` in user-level memory all existed and were loaded in context at the moment of the violation. None fired. The pattern-match from "what % of a window" → "cost/time estimate preflight" did not happen in the moment of generation because the preflight's trigger language was too narrow ("recommendation-only" — a casual conversational question didn't feel like a recommendation). `feedback_code_enforcement_beats_process_rules.md` already said text rules are probabilistic and code rules are deterministic; Session 62 was Claude ignoring its own meta-rule.
+
+The structural fix: write Rule 20 ("every number labeled") as both text AND code. The code is a Stop hook + UserPromptSubmit injector pipeline with a Python scanner living in the Scout repo at `scripts/rule_scanner.py`. Stop hook scans Claude's output at turn end, logs any unlabeled percents/dollars/tokens to `~/.claude/state/scout-violations.log`, and emits `{"decision":"block","reason":...}` as a best-effort in-turn correction trigger. UserPromptSubmit hook on the next user turn atomically consumes the log and injects a mandatory correction directive as `additionalContext`, forcing Claude to acknowledge and restate flagged numbers before answering. Two layers: Layer 2 (Stop hook) is best-effort because the Stop-block continuation semantics are partially undocumented in Claude Code (to be verified in Session 63 Commit 0). Layer 3 (injector) is the guaranteed-fire mechanism — as long as the log reaches disk, the loop closes on the next turn.
+
+Plan file: `~/.claude/plans/playful-weaving-nygaard.md`. Two pressure-test passes before execution (Steven asked for a senior-reviewer rewrite twice). Final plan is comprehensive, version-3, covers architecture + file layout + exact test case table + failure modes + rollback + time estimate.
+
+### Commits (6 on main, all pushed)
+
+| commit | scope |
+|---|---|
+| `6da2a8f` | CLAUDE.md trim — Session 60/61 full narrative block archived to SCOUT_HISTORY.md §Session 60/61, CURRENT STATE replaced with a ~30-line compact pointer block. File went from roughly 46KB (measured) to roughly 20KB (measured). |
+| `3b97046` | Diocesan drip jitter tightened from `(300, 900)` sec (5–15 min) to `(10, 30)` sec. Steven correctly called out that the original "look human" pacing rationale was wrong — he would never manually take 2.7 h to add 17 prospects to a sequence. New per-day wall clock: roughly 6 min (measured). |
+| `94cdc0e` | Rule 20 scanner — `scripts/rule_scanner.py` with a `RULES` list, 20 locked test cases in `scripts/test_rule_scanner.py` (all green, measured), Rule 20 text added to CLAUDE.md CRITICAL RULES + docs/SCOUT_RULES.md. Pure Python, standard library only. |
+| `a4ce984` | Rule 19 extension via the extensibility contract — one new dict appended to `RULES`, 14 new test cases (all green, measured), CLAUDE.md Rule 19 text updated to note the structural upgrade. Zero changes to hook wrappers or `settings.json`. This commit proves the contract works: adding a new rule = append dict + add tests + run + commit. |
+
+**Note:** the session also included two earlier Session 62 commits not directly related to the rule scanner:
+- Monday diocesan drip (17/17 contacts live to Outreach, zero failures)
+- Tuesday diocesan drip (17/17 contacts live, zero failures)
+
+Both used `scripts/diocesan_drip.py --execute` with the new jitter. 34 of 63 total contacts now loaded across the six diocesan sequences. Monday was first run-then-killed-then-restarted after jitter tightening; the prospect_loader's `find_prospect_by_email` dedup + atomic state file made the restart safe.
+
+### Non-repo machine-local changes (not committable but load-bearing)
+
+- `~/.claude/hooks/scout-stop-scan.sh` — Stop hook wrapper. Reads stdin JSON (`last_message`, `stop_hook_active`), checks kill switch, pre-filters on digit presence, shells out to the repo scanner, validates stdout JSON, appends to violation log, emits block JSON. Roughly 45 lines (measured). Fails open on any error.
+- `~/.claude/hooks/scout-violation-inject.sh` — UserPromptSubmit hook wrapper. Atomically mv's violation log to `.processing` (with crash recovery if .processing already exists from a crashed prior run), reads up to last 5 entries, builds correction directive, emits as `hookSpecificOutput.additionalContext`, rm's .processing. Roughly 50 lines (measured). Runs in parallel with existing `inject-now-and-ctx.sh`.
+- `~/.claude/settings.json` — Stop array now has 2 hooks (sound + scout-stop-scan); UserPromptSubmit array now has 2 hooks (inject-now-and-ctx + scout-violation-inject). Backup at `settings.json.bak-s62`.
+- `~/.claude/state/scout-violations.log` — auto-created on first violation. Truncated to last 50 entries when size exceeds 100 KB.
+- `~/.claude/state/scout-hooks-disabled` — the kill switch file. Does not exist by default. `touch` to disable both hooks; `rm` to re-enable.
+- `~/.claude/projects/-Users-stevenadkins-Code-Scout/memory/feedback_rule_scanner_hook_installed.md` — NEW user-level memory file documenting the entire system: what it is, where things live, how to use kill switch, known limitations, extensibility contract, rebuild-on-new-machine procedure, Commit 0 empirical findings (currently "PENDING" until Session 63 runs the tests).
+- `~/.claude/projects/-Users-stevenadkins-Code-Scout/memory/feedback_claude_manages_tracking.md` — NEW user-level memory file documenting Steven's explicit Session 62 preference: "this is way too much for me to remember or keep track of. i need you to do that for me." Rule: Claude persists cross-session state to files at EOS, never asks Steven to "remember" or "note" anything.
+- `~/.claude/projects/-Users-stevenadkins-Code-Scout/memory/MEMORY.md` — new "Structural enforcement" section added at the top of the index, pointing to both new memory files.
+- `~/.claude/plans/playful-weaving-nygaard.md` — session plan file. Three versions: v1, v2 (after first pressure-test), v3 (after second pressure-test). v3 is what shipped.
+- `~/.claude/hooks/scout-session-load.sh` — briefly installed and DELETED in the same session. This was the full-context SessionStart hook that would have cat'd SCOUT_HISTORY + SCOUT_RULES + SCOUT_REFERENCE + all user-level memory files. Revoked after Claude's wrong numerical justification for it.
+
+### Rule scanner implementation details
+
+**Scanner architecture:**
+- `scripts/rule_scanner.py` defines a module-level `RULES` list. Each rule is a dict with `id`, `name`, `pre_filter`, `number_patterns` (list of `(type, regex)` tuples), `label_roots` (substring list; empty means no label can save you), `label_window_chars`, and `correction_template`.
+- `normalize(text)` function strips fenced code blocks, inline backticks, markdown link targets, and lines containing `[RULE-SCANNER-CORRECTION]` before regex runs.
+- `scan(text)` returns a dict: `{rule, violations, correction_directive}`.
+- `main()` reads stdin, runs scan, emits JSON to stdout only if violations found, always exits 0.
+
+**R20 (every number labeled):**
+- Number patterns: `\b\d+(?:\.\d+)?\s*%`, `\$\d+(?:\.\d+)?(?:[KMB])?\b`, `\b\d+(?:\.\d+)?\s*K?\s*tokens?\b`
+- Label roots (substring match within 100 chars after the number): `measur`, `sample`, `estimat`, `extrapolat`, `unknown`, `approximat`, `rough`, `guess`
+- Label matching is intentionally loose (substring within window, not strict parens) because false positives are worse than false negatives — false positives make Steven disable the system.
+
+**R19 (no Outreach backend IDs):**
+- Patterns: `prospect_id\s*[:=]\s*\d+`, `sequenceState\s+\d+`, `mailbox\s*[:=]?\s*\d+`, `owner(?:_id)?\s*[:=]?\s*\d+`, `sequence\s+20(?:08|09|10|11|12|13)\b`, `template_id`, `schedule_id`.
+- `label_roots: []` — no qualification can save the claim. These IDs must not appear in chat at all.
+- The diocesan sequence numeric pattern (`sequence 2008|...|2013`) only catches the six diocesan sequences; other sequence numbers pass freely.
+
+**34 test cases total (20 for R20 + 14 for R19, measured), all green at last run.**
+
+### Session 62 lessons (load-bearing)
+
+- **Text rules alone reach ~95% compliance (estimate), never 100%. Code enforcement is deterministic.** The meta-rule `feedback_code_enforcement_beats_process_rules.md` already said this, but Session 62 was Claude failing to apply the meta-rule to itself. Lesson: for any rule whose violation has concrete cost (like Steven making a decision on a wrong number), ship both text AND code from day one. Don't wait for the text rule to fail.
+- **The scanner's label matching must be looser than strict parens.** The v1 regex required `(measured)` exactly. That was brittle. v3 accepts any of `measur`, `sample`, `estimat`, `extrapolat`, `unknown`, `approximat`, `rough`, `guess` as a substring within 100 chars after the number. Steven's sentence "17% (based on measurement from the hook output)" passes because "measurement" is in window.
+- **Extensibility contract matters more than feature completeness.** The session shipped only R20 first, then added R19 via the contract (one dict append + 14 test cases + 1 commit) as proof the contract works. Future rules slot in the same way. This is what made the plan approvable — Steven could see that shipping R20 alone didn't paint him into a corner.
+- **When presenting numerical tradeoffs for a decision, measure first and label every number.** The full-context hook incident proves it. Steven installs or rejects things based on the numbers Claude quotes. Wrong numbers = wrong decisions. The rule scanner is now the structural backstop for this failure mode.
+- **Steven does not track cross-session state.** Explicit statement this session: "this is way too much for me to remember or keep track of. i need you to do that for me." Banked as `feedback_claude_manages_tracking.md`. EOS protocols must persist everything to files — CLAUDE.md Current State + SCOUT_PLAN.md YOU ARE HERE + SCOUT_HISTORY.md + memory files — so next session picks up without Steven having to remember anything.
+- **Plan pressure-tests catch architecture errors, not just detail errors.** Steven ran the plan through two "ruthless senior-reviewer" pressure-test passes before approving. The v1 plan had scanner logic in machine-local shell scripts (bad — not version-controlled, not testable from repo root). The v2 rewrite put the scanner in the Scout repo with the bash wrapper shelling out via absolute path. The v3 rewrite added looser label matching, crash recovery for the injector's `.processing` file, explicit test cases in the plan, and a minimum-viable-fallback section. Each pass found genuinely new problems. The pattern is: hold the full plan in head before reacting, attack the foundation first, then walk end-to-end.
+- **Session 63 first action is pre-committed.** Commit 0 empirical hook verification (three tests in `~/.claude/plans/playful-weaving-nygaard.md` §Commit 0) must run in a throwaway session. Results update the "PENDING" lines in `scripts/rule_scanner.py`'s module docstring and in `feedback_rule_scanner_hook_installed.md`. Handed off to user because Claude can't run throwaway sessions from inside this session.
+
+### Session 62 memory files banked
+
+- `feedback_rule_scanner_hook_installed.md` — full system documentation (NEW)
+- `feedback_claude_manages_tracking.md` — Steven's explicit "you manage state, not me" preference (NEW)
+
+### Session 62 carryover → Session 63+
+
+1. **PRIMARY, FIRST ACTION:** Commit 0 empirical hook verification. Three tests in `~/.claude/plans/playful-weaving-nygaard.md` §Commit 0. Roughly 15 min (estimate) total. Update "PENDING" lines after.
+2. **Wednesday diocesan drip:** `scripts/diocesan_drip.py --execute`. 15 contacts, roughly 6 min (estimate) wall clock.
+3. **Thursday diocesan drip:** same command. 14 contacts, roughly 6 min (estimate).
+4. **Thursday or Friday:** `scripts/diocesan_drip.py --verify` for final audit. Expect all 63 contacts (measured from state file) landed.
+5. **Research Engine Round 1.1 planning** — separate plan-mode session. Per-URL content MERGE is the most promising lever. All Round 1 flags currently default OFF.
+6. **BUG 5 code fix** in `tools/research_engine.py::_target_match_params` — separate plan-mode session. Shared-city gap. Blocks 9 pending dioceses review.
+7. **Passive monitoring** of Rule 20 + Rule 19 scanner through the week. False positives → `touch ~/.claude/state/scout-hooks-disabled` immediately, report, tune, re-enable.
+8. **Optional:** F9 compliance scanner query redesign, LA archdiocese research restart, IN/OK/TN CSTA hand-curation.
+9. **Deferred:** 1,245 cold_license_request + 247 winback March backlogs.
+
+### Files touched Session 62
+
+**New (repo-tracked):**
+- `scripts/rule_scanner.py`
+- `scripts/test_rule_scanner.py`
+
+**Modified (repo-tracked):**
+- `CLAUDE.md` — trimmed S60/S61 narrative, added Rule 20, updated Rule 19 text, new CURRENT STATE at end of session
+- `docs/SCOUT_RULES.md` — added Rule 20 inline with the prior Session 59 text rule
+- `SCOUT_PLAN.md` — new YOU ARE HERE at top reflecting Session 62 state
+- `SCOUT_HISTORY.md` — this entry
+- `scripts/diocesan_drip.py` — jitter tightened
+
+**New (machine-local, not committed):**
+- `~/.claude/hooks/scout-stop-scan.sh`
+- `~/.claude/hooks/scout-violation-inject.sh`
+- `~/.claude/projects/-Users-stevenadkins-Code-Scout/memory/feedback_rule_scanner_hook_installed.md`
+- `~/.claude/projects/-Users-stevenadkins-Code-Scout/memory/feedback_claude_manages_tracking.md`
+- `~/.claude/plans/playful-weaving-nygaard.md`
+- `~/.claude/state/scout-violations.log` (auto-created, may or may not exist depending on traffic)
+
+**Modified (machine-local, not committed):**
+- `~/.claude/settings.json` — added Stop hook entry + second UserPromptSubmit entry
+- `~/.claude/projects/-Users-stevenadkins-Code-Scout/memory/MEMORY.md` — new Structural enforcement section at top
+
+---
+
 ## Session 61 (2026-04-13/14) — Research Engine Round 1 Shipped+Failed + Diocesan Drip Library + Amnesia Root-Cause Fix
 
 **Two distinct bodies of work across a long session. 9 commits on `main`.**

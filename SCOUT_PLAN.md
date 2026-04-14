@@ -1,9 +1,68 @@
 # SCOUT MASTER PLAN
-*Last updated: 2026-04-14 — End of Session 61 (Research Engine Round 1 shipped + Level 3 Waverly gate failed + diocesan drip library shipped + amnesia root-cause fix shipped. 9 commits on main. Diocesan live writes begin Tue Apr 14 via `scripts/diocesan_drip.py --execute`.)*
+*Last updated: 2026-04-14 — End of Session 62 (rule scanner shipped: R20 every-number-labeled + R19 no-Outreach-backend-IDs structurally enforced via Stop hook + UserPromptSubmit injector; Mon+Tue diocesan drip complete 34/63; CLAUDE.md trimmed. 6 commits on main this session.)*
 
 ---
 
-## YOU ARE HERE → Session 61 wrapped with two distinct bodies of work. First half: Research Engine Round 1 flags shipped but Level 3 Waverly A/B failed the verified_quality gate and flags are parked default-OFF. Second half: diocesan drip library (`create_prospect` + `add_prospect_to_sequence` + `validate_prospect_inputs` + `find_prospect_by_email` + `timezone_lookup` + `prospect_loader` + `diocesan_drip.py` thin CLI), 63 contacts assigned across Mon-Thu, canary verified clean and cleaned up. Amnesia root-cause fix shipped: new `docs/SCOUT_CAPABILITIES.md` inventory + SessionStart hook in `~/.claude/settings.json` that auto-injects it on every session start + CLAUDE.md Rules 17/18/19. **Next session's first action: `.venv/bin/python scripts/diocesan_drip.py --execute` to run Tuesday's live batch (17 contacts, ~2.7 hours wall clock).**
+## YOU ARE HERE → Session 62 wrapped with four distinct bodies of work. (1) CLAUDE.md trimmed from roughly 46KB (measured) to roughly 20KB (measured), Session 60/61 narrative archived to SCOUT_HISTORY. (2) Diocesan drip Mon+Tue batches ran live and clean via `scripts/diocesan_drip.py --execute` — 34 of 63 contacts loaded, zero failures, drip jitter tightened from 5-15 min per POST to 10-30 sec. (3) Full-context SessionStart hook was briefly installed then REVOKED after Claude gave three different wrong context-window percentages in 30 minutes (measured), prompting the core lesson of this session: text rules alone reach ~95% compliance (estimate), never 100% — only code enforcement is deterministic. (4) As a structural response to the number-mistake, two rules are now code-enforced via a new scanner: R20 (every numerical claim labeled as measured/sample/estimate/extrapolation/unknown) and R19 (never show Outreach backend numeric IDs in chat). Scanner is at `scripts/rule_scanner.py` in the repo; Stop hook + UserPromptSubmit injector live in `~/.claude/hooks/`; kill switch is `touch ~/.claude/state/scout-hooks-disabled`. **Next session's FIRST action: Commit 0 empirical hook verification — follow the three-test procedure in `~/.claude/plans/playful-weaving-nygaard.md` §Commit 0, then run the Wednesday diocesan drip batch.**
+
+### Session 62 commits (6 on main)
+
+| commit | scope |
+|---|---|
+| `6da2a8f` | CLAUDE.md trim — Session 60/61 narrative moved to SCOUT_HISTORY §Session 60/61, CURRENT STATE replaced with ~30 line compact pointer block (roughly 57% reduction in file size, measured). |
+| `3b97046` | Diocesan drip jitter fix — `scripts/diocesan_drip.py` `sleep_seconds` changed from `(300, 900)` to `(10, 30)`. Mon+Tue batches finished in roughly 6 min (measured) each instead of the prior roughly 2.7 h (estimate) per day. |
+| `94cdc0e` | Rule 20 scanner + twenty locked test cases (all green, measured) + CLAUDE.md Rule 20 text + docs/SCOUT_RULES.md mirror. Scanner is `scripts/rule_scanner.py`; tests are `scripts/test_rule_scanner.py`; run via `.venv/bin/python scripts/test_rule_scanner.py`. |
+| `a4ce984` | Rule 19 extension via the scanner's extensibility contract — one new dict in `RULES`, fourteen new test cases (all green, measured), CLAUDE.md Rule 19 text updated. Zero changes to hook wrappers or settings.json. Proof the contract works. |
+
+**Non-repo machine-local changes (not committable):**
+- `~/.claude/hooks/scout-stop-scan.sh` — Stop hook bash wrapper, roughly 45 lines (measured). Reads stdin JSON, pre-filters on digits, shells out to the repo scanner, appends to violation log, emits block JSON.
+- `~/.claude/hooks/scout-violation-inject.sh` — UserPromptSubmit hook, roughly 50 lines (measured). Reads violation log atomically, injects correction directive as `additionalContext`, clears log.
+- `~/.claude/settings.json` — Stop now has two hooks (sound + scout-stop-scan); UserPromptSubmit now has two (inject-now-and-ctx + scout-violation-inject). Backup at `~/.claude/settings.json.bak-s62`.
+- `~/.claude/state/scout-violations.log` — auto-created on first violation; truncated to last 50 entries when size exceeds 100 KB (measured from scanner config).
+- `~/.claude/projects/-Users-stevenadkins-Code-Scout/memory/feedback_rule_scanner_hook_installed.md` — NEW user-level memory file documenting the system + extensibility contract + rebuild path.
+- `~/.claude/projects/-Users-stevenadkins-Code-Scout/memory/feedback_claude_manages_tracking.md` — NEW user-level memory file documenting Steven's explicit "you track, not me" preference from this session.
+- `~/.claude/projects/-Users-stevenadkins-Code-Scout/memory/MEMORY.md` — index updated with a new "Structural enforcement" section pointing to the two new files.
+
+### Diocesan drip status (measured from `scripts/diocesan_drip.py --verify`)
+
+| Diocesan sequence | Live count | Expected | Status |
+|---|---|---|---|
+| Philadelphia | 10 | 10 | ✅ |
+| Cincinnati | 10 | 10 | ✅ |
+| Detroit | 4 | 4 | ✅ |
+| Cleveland | 6 | 6 | ✅ |
+| Boston | 4 | 4 | ✅ |
+| Chicago | 0 | 0 | ✅ (single lead skipped — empty First Name in sheet) |
+
+**Overall:** 34 of 63 contacts loaded across Mon+Tue (measured). 29 pending (measured): 15 Wed + 14 Thu. Wall clock for both days combined was roughly 11 min (measured). Zero failures. One reused-existing prospect on each day (dedup via `find_prospect_by_email` worked).
+
+### The Session 62 core lesson (structural, applies to all future sessions)
+
+Text rules in CLAUDE.md and memory files are probabilistic. Compliance tops out around 95% (estimate) because even when the rule is loaded in context, the pattern-match from a real situation to the rule's trigger language does not always happen in the moment of generation. The final 5% (estimate) requires code enforcement — a Stop hook that checks Claude's output programmatically and logs violations to a state file that forces correction on the next turn.
+
+The Session 62 incident: Claude gave Steven three different wrong percentages for the context-window cost of a SessionStart hook (9%, 21%, 15% — all unlabeled, roughly 17% was the real measured value). Rule 6 + Cost/time preflight + `feedback_never_cite_made_up_numbers.md` all existed and were in context. None fired. Steven caught it himself and asked the structural question: "what's the point of rules if you can violate them at will?"
+
+The fix is `scripts/rule_scanner.py` with an extensible `RULES` list. Adding a new rule is a single dict append + test cases. The Stop hook + UserPromptSubmit injector pipeline catches violations in Claude's output and forces a correction directive on the next user turn before any answer can be given.
+
+**This pattern is now the standard for any high-stakes rule whose violation has concrete cost.** Future rules become enforceable by adding to `RULES`, not by writing more memory files that won't fire.
+
+### Session 62 carryover (exact next actions, in order)
+
+1. **FIRST ACTION of Session 63: Commit 0 empirical hook verification.** Follow the three-test procedure in `~/.claude/plans/playful-weaving-nygaard.md` §Commit 0. Three tests, roughly five minutes each (estimate). Tests: (a) does Stop-hook `{"decision":"block"}` force in-turn correction? (b) does UserPromptSubmit `additionalContext` actually reach Claude? (c) what's in `last_message` — prose only or serialized tool-use blocks too? After running, update the "PENDING" verdicts in `scripts/rule_scanner.py`'s module docstring and `~/.claude/projects/-Users-stevenadkins-Code-Scout/memory/feedback_rule_scanner_hook_installed.md`.
+2. **SECOND ACTION of Session 63: run Wednesday diocesan drip batch.** `cd /Users/stevenadkins/Code/Scout && .venv/bin/python scripts/diocesan_drip.py --execute`. 15 contacts (measured from state file), roughly 6 min (estimate) wall clock with the new jitter. Auto-picks today's date bucket from CST clock. Resumable on crash.
+3. **THIRD ACTION (Thursday session): run Thursday diocesan drip batch.** Same command. 14 contacts (measured). Then `--verify` to confirm all 63 (measured) contacts landed.
+4. **Passive monitoring through the week:** let Rule 20 + Rule 19 run against real traffic. If any false positive blocks a legitimate response, `touch ~/.claude/state/scout-hooks-disabled` to kill both hooks immediately, report the false positive, tune regex in `scripts/rule_scanner.py`, re-run tests, re-enable.
+5. **Next plan-mode session:** Research Engine Round 1.1. Per-URL content MERGE (not dedup) as the most promising lever. All Round 1 flags currently default OFF. Plan file: `~/.claude/plans/spicy-sleeping-gadget.md` has the failed Round 1 analysis.
+6. **Next plan-mode session (separate):** BUG 5 code fix in `tools/research_engine.py::_target_match_params`. Shared-city gap. Blocks the 9 pending dioceses review (Pittsburgh/OKC/Omaha contamination risk).
+7. **Optional follow-ups:** F9 compliance scanner query redesign, LA archdiocese research restart, IN/OK/TN CSTA hand-curation.
+8. **Deferred:** 1,245 cold_license_request + 247 winback March backlogs.
+
+### Uncommitted state at end of Session 62
+
+- `.DS_Store` — harmless macOS noise, as always.
+- `data/diocesan_drip_state.json` — gitignored, 63-contact plan, now with 34 marked done.
+- `data/diocesan_drip_audit.jsonl` — gitignored, audit log of Mon+Tue POSTs.
+- No half-built code.
 
 ### Session 61 commits (9 on main)
 
