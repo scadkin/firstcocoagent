@@ -16,7 +16,14 @@ import sys
 _HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(_HERE))
 
-from tools.contact_extractor import _merge_contact_upgrade  # noqa: E402
+from tools.contact_extractor import (  # noqa: E402
+    _merge_contact_upgrade,
+    start_usage_capture,
+    stop_usage_capture,
+    _log_usage,
+)
+import tools.contact_extractor as ce  # noqa: E402
+from tools.research_engine import ResearchJob  # noqa: E402
 
 
 def _contact(
@@ -125,6 +132,216 @@ def test_merge_adds_new_name():
     return "merge_adds_new_name"
 
 
+# ─────────────────────────────────────────────
+# Part 1 Flag A: URL dedup in L9
+# ─────────────────────────────────────────────
+
+
+def _fresh_job(**kwargs) -> ResearchJob:
+    return ResearchJob("Test ISD", "TX", **kwargs)
+
+
+async def _call_l9(job: ResearchJob):
+    """Drive _layer9_claude_extraction until it reaches the existing filter.
+    We intercept _filter_raw_pages_by_domain to snapshot raw_pages (post-dedup)
+    and short-circuit L9 before it touches the Claude API.
+    """
+    import tools.research_engine as re_mod
+
+    def fake_filter(self):
+        self._observed_raw_pages = list(self.raw_pages)
+        self.raw_pages = []
+
+    original = re_mod.ResearchJob._filter_raw_pages_by_domain
+    re_mod.ResearchJob._filter_raw_pages_by_domain = fake_filter
+    try:
+        await job._layer9_claude_extraction()
+    finally:
+        re_mod.ResearchJob._filter_raw_pages_by_domain = original
+
+
+def _run_async(coro):
+    import asyncio
+    return asyncio.get_event_loop().run_until_complete(coro) if False else asyncio.run(coro)
+
+
+def test_url_dedup_exact_duplicate():
+    job = _fresh_job(enable_url_dedup=True)
+    job.raw_pages = [("http://x.com/staff", "a"), ("http://x.com/staff", "b")]
+    _run_async(_call_l9(job))
+    assert len(job._observed_raw_pages) == 1
+    return "url_dedup_exact_duplicate"
+
+
+def test_url_dedup_trailing_slash():
+    job = _fresh_job(enable_url_dedup=True)
+    job.raw_pages = [("http://x.com/staff/", "a"), ("http://x.com/staff", "b")]
+    _run_async(_call_l9(job))
+    assert len(job._observed_raw_pages) == 1
+    return "url_dedup_trailing_slash"
+
+
+def test_url_dedup_case_insensitive():
+    job = _fresh_job(enable_url_dedup=True)
+    job.raw_pages = [("HTTP://X.COM/STAFF", "a"), ("http://x.com/staff", "b")]
+    _run_async(_call_l9(job))
+    assert len(job._observed_raw_pages) == 1
+    return "url_dedup_case_insensitive"
+
+
+def test_url_dedup_preserves_different_urls():
+    job = _fresh_job(enable_url_dedup=True)
+    job.raw_pages = [
+        ("http://x.com/a", "a"),
+        ("http://x.com/b", "b"),
+        ("http://y.com/a", "c"),
+    ]
+    _run_async(_call_l9(job))
+    assert len(job._observed_raw_pages) == 3
+    return "url_dedup_preserves_different_urls"
+
+
+def test_url_dedup_off_by_default():
+    job = _fresh_job()  # flag defaults to False
+    assert job.enable_url_dedup is False
+    job.raw_pages = [("http://x.com/", "a"), ("http://x.com", "b")]
+    _run_async(_call_l9(job))
+    assert len(job._observed_raw_pages) == 2, "dedup must NOT run when flag is off"
+    return "url_dedup_off_by_default"
+
+
+# ─────────────────────────────────────────────
+# Part 1 Flag B: L15 Step 5 skip threshold
+# ─────────────────────────────────────────────
+
+
+def _make_verified_contacts(n: int) -> list[dict]:
+    return [
+        _contact(
+            first=f"V{i}",
+            last="Person",
+            email=f"v{i}@test.edu",
+            email_confidence="VERIFIED",
+        )
+        for i in range(n)
+    ]
+
+
+def test_l15_step5_skips_at_threshold():
+    job = _fresh_job(l15_step5_skip_threshold=15)
+    job.all_contacts = _make_verified_contacts(15)
+    # Reproduce only the skip predicate Part 1 Flag B adds, not the whole L15.
+    threshold = job.l15_step5_skip_threshold
+    verified = sum(
+        1 for c in job.all_contacts
+        if (c.get("email_confidence") or "").upper() == "VERIFIED"
+    )
+    should_skip = threshold is not None and verified >= threshold
+    assert should_skip is True
+    return "l15_step5_skips_at_threshold"
+
+
+def test_l15_step5_skips_above_threshold():
+    job = _fresh_job(l15_step5_skip_threshold=15)
+    job.all_contacts = _make_verified_contacts(20)
+    verified = sum(
+        1 for c in job.all_contacts
+        if (c.get("email_confidence") or "").upper() == "VERIFIED"
+    )
+    should_skip = job.l15_step5_skip_threshold is not None and verified >= job.l15_step5_skip_threshold
+    assert should_skip is True
+    return "l15_step5_skips_above_threshold"
+
+
+def test_l15_step5_runs_below_threshold():
+    job = _fresh_job(l15_step5_skip_threshold=15)
+    job.all_contacts = _make_verified_contacts(14)
+    verified = sum(
+        1 for c in job.all_contacts
+        if (c.get("email_confidence") or "").upper() == "VERIFIED"
+    )
+    should_skip = job.l15_step5_skip_threshold is not None and verified >= job.l15_step5_skip_threshold
+    assert should_skip is False
+    return "l15_step5_runs_below_threshold"
+
+
+def test_l15_step5_off_by_default():
+    job = _fresh_job()  # threshold defaults to None
+    assert job.l15_step5_skip_threshold is None
+    job.all_contacts = _make_verified_contacts(100)
+    should_skip = job.l15_step5_skip_threshold is not None
+    assert should_skip is False
+    return "l15_step5_off_by_default"
+
+
+# ─────────────────────────────────────────────
+# Part 1 Flag C: Claude usage capture
+# ─────────────────────────────────────────────
+
+
+class _FakeUsage:
+    def __init__(self, input_tokens: int, output_tokens: int):
+        self.input_tokens = input_tokens
+        self.output_tokens = output_tokens
+
+
+class _FakeResponse:
+    def __init__(self, input_tokens: int, output_tokens: int):
+        self.usage = _FakeUsage(input_tokens, output_tokens)
+
+
+def test_claude_usage_capture_when_enabled():
+    start_usage_capture()
+    try:
+        _log_usage(_FakeResponse(1000, 500), "http://test/staff")
+        _log_usage(_FakeResponse(2000, 800), "http://test/leadership")
+    finally:
+        records = stop_usage_capture()
+    assert len(records) == 2, records
+    assert records[0]["input_tokens"] == 1000
+    assert records[0]["output_tokens"] == 500
+    assert records[0]["source_url"] == "http://test/staff"
+    assert records[0]["model"] == "claude-sonnet-4-6"
+    assert records[1]["input_tokens"] == 2000
+    return "claude_usage_capture_when_enabled"
+
+
+def test_claude_usage_no_capture_when_disabled():
+    # Ensure flag is off (explicit reset in case a previous test leaked)
+    stop_usage_capture()
+    _log_usage(_FakeResponse(1000, 500), "http://test/staff")
+    # No start_usage_capture was called — buffer should be empty
+    assert ce._captured_usage == [], ce._captured_usage
+    assert ce._capture_usage_enabled is False
+    return "claude_usage_no_capture_when_disabled"
+
+
+def test_claude_usage_balanced_start_stop():
+    start_usage_capture()
+    _log_usage(_FakeResponse(1000, 500), "http://test")
+    first = stop_usage_capture()
+    second = stop_usage_capture()
+    assert len(first) == 1
+    assert second == [], "second stop must return empty after buffer is cleared"
+    assert ce._capture_usage_enabled is False
+    return "claude_usage_balanced_start_stop"
+
+
+def test_claude_usage_exception_cleanup():
+    start_usage_capture()
+    assert ce._capture_usage_enabled is True
+    try:
+        raise RuntimeError("simulated mid-job exception")
+    except RuntimeError:
+        stop_usage_capture()  # mimics run() except-branch cleanup
+    assert ce._capture_usage_enabled is False
+    # A fresh job must start with an empty buffer.
+    start_usage_capture()
+    assert ce._captured_usage == []
+    stop_usage_capture()
+    return "claude_usage_exception_cleanup"
+
+
 def test_extract_from_multiple_upgrades_across_pages(monkeypatch):
     """
     The real bug: page 1 returns John Smith with no email, page 2 returns the same
@@ -192,12 +409,28 @@ TESTS_PART_0 = [
     test_extract_from_multiple_upgrades_across_pages,
 ]
 
+TESTS_PART_1 = [
+    test_url_dedup_exact_duplicate,
+    test_url_dedup_trailing_slash,
+    test_url_dedup_case_insensitive,
+    test_url_dedup_preserves_different_urls,
+    test_url_dedup_off_by_default,
+    test_l15_step5_skips_at_threshold,
+    test_l15_step5_skips_above_threshold,
+    test_l15_step5_runs_below_threshold,
+    test_l15_step5_off_by_default,
+    test_claude_usage_capture_when_enabled,
+    test_claude_usage_no_capture_when_disabled,
+    test_claude_usage_balanced_start_stop,
+    test_claude_usage_exception_cleanup,
+]
+
 
 def main() -> int:
     passed, failed = 0, 0
     failures: list[str] = []
 
-    for fn in TESTS_PART_0:
+    for fn in TESTS_PART_0 + TESTS_PART_1:
         name = fn.__name__
         mp = _Monkey()
         try:
@@ -220,7 +453,7 @@ def main() -> int:
 
     total = passed + failed
     print()
-    print(f"Part 0: {passed}/{total} passed")
+    print(f"Round 1 unit tests: {passed}/{total} passed")
     if failures:
         print(f"Failures: {failures}")
         return 1

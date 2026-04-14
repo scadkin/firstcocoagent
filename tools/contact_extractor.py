@@ -19,6 +19,51 @@ client = Anthropic()
 # Module-level cache: district_key → formatted known-contacts string
 _known_contacts_cache: dict[str, str] = {}
 
+# ─────────────────────────────────────────────
+# Round 1 Flag C: Claude API usage capture
+# ─────────────────────────────────────────────
+# Captures real input/output token counts from response.usage for A/B cost
+# analysis. Module-level state is safe because:
+#   (a) CPython GIL makes list.append atomic, so cross-thread writes from
+#       run_in_executor workers don't corrupt the buffer
+#   (b) ResearchQueue processes jobs strictly one at a time, so there's no
+#       cross-job contamination of the flag or buffer
+# Caller owns start/stop balance via try/finally so the flag never leaks.
+
+_capture_usage_enabled: bool = False
+_captured_usage: list[dict] = []
+
+
+def start_usage_capture() -> None:
+    """Begin capturing Claude API usage. Pair with stop_usage_capture in a finally block."""
+    global _capture_usage_enabled, _captured_usage
+    _capture_usage_enabled = True
+    _captured_usage = []
+
+
+def stop_usage_capture() -> list[dict]:
+    """Stop capture and return accumulated records. Safe to call multiple times."""
+    global _capture_usage_enabled
+    _capture_usage_enabled = False
+    records = list(_captured_usage)
+    _captured_usage.clear()
+    return records
+
+
+def _log_usage(response, source_url: str, model: str = "claude-sonnet-4-6") -> None:
+    """Append one Claude call's token usage to the capture buffer if enabled. No-op otherwise."""
+    if not _capture_usage_enabled:
+        return
+    try:
+        _captured_usage.append({
+            "source_url": source_url,
+            "input_tokens": response.usage.input_tokens,
+            "output_tokens": response.usage.output_tokens,
+            "model": model,
+        })
+    except AttributeError:
+        pass
+
 
 def _get_known_contacts_for_district(district_name: str) -> str:
     """Load existing contacts for district from Leads tab. Cached per module lifetime."""
@@ -143,6 +188,7 @@ Extract all CS/STEM/CTE/EdTech contacts. Return JSON array only."""
             system=EXTRACT_SYSTEM,
             messages=[{"role": "user", "content": prompt}]
         )
+        _log_usage(response, source_url)  # no-op unless capture is enabled
 
         raw = response.content[0].text.strip()
 

@@ -155,10 +155,19 @@ class ResearchJob:
         serper_cap_override: int = None,
         diocesan_domain: str = "",
         diocesan_playbook: bool = False,
+        # Round 1 feature flags — default OFF preserves v1 behavior byte-for-byte.
+        enable_url_dedup: bool = False,
+        l15_step5_skip_threshold: int | None = None,
+        log_claude_usage: bool = False,
     ):
         self.district_name = district_name
         self.state = state
         self.progress_callback = progress_callback  # async func(message: str)
+
+        # Round 1 feature flags
+        self.enable_url_dedup = enable_url_dedup
+        self.l15_step5_skip_threshold = l15_step5_skip_threshold
+        self.log_claude_usage = log_claude_usage
 
         self.raw_pages: list[tuple[str, str]] = []  # (url, content)
         self.all_contacts: list[dict] = []
@@ -318,6 +327,22 @@ class ResearchJob:
           Phase D (sequential): L7, L8 — need L6 pages
           Phase E: L9 (Claude extraction on all pages)
         """
+        # Round 1 Flag C: start module-level Claude usage capture. The
+        # try/except below guarantees the capture flag never leaks even on
+        # exception paths so the next job starts clean.
+        if self.log_claude_usage:
+            from tools.contact_extractor import start_usage_capture, stop_usage_capture
+            start_usage_capture()
+            try:
+                result = await self._run_phases()
+            except Exception:
+                stop_usage_capture()  # discard records, clean the flag
+                raise
+            result["claude_usage"] = stop_usage_capture()
+            return result
+        return await self._run_phases()
+
+    async def _run_phases(self) -> dict:
         # ── Phase A: Independent searches (run in parallel across 3 indices) ──
         await self._progress(f"🔎 Searching across Serper + Exa + Brave...")
         await asyncio.gather(
@@ -663,6 +688,27 @@ class ResearchJob:
         if not self.raw_pages:
             logger.warning(f"No raw pages to extract from for {self.district_name}")
             return
+
+        # Round 1 Flag A: URL dedup. Lowercase + strip trailing slash.
+        # Catches the common L1/L2/L11/L16/L17 case where the same staff
+        # directory URL gets appended multiple times and would otherwise be
+        # sent to Claude 2-3x. Off by default — current v1 behavior unchanged.
+        if self.enable_url_dedup:
+            seen_urls: set[str] = set()
+            deduped: list[tuple[str, str]] = []
+            for url, content in self.raw_pages:
+                normalized = (url or "").rstrip("/").lower()
+                if normalized and normalized in seen_urls:
+                    continue
+                seen_urls.add(normalized)
+                deduped.append((url, content))
+            before = len(self.raw_pages)
+            self.raw_pages = deduped
+            if before > len(deduped):
+                logger.info(
+                    f"L9 URL dedup: {before - len(deduped)} duplicate URLs "
+                    f"removed ({before} -> {len(deduped)})"
+                )
 
         # BUG 5 Stage 1: page-host filter runs BEFORE the two-pass content
         # filter below. Contaminated pages (wrong-school hosts) never reach
@@ -1484,7 +1530,25 @@ class ResearchJob:
             await asyncio.sleep(1.0)
 
         # ── Step 5: Discovery searches using @domain pattern ─────────────────
-        if domain and _l15_used < _L15_MAX and self._serper_count < self._serper_cap:
+        # Round 1 Flag B: skip Step 5 (discovery of NEW contacts) when we
+        # already have enough VERIFIED contacts. Steps 1-4 above (individual
+        # verification + high-priority enrichment) still run — those are pure
+        # quality gains. Only the "look for more" search is skipped.
+        _skip_step5 = False
+        if self.l15_step5_skip_threshold is not None:
+            verified_count = sum(
+                1 for c in self.all_contacts
+                if (c.get("email_confidence") or "").upper() == "VERIFIED"
+            )
+            if verified_count >= self.l15_step5_skip_threshold:
+                logger.info(
+                    f"L15 Step 5 skipped: {verified_count} VERIFIED contacts "
+                    f"already found (threshold={self.l15_step5_skip_threshold})"
+                )
+                self._skipped_layers.append("L15:step5")
+                _skip_step5 = True
+
+        if not _skip_step5 and domain and _l15_used < _L15_MAX and self._serper_count < self._serper_cap:
             remaining = min(_L15_MAX - _l15_used, 5)
             discovery_queries = [
                 f'"@{domain}" "computer science" coordinator OR director',
