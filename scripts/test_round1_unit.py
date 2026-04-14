@@ -166,27 +166,54 @@ def _run_async(coro):
 
 
 def test_url_dedup_exact_duplicate():
+    # When two pages share a normalized URL, keep the one with LONGER content
+    # (preserves full fetched page over snippet).
     job = _fresh_job(enable_url_dedup=True)
-    job.raw_pages = [("http://x.com/staff", "a"), ("http://x.com/staff", "b")]
+    job.raw_pages = [
+        ("http://x.com/staff", "short snippet"),
+        ("http://x.com/staff", "much longer full-page content with details"),
+    ]
     _run_async(_call_l9(job))
     assert len(job._observed_raw_pages) == 1
+    assert job._observed_raw_pages[0][1] == "much longer full-page content with details"
     return "url_dedup_exact_duplicate"
 
 
 def test_url_dedup_trailing_slash():
     job = _fresh_job(enable_url_dedup=True)
-    job.raw_pages = [("http://x.com/staff/", "a"), ("http://x.com/staff", "b")]
+    job.raw_pages = [
+        ("http://x.com/staff/", "short"),
+        ("http://x.com/staff", "longer content here"),
+    ]
     _run_async(_call_l9(job))
     assert len(job._observed_raw_pages) == 1
+    assert job._observed_raw_pages[0][1] == "longer content here"
     return "url_dedup_trailing_slash"
 
 
 def test_url_dedup_case_insensitive():
     job = _fresh_job(enable_url_dedup=True)
-    job.raw_pages = [("HTTP://X.COM/STAFF", "a"), ("http://x.com/staff", "b")]
+    job.raw_pages = [
+        ("HTTP://X.COM/STAFF", "short"),
+        ("http://x.com/staff", "much longer content"),
+    ]
     _run_async(_call_l9(job))
     assert len(job._observed_raw_pages) == 1
+    assert job._observed_raw_pages[0][1] == "much longer content"
     return "url_dedup_case_insensitive"
+
+
+def test_url_dedup_keeps_longer_first():
+    # If the first copy is longer, it wins and later short copies are discarded.
+    job = _fresh_job(enable_url_dedup=True)
+    job.raw_pages = [
+        ("http://x.com/staff", "long full-page content with staff directory"),
+        ("http://x.com/staff", "short"),
+    ]
+    _run_async(_call_l9(job))
+    assert len(job._observed_raw_pages) == 1
+    assert job._observed_raw_pages[0][1] == "long full-page content with staff directory"
+    return "url_dedup_keeps_longer_first"
 
 
 def test_url_dedup_preserves_different_urls():
@@ -413,6 +440,7 @@ TESTS_PART_1 = [
     test_url_dedup_exact_duplicate,
     test_url_dedup_trailing_slash,
     test_url_dedup_case_insensitive,
+    test_url_dedup_keeps_longer_first,
     test_url_dedup_preserves_different_urls,
     test_url_dedup_off_by_default,
     test_l15_step5_skips_at_threshold,

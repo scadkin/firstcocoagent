@@ -689,25 +689,33 @@ class ResearchJob:
             logger.warning(f"No raw pages to extract from for {self.district_name}")
             return
 
-        # Round 1 Flag A: URL dedup. Lowercase + strip trailing slash.
-        # Catches the common L1/L2/L11/L16/L17 case where the same staff
-        # directory URL gets appended multiple times and would otherwise be
-        # sent to Claude 2-3x. Off by default — current v1 behavior unchanged.
+        # Round 1 Flag A: URL dedup with longest-content-wins.
+        # Serper snippets get appended per-query with different snippet text
+        # for the same URL, and direct-scrape / Firecrawl / Exa layers append
+        # the same URL with full-page HTML. Naive first-occurrence dedup keeps
+        # the short snippet and throws away the full page — a quality loss.
+        # "Keep the longest content per normalized URL" preserves the richest
+        # page while still killing the duplicate-extraction cost.
+        # Normalization: lowercase + strip trailing slash. Off by default.
         if self.enable_url_dedup:
-            seen_urls: set[str] = set()
-            deduped: list[tuple[str, str]] = []
+            by_url: dict[str, tuple[str, str]] = {}
+            order: list[str] = []
             for url, content in self.raw_pages:
                 normalized = (url or "").rstrip("/").lower()
-                if normalized and normalized in seen_urls:
+                if not normalized:
                     continue
-                seen_urls.add(normalized)
-                deduped.append((url, content))
+                existing = by_url.get(normalized)
+                if existing is None:
+                    by_url[normalized] = (url, content)
+                    order.append(normalized)
+                elif len(content or "") > len(existing[1] or ""):
+                    by_url[normalized] = (url, content)
             before = len(self.raw_pages)
-            self.raw_pages = deduped
-            if before > len(deduped):
+            self.raw_pages = [by_url[k] for k in order]
+            if before > len(self.raw_pages):
                 logger.info(
-                    f"L9 URL dedup: {before - len(deduped)} duplicate URLs "
-                    f"removed ({before} -> {len(deduped)})"
+                    f"L9 URL dedup: {before - len(self.raw_pages)} duplicate URLs "
+                    f"collapsed (longest content wins; {before} -> {len(self.raw_pages)})"
                 )
 
         # BUG 5 Stage 1: page-host filter runs BEFORE the two-pass content
