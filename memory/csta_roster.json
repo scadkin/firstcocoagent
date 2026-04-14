@@ -1,7 +1,7 @@
 {
   "_comment": "CSTA state/regional chapter roster \u2014 enrichment source for F1/F2/F4/F6/F7/F8 (via signal_processor.build_csta_enrichment). Built by scripts/fetch_csta_roster.py with per-state Haiku extraction + district resolver pass. Refresh manually quarterly or when CSTA announces new chapter boards. Each entry's `state` is the person's K-12 EMPLOYER state, NOT their chapter's state. Entries with empty `district` are kept for /signal_csta display but ignored during enrich_with_csta matching.",
-  "fetched_at": "2026-04-13",
-  "source": "csteachers.org per-state fetch + Serper LinkedIn snippets + Haiku extraction + district resolver (Session 58 rewrite)",
+  "fetched_at": "2026-04-14",
+  "source": "csteachers.org per-state fetch + Serper LinkedIn snippets + Haiku extraction + district resolver (Session 58 rewrite) + S63 hand-curation (IN, TN)",
   "entries": [
     {
       "name": "Vicky Sedgwick",
@@ -721,6 +721,25 @@
       "state": "OH",
       "district": "",
       "source_url": "https://www.linkedin.com/in/reneecoley614740",
+      "district_normalized": ""
+    },
+    {
+      "name": "Julie Alano",
+      "role": "President",
+      "chapter": "CSTA Hoosier Heartland (Indiana)",
+      "state": "IN",
+      "district": "Hamilton Southeastern Schools",
+      "source_url": "https://www.southeasternmedianetwork.com/2024/09/30/new-faces-old-friends-julie-alano/",
+      "district_normalized": "hamilton southeastern",
+      "district_resolver_confidence": "manual_s63"
+    },
+    {
+      "name": "Becky Ashe",
+      "role": "Chapter President",
+      "chapter": "CSTA Tennessee",
+      "state": "TN",
+      "district": "",
+      "source_url": "https://www.linkedin.com/in/becky-ashe/",
       "district_normalized": ""
     }
   ]
