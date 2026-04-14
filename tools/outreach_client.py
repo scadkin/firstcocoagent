@@ -1489,6 +1489,400 @@ def create_sequence(
 
 
 # ─────────────────────────────────────────────
+# PROSPECT WRITE METHODS (Session 61 — promoted from Sessions 38/43 ephemeral scripts)
+# ─────────────────────────────────────────────
+#
+# These four functions commit the POST /prospects + POST /sequenceStates patterns
+# that Sessions 38 and 43 used as one-shot inline scripts. The library-level
+# capture satisfies Rule 18 (never re-derive prospect-add code; use the committed
+# functions) and Rule 17 (every prospect create requires a populated IANA
+# timezone, enforced by validate_prospect_inputs at the code boundary).
+#
+# Design mirrors the S59 sequence hardening pattern:
+#   - validate_prospect_inputs is a standalone, zero-API-call validator
+#   - create_prospect calls it first and refuses to POST on failure
+#   - find_prospect_by_email lets the caller dedup before create
+#   - add_prospect_to_sequence is a thin POST /sequenceStates wrapper
+
+# Placeholder/reserved email prefixes that always produce hard bounces.
+_PLACEHOLDER_EMAIL_PREFIXES = (
+    "[email",      # literal template leaks like "[email protected]"
+    "test@",
+    "example@",
+    "noreply@",
+    "no-reply@",
+    "donotreply@",
+    "do-not-reply@",
+    "postmaster@",
+    "mailer-daemon@",
+    "abuse@",
+)
+
+# Generic free-mail domains that indicate the contact is a personal address
+# rather than a legitimate work address. Blocked unless explicitly allow-listed
+# (caller passes allow_generic_email=True for cases where a personal email is
+# intentional, e.g., a sole-proprietor LLC).
+_GENERIC_FREE_MAIL_DOMAINS = frozenset({
+    "gmail.com", "googlemail.com",
+    "yahoo.com", "yahoo.co.uk", "ymail.com",
+    "hotmail.com", "hotmail.co.uk",
+    "outlook.com", "live.com", "msn.com",
+    "icloud.com", "me.com", "mac.com",
+    "aol.com", "protonmail.com", "proton.me",
+})
+
+# Regex for validating the local-part of an email. Rejects apostrophes
+# (the O'Brien bug from S61 diocesan drip — apostrophe local-parts technically
+# parse under RFC 5322 quoted-strings but most SMTP servers reject them on send),
+# whitespace, and obvious garbage. Intentionally strict.
+_EMAIL_LOCAL_RE = re.compile(r"^[A-Za-z0-9._+\-]+$") if False else None
+# Import re lazily to match the existing pattern in validate_sequence_inputs
+import re as _re  # noqa: E402 — placed after helpers to avoid reorder churn
+
+_EMAIL_LOCAL_PART_RE = _re.compile(r"^[A-Za-z0-9._+\-]+$")
+
+
+def validate_prospect_inputs(
+    first_name: str,
+    last_name: str,
+    email: str,
+    *,
+    title: str = "",
+    company: str = "",
+    state: str = "",
+    timezone: str = "",
+    tags: list[str] | None = None,
+    allow_generic_email: bool = False,
+) -> dict:
+    """
+    Pre-write validation for an Outreach prospect. Zero API calls.
+
+    Returns {"passed": bool, "failures": list[str], "warnings": list[str]}.
+    Never raises. All failures are collected so the caller can log or display
+    the full list rather than fix-fail-fix-fail.
+
+    Hard checks (Session 61 Rule 17 — timezone is code-enforced, not process):
+      - first_name non-empty
+      - last_name non-empty
+      - email local@domain shape, no apostrophe in local-part, no whitespace
+      - email prefix not a placeholder ("[email...", "test@", "noreply@", ...)
+      - email domain not in generic free-mail set (unless allow_generic_email=True)
+      - timezone non-empty AND parses via zoneinfo.ZoneInfo without raising
+      - title/company do not contain automation language (reuses S59 scanner)
+    """
+    from tools.timezone_lookup import is_valid_iana_timezone
+
+    failures: list[str] = []
+    warnings: list[str] = []
+
+    # ── 1. Name fields non-empty ──────────────────────────────────────
+    if not (first_name or "").strip():
+        failures.append("first_name is empty. Every prospect must have a first name.")
+    if not (last_name or "").strip():
+        failures.append("last_name is empty. Every prospect must have a last name.")
+
+    # ── 2. Email shape + placeholder + domain checks ──────────────────
+    email_clean = (email or "").strip().lower()
+    if not email_clean:
+        failures.append("email is empty. Every prospect must have an email address.")
+    else:
+        # Placeholder prefix check runs BEFORE the '@' count check because
+        # Cloudflare email-obfuscation masks like '[email protected]' have
+        # ZERO '@' signs and should be caught by the placeholder rule, not the
+        # shape rule. Also catches fully-malformed strings that happen to start
+        # with a known placeholder substring.
+        hit_placeholder = False
+        for prefix in _PLACEHOLDER_EMAIL_PREFIXES:
+            if email_clean.startswith(prefix):
+                failures.append(
+                    f"email {email!r} starts with placeholder prefix {prefix!r}. "
+                    f"This is a template/obfuscation artifact (e.g. Cloudflare email "
+                    f"protection masks real addresses with '[email" " " "protected]'). "
+                    f"The row needs a real email before it can ship."
+                )
+                hit_placeholder = True
+                break
+
+        if not hit_placeholder:
+            if email_clean.count("@") != 1:
+                failures.append(
+                    f"email {email!r} does not have exactly one '@' character. "
+                    f"Likely an obfuscated or truncated string."
+                )
+            else:
+                local, domain = email_clean.split("@", 1)
+
+                # Local-part shape (catches O'Brien apostrophe bug + whitespace)
+                if not _EMAIL_LOCAL_PART_RE.match(local):
+                    failures.append(
+                        f"email local-part {local!r} contains disallowed characters. "
+                        f"Allowed: A-Z a-z 0-9 . _ + - . Apostrophes, whitespace, and "
+                        f"other special chars cause SMTP-side rejections even if RFC "
+                        f"5322 technically permits them under quoted-string rules."
+                    )
+
+                # Domain shape
+                if "." not in domain or domain.startswith(".") or domain.endswith("."):
+                    failures.append(f"email domain {domain!r} is malformed.")
+
+                # Generic free-mail block (unless allow-listed)
+                if not allow_generic_email and domain in _GENERIC_FREE_MAIL_DOMAINS:
+                    failures.append(
+                        f"email domain {domain!r} is a generic free-mail provider. "
+                        f"Cold outreach to personal addresses damages sender "
+                        f"reputation. Pass allow_generic_email=True only for "
+                        f"legitimate sole-proprietor cases."
+                    )
+
+    # ── 3. Timezone REQUIRED + IANA-valid (Rule 17) ───────────────────
+    if not (timezone or "").strip():
+        failures.append(
+            "timezone is empty. Rule 17 (Session 61): every Outreach prospect "
+            "create requires a populated IANA timezone string. Derive from state "
+            "via tools.timezone_lookup.state_to_timezone(state). Never fall back."
+        )
+    elif not is_valid_iana_timezone(timezone):
+        failures.append(
+            f"timezone {timezone!r} is not a valid IANA identifier. "
+            f"Must parse via zoneinfo.ZoneInfo(tz) without raising. "
+            f"Examples: 'America/New_York', 'America/Chicago', 'America/Los_Angeles'."
+        )
+
+    # ── 4. Automation language in title / company ────────────────────
+    for field_name, field_value in [("title", title), ("company", company)]:
+        if field_value:
+            hits = _scan_banned_phrases(field_value, _BANNED_META_PHRASES)
+            if hits:
+                failures.append(
+                    f"{field_name} contains banned automation language {hits!r}. "
+                    f"Outreach prospect fields are visible in the UI."
+                )
+
+    # ── 5. Tag sanity (warning only) ──────────────────────────────────
+    if tags is not None:
+        if not isinstance(tags, list):
+            failures.append(f"tags must be a list, got {type(tags).__name__}.")
+        elif not all(isinstance(t, str) and t for t in tags):
+            failures.append("tags must be a list of non-empty strings.")
+
+    return {
+        "passed": len(failures) == 0,
+        "failures": failures,
+        "warnings": warnings,
+    }
+
+
+def create_prospect(
+    first_name: str,
+    last_name: str,
+    email: str,
+    *,
+    title: str = "",
+    company: str = "",
+    state: str = "",
+    timezone: str = "",
+    tags: list[str] | None = None,
+    owner_id: int = 11,
+    verify_inputs: bool = True,
+    allow_generic_email: bool = False,
+) -> dict:
+    """
+    Create an Outreach prospect via POST /prospects.
+
+    Rule 17 + S59 hardening pattern: calls validate_prospect_inputs FIRST and
+    refuses to fire the HTTP request on any validation failure. If validation
+    fails, returns {"error": ..., "validation_failures": [...]} with NO API call
+    made. On success, returns {"prospect_id": str, "email": str}.
+
+    Owner defaults to Steven's user ID (11). Mailbox is NOT set at prospect
+    create time — it's bound at sequenceState create via add_prospect_to_sequence.
+
+    Session 38 lesson (feedback_outreach_torecipients.md): this path does NOT
+    touch toRecipients or templates. Only the prospect resource itself.
+    """
+    if verify_inputs:
+        validation = validate_prospect_inputs(
+            first_name=first_name,
+            last_name=last_name,
+            email=email,
+            title=title,
+            company=company,
+            state=state,
+            timezone=timezone,
+            tags=tags,
+            allow_generic_email=allow_generic_email,
+        )
+        if not validation["passed"]:
+            return {
+                "error": "prospect_validation_failed",
+                "validation_failures": validation["failures"],
+                "email": email,
+            }
+
+    email_clean = (email or "").strip().lower()
+
+    attributes: dict = {
+        "firstName": first_name.strip(),
+        "lastName": last_name.strip(),
+        "emails": [email_clean],
+    }
+    if title:
+        attributes["title"] = title.strip()
+        attributes["occupation"] = title.strip()
+    if company:
+        attributes["company"] = company.strip()
+    if state:
+        attributes["addressState"] = state.strip().upper()
+    if timezone:
+        attributes["timeZone"] = timezone.strip()
+    if tags:
+        attributes["tags"] = list(tags)
+
+    payload = {
+        "data": {
+            "type": "prospect",
+            "attributes": attributes,
+            "relationships": {
+                "owner": {
+                    "data": {"type": "user", "id": str(owner_id)},
+                },
+            },
+        }
+    }
+
+    try:
+        response = _api_post("/prospects", payload)
+    except Exception as e:
+        return {
+            "error": f"outreach_api_error: {e}",
+            "email": email_clean,
+        }
+
+    prospect_id = response.get("data", {}).get("id")
+    if not prospect_id:
+        return {
+            "error": "outreach_response_missing_prospect_id",
+            "raw": response,
+            "email": email_clean,
+        }
+
+    logger.info(f"  created prospect {prospect_id} for {email_clean}")
+    return {
+        "prospect_id": prospect_id,
+        "email": email_clean,
+    }
+
+
+def find_prospect_by_email(email: str) -> dict | None:
+    """
+    Look up an existing Outreach prospect by email.
+
+    Returns a dict with {"prospect_id", "email", "owner_id", "sequence_count"}
+    for the first match, or None if no match.
+
+    Used by prospect_loader for dedup: before create_prospect, check if the
+    contact already exists in Outreach. If yes, reuse the existing ID and
+    proceed directly to add_prospect_to_sequence.
+    """
+    email_clean = (email or "").strip().lower()
+    if not email_clean:
+        return None
+    try:
+        # Outreach v2 API: filter[emails] accepts a single email value
+        result = _api_get("/prospects", {"filter[emails]": email_clean, "page[size]": "1"})
+    except Exception as e:
+        logger.warning(f"  find_prospect_by_email({email_clean}) error: {e}")
+        return None
+
+    data = result.get("data", [])
+    if not data:
+        return None
+
+    item = data[0]
+    attrs = item.get("attributes", {})
+    owner_rel = (item.get("relationships", {}).get("owner", {}) or {}).get("data") or {}
+
+    return {
+        "prospect_id": item.get("id"),
+        "email": email_clean,
+        "owner_id": owner_rel.get("id"),
+        "first_name": attrs.get("firstName", ""),
+        "last_name": attrs.get("lastName", ""),
+        "title": attrs.get("title", ""),
+        "sequence_count": attrs.get("sequenceCount", 0),
+    }
+
+
+def add_prospect_to_sequence(
+    prospect_id: str,
+    sequence_id: int | str,
+    *,
+    mailbox_id: int = 11,
+) -> dict:
+    """
+    Create a sequenceState linking a prospect to a sequence on a mailbox.
+
+    POST /sequenceStates with the JSON:API relationships payload. Mailbox 11 is
+    Steven's default (confirmed S61 by reading existing sequenceStates on
+    sequences 1999, 1939, 1857 — all use mailbox_id=11).
+
+    Returns {"sequence_state_id": str, "prospect_id": str, "sequence_id": str}
+    on success, or {"error": ..., "prospect_id": str, "sequence_id": str}
+    on failure.
+
+    Session 38 lesson (feedback_outreach_sequence_order.md): the target sequence
+    MUST be activated in the Outreach UI before this call. If the sequence is
+    paused, the resulting sequenceState will go in as `paused`, not `active`.
+    This function does NOT verify activation — callers should use
+    prospect_loader.execute_load_plan which includes the pre-flight check.
+    """
+    payload = {
+        "data": {
+            "type": "sequenceState",
+            "relationships": {
+                "prospect": {
+                    "data": {"type": "prospect", "id": str(prospect_id)},
+                },
+                "sequence": {
+                    "data": {"type": "sequence", "id": str(sequence_id)},
+                },
+                "mailbox": {
+                    "data": {"type": "mailbox", "id": str(mailbox_id)},
+                },
+            },
+        }
+    }
+
+    try:
+        response = _api_post("/sequenceStates", payload)
+    except Exception as e:
+        return {
+            "error": f"outreach_api_error: {e}",
+            "prospect_id": str(prospect_id),
+            "sequence_id": str(sequence_id),
+        }
+
+    state_id = response.get("data", {}).get("id")
+    if not state_id:
+        return {
+            "error": "outreach_response_missing_sequence_state_id",
+            "raw": response,
+            "prospect_id": str(prospect_id),
+            "sequence_id": str(sequence_id),
+        }
+
+    logger.info(
+        f"  added prospect {prospect_id} to sequence {sequence_id} "
+        f"(mailbox {mailbox_id}) -> sequenceState {state_id}"
+    )
+    return {
+        "sequence_state_id": state_id,
+        "prospect_id": str(prospect_id),
+        "sequence_id": str(sequence_id),
+    }
+
+
+# ─────────────────────────────────────────────
 # SEQUENCE EXPORT
 # ─────────────────────────────────────────────
 

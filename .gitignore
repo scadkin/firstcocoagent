@@ -19,3 +19,6 @@ scripts/bug5_oracle_*.json
 
 # Round 1 A/B harness results (ephemeral, may contain PII)
 *.jsonl
+
+# Operational state for bulk Outreach load scripts (contains PII)
+data/
