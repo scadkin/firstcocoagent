@@ -2064,6 +2064,60 @@ def format_sequence_export(seq_info: dict) -> str:
     return "\n".join(lines)
 
 
+def _slugify(name: str) -> str:
+    """Lowercase + replace non-alphanumerics with _ + collapse repeats."""
+    if not name:
+        return ""
+    import re as _re
+
+    lowered = name.lower()
+    cleaned = _re.sub(r"[^a-z0-9]+", "_", lowered)
+    return cleaned.strip("_")
+
+
+def _html_to_markdown(html: str) -> str:
+    """
+    Best-effort HTML -> markdown converter for Outreach step bodies.
+
+    Keeps things simple and deterministic:
+      - <br>, <br/>, <br /> -> newline
+      - <p>...</p> -> paragraph with blank line separator
+      - <a href="URL">TEXT</a> -> [TEXT](URL)
+      - <strong>/<b>/<em>/<i> -> dropped (text kept)
+      - HTML entities decoded via html.unescape
+
+    Not a full HTML parser — just good enough that a claude.ai starter
+    pasted back into campaigns/<slug>.md is legible and editable.
+    Round-trip is one-way: markdown output is not re-rendered to HTML
+    on import; load_campaign.py passes step.body through as-is to
+    create_sequence, so claude.ai output can be plain text or HTML.
+    """
+    if not html:
+        return ""
+    import html as _html
+    import re as _re
+
+    text = html
+    text = _re.sub(r"<\s*br\s*/?\s*>", "\n", text, flags=_re.IGNORECASE)
+    text = _re.sub(r"<\s*/\s*p\s*>", "\n\n", text, flags=_re.IGNORECASE)
+    text = _re.sub(r"<\s*p\s*[^>]*>", "", text, flags=_re.IGNORECASE)
+    text = _re.sub(
+        r'<\s*a\s+[^>]*href\s*=\s*"([^"]*)"[^>]*>(.*?)<\s*/\s*a\s*>',
+        r"[\2](\1)",
+        text,
+        flags=_re.IGNORECASE | _re.DOTALL,
+    )
+    text = _re.sub(
+        r"<\s*/?(strong|b|em|i|span|div)\b[^>]*>",
+        "",
+        text,
+        flags=_re.IGNORECASE,
+    )
+    text = _html.unescape(text)
+    text = _re.sub(r"\n{3,}", "\n\n", text)
+    return text.strip()
+
+
 def export_sequence_for_editing(
     sequence_id: int | str,
     *,
@@ -2111,9 +2165,7 @@ def export_sequence_for_editing(
     if slug_override:
         slug = slug_override
     else:
-        slug = "".join(
-            c if c.isalnum() else "_" for c in name.lower()
-        ).strip("_") or f"sequence_{sequence_id}"
+        slug = _slugify(name) or f"sequence_{sequence_id}"
 
     schedule_id_raw = seq_info.get("schedule_id")
     schedule_id = int(schedule_id_raw) if schedule_id_raw else 0
@@ -2122,7 +2174,8 @@ def export_sequence_for_editing(
     campaign_steps: list[CampaignStep] = []
     for i, s in enumerate(raw_steps, start=1):
         subject = (s.get("subject") or s.get("name") or f"Step {i}").strip()
-        body = s.get("body_html") or s.get("body_text") or ""
+        raw_body = s.get("body_html") or s.get("body_text") or ""
+        body = _html_to_markdown(raw_body)
         interval_seconds = int(s.get("interval") or 0)
         campaign_steps.append(
             CampaignStep(

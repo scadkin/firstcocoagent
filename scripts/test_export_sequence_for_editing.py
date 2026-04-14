@@ -170,11 +170,83 @@ def test_rejects_empty_steps() -> None:
         restore()
 
 
+def test_slugify_collapses_repeats() -> None:
+    from tools.outreach_client import _slugify
+
+    _check(
+        "em-dash + spaces collapse",
+        _slugify("Archdiocese of Chicago Schools — Diocesan Outreach")
+        == "archdiocese_of_chicago_schools_diocesan_outreach",
+    )
+    _check(
+        "leading + trailing punct stripped",
+        _slugify("!!! hello ??? world !!!") == "hello_world",
+    )
+    _check("empty input → empty", _slugify("") == "")
+    _check("digits preserved", _slugify("CUE 2026") == "cue_2026")
+
+
+def test_html_to_markdown_basics() -> None:
+    from tools.outreach_client import _html_to_markdown
+
+    _check(
+        "br converts to newline",
+        _html_to_markdown("Hi<br>there") == "Hi\nthere",
+    )
+    _check(
+        "anchor converts to markdown link",
+        _html_to_markdown(
+            '<a href="https://www.codecombat.com/schools">codecombat.com/schools</a>'
+        )
+        == "[codecombat.com/schools](https://www.codecombat.com/schools)",
+    )
+    _check(
+        "strong/em stripped",
+        _html_to_markdown("<strong>bold</strong> <em>italic</em>") == "bold italic",
+    )
+    _check(
+        "html entities decoded",
+        _html_to_markdown("you &amp; me") == "you & me",
+    )
+    _check(
+        "triple newlines collapsed to double",
+        _html_to_markdown("a<br><br><br><br>b") == "a\n\nb",
+    )
+    _check("empty input", _html_to_markdown("") == "")
+
+
+def test_export_renders_anchor_as_markdown_link() -> None:
+    fake = dict(FAKE_SEQ)
+    fake["steps"] = [
+        {
+            "id": "s1",
+            "order": 1,
+            "step_type": "email",
+            "interval": 0,
+            "subject": "Test",
+            "body_html": '<p>Hi {{first_name}},</p><p>Link: <a href="https://www.codecombat.com/schools">codecombat.com/schools</a></p>',
+        }
+    ]
+    restore = _with_monkeypatch(fake)
+    try:
+        md = outreach_client.export_sequence_for_editing(99)
+    finally:
+        restore()
+    _check(
+        "markdown link present in export",
+        "[codecombat.com/schools](https://www.codecombat.com/schools)" in md,
+    )
+    _check("no br tags remaining", "<br" not in md)
+
+
 TESTS = [
     test_round_trip_default_role,
     test_role_override_and_slug,
     test_rejects_unknown_role,
     test_rejects_empty_steps,
+    test_slugify_collapses_repeats,
+    test_html_to_markdown_basics,
+    test_export_renders_anchor_as_markdown_link,
 ]
 
 
