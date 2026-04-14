@@ -1218,6 +1218,78 @@ The full Session 56 "What's working" + "What's still in-progress / unresolved" +
 
 ---
 
+## Session 63 (2026-04-14) — Commit 0 Verified, Wrapper Bug Fixed, Scanner Hardened, Wed Drip Early-Loaded, CSTA IN/TN Curated
+
+**Five bodies of work flowing from one plan (`~/.claude/plans/flickering-nibbling-breeze.md`).**
+
+### Commit 0 empirical hook verification
+
+The plan assumed Commit 0 had to run in a throwaway session because it modifies `~/.claude/settings.json`. I found a much safer path: `claude -p --setting-sources project --settings /tmp/commit0/<file>` runs one-shot throwaway sessions that layer only the test hooks, leaving the live session's hooks untouched. Three tests plus a fourth for the recursion guard:
+
+- **Test 1 — Stop `{decision:block}` forces continuation.** Claude Code reads the hook's stdout, takes the `reason` field, and injects it as a synthetic user message prefixed `"Stop hook feedback: ..."`. Claude then produces a new assistant turn in response. If the hook keeps returning block unconditionally, the loop runs until Claude Code hits its internal max-turn ceiling. Confirmed by capturing a stream-json trace that showed the hook firing, the synthetic user message appearing, and Claude responding iteratively.
+- **Test 2 — UserPromptSubmit `additionalContext` reaches Claude.** Confirmed after one false start where Haiku literally obeyed a strict "Nothing else." prompt and ignored the injected token. Re-run with a less restrictive prompt surfaced the marker cleanly.
+- **Test 3 — Stop stdin field.** The field is **`last_assistant_message`, not `last_message`**, and its value is plain prose only (no tool-use JSON blocks). This was the biggest finding of the session — see below.
+- **Test 4 — Recursion guard.** A fourth capture-test hook that wrote stdin to disk on each fire confirmed that fire 1 has `stop_hook_active: false`, fires 2+ have `stop_hook_active: true`. The wrapper's early-exit on that flag is what prevents the infinite block loop.
+
+Findings landed in the scanner docstring and the memory file for Commit 0.
+
+### The silent production bug: `last_message` vs `last_assistant_message`
+
+The Session 62 production wrapper was reading `.last_message` — a field Claude Code does not emit. It meant every turn since the S62 install had silently fail-opened: the `grep -q '[0-9]'` pre-filter never matched anything because `last=""`, and the wrapper exited zero without scanning. The rule scanner shipped at end of S62 was **non-functional for the entire gap between S62 install and S63 Commit 0**. Fix is a one-character diff: `.last_message` → `.last_assistant_message`. Shipped in commit `f479241` alongside the Commit 0 docstring update.
+
+### Scanner ghost-match false positive — root cause wasn't the scanner
+
+Early in S63 the UserPromptSubmit injector fired a correction directive citing three percent tokens (`17%,40% 20%`) that weren't in my actual recent text. The temptation was to clear the log and move on, but that would have papered over whatever the real cause was. I ran `rule_scanner.py` directly against my last three assistant text blocks (the big plan response, the first correction, the second correction) and all three returned clean/expected results — proving the scanner itself wasn't buggy.
+
+Root cause: smoke-testing the wrapper earlier in the session piped bare-number inputs through the real wrapper, which wrote real entries to the real production violation log. The injector later consumed those stale test entries as if they were legitimate corrections. The problem was test hygiene, not scanning logic.
+
+### Scanner hardening (Session 63 fix)
+
+Both hook wrappers now honor a `SCOUT_VIOLATIONS_LOG` env variable:
+
+- `scout-stop-scan.sh`: `LOG="${SCOUT_VIOLATIONS_LOG:-$HOME/.claude/state/scout-violations.log}"`.
+- `scout-violation-inject.sh`: `LOG="${SCOUT_VIOLATIONS_LOG:-$HOME/.claude/state/scout-violations.log}"` with `PROC="${LOG}.processing"` — derived so a single env var controls both files. Tests cannot drift between the two.
+
+Full-pipeline smoke test pattern is documented in `feedback_rule_scanner_hook_installed.md`. Future verification runs set `SCOUT_VIOLATIONS_LOG=/tmp/foo.log` and the production log is untouched. No kill-switch dance required.
+
+### Wednesday diocesan drip loaded one day early
+
+Steven approved loading the Wed 2026-04-15 batch on Tue 2026-04-14 rather than waiting. Ran `--execute --force-day 2026-04-15`; the execute summary reported 15 of 15 processed (measured), 14 created, 1 existing reused, 0 failed, 0 skipped. Wall clock roughly 3 min (measured from timestamps in the log stream).
+
+First `--verify` run showed one sequence returning a `-1` sentinel — the caller had caught an exception from `tools.outreach_client.get_sequence_states`. Re-run under `--verify` showed all six sequences matching expected counts, so the original error was a transient one-off (most likely rate-limit or pagination hiccup), not a reproducible bug. No code fix needed. If it recurs the next step is to capture the specific exception from the logger warning.
+
+Cadence note: because Wed loaded on Tue, those 15 prospects hit their sequence step 1 a day earlier than the original plan. I recommended no pause — the 24-hour shift on cold diocesan outreach is not material and pausing 15 individual sequenceStates via the API introduces real breakage risk for marginal gain. Steven concurred. Thu batch runs on actual Thu so the remaining 14 don't compress.
+
+### CSTA IN/TN hand-curation (scope pivot)
+
+Original plan called for hand-curating IN/OK/TN chapter rosters because `project_csta_roster_hand_curation_gaps.md` flagged those three states at zero matchable. Actual Task 3 execution:
+
+- **`scan_csta_chapters` is retired** (`ENABLE_CSTA_SCAN = False`, F5 retired S57 BUG 2). CSTA is now an inline enrichment lookup via `enrich_with_csta`, consuming `memory/csta_roster.json`. The scanner path in the original plan was dead code — pivoted to editing the roster JSON directly.
+- **Chapter websites have been restructured.** `indiana.csteachers.org`, `oklahoma.csteachers.org`, `tennessee.csteachers.org` no longer list board members on any fetched subpage; the old about-us URLs now redirect or 404.
+- **Shipped 2 entries via Google + LinkedIn triangulation:**
+  - **IN:** Julie Alano, President of CSTA Hoosier Heartland (Indiana), Hamilton Southeastern High School / Hamilton Southeastern Schools district. Verified match via `enrich_with_csta` for both the short and long district spellings. This is a district-matching entry that will enrich any Hamilton Southeastern prospect auto-queued by F1/F2/F4/F6/F7/F8.
+  - **TN:** Becky Ashe, Chapter President of CSTA Tennessee, Tennessee STEM Innovation Network (state nonprofit, not a public school district). Display-only — `district: ""` means `enrich_with_csta` will ignore her during matching but she's preserved in the directory per the roster's `_comment` contract.
+- **OK skipped.** The only lead was Kristen Tanner at Tulsa Regional STEM Alliance — a nonprofit, not a public school district. Per `feedback_scout_primary_target_is_public_districts.md` I don't add non-district affiliations as district matches, and there was no clear public-district lead to cross-reference.
+
+Yield: 2 entries total vs the "+15 matchable" extrapolation in the gap memory file. Lesson: hand-curation in a single session from a remote tool chain is ctx-expensive and low-yield when chapter websites have removed their public rosters. The higher-leverage path is iterating `scripts/fetch_csta_roster.py` with LinkedIn-snippet-only extraction (option 4 in the gap memory file), which is a code iteration for a future session.
+
+### What's different about how this session ran vs S62
+
+Steven ran his pressure-test prompt (`feedback_pressure_test_pattern.md`) on my first plan draft and sent it back with "rewrite from scratch with everything above baked in." I rebuilt the plan with:
+
+- A diagnostic step (Step 1.1) that verified the scanner wasn't buggy *before* clearing the log, not after.
+- A hard 10-minute cap on Task 2 with a binary decision gate.
+- Compressible Task 3 scope with ctx-headroom-dependent state expansion.
+- A minimum-viable re-enable fallback for Task 1.
+- Specific verification commands throughout, not categories.
+- A Critical Ordering Constraint section at the top explaining why Task 1 *must* be first.
+- Explicit Rule-1 reasoning for the `prospect_loader` wiring deferral.
+- The env override shared between both wrappers via a single `SCOUT_VIOLATIONS_LOG` variable, with `PROC` derived from `LOG`.
+
+Pressure-test pattern paying off again — the second draft is what I actually executed from.
+
+---
+
 ## Session 62 (2026-04-14) — Rule Scanner (R20 + R19) Shipped + Diocesan Drip Mon+Tue Complete + CLAUDE.md Trim
 
 **Four bodies of work. 6 commits on `main`.**

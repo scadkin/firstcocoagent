@@ -1,5 +1,5 @@
 # SCOUT — Claude Code Reference
-*Last updated: 2026-04-14 — Session 63 in progress. Commit 0 verified, wrapper bug fixed, Wed drip loaded one day early (on Tue) per Steven's go-ahead.*
+*Last updated: 2026-04-14 — End of Session 63. Commit 0 verified, wrapper bug fixed, scanner hardened with env override, Wed drip loaded early, CSTA IN/TN hand-curation shipped.*
 
 ---
 
@@ -7,31 +7,29 @@
 
 **Session-narrative history lives in `SCOUT_HISTORY.md`. Active plan detail lives in `SCOUT_PLAN.md §YOU ARE HERE`. This section stays ≤35 lines.**
 
-**Where we are right now (mid-Session 63):**
-- **Commit 0 empirical hook verification complete** (see scanner docstring + `feedback_rule_scanner_hook_installed.md`). Stop-`{decision:block}` forces in-turn continuation by injecting `reason` as a synthetic `"Stop hook feedback: ..."` user message; `stop_hook_active: true` is set on recursive fires and the wrapper's early-exit guard is load-bearing. UserPromptSubmit `additionalContext` reaches Claude's next turn. Stop stdin field is `last_assistant_message` (plain prose only, no tool-use JSON). Tests were run via isolated `claude -p --setting-sources project --settings /tmp/commit0/<file>` instead of mutating live `~/.claude/settings.json` — much safer pattern than the plan originally specified.
-- **Production hook bug fixed.** `~/.claude/hooks/scout-stop-scan.sh` was reading `.last_message` and has silently fail-opened every turn since S62 install. Patched to `.last_assistant_message` in S63 Commit 0. Rule scanner is now *actually* live on this session. Smoke-tested with synthetic JSON (bare percent → block, labeled percent → clean, `stop_hook_active:true` → short-circuit).
-- **Smoke-test log-poisoning lesson.** My S63 smoke test piped a bare `17%` through the live wrapper, which correctly wrote to `~/.claude/state/scout-violations.log`. The next UserPromptSubmit injector fire consumed that test entry and injected a real correction directive. The scanner did not false-positive — the test procedure poisoned its own log. Future verification runs must use a temp LOG path or clean the log after. Documented in `feedback_rule_scanner_hook_installed.md`.
-- **Wednesday diocesan drip loaded one day early.** Today is Tue 2026-04-14 but Steven approved running the Wed (2026-04-15) batch today. Ran with `--execute --force-day 2026-04-15`. 15 of 15 processed (measured): 14 created, 1 existing reused, 0 failed, 0 skipped. Verify check showed seq 2008 live-count query errored (returned -1 sentinel); all other five sequences matched expected. That verify hiccup did NOT block any writes — the execute summary confirms all 15 sequenceStates were successfully POSTed. 14 pending remain for Thu 2026-04-16 batch.
+**Where we are right now (end of Session 63):**
+- **Commit 0 empirical verification complete** (recorded in `scripts/rule_scanner.py` docstring + `feedback_rule_scanner_hook_installed.md`). Stop-`{decision:block}` forces in-turn continuation by injecting `reason` as a synthetic `"Stop hook feedback: ..."` user message; `stop_hook_active: true` is set on recursive fires and the wrapper's early-exit guard is load-bearing. UserPromptSubmit `additionalContext` reaches Claude's next turn. Stop stdin field is `last_assistant_message` (plain prose only). Tests were run via isolated `claude -p --setting-sources project --settings /tmp/commit0/<file>` rather than mutating live `~/.claude/settings.json`.
+- **Two hook bugs fixed; scanner is actually live.** (1) `~/.claude/hooks/scout-stop-scan.sh` was reading `.last_message` and silently fail-opened every turn since the S62 install — patched to `.last_assistant_message`. (2) Both hook wrappers now honor a `SCOUT_VIOLATIONS_LOG` env variable (`scout-stop-scan.sh` and `scout-violation-inject.sh`, with `PROC` derived from `LOG` in the injector), so smoke tests can use a temp log path and never poison production state. Kill switch path unchanged: `touch ~/.claude/state/scout-hooks-disabled`. Full smoke-test pattern documented in `feedback_rule_scanner_hook_installed.md`.
+- **Scanner ghost-match false positive was root-caused and resolved.** An earlier S63 correction directive cited `17%,40% 20%` as flagged matches that didn't exist in my recent text. Diagnosis: running `scripts/rule_scanner.py` directly against my last three assistant text blocks returned clean/expected results — proving the scanner itself wasn't buggy. The ghosts were stale entries from prior smoke tests writing to the real production log. Fix is the env override plus a one-time `rm` of the production log. Future smoke tests set `SCOUT_VIOLATIONS_LOG=/tmp/whatever.log` and never touch production.
+- **Wednesday diocesan drip loaded early on Tue.** Ran `--execute --force-day 2026-04-15` — 15 of 15 processed (measured from execute summary): 14 created, 1 existing reused, 0 failed, 0 skipped. First verify run showed one sequence returning `-1` sentinel; re-run showed all six sequences matching expected counts, so the original mismatch was a transient one-off in `get_sequence_states` (no code fix needed). 14 contacts pending for the Thu 2026-04-16 batch.
+- **CSTA hand-curation shipped for IN + TN.** Added Julie Alano (IN, Hamilton Southeastern Schools, CSTA Hoosier Heartland President, verified match via `enrich_with_csta` for both short and long district name spellings) and Becky Ashe (TN, display-only with empty district since her employer is a state STEM nonprofit). OK skipped — the only lead was a Tulsa nonprofit, not a public-school-district affiliation. Yield is 2 entries total — much lower than the "+15 matchable" extrapolation in the gap memory, because chapter websites don't publicly list full boards; the path to higher yield is iterating `scripts/fetch_csta_roster.py` with LinkedIn-snippet-only extraction in a future session.
 - **Research Engine Round 1 flags still parked default-OFF.** Production `agent/main.py` is byte-for-byte v1. Round 1.1 planning is carryover.
-- **Repo state:** one S63 commit pushed to `origin/main` (`f479241` docs/rules Commit 0 findings). Working tree clean except `.DS_Store`.
+- **Repo state:** all S63 commits pushed to `origin/main`. Working tree clean except `.DS_Store`.
 
-**Exact next actions (when Session 63 resumes, in order):**
+**Exact next actions (when Session 64 starts, in order):**
 
-1. **Thursday diocesan drip:** `.venv/bin/python scripts/diocesan_drip.py --execute`. 14 contacts for Thu 2026-04-16. Cadence note: Wed batch ran on Tue, so prospects on Wed-sequence step 1 will hit their mailbox a day earlier than the original plan; Thu-batch prospects should still run on Thu to avoid compressing two steps into one calendar day.
-2. **Investigate seq 2008 verify -1 mismatch.** Likely a query/pagination issue in `get_sequence_states`, not a write failure. The writes landed cleanly. Re-run `--verify --force-day 2026-04-15` later to confirm.
-3. **Update CURRENT STATE again at actual end of Session 63** with final counts and Thu results.
+1. **Thursday diocesan drip:** `.venv/bin/python scripts/diocesan_drip.py --execute` — 14 contacts for Thu 2026-04-16, run on the actual day (do NOT `--force-day`). Expected wall clock roughly 6 min (sample from prior batches).
+2. **Wire `prospect_loader.execute_load_plan` into `_on_prospect_research_complete`.** This is the automation gap in `agent/main.py:319`. Must be its own plan-mode session per CLAUDE.md Rule 1 (24/7 Railway handler change). Highest-leverage carryover.
+3. **Research Engine Round 1.1 plan** — per-URL content MERGE rather than URL dedup. Plan-mode session.
+4. **BUG 5 code fix** in `tools/research_engine.py::_target_match_params`. Plan-mode session.
 
-**For full Session 62 narrative:** `SCOUT_HISTORY.md §Session 62`.
-**For the active, detailed plan:** `SCOUT_PLAN.md §YOU ARE HERE`.
-**For the rule scanner plan reference:** `~/.claude/plans/playful-weaving-nygaard.md`.
+**For Session 62 + 63 narratives:** `SCOUT_HISTORY.md §Session 62` / `§Session 63`.
+**For the rule scanner plan reference:** `~/.claude/plans/playful-weaving-nygaard.md` + `~/.claude/plans/flickering-nibbling-breeze.md`.
 
 **Session 63+ carryover (non-drip, load by demand):**
-1. Research Engine Round 1.1 plan — per-URL content MERGE, not dedup. Plan-mode session.
-2. BUG 5 code fix in `tools/research_engine.py::_target_match_params`. Plan-mode session.
-3. 9 pending dioceses review (Pittsburgh/OKC/Omaha) — blocked on BUG 5.
-4. Optional: F9 compliance scanner query redesign, LA archdiocese restart, IN/OK/TN CSTA hand-curation.
-5. Deferred: 1,245 cold_license_request + 247 winback March backlogs.
-6. Future: wire `prospect_loader.execute_load_plan` into `_on_prospect_research_complete`.
+1. 9 pending dioceses review (Pittsburgh/OKC/Omaha) — blocked on BUG 5.
+2. Optional: F9 compliance scanner query redesign, LA archdiocese restart, OK CSTA hand-curation, remaining IN/TN CSTA board-member extraction via `fetch_csta_roster.py` script iteration.
+3. Deferred: 1,245 cold_license_request + 247 winback March backlogs (plan-mode triage session).
 
 **Active kill switches:**
 - Rule scanner hooks: `touch ~/.claude/state/scout-hooks-disabled` (both hooks short-circuit at top)
