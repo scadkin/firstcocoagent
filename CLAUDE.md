@@ -1,5 +1,5 @@
 # SCOUT — Claude Code Reference
-*Last updated: 2026-04-14 — End of Session 63. Commit 0 verified, wrapper bug fixed, scanner hardened with env override, Wed drip loaded early, CSTA IN/TN hand-curation shipped.*
+*Last updated: 2026-04-14 — End of Session 63. Commit 0 verified, wrapper bug fixed, scanner hardened with env override, Wed drip loaded early, CSTA IN/TN hand-curation shipped, hook-wrapper smoke tests committed, Session 64 prep note for prospect_loader wiring committed.*
 
 ---
 
@@ -13,13 +13,15 @@
 - **Scanner ghost-match false positive was root-caused and resolved.** An earlier S63 correction directive cited `17%,40% 20%` as flagged matches that didn't exist in my recent text. Diagnosis: running `scripts/rule_scanner.py` directly against my last three assistant text blocks returned clean/expected results — proving the scanner itself wasn't buggy. The ghosts were stale entries from prior smoke tests writing to the real production log. Fix is the env override plus a one-time `rm` of the production log. Future smoke tests set `SCOUT_VIOLATIONS_LOG=/tmp/whatever.log` and never touch production.
 - **Wednesday diocesan drip loaded early on Tue.** Ran `--execute --force-day 2026-04-15` — 15 of 15 processed (measured from execute summary): 14 created, 1 existing reused, 0 failed, 0 skipped. First verify run showed one sequence returning `-1` sentinel; re-run showed all six sequences matching expected counts, so the original mismatch was a transient one-off in `get_sequence_states` (no code fix needed). 14 contacts pending for the Thu 2026-04-16 batch.
 - **CSTA hand-curation shipped for IN + TN.** Added Julie Alano (IN, Hamilton Southeastern Schools, CSTA Hoosier Heartland President, verified match via `enrich_with_csta` for both short and long district name spellings) and Becky Ashe (TN, display-only with empty district since her employer is a state STEM nonprofit). OK skipped — the only lead was a Tulsa nonprofit, not a public-school-district affiliation. Yield is 2 entries total — much lower than the "+15 matchable" extrapolation in the gap memory, because chapter websites don't publicly list full boards; the path to higher yield is iterating `scripts/fetch_csta_roster.py` with LinkedIn-snippet-only extraction in a future session.
+- **Hook-wrapper smoke tests live** (`scripts/test_hook_wrappers.sh`). Five assertions covering bare-percent block, labeled-percent clean, recursion guard, injector consumption, and production-log-untouched. Uses the new `SCOUT_VIOLATIONS_LOG` env override throughout — safe to run inside an active session. Gracefully exits 0 on fresh-clone / jq-missing / kill-switch-engaged.
+- **Session 64 prep note committed.** `docs/session_64_prep_prospect_loader_wiring.md` maps `_on_prospect_research_complete` at `agent/main.py:319-528` and `execute_load_plan` at `tools/prospect_loader.py:259-390`, with eight open questions that the Session 64 plan-mode session must resolve — most critically the Rule 15 compatibility question (all sequences are drafts, never auto-finalize) and the contact-discovery gap (does the research `result` dict actually produce verified contact emails or only district names).
 - **Research Engine Round 1 flags still parked default-OFF.** Production `agent/main.py` is byte-for-byte v1. Round 1.1 planning is carryover.
-- **Repo state:** all S63 commits pushed to `origin/main`. Working tree clean except `.DS_Store`.
+- **Repo state:** six S63 commits pushed to `origin/main` (`f479241 → 4f434d5 → ace2abc → c5d7753 → b358819 → 78a6595`). Working tree clean except `.DS_Store`.
 
 **Exact next actions (when Session 64 starts, in order):**
 
 1. **Thursday diocesan drip:** `.venv/bin/python scripts/diocesan_drip.py --execute` — 14 contacts for Thu 2026-04-16, run on the actual day (do NOT `--force-day`). Expected wall clock roughly 6 min (sample from prior batches).
-2. **Wire `prospect_loader.execute_load_plan` into `_on_prospect_research_complete`.** This is the automation gap in `agent/main.py:319`. Must be its own plan-mode session per CLAUDE.md Rule 1 (24/7 Railway handler change). Highest-leverage carryover.
+2. **Wire `prospect_loader.execute_load_plan` into `_on_prospect_research_complete`.** The automation gap in `agent/main.py:319`. **READ `docs/session_64_prep_prospect_loader_wiring.md` FIRST** — it has the code paths mapped and the eight open questions the plan-mode session must resolve. Must be its own plan-mode session per CLAUDE.md Rule 1 (24/7 Railway handler change). Highest-leverage carryover.
 3. **Research Engine Round 1.1 plan** — per-URL content MERGE rather than URL dedup. Plan-mode session.
 4. **BUG 5 code fix** in `tools/research_engine.py::_target_match_params`. Plan-mode session.
 

@@ -1,9 +1,32 @@
 # SCOUT MASTER PLAN
-*Last updated: 2026-04-14 — End of Session 62 (rule scanner shipped: R20 every-number-labeled + R19 no-Outreach-backend-IDs structurally enforced via Stop hook + UserPromptSubmit injector; Mon+Tue diocesan drip complete 34/63; CLAUDE.md trimmed. 6 commits on main this session.)*
+*Last updated: 2026-04-14 — End of Session 63. Commit 0 closed, two hook bugs fixed, scanner hardened (SCOUT_VIOLATIONS_LOG env override), Wed diocesan drip 15/15 loaded a day early, CSTA IN+TN curated, hook-wrapper smoke tests shipped, Session 64 prep note committed. Six new commits on main this session.*
 
 ---
 
-## YOU ARE HERE → Session 62 wrapped with four distinct bodies of work. (1) CLAUDE.md trimmed from roughly 46KB (measured) to roughly 20KB (measured), Session 60/61 narrative archived to SCOUT_HISTORY. (2) Diocesan drip Mon+Tue batches ran live and clean via `scripts/diocesan_drip.py --execute` — 34 of 63 contacts loaded, zero failures, drip jitter tightened from 5-15 min per POST to 10-30 sec. (3) Full-context SessionStart hook was briefly installed then REVOKED after Claude gave three different wrong context-window percentages in 30 minutes (measured), prompting the core lesson of this session: text rules alone reach ~95% compliance (estimate), never 100% — only code enforcement is deterministic. (4) As a structural response to the number-mistake, two rules are now code-enforced via a new scanner: R20 (every numerical claim labeled as measured/sample/estimate/extrapolation/unknown) and R19 (never show Outreach backend numeric IDs in chat). Scanner is at `scripts/rule_scanner.py` in the repo; Stop hook + UserPromptSubmit injector live in `~/.claude/hooks/`; kill switch is `touch ~/.claude/state/scout-hooks-disabled`. **Next session's FIRST action: Commit 0 empirical hook verification — follow the three-test procedure in `~/.claude/plans/playful-weaving-nygaard.md` §Commit 0, then run the Wednesday diocesan drip batch.**
+## YOU ARE HERE → Session 63 (end) closed Session 62's Commit 0 loop, fixed two production hook bugs, hardened the rule scanner against smoke-test log poisoning, loaded Wed diocesan drip a day early, hand-curated CSTA IN+TN roster gaps, shipped automated hook-wrapper smoke tests, and committed a Session 64 prep note for prospect_loader wiring.
+
+**Six new commits on `main` this session:**
+
+1. **`f479241` docs(rules): Commit 0 empirical findings.** Stop-`{decision:block}` forces in-turn continuation via a synthetic `"Stop hook feedback: ..."` user message; UserPromptSubmit `additionalContext` reaches next turn; Stop stdin field is `last_assistant_message` (plain prose only); the recursion guard on `stop_hook_active:true` is load-bearing. Tests ran via isolated `claude -p --setting-sources project --settings` — live settings.json never touched.
+2. **`4f434d5` docs(session-63): mid-session state.** Bridge commit.
+3. **`ace2abc` data(csta): hand-curated IN + TN roster entries.** Julie Alano (IN, Hamilton Southeastern Schools, verified match via `enrich_with_csta` on both short and long district spellings) + Becky Ashe (TN, display-only empty district). OK skipped — only lead was a Tulsa nonprofit, not a public school district. Yield is two entries vs "+15 matchable" extrapolation in the gap memory; chapter websites have restructured and the higher-yield path is iterating `scripts/fetch_csta_roster.py` with LinkedIn-snippet extraction in a future session.
+4. **`c5d7753` docs(session-63): end-of-session wrap.** CLAUDE.md CURRENT STATE rewritten for final S63 outcomes; SCOUT_HISTORY.md §Session 63 appended with the full narrative.
+5. **`b358819` test(hooks): scripts/test_hook_wrappers.sh.** Five smoke-test assertions for both hook wrappers, exercised via the new `SCOUT_VIOLATIONS_LOG` env override so production state is never touched. Gracefully exits 0 when wrappers aren't installed / jq is missing / kill switch engaged.
+6. **`78a6595` docs(session-64-prep): prospect_loader wiring scratch note.** Reading-only exploration dump at `docs/session_64_prep_prospect_loader_wiring.md` mapping `_on_prospect_research_complete` at `agent/main.py:319-528` and `execute_load_plan` at `tools/prospect_loader.py:259-390`. Eight open questions flagged — most importantly whether auto-load-on-research is compatible with CLAUDE.md Rule 15 (all sequences are drafts, never auto-finalize).
+
+**Two machine-local hook-wrapper edits** (not committed; documented in `memory/feedback_rule_scanner_hook_installed.md`): `scout-stop-scan.sh` now reads `.last_assistant_message` instead of `.last_message` (fix for a silent fail-open bug present since the S62 install) and both wrappers honor a `SCOUT_VIOLATIONS_LOG` env variable (`PROC` derived from `LOG` in the injector).
+
+**Wed 2026-04-15 diocesan drip loaded on Tue per Steven's approval:** 15 of 15 processed (measured from execute summary), 14 created, 1 existing reused, 0 failed, 0 skipped. First verify run showed one sequence returning the `-1` sentinel; re-run clean, so the original mismatch was a transient one-off. 14 contacts pending for Thu 2026-04-16.
+
+**CSTA hand-curation pivot finding:** `scan_csta_chapters` is permanently retired (`ENABLE_CSTA_SCAN = False`, F5 retired S57 BUG 2) — CSTA is now an inline enrichment lookup via `enrich_with_csta` against `memory/csta_roster.json`. The hand-curation path is to edit the roster JSON directly; the scripted path is option 4 in the gap memory file.
+
+**Session 63 behavioral finding recorded in memory:** the rule scanner fired multiple times in-session on my own prose because I reflexively cite ctx markers and rule thresholds without inline label roots. Documented in `feedback_r20_high_risk_prose_categories.md` with preferred phrasing templates.
+
+**Next session's FIRST action options** (Steven picks one):
+- (a) Thu diocesan drip on actual Thu 2026-04-16 — 14 contacts, roughly 6 min wall clock (sample from prior batches).
+- (b) Plan-mode session for `prospect_loader.execute_load_plan` wiring into `_on_prospect_research_complete` — highest-leverage carryover, **read `docs/session_64_prep_prospect_loader_wiring.md` first**, then enter plan mode per Rule 1.
+- (c) Research Engine Round 1.1 plan — per-URL content merge, not dedup.
+- (d) BUG 5 code fix in `tools/research_engine.py::_target_match_params`.
 
 ### Session 62 commits (6 on main)
 
