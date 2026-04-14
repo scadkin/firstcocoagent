@@ -1,9 +1,66 @@
 # SCOUT — Claude Code Reference
-*Last updated: 2026-04-13 — End of Session 60 (schedule ID map correction shipped; research engine Round 1 plan approved but implementation pending. 20 memory files banked.)*
+*Last updated: 2026-04-13 — End of Session 61 (Research Engine Round 1 code shipped across 4 commits; Level 3 Waverly A/B failed verified_quality_gate; root cause documented; flags default OFF preserves v1 production behavior; Round 1.1 planning needed before the flags can flip on.)*
 
 ---
 
 ## CURRENT STATE — update this after each session
+
+**Session 61 shipped Research Engine Round 1 code across 4 commits. Level 3 Waverly A/B failed the verified_quality gate; Level 3 halted at target 1 per plan's "stop on first failure" rule. Flags default OFF so production is unchanged — v1 behavior is byte-for-byte preserved.**
+
+### Session 61 commits (all on main)
+
+| commit | scope |
+|---|---|
+| `978499b` | Part 0: shared dedup fix (upgrade-on-collision helper in contact_extractor, rewire extract_from_multiple + ResearchJob._merge_contacts). Level 2 Waverly check: 37/37 contacts preserved, zero regression. 7 unit tests green. |
+| `bd7a562` | Part 1: three feature flags on ResearchJob.__init__ (enable_url_dedup, l15_step5_skip_threshold, log_claude_usage). All default OFF. Module-level Claude usage capture in contact_extractor.py is safe across run_in_executor thread boundaries because CPython GIL + serial ResearchQueue guarantee. 20 unit tests green. |
+| `21d9b3b` | Part 2: A/B harness (scripts/ab_research_engine.py + ab_analyze.py). Measurement-grade cost from response.usage token counts. --max-cost-usd ceiling. 3 numerical gates. |
+| `e62f4be` | Round 1.1 patch: URL dedup keeps longest content per URL (first-occurrence rule lost full-page content to short Serper snippets). 21 unit tests green. |
+
+### Level 3 Waverly A/B — FAIL, stopped at target 1
+
+Two runs against "Waverly School District 145" NE:
+
+| metric | v1 baseline | v2 flags-on (first-wins) | v2 flags-on (longest-wins) |
+|---|---|---|---|
+| contacts total | 34 / 36 | 20 | 23 |
+| contacts verified | **30 / 30** | **19** | **22** |
+| claude calls | 134 / 137 | 65 | 69 |
+| wall clock (s) | 334 / 329 | 171 | 179 |
+| cost usd (measurement) | $0.80 / $0.81 | $0.41 | $0.44 |
+| verified_quality_gate (≥95%) | — | **FAIL** (63%) | **FAIL** (73%) |
+| cost_reduction_gate (≤90%) | — | PASS | PASS |
+| wall_clock_gate (≤105%) | — | PASS | PASS |
+
+**Root cause of verified loss** (13 unique contacts in v1 that v2 missed):
+
+- **URL dedup is lossy for Serper snippets.** Each `_add_raw_from_serper` call appends per-query with different snippet text — the same URL gets 2-4 distinct snippet entries where each snippet highlights sentences matching that query. Dedup by URL (either first-wins OR longest-wins) collapses those to one entry and loses the distinct per-query highlighting. Longest-wins recovered ~3 contacts vs first-wins, but ~8 contacts remain lost.
+- **L15 Step 5 skip at threshold=15** drops discovery search contacts. Waverly had >15 VERIFIED before L15 step 5, so the flag triggered and skipped 5 Serper discovery queries + 1 Claude extraction. Estimated 3-5 of the lost 13 contacts came from there.
+
+Both losses are legitimate — neither path can be recovered by a small patch to the existing flags. Round 1 in its current shape is incompatible with the 95% verified quality floor.
+
+**Round 1.1 options (require fresh planning, did NOT ship in S61):**
+
+1. **Per-URL content merge:** instead of dedup, concatenate all distinct contents for a URL into one Claude call. Preserves all snippet text + full page content with one call instead of N. Requires careful token budgeting (20k char cap per extract_contacts call). Most promising, biggest scope change.
+2. **Raise L15 Step 5 threshold to 30+:** at threshold 30, Waverly's 30 verified wouldn't trigger the skip. But Conejo Valley / Cincinnati / Cypress-Fairbanks probably also land at 30-40 verified, making the skip almost never fire — savings vanish.
+3. **Ship only usage logging, abandon URL dedup + L15 skip:** gives measurement-grade cost data for Round 2 planning but zero cost savings in Round 1. Honest minimum.
+4. **Different cost lever entirely:** batch L9 claude calls (5-10 pages per call instead of 1 per page). Round 2 scope but might be bringable forward.
+
+**Round 1 code state: ship as-is.** The flags default OFF so `agent/main.py`'s 4 call sites still produce byte-for-byte v1 behavior. The module-level usage capture is gated on `log_claude_usage=True` — it's off unless the harness explicitly flips it. Test suite is 21/21 green. No production risk. The flags are available as lab instruments for Round 1.1 experimentation.
+
+**Budget burned in Session 61 A/B runs: ~$4.00** (Level 2 Waverly pre-merge check ~$1.50, A/B run 1 ~$1.21, A/B run 2 ~$1.25). Well under the $5 harness ceiling. Level 3 targets 2-5 (Lake Zurich, Conejo Valley, Cincinnati, Cypress-Fairbanks) NOT executed — stopped on first failure per plan rule, saved ~$8.
+
+### Session 61 lessons (most recent, load-bearing)
+
+- **`raw_pages` is not a page list — it's an extraction-request list.** Multiple entries per URL are intentional: different Serper queries produce distinct snippet highlighting for the same URL, and direct-scrape / Firecrawl / Exa layers add full-page versions of the same URL. Any dedup that collapses them to one entry loses information. This wasn't in the Round 1 plan's assumption set because I looked at the dedup target without tracing the population pattern.
+- **"Pure cost win with zero quality loss" is a claim that must be verified against real data, not asserted at plan time.** The Round 1 plan assumed URL dedup was lossless. It wasn't. The A/B harness caught this on the very first target — which is exactly what the harness is for — but the plan's estimated impact was wrong by a meaningful margin.
+- **95% is a strict floor, not a soft target.** The plan set verified_quality_gate at `v2 ≥ v1 × 0.95` (CLAUDE.md quality bar). Under that rule, losing 8 of 30 verified is a 27% loss — 5.4x the allowed tolerance. No amount of cost savings compensates for that loss under Steven's "no sacrifice" quality rule.
+- **Stop-on-first-failure is the right rule.** I saved ~$8 and ~60 min by not running Cincinnati / Conejo / Lake Zurich / Cypress-Fairbanks. The failure pattern is mechanical (Serper snippet loss + L15 Step 5 skip), same root cause on every target. More data points would have confirmed the same finding, not revealed new ones.
+- **Level 2 pre-merge checks catch pure regressions; Level 3 A/B checks catch design failures.** Level 2 (stash → run → unstash → diff) proved Part 0 was safe. Level 3 (two engines side-by-side with real targets) proved Part 1 flags were unsafe as designed. Both matter — one is not a substitute for the other.
+- **Ship with flags OFF by default. Failed flags stay dark.** The three Round 1 flags exist in `ResearchJob.__init__` but default to values that preserve v1 behavior. Production is unchanged. The next session can iterate on flag behavior without having to revert and re-ship anything.
+
+---
+
+## SESSION 60 HISTORY (kept for continuity)
 
 **Session 60 ended mid-execution at context limit.** Two distinct pieces of work:
 
