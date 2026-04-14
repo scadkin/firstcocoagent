@@ -21,13 +21,24 @@
 - **Handler auto-draft stays unchanged.** `agent/main.py:319-528` still calls `sequence_builder.build_sequence` + writes Google Doc drafts as before. Steven uses the auto-draft "almost always" as a starter for claude.ai iteration. Diocesan drip also unchanged.
 - **Repo state:** all S63 commits pushed to `origin/main`. Session 64 commits sit on `main` ahead of `origin/main` pending push.
 
-**Exact next actions (S64 still in progress; when next session starts, in order):**
+**LOCKED PRIORITY QUEUE (Steven 2026-04-14 end-of-S64, do in order, nothing else):**
 
-1. **Thursday diocesan drip:** `.venv/bin/python scripts/diocesan_drip.py --execute` — 14 contacts for Thu 2026-04-16, run on the actual day (do NOT `--force-day`). Expected wall clock roughly 6 min (sample from prior batches). **Still unchanged — diocesan drip was not refactored.**
-2. **First live campaign via load_campaign.py.** The generalized loader is shipped but has only been exercised against the canary fixture. First real use should be a small batch (CUE or C4 re-engagement) so Steven can validate the full round-trip: export a starter sequence → iterate in claude.ai → save to `campaigns/<slug>.md` → `--create --dry-run` → `--create` → activate in Outreach UI → `--execute --dry-run` → `--execute`. Do this in a fresh session so it gets its own wrap-up.
-3. **Research Engine Round 1.1 plan** — per-URL content MERGE rather than URL dedup. Plan-mode session.
-4. **BUG 5 code fix** in `tools/research_engine.py::_target_match_params`. Plan-mode session.
-5. **(Dropped from S64 plan)** The `_on_prospect_research_complete → execute_load_plan` wiring was reframed as the wrong problem during S64 plan mode. Steven prefers the claude.ai round-trip via `load_campaign.py` instead. `docs/session_64_prep_prospect_loader_wiring.md` is now historical — do not execute it.
+Full rationale + per-item background lives in `memory/project_s64_priority_queue.md` (auto-loaded each session). Order is load-bearing.
+
+1. **HARD DEADLINE: Thursday diocesan drip** — `.venv/bin/python scripts/diocesan_drip.py --execute` on Thu 2026-04-16 (do NOT `--force-day`). 14 contacts, roughly 6 min wall clock (sample). Then `--verify` to confirm all 63 diocesan contacts landed. This is the ONE item that can preempt the priority queue because of its fixed date.
+2. **BUG 5 permanent fix** in `tools/research_engine.py::_target_match_params`. **Plan-mode session required (Rule 1).** **READ `docs/session_65_prep_bug5_target_match_params.md` FIRST** — code paths mapped, seven open questions pre-identified, five candidate fix approaches. Current band-aid is `memory/public_district_email_blocklist.json` runtime guard. Blocks the 9 pending dioceses review.
+3. **LA archdiocese research restart** — blocked on F8 diocesan research playbook gap. Plan-mode session. Background: `memory/project_f8_diocesan_research_playbook.md`.
+4. **IN/OK/TN CSTA LinkedIn-snippet extraction** — iterate `scripts/fetch_csta_roster.py` for higher yield than hand-curation. Background: `memory/project_csta_roster_hand_curation_gaps.md`.
+5. **F2 column layout corruption** — 1,912 pre-existing scrambled rows + something bypassing the canonical writer. Highest-priority unknown. Background: `memory/project_f2_column_layout_corruption.md`.
+6. **Research cross-contamination audit** — post-extraction domain validation layer. Not F8-specific. Background: `memory/project_research_cross_contamination.md`.
+7. **Prospecting Queue / Signals / Leads cleanup** — scaffold data from test runs. One-time sweep. Background: `memory/feedback_scout_data_mostly_untested.md`.
+8. **Known debt / housekeeping** — refresh `SCOUT_PLAN.md` YOU ARE HERE (stale since end of S63), optionally rotate `OUTREACH_CLIENT_SECRET` to remove the embedded `'` + `$` combo.
+
+**Explicitly NOT in this queue (do not start until drained):**
+- First live campaign via `load_campaign.py` — cross-session validation, opportunistic when a real campaign is on the plate.
+- Research Engine Round 1.1 — cost-ceiling blocker but not on Steven's explicit priority list. Treat as "after #8 unless Steven reprioritizes."
+- Handler wiring `_on_prospect_research_complete → execute_load_plan` — reframed during S64 plan mode, replaced by `scripts/load_campaign.py`. `docs/session_64_prep_prospect_loader_wiring.md` is now historical.
+- 1,245 cold_license_request + 247 winback March backlogs — deferred.
 
 **For Session 62 + 63 narratives:** `SCOUT_HISTORY.md §Session 62` / `§Session 63`.
 **For the rule scanner plan reference:** `~/.claude/plans/playful-weaving-nygaard.md` + `~/.claude/plans/flickering-nibbling-breeze.md`.
