@@ -50,20 +50,27 @@ log_lackland = [i + 1 for i, row in enumerate(log_values[1:], start=1)
                 if len(row) > 1 and "lackland" in row[1].lower()]
 print(f"Lackland rows in Research Log: {len(log_lackland)}  (1-indexed: {log_lackland})")
 
-# Build delete requests (reverse order so indices don't shift)
+# Build delete requests (reverse order so indices don't shift).
+#
+# HIGH-11 (S70) off-by-one fix: lackland_rows / log_lackland hold
+# 1-indexed sheet row numbers (see the debug prints above), but the
+# Sheets API deleteDimension range wants 0-indexed row positions.
+# Previous code passed startIndex=r, endIndex=r+1 — which deleted the
+# row immediately BELOW each Lackland row and left Lackland intact.
+# Correct: startIndex=r-1, endIndex=r.
 requests = []
 for r in sorted(lackland_rows, reverse=True):
     requests.append({
         "deleteDimension": {
             "range": {"sheetId": leads_tab_id, "dimension": "ROWS",
-                      "startIndex": r, "endIndex": r + 1}
+                      "startIndex": r - 1, "endIndex": r}
         }
     })
 for r in sorted(log_lackland, reverse=True):
     requests.append({
         "deleteDimension": {
             "range": {"sheetId": log_tab_id, "dimension": "ROWS",
-                      "startIndex": r, "endIndex": r + 1}
+                      "startIndex": r - 1, "endIndex": r}
         }
     })
 
