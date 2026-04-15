@@ -1218,6 +1218,151 @@ The full Session 56 "What's working" + "What's still in-progress / unresolved" +
 
 ---
 
+## Session 65 (2026-04-14) — Queue reframe + BUG 5 WONTFIX + Rule 21 structural fix (3 commits, all pushed)
+
+**Three commits on `main`, all pushed to `origin/main`. Primary ship: Rule 21 scanner rule enforcing "verify before instructing Steven to modify live state" (code-enforced, follows the R19/R20 precedent). Plan at `~/.claude/plans/smooth-splashing-narwhal.md` rev 3 after two full pressure-test rebuild cycles.**
+
+### The S64 priority queue was stale at the top
+
+Session 65 opened with a cold read of the locked priority queue. Item #1 (Thursday drip) was date-locked, so I went to item #2: BUG 5 permanent code fix in `tools/research_engine.py::_target_match_params`, with a prep note at `docs/session_65_prep_bug5_target_match_params.md` committed at end of S64. Started the pre-plan-mode audit per the prep note's two open questions:
+- **Open question #2 (diocesan_playbook call sites):** grep agent/main.py for `diocesan_playbook=`. Result: **zero matches** in agent/main.py. Reframed the question — turns out the playbook activation happens inside `research_queue.enqueue` via `DIOCESAN_DOMAIN_MAP` lookup keyed on `_canonical_diocesan_key(district_name)`. 16 diocesan names in the map. "Archdiocese of Detroit Schools" confirmed present since commit `c911b33` (predates S55). Playbook path was active at S63 Detroit incident time.
+- **Open question #1 (blocklist audit):** pulled `SCOUT_PLAN.md` line 402 — Steven's S58 sample of post-S55-filter diocesan research found 70 of 71 rows clean (98.6% measured), exactly 1 contamination hit (`nicole.cummings@detroitk12.org` into Archdiocese of Detroit Schools rows). **1.4% measured contamination rate.**
+
+### Steven's pushback: diocese is small apples
+
+Before I finished the plan for BUG 5, Steven asked: "what is the whole point of what were doing with this diocese work here? because this is so small appples we shouldnt be spending much time on diocse stuff ever." That reframe exposed that BUG 5 — along with items #2 LA archdiocese and #3 was-F2-originally — were all diocesan. Per the hard rule in `memory/feedback_scout_primary_target_is_public_districts.md`, diocesan is the secondary lane.
+
+Goal for the remaining diocesan work got locked: finish the already-running drips quickly (6 activated sequences + the Thursday drip), park expansion to the 23 pending diocesan networks and the LA archdiocese restart.
+
+### Queue reframe audit found two more stale items
+
+Proposed reframe: F2 column corruption to #1 (primary-lane data integrity), BUG 5 dropped from #1 to a 30-minute (estimate) audit task at lower priority. Before writing anything to files, re-read the F2 memory file. Discovery: **F2 was marked RESOLVED Session 55 (2026-04-10)** in `project_f2_column_layout_corruption.md` line 8. 1,952 scrambled rows repaired via `scripts/repair_scrambled_queue_rows.py`, writer bugs fixed, BUG3_DIAG evidence confirmed canonical writes, diagnostic reverted. The end-of-S64 queue listing F2 as "highest-priority unknown" was **stale** — I copied framing from older CURRENT STATE text without re-reading the memory file.
+
+Re-read `project_research_cross_contamination.md` next: **also RESOLVED Session 55** via the two-stage contamination filter (commits `6ffa1b2`, `552240f`, `148aca6`, `4bdfcfc`, `22dc28b`, `da46dfa`). Same stale-framing failure.
+
+Both items dropped from the queue entirely. The same default-to-shallow-reading bias caused the S64 priority queue to copy stale framing; this is the pattern that Rule 21 ends up addressing later in the session.
+
+### BUG 5 audit: closed as WONTFIX
+
+With the priority-queue reframe surfaced, ran the dedicated BUG 5 audit Steven had asked for. Decisive finding: the S55 two-stage filter caught 98.6% (measured) of diocesan contamination. The remaining 1.4% (measured — 1 of 71) is handled by the S63 runtime blocklist at `memory/public_district_email_blocklist.json`. A "permanent code fix" would save roughly 1 contamination per 71 diocesan research jobs (extrapolation — assuming rate stability) while adding complexity to `_target_match_params` and another test fixture. **ROI is negative.**
+
+Closed BUG 5 as WONTFIX. Updated `memory/project_bug5_shared_city_gap.md` with full audit writeup (decisive data point, why playbook didn't save the Detroit row, steven's explicit diocese-is-small-apples rule, narrow edge-case vs structural hole analysis, how-to-apply guidance for future sessions tempted to re-open). Deleted `docs/session_65_prep_bug5_target_match_params.md` — stale, would have baited future sessions into plan-moding a closed bug.
+
+Rewrote `memory/project_s64_priority_queue.md` with the reframed queue: Thursday drip → CSTA LinkedIn → scaffold cleanup → S55 carry-overs → housekeeping. 23 pending diocesan networks + LA archdiocese + BUG 5 permanent code fix all parked indefinitely.
+
+**Commit `64b9511`** `docs(session-65): reframe priority queue after mid-session audit`. Updated CLAUDE.md CURRENT STATE LOCKED PRIORITY QUEUE block, deleted the BUG 5 prep note, pushed. Rebased over `39c15d2` (Scout bot daily summary from Railway) to stay fast-forward.
+
+### The S65 row-deletion incident that motivated Rule 21
+
+After the reframe, attempted item #2 (S55 carry-over cleanups). Steven pasted screenshots of the S55 contamination audit Google Doc showing ~17 flagged rows. I wrote detailed row-by-row delete instructions ("Ctrl+F `melissa@collinsville.k12.ok.us` → right-click row → Delete row") based on **interpreting the screenshot text** — without ever calling `tools/sheets_writer.get_leads()` to check current sheet state.
+
+Steven pushed back: "it looks like you are mistaken here. can you actually read the google sheets? if not we need to give you the ability to read them yourself."
+
+Ran `.venv/bin/python -c "from dotenv import load_dotenv; load_dotenv(); from tools.sheets_writer import get_leads; ..."` — the function worked. 551 rows in the live sheet (vs. 483 at S55 audit time). Verified the 3 specific deletes I'd flagged:
+- `melissa@collinsville.k12.ok.us` → **0 hits**. Not in the sheet. Never added or already deleted.
+- `cisenhour@wcloud.org` → **0 hits**. Not in the sheet.
+- `kcraig@spiro.k12.ok.us` → 1 hit, but Account="Spiro High School" / District Name="Spiro Public Schools" — **already correctly relabeled** since S55. Not the Epic Charter contamination the audit doc showed.
+
+Net delete count from my instructions: **zero**. Two of three rows I told him to delete didn't exist; the third was already fixed. Had he followed the instructions, he would have wasted time chasing phantom rows.
+
+Steven's reaction: "THESE ARE CRITICAL ERRORS! HOW CAN WE STOP THIS FROM HAPPENING? HOW ARE YOU NOT MORE RESOURCEFUL TO USE YOUR ABILITIES AND THINK LONGER AND HARDER ABOUT EACH TASK?"
+
+### Root cause: default-to-shallow-reading bias
+
+The failure wasn't this one incident. It was a recurring pattern with the same root cause as three other recent failures in this session alone:
+1. **End-of-S64 priority queue** listed F2 and research cross-contamination as unresolved — both had been RESOLVED in memory files 4 days prior. Copied framing from older CURRENT STATE paragraphs without re-reading the actual memory files.
+2. **Rule 20 scanner violations** kept firing on unlabeled numbers quoted from memory instead of from sources.
+3. **Today's row-deletion instructions** — treated screenshot text as authoritative instead of querying the live sheet.
+
+All three share the same failure mode: **trust context-window text over authoritative-source queries.** Process rules don't fix this — CLAUDE.md has 20 rules and I still violated them. Per `memory/feedback_code_enforcement_beats_process_rules.md`, the answer is code-level enforcement following the Rule 20 precedent.
+
+Steven asked me to enter plan mode and produce a structural fix — not a process rule.
+
+### Rule 21 plan: two pressure-test rebuild cycles
+
+Entered plan mode. Launched two parallel Explore agents: one mapping the existing rule scanner infrastructure, one cataloging the live-state reader functions available in `tools/`. Key findings:
+- Scanner uses a rule-registry pattern at `scripts/rule_scanner.py`; existing R19/R20 are regex-based "bad thing + no label" rules with per-rule `number_patterns` / `label_roots` / `label_window_chars`. The plan explicitly called out R15 (fabricated claims) as "regex-hostile, deferred indefinitely" — and R21 is in the same semantic class.
+- Rule 21 needs different semantics: detect "destructive-instruction trigger + no verification anchor anywhere in response + no exemption context." The scanner can support this via a new rule type dispatch.
+- ~30 live-state reader functions in `tools/` already exist: `sheets_writer.get_leads`, `csv_importer.get_active_accounts`, `district_prospector.get_all_prospects`, `outreach_client.get_sequences` + friends, `territory_data.get_territory_stats`, etc. Plus git commands (`git log`, `git show`), `.venv/bin/python`, and web readers (`WebFetch`, `WebSearch`). This is the anchor whitelist.
+- Stop hook wrapper at `~/.claude/hooks/scout-stop-scan.sh` only sees `last_assistant_message` (prose-only, no tool-use JSON), so verification must be narrated in prose or inside fenced code blocks to be detectable.
+
+**Draft 1:** wrote a plan with layered A/B/C enforcement (scanner rule + preflight checklist + memory file). Steven ran the senior-reviewer pressure test.
+
+**Draft 2** caught 6 structural issues:
+1. **Rotate-secret was wrongly in scope.** Credential rotation has a different verification shape (cite procedure docs, not read state). Dropped from R21 scope; handled by preflight process rule only. If it becomes a recurring incident, separate Rule 22.
+2. **Normalization stripped code blocks before anchor search**, breaking the case where Claude shows a real `get_leads()` call in a ` ```python``` ` block. Fix: new field `anchor_text_scope: "raw"` so R21 searches un-normalized text for anchors while still using normalized text for trigger detection.
+3. **Used `label_window_chars: -1` as a sentinel.** Brittle API. Replaced with explicit `type: "trigger_and_missing_anchor"` field + dispatch in scan().
+4. **Exemption patterns were missing** for past-tense narrative, hypotheticals, code-behavior descriptions, questions. Added 5 explicit exemption regexes.
+5. **Test suite was too small** (10 tests). R19+R20 have 34 combined. Expanded to ~25.
+6. **Correction directive wording told Claude to retract but didn't warn Steven not to execute.** Rewrote to lead with `⚠ DO NOT EXECUTE THE PRIOR TURN'S INSTRUCTIONS`.
+
+**Draft 3** caught 10 MORE gaps on the second pressure-test pass:
+1. **R21 test inputs contained unlabeled numbers that R20 would flag independently.** Test `"Based on the 551 rows returned, delete row 217"` expected 0 violations but R20 fires on `551` and `217`. Rewrote all R21 test inputs to be R20-clean.
+2. **Performance bug** in scan()'s R21 branch: ran anchor search on every response that passed pre_filter, even when zero triggers matched. Added short-circuit: collect triggers first, skip anchor work if none.
+3. **`recommend-delete` regex** matched substrings without requiring a target word. "I recommend wiper blade replacement" matched. Fixed to require verb stem AND target word (row/record/tab/etc.).
+4. **Negation exemption missing.** "Do NOT delete these rows" / "Never modify the sheet" would false-fire. Added.
+5. **Future-tense code-behavior exemption missing.** "The script will delete rows" would false-fire. Added.
+6. **Long match list made correction directive unreadable.** R21's `ctrl-f-find` regex can capture ~100 chars. Added `_truncate_match` helper (applies to all rules; R19/R20 pass through unchanged).
+7. **Regression test against SCOUT_HISTORY.md didn't filter for R21-only violations.** Historical prose triggers R20 on numbers; R21 test needs `jq` filter on trigger types.
+8. **Calibration checkpoint was vague** ("classify as TP/FP"). Split into 4 explicit categories: correct-fire / correct-pass / false-fire / false-pass, each with a distinct iteration direction.
+9. **Protocol gap for non-R21 destructive instructions.** Preflight didn't explain what to do for rotate/revoke/paste-credential. Added explicit bullet.
+10. **`load_dotenv()` requirement missing.** Scout tools modules don't auto-load `.env`. Documented in preflight + memory file.
+
+Plan approved via ExitPlanMode after draft 3. The pressure-test-twice protocol caught 16 total issues across the two passes — strong evidence that a single senior-reviewer pass isn't sufficient for code-touching plans.
+
+### Rule 21 execution
+
+**Commit `0b72295`** `feat(rule21): scanner rule for verify-before-instructing`. Added R21 dict (9 trigger patterns, ~35 anchor patterns, 7 exemption patterns) to `scripts/rule_scanner.py::RULES`. Modified `scan()` for type dispatch while preserving R19/R20 behavior exactly. Added `_truncate_match` helper for correction directive readability.
+
+Regex gotchas caught during test-green iteration:
+- `[^.\n]` in the Ctrl+F / right-click / sheet-nav trigger regexes **blocked on email domain periods** in `Ctrl+F melissa@example.com`. Changed all 3 + 2 exemption patterns to `[^\n]`.
+- `wipe-clear-tab`, `modify-row`, `recommend-delete`, `delete-row` patterns didn't allow **intervening adjectives** between verb and target ("delete the contaminated rows", "wipe the Prospecting Queue BACKUP tab"). Changed to `(?:(?:the|this|that|\w+)\s+){0,5}?` lazy quantifier supporting up to 5 intervening words.
+- **Multi-match correctness:** a single destructive phrase like "Ctrl+F ... right-click Delete row" legitimately fires on 4 patterns (delete-row, right-click-delete, sheet-delete-nav, ctrl-f-find). Updated test expected counts to reflect multi-match rather than trying to dedupe in the scanner.
+
+25 new R21 tests (11 trigger-fires + 6 anchor-saves + 6 exemption-saves + 2 edge cases), including the S65 failed response text as a permanent regression fixture. **Total scanner tests: 59 green.** Historical SCOUT_HISTORY.md S55-S58 prose returns **zero R21 false positives** (measured via filtered jq pipeline on the regression smoke).
+
+Caught a critical **machine-local hook wrapper bug** in the kill-switch smoke test: `~/.claude/hooks/scout-stop-scan.sh` had a digit-only pre-filter (`grep -q '[0-9]'`) that silently skipped R21-relevant responses like "Delete row X from the sheet" with no numeric content. Broadened to `grep -qiE '[0-9]|delete|remove|drop|clear|wipe|purge|truncate|modify|update|change|edit|overwrite|ctrl|right-click|recommend|suggest|propose'`. Not in the repo commit (hooks are machine-local per `~/.claude/plans/playful-weaving-nygaard.md`); future machine setups must apply the same broadening manually. Documented in the commit message and `feedback_verify_before_instructing.md`.
+
+**Commit `394869b`** `docs(rule21): CLAUDE.md preflight + Rule 21 text + header`. New "PREFLIGHT: Destructive instruction to Steven" checklist entry. New Rule 21 in CRITICAL RULES list (top-19 → top-20). Header timestamp updated. Companion memory writes (not in the commit, they live in the auto-memory dir):
+- `feedback_verify_before_instructing.md` — NEW, with S65 incident as canonical example.
+- `MEMORY.md` — index entry under "Structural enforcement" section.
+
+### Session 65 meta-lessons
+
+1. **Memory files become stale quickly. Always re-read before copying framing from CLAUDE.md CURRENT STATE paragraphs.** The S64 priority queue was wrong on F2 and research cross-contamination because I wrote the S64 EOS note without re-checking the actual memory files. Same default-to-shallow-reading root as the row-deletion incident.
+2. **`sheets_writer.get_leads()` requires `.env` to be loaded** — Scout tools modules don't call `load_dotenv()` internally. Hit this exact failure silently in the first smoke test. Now documented in the R21 preflight checklist and `feedback_verify_before_instructing.md`.
+3. **Senior-reviewer pressure-test protocol needs TWO passes for code-touching plans.** Draft 1 → draft 2 caught 6 structural issues. Draft 2 → draft 3 caught 10 more. Each pass surfaces a different category of gaps (structural vs precision).
+4. **`[^.\n]` is almost always wrong in regex trigger patterns** that target real-world prose. Email domain periods block lazy matches. Use `[^\n]` unless you specifically want to anchor on sentence boundaries (and even then, be explicit).
+5. **Multi-match on overlapping regex patterns is the right behavior, not a bug.** Don't try to dedupe overlapping matches in the scanner — update test expected counts to reflect the true multi-match semantics. The correction directive handles multi-match naturally via the `match_list` join.
+
+### Session 65 commits
+
+- `64b9511` `docs(session-65): reframe priority queue after mid-session audit` — queue reframe, BUG 5 prep note deletion, LOCKED PRIORITY QUEUE rewrite in CLAUDE.md
+- `0b72295` `feat(rule21): scanner rule for verify-before-instructing` — R21 dict + scan() dispatch + 25 tests
+- `394869b` `docs(rule21): CLAUDE.md preflight + Rule 21 text + header` — docs layer
+
+All pushed to `origin/main` after rebase over `39c15d2` Scout bot daily summary.
+
+### What's live at end of Session 65
+
+- **Rule 21 scanner active** on next Stop hook invocation. 59 tests green. Kill switch `touch ~/.claude/state/scout-hooks-disabled` covers R19+R20+R21.
+- **BUG 5 closed as WONTFIX.** Permanent solution: S55 two-stage filter + S63 blocklist band-aid. Don't re-open.
+- **Priority queue thin.** Thursday 2026-04-16 drip is the next Claude-actionable item. CSTA LinkedIn extraction is #2 but memory file labels it "low priority."
+- **S55 carry-over cleanups deferred.** Steven needs to open the audit Google Doc and make yes-delete/no-keep calls on roughly 23 (extrapolation) flagged rows. I can pre-categorize once he pastes the doc content, but can't read the doc directly from here.
+- **Housekeeping**: `OUTREACH_CLIENT_SECRET` rotation would retire `scripts/env.sh` but Outreach's random generator might re-hit the `'`+`$` combo, so not guaranteed.
+
+### Session 65 carryover into Session 66
+
+1. **Thursday 2026-04-16 diocesan drip** (HARD DEADLINE). `.venv/bin/python scripts/diocesan_drip.py --execute` then `--verify`. Do NOT `--force-day`. 14 contacts (measured — per S64 queue), ~6 min wall clock (sample).
+2. **Rule 21 calibration checkpoint** — after 3-5 sessions with R21 active, read `~/.claude/state/scout-violations.log` for R21 entries, classify into correct-fire / correct-pass / false-fire / false-pass, iterate regex. Process step documented in the plan at `~/.claude/plans/smooth-splashing-narwhal.md`.
+3. **IN/OK/TN CSTA LinkedIn extraction** — real primary-lane work. Iterate `scripts/fetch_csta_roster.py` (plan-mode Rule 1) OR hand-curate (data entry, no plan needed). Memory file `project_csta_roster_hand_curation_gaps.md` has the three target states and the known-gap analysis.
+4. **S55 carry-over cleanups** — blocked on Steven being in the audit doc. When ready, paste the flagged-rows section into chat; I'll pre-categorize with live `get_leads()` verification this time (per Rule 21).
+5. **Housekeeping** — optional `OUTREACH_CLIENT_SECRET` rotation.
+
+**Parked indefinitely:** 23 pending diocesan networks expansion, LA archdiocese research restart, BUG 5 permanent code fix (WONTFIX), Research Engine Round 1.1, handler wiring (reframed as wrong problem in S64), 1,245 cold_license_request + 247 winback March backlogs.
+
+---
+
 ## Session 64 (2026-04-14) — Generalized Campaign Loader Shipped After Plan Pressure-Test Rebuild + OAuth/Export Bug Fix Bundle + Priority Queue Locked
 
 **Ten commits on `main`, all pushed to `origin/main`. Plan `~/.claude/plans/luminous-honking-cook.md` rev 2 after a full senior-reviewer pressure-test rebuild mid-session.**

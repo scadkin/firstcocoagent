@@ -1,9 +1,57 @@
 # SCOUT MASTER PLAN
-*Last updated: 2026-04-14 — End of Session 64. Generalized campaign loader shipped (plan `~/.claude/plans/luminous-honking-cook.md` rev 2 after pressure-test rebuild), OAuth + export bugs fixed, priority queue locked by Steven, BUG 5 prep note committed for next session. Ten new commits on main this session.*
+*Last updated: 2026-04-14 — End of Session 65. Queue reframed (3 stale items cleared), BUG 5 closed as WONTFIX, Rule 21 "verify before instructing Steven to modify live state" shipped as code-enforced scanner rule. Plan `~/.claude/plans/smooth-splashing-narwhal.md` rev 3 after two full pressure-test rebuild cycles. Three new commits on main this session, all pushed.*
 
 ---
 
-## YOU ARE HERE → Session 64 (end) reframed the "prospect_loader wiring" carryover from S63 as the wrong problem, pressure-test-rebuilt the plan, shipped a strategy-agnostic campaign loader with role segmentation and claude.ai round-trip, fixed a latent Outreach API filter bug, and left a BUG 5 prep note for the next session's top-priority plan-mode work.
+## YOU ARE HERE → Session 65 (end) reframed the locked S64 priority queue after discovering three stale items at the top (F2 and research cross-contamination both RESOLVED in S55, BUG 5 permanent code fix closed as WONTFIX after measuring 1-of-71 / 1.4% — measured — contamination rate on diocesan research post-S55 filter). Mid-session, caught myself writing row-deletion instructions from screenshot interpretation without querying the live sheet — same default-to-shallow-reading root cause as the stale queue and recurring Rule 20 violations. Shipped Rule 21 as the structural fix: scanner rule + preflight checklist + memory file. 59 scanner tests green. Kill switch shared with R19+R20. Next session's first real action is the Thursday 2026-04-16 diocesan drip.
+
+**Three new commits on `main` this session (all pushed to `origin/main`):**
+
+1. **`64b9511` docs(session-65): reframe priority queue after mid-session audit.** F2 and research cross-contamination both confirmed RESOLVED in S55 via memory file re-read. BUG 5 closed as WONTFIX after audit showed 1-of-71 (measured — 1.4%) contamination rate post-S55 filter — S55 two-stage filter + S63 blocklist are the complete solution, permanent code fix has negative ROI. Deleted stale `docs/session_65_prep_bug5_target_match_params.md`. Rewrote `memory/project_s64_priority_queue.md` with thin reframed queue. Updated CLAUDE.md CURRENT STATE LOCKED PRIORITY QUEUE. Rebased over `39c15d2` (Scout bot daily summary).
+
+2. **`0b72295` feat(rule21): scanner rule for verify-before-instructing.** Motivated by S65 incident where I told Steven to delete 3 rows from `Leads from Research` based on interpreting stale audit-doc screenshots without calling `sheets_writer.get_leads()` — 2 of 3 rows didn't exist in the current sheet and the 3rd was already correctly relabeled. R21 adds a new rule type `trigger_and_missing_anchor` to `scripts/rule_scanner.py`: 9 trigger patterns (delete-row, ctrl-f-find, right-click-delete, wipe-clear-tab, modify-row, delete-row-id, sheet-delete-nav, recommend-delete), ~35 anchor patterns (live-state reader function names from `tools/`, git state commands, `.venv/bin/python`, WebFetch, WebSearch), 7 exemption patterns (past-tense, hypothetical, code-behavior present/future, method-call, questions, negations). `anchor_text_scope: "raw"` means function names in fenced code blocks count. 25 new R21 tests including S65 failed response as permanent regression fixture. Total scanner tests: **59 green**. Historical SCOUT_HISTORY.md S55-S58 prose returns zero R21 false positives (measured). Also: machine-local `~/.claude/hooks/scout-stop-scan.sh` pre-filter broadened from digit-only to also match R21 destructive keywords — not in the repo commit because hooks are machine-local, but documented in commit message and `feedback_verify_before_instructing.md`.
+
+3. **`394869b` docs(rule21): CLAUDE.md preflight + Rule 21 text + header.** New "PREFLIGHT: Destructive instruction to Steven" entry in the preflight checklists block. New Rule 21 in CRITICAL RULES list (top-19 → top-20). Header timestamp updated. Explicit process-rule bullet for destructive instructions NOT covered by R21 (credential rotation, paste-new-secret, revoke-token — different verification shape). `.env` loading requirement documented. Memory file `feedback_verify_before_instructing.md` + `MEMORY.md` index entry written to the auto-memory dir.
+
+**Plan architecture reminder:** the plan went through TWO full pressure-test rebuild cycles per Steven's senior-reviewer prompt. Draft 1 → draft 2 caught 6 structural issues (rotate-secret wrongly in scope, normalization conflict with code blocks, sentinel field overloading, missing exemption patterns, thin test suite, weak correction wording). Draft 2 → draft 3 caught 10 more precision issues (R20 cross-contamination in R21 test inputs, performance bug in scan(), over-loose recommend-delete regex, missing negation/future-tense exemptions, unreadable long matches in correction directive, SCOUT_HISTORY.md regression test needing jq filter, vague calibration categories, protocol gap for rotate-secret, load_dotenv() requirement unmentioned, and regex trigger precision issues). **Meta-lesson: senior-reviewer pressure-test protocol needs TWO passes for code-touching plans.** One pass surfaces structural gaps; the second pass surfaces precision/correctness bugs. Full plan at `~/.claude/plans/smooth-splashing-narwhal.md`.
+
+**Session 65 key narrative moments:**
+- **First reframe (small apples):** Started on BUG 5 pre-plan audit. Before writing the plan, Steven asked "what is the whole point of what were doing with this diocese work here? because this is so small appples we shouldnt be spending much time on diocse stuff ever." That one question killed BUG 5 as a plan-mode target and reshaped the whole queue.
+- **Second reframe (stale queue):** Proposed promoting F2 to #1 in the reframed queue. Before writing files, re-read the F2 memory file — confirmed RESOLVED in S55. Then re-read research cross-contamination memory — also RESOLVED in S55. Both items had been in the queue because I copied framing from older CURRENT STATE paragraphs without re-reading the actual memory files at S64 EOS. Same default-to-shallow-reading root as the row-deletion incident that came next.
+- **Third reframe (Rule 21):** Wrote row-deletion instructions from screenshot interpretation. Steven pushed back hard ("HOW CAN WE STOP THIS FROM HAPPENING? HOW ARE YOU NOT MORE RESOURCEFUL"). Pivoted to plan mode to build a structural fix. Two full pressure-test rebuild cycles. Shipped Rule 21.
+- **Plan-mode discovery:** launched two parallel Explore agents during Phase 1 to map the existing scanner infrastructure AND inventory the live-state reader tools available in `tools/`. Critical findings: the scanner's `scan()` function needed a small additive change (new rule type dispatch) rather than overloading existing fields; the stop hook wrapper only sees prose not tool JSON, forcing verification to be narrated in prose or code blocks; ~30 reader functions exist that become the anchor whitelist.
+
+**Session 65 behavioral findings:**
+- **Rule 20 scanner kept firing** on ghost matches during the session (same known issue documented in `feedback_rule_scanner_hook_installed.md`). I emitted multiple correction directives throughout the session. None were blockers — the correction protocol works as intended. The ghost matches appear to come from stale violation log entries from prior smoke tests.
+- **`sheets_writer.get_leads()` silently returned zero rows** on the first smoke test because `.env` wasn't loaded. Scout tools modules don't call `load_dotenv()` internally — the caller must. Fixed via `from dotenv import load_dotenv; load_dotenv()` at the top of the test script. Now documented in the R21 preflight checklist + `feedback_verify_before_instructing.md` so future sessions don't hit the same silent failure.
+- **The pressure-test-twice protocol caught 16 total issues across two passes.** Single-pass senior-reviewer is insufficient for code-touching plans. The first pass catches structural issues (architecture, scope, API shape). The second pass catches precision issues (regex correctness, test assumption errors, performance, edge cases). Both are load-bearing.
+
+### Carryover into Session 66+ — REFRAMED PRIORITY QUEUE
+
+Lives at `memory/project_s64_priority_queue.md` (auto-loaded every session). Mirror in `CLAUDE.md` CURRENT STATE. **Do in order, nothing else without Steven's explicit redirection:**
+
+1. **HARD DEADLINE: Thursday diocesan drip** — `.venv/bin/python scripts/diocesan_drip.py --execute` on Thu 2026-04-16 (do NOT `--force-day`). 14 contacts (measured — per S64 queue), roughly 6 min wall clock (sample). Then `--verify` to confirm all 63 diocesan contacts landed. Only fixed-date item.
+2. **IN/OK/TN CSTA LinkedIn-snippet extraction** — iterate `scripts/fetch_csta_roster.py` (plan-mode Rule 1 if touching script logic) OR hand-curate (no plan needed, data entry path). Background: `project_csta_roster_hand_curation_gaps.md`.
+3. **Prospecting Queue / Signals / Leads scaffold cleanup** — one-time sweep. Background: `feedback_scout_data_mostly_untested.md`.
+4. **Session 55 carry-over cleanups:** (a) S55 contam audit Google Doc row review at `https://docs.google.com/document/d/1TFle1jiyEiFqU_hv-rxIxsCf-WxXXDRoRaKW2A6MEfA/edit` — roughly 23 flagged rows (extrapolation — 4.8% measured of 483 measured rows) need Steven's yes-delete / no-keep judgments; blocked on Steven being in the doc. (b) Delete the `Prospecting Queue BACKUP 2026-04-10 0010` tab.
+5. **Rule 21 calibration checkpoint** — after 3-5 live sessions, read `~/.claude/state/scout-violations.log` for R21 entries, classify into correct-fire / correct-pass / false-fire / false-pass, iterate regex per calibration thresholds in `~/.claude/plans/smooth-splashing-narwhal.md`.
+6. **Housekeeping** — optional `OUTREACH_CLIENT_SECRET` rotation to retire `scripts/env.sh`. Not guaranteed to produce a clean secret (Outreach's random generator may re-hit the `'`+`$` combo).
+
+### Explicitly PARKED (do not start until queue drained, and even then only with explicit redirection)
+
+- **23 pending diocesan networks expansion** (Pittsburgh/OKC/Omaha/Lincoln/Tulsa/Memphis/Nashville/Galveston-Houston/etc). Per S65 directive: diocesan work is small apples, do not expand. The 6 already-activated diocesan sequences run their course naturally.
+- **LA archdiocese research restart** — blocked on F8 diocesan playbook gap. Diocesan, parked indefinitely.
+- **BUG 5 permanent code fix** — **CLOSED as WONTFIX.** See `memory/project_bug5_shared_city_gap.md`. Do not re-open.
+- **Research Engine Round 1.1** — cost-ceiling work. Opportunistic only, not on explicit priority list.
+- **First live campaign via `load_campaign.py`** — cross-session validation, opportunistic when a real campaign is on the plate.
+- **Handler wiring `_on_prospect_research_complete → execute_load_plan`** — reframed as wrong problem in S64. Permanently historical. `docs/session_64_prep_prospect_loader_wiring.md` is historical.
+- **1,245 cold_license_request + 247 winback March backlogs** — deferred per prior sessions.
+
+### Prior SESSION 64 narrative (archived below for reference)
+
+---
+
+## Previous YOU ARE HERE → Session 64 (end) reframed the "prospect_loader wiring" carryover from S63 as the wrong problem, pressure-test-rebuilt the plan, shipped a strategy-agnostic campaign loader with role segmentation and claude.ai round-trip, fixed a latent Outreach API filter bug, and left a BUG 5 prep note for the next session's top-priority plan-mode work.
 
 **Ten new commits on `main` this session (all pushed to `origin/main`):**
 
