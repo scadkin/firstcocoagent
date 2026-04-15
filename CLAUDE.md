@@ -28,13 +28,13 @@ Full rationale + per-item background lives in `memory/project_s64_priority_queue
 
 **Steven's S65 diocesan directive:** finish the already-running diocesan work quickly; do not start any new diocesan work. The 23 pending diocesan network expansion and LA archdiocese restart are parked indefinitely.
 
-1. **HARD DEADLINE: Thursday diocesan drip** — `.venv/bin/python scripts/diocesan_drip.py --execute` on Thu 2026-04-16 (do NOT `--force-day`). 14 contacts (measured — per S64 queue), roughly 6 min wall clock (sample). Then `--verify` to confirm all 63 diocesan contacts landed. Only fixed-date item.
-2. **IN/OK/TN CSTA LinkedIn-snippet extraction** — iterate `scripts/fetch_csta_roster.py` for higher yield than hand-curation. Background: `memory/project_csta_roster_hand_curation_gaps.md`. Real primary-lane work.
+1. **HARD DEADLINE: Thursday diocesan drip** — `.venv/bin/python scripts/diocesan_drip.py --execute` on Thu 2026-04-16 (do NOT `--force-day`). 14 contacts (measured — S66 dry-run --force-day 2026-04-16), roughly 6 min wall clock (sample). Then `--verify` to confirm all 63 diocesan contacts landed. Only fixed-date item.
+2. **S55 audit re-run** (promoted to #2 in S66 after Steven caught the stale "blocked on Google Doc" framing) — `.venv/bin/python scripts/audit_leads_cross_contamination.py` against current sheet. Script is read-only, gated by Phase 0 oracles, uses SAME filter helpers as live pipeline. Pre-categorize flagged output against live `sheets_writer.get_leads()` before ANY delete recommendation (Rule 21 compliance). S55 found 95% clean / 4.8% flagged (measured — 23 of 483 measured rows). Background: `memory/project_research_cross_contamination.md` S66 clarification block.
 3. **Prospecting Queue / Signals / Leads scaffold cleanup** — one-time sweep. Background: `memory/feedback_scout_data_mostly_untested.md`.
-4. **Session 55 carry-over cleanup** — review the S55 contam audit Google Doc at `docs.google.com/document/d/1TFle1jiyEiFqU_hv-rxIxsCf-WxXXDRoRaKW2A6MEfA/edit` (roughly 23 flagged rows — extrapolation — 4.8% measured of 483 measured — need Steven's yes-delete/no-keep judgments). Blocked on Steven being in the doc. (S66 audit removed the prior 4(b) BACKUP-tab-delete sub-item — `sheets_writer._get_service().spreadsheets().get()` returned 14 tabs (measured), none matching "BACKUP" or "2026-04-10".)
-5. **Known debt / housekeeping** — optionally rotate `OUTREACH_CLIENT_SECRET` to retire `scripts/env.sh`. Low priority. Ad-hoc housekeeping as needed.
+4. **Known debt / housekeeping** — optionally rotate `OUTREACH_CLIENT_SECRET` to retire `scripts/env.sh`. Low priority. Ad-hoc housekeeping as needed.
 
 **Explicitly PARKED (do not start until drained, even then only with explicit redirection):**
+- **IN/OK/TN CSTA hand-curation + fetcher iteration** — PARKED per S66 Steven directive. S63 hand-curation shipped 2 entries (IN Julie Alano, TN Becky Ashe); OK blocked on public-district candidate. Hand-curation ceiling hit. Fetcher iteration `scripts/fetch_csta_roster.py` is scanner code → Rule 1 plan-mode required → not worth the latency. Do NOT propose restarting without explicit redirection. Reference: `memory/project_csta_roster_hand_curation_gaps.md`.
 - 23 pending diocesan networks expansion — small apples per S65 directive.
 - LA archdiocese research restart — diocesan, parked indefinitely.
 - BUG 5 permanent code fix — WONTFIX per S65 audit.
