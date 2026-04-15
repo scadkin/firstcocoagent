@@ -60,8 +60,20 @@ def get_service():
 
 
 def col_letter(idx: int) -> str:
-    # 0-indexed → A, B, C...
-    return chr(ord("A") + idx)
+    """0-indexed → A, B, ..., Z, AA, AB, ... — base-26 with carry.
+
+    HIGH theme #3 (S70): previous code was `chr(ord("A") + idx)` which
+    wraps past Z silently (chr(65+26)='['). Fixed to handle overflow.
+    """
+    if idx < 0:
+        raise ValueError(f"negative column index: {idx}")
+    result = ""
+    while True:
+        result = chr(65 + idx % 26) + result
+        idx = idx // 26 - 1
+        if idx < 0:
+            break
+    return result
 
 
 def dump_row(abs_row_num: int, row: list):

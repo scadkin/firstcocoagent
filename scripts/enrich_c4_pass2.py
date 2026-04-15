@@ -116,6 +116,23 @@ INTL_COMPANY_KEYWORDS = (
 )
 
 
+def _col_letter(idx: int) -> str:
+    """Convert 0-indexed column number to A1 letter (A, B, ..., Z, AA, AB, ...).
+
+    HIGH theme #3 (S70): replaces bare `chr(65 + col)` which wraps past Z
+    silently — chr(65+26) = '[', breaking any write to a column at index ≥ 26.
+    """
+    if idx < 0:
+        raise ValueError(f"negative column index: {idx}")
+    result = ""
+    while True:
+        result = chr(65 + idx % 26) + result
+        idx = idx // 26 - 1
+        if idx < 0:
+            break
+    return result
+
+
 def extract_state_from_domain(email):
     """Try to extract US state from email domain. Returns state abbrev or None."""
     if not email or "@" not in email:
@@ -969,7 +986,7 @@ def main():
     for row_idx, upd in updates.items():
         # State update
         if "State" in upd:
-            col_letter = chr(65 + state_col)  # A
+            col_letter = _col_letter(state_col)  # A
             sheet_updates.append({
                 "range": f"'Prospecting Queue'!{col_letter}{row_idx}",
                 "values": [[upd["State"]]],
@@ -977,7 +994,7 @@ def main():
 
         # Parent District update
         if "Parent District" in upd:
-            col_letter = chr(65 + parent_col)  # G
+            col_letter = _col_letter(parent_col)  # G
             sheet_updates.append({
                 "range": f"'Prospecting Queue'!{col_letter}{row_idx}",
                 "values": [[upd["Parent District"]]],
@@ -1006,7 +1023,7 @@ def main():
                 else:
                     new_notes = f"Title: {new_title} (enriched-v2)"
 
-            col_letter = chr(65 + notes_col)  # S
+            col_letter = _col_letter(notes_col)  # S
             sheet_updates.append({
                 "range": f"'Prospecting Queue'!{col_letter}{row_idx}",
                 "values": [[new_notes]],
@@ -1017,7 +1034,7 @@ def main():
             current_row = pq_rows[row_idx - 1] if row_idx - 1 < len(pq_rows) else []
             current_notes = current_row[notes_col] if len(current_row) > notes_col else ""
             new_notes = current_notes + f" | INTL: {upd['international']}"
-            col_letter = chr(65 + notes_col)
+            col_letter = _col_letter(notes_col)
             sheet_updates.append({
                 "range": f"'Prospecting Queue'!{col_letter}{row_idx}",
                 "values": [[new_notes]],

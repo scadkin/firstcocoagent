@@ -25,6 +25,26 @@ r = svc.spreadsheets().values().get(
 ).execute()
 rows = r.get("values", [])
 
+def _col_letter(idx: int) -> str:
+    """0-indexed → A, B, ..., Z, AA, AB, ... — base-26 with carry.
+
+    HIGH theme #3 (S70): replaces bare `chr(ord('A') + i)` which wraps
+    past Z silently (chr(65+26)='['). Currently only called with i in
+    range(20) so the wrap cannot manifest, but this is a defensive
+    upgrade that matches the fix in enrich_c4_pass2.py and
+    phase1_ground_truth_lackland.py.
+    """
+    if idx < 0:
+        raise ValueError(f"negative column index: {idx}")
+    result = ""
+    while True:
+        result = chr(65 + idx % 26) + result
+        idx = idx // 26 - 1
+        if idx < 0:
+            break
+    return result
+
+
 def filled_tup(row):
     padded = row + [""] * max(0, 20-len(row))
     return tuple(i for i, v in enumerate(padded[:20]) if str(v).strip() != "")
@@ -45,4 +65,4 @@ for tup, row_list in top:
         for i in range(20):
             if i in tup:
                 v = str(padded[i])
-                print(f"    col {chr(ord('A')+i)} ({i+1:>2}): {v[:80]!r}")
+                print(f"    col {_col_letter(i)} ({i+1:>2}): {v[:80]!r}")
