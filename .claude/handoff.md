@@ -1,4 +1,23 @@
-# Handoff — S69 pause at 41% ctx (2026-04-15 09:13 CDT)
+# Handoff — S69 EOS (2026-04-15 09:17 CDT, ctx 42% measured)
+
+## 🎯 S70 KICKOFF — walk Steven through the GAS redeploy for CRIT-2
+
+**First action on S70 startup: walk Steven through deploying the updated `gas/Code.gs` to script.google.com.**
+
+The placeholder-token guard (commit `65976b9`) is code-complete but sitting in git — it does NOT protect production until Steven redeploys the web app. Per `gas/CLAUDE.md §Deployment Checklist`:
+
+1. Open https://script.google.com → find "Scout Bridge" project → open `Code.gs`
+2. Paste the new `doPost` entry — specifically the 4-line block at the top of the `try` that checks `SECRET_TOKEN === "REPLACE_WITH_YOUR_SECRET_TOKEN_HERE" || !SECRET_TOKEN`. Either paste the whole updated file or hand-edit just `doPost`.
+3. Click **Save** (Cmd+S).
+4. Click **Deploy → Manage deployments** → pencil icon on the active deployment → **Version: New version** → **Deploy**.
+5. **URL stays the same on new version** — no Railway env update needed (per gas/CLAUDE.md gotcha).
+6. From Telegram: send `/ping_gas` and confirm "GAS bridge OK" response. If it returns the new 500 `"Server misconfigured: SECRET_TOKEN not set"` error, then `SECRET_TOKEN` in the deployed Code.gs is still the placeholder — Steven needs to substitute the real token on line 22 before redeploying.
+
+**Why Steven should care:** until redeploy, the fix is a no-op in production. A future fresh deploy that forgot to set `SECRET_TOKEN` would still silently accept any caller sending `"REPLACE_WITH_YOUR_SECRET_TOKEN_HERE"`. This is the security guard — it's worth 30 seconds of deploy friction.
+
+---
+
+# Handoff — S69 pause at 41% ctx measured (2026-04-15 09:13 CDT)
 
 ## Where we are
 - **Overnight audit run complete** — report at `SCOUT_AUDIT_2026-04-15_0128.md` (270 verified findings; 2 CRIT, 72 HIGH, 117 MED, 75 LOW, 4 NIT).
