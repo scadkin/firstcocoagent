@@ -29,6 +29,12 @@ var SECRET_TOKEN = "REPLACE_WITH_YOUR_SECRET_TOKEN_HERE";
  */
 function doPost(e) {
   try {
+    // Reject deploys that still ship the placeholder token — prevents
+    // accidental open-auth if SECRET_TOKEN was never substituted.
+    if (SECRET_TOKEN === "REPLACE_WITH_YOUR_SECRET_TOKEN_HERE" || !SECRET_TOKEN) {
+      return jsonResponse({ success: false, error: "Server misconfigured: SECRET_TOKEN not set" }, 500);
+    }
+
     var payload = JSON.parse(e.postData.contents);
 
     // Auth check

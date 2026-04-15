@@ -1769,6 +1769,10 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             except ValueError:
                 pass
         await send_message(f"📭 Checking for unanswered emails in last {days} days (up to 30 recipients)...")
+        gas = get_gas_bridge()
+        if not gas:
+            await send_message("GAS bridge not available — cannot check unanswered emails.")
+            return
         try:
             loop = asyncio.get_event_loop()
             result = await loop.run_in_executor(
