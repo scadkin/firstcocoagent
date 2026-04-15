@@ -321,7 +321,16 @@ async def main() -> int:
     )
     record["v1"] = v1_summary
 
-    if v1_summary["cost_total_usd"] > args.max_cost_usd:
+    # HIGH-8 (S70): the ceiling is for COMBINED v1+v2 spend (per the
+    # --max-cost-usd help text). Previous code only checked v1 alone,
+    # so a v1 at $4.99 under a $5.00 ceiling would still fire v2 and
+    # blow through to ~$9.98 actual spend. Project v2 cost conservatively
+    # as == v1 cost (extrapolation; Round 1 flags are supposed to reduce
+    # v2 spend vs v1, so this is a worst-case projection) and abort if
+    # the projected combined total exceeds the ceiling.
+    v1_cost = v1_summary["cost_total_usd"]
+    projected_combined = v1_cost * 2
+    if projected_combined > args.max_cost_usd:
         record["cost_ceiling_hit_after_v1"] = True
         record["v2"] = {"status": "skipped_cost_ceiling"}
         record["diff"] = None
@@ -330,12 +339,14 @@ async def main() -> int:
             "cost_reduction_gate": False,
             "wall_clock_gate": False,
             "overall": False,
-            "reason": "cost ceiling exceeded after v1",
+            "reason": "projected v1+v2 cost exceeded ceiling",
         }
         _write_record(record, args.results_path)
         print(
-            f"\nABORTED: v1 cost ${v1_summary['cost_total_usd']:.4f} exceeded "
-            f"ceiling ${args.max_cost_usd:.2f}. v2 skipped.",
+            f"\nABORTED: v1 cost ${v1_cost:.4f} projects to combined "
+            f"${projected_combined:.4f}, exceeds ceiling "
+            f"${args.max_cost_usd:.2f}. v2 skipped. "
+            f"Re-run with a higher --max-cost-usd to get the A/B comparison.",
             flush=True,
         )
         return 2
