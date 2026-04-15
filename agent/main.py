@@ -1004,7 +1004,7 @@ async def execute_tool(tool_name: str, tool_input: dict) -> str:
             return "❌ GAS bridge not configured."
         try:
             await send_message("🔄 Scanning Gmail for PandaDoc and Dialpad events...")
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
             result = await loop.run_in_executor(None, activity_tracker.sync_gmail_activities, gas)
             pd = result.get("pandadoc_logged", 0)
             dd = result.get("dialpad_logged", 0)
@@ -1024,7 +1024,7 @@ async def execute_tool(tool_name: str, tool_input: dict) -> str:
         max_contacts = int(tool_input.get("max_contacts", 10))
         await send_message("Building your daily call list...")
         try:
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
             result = await loop.run_in_executor(
                 None, daily_call_list.build_daily_call_list, max_contacts
             )
@@ -1061,7 +1061,7 @@ async def execute_tool(tool_name: str, tool_input: dict) -> str:
             return "❌ Need a state. Example: 'discover prospects in Texas'"
         await send_message(f"🔍 Searching for school districts in *{state}*...")
         try:
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
             result = await loop.run_in_executor(None, district_prospector.discover_districts, state)
             if not result["success"]:
                 return f"Discovery failed: {result['error']}"
@@ -1082,7 +1082,7 @@ async def execute_tool(tool_name: str, tool_input: dict) -> str:
         include_esa = tool_input.get("include_esa", False)
 
         try:
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
             if account:
                 # Targeted mode
                 await send_message(f"📍 Finding what's near *{account}*...")
@@ -1114,7 +1114,7 @@ async def execute_tool(tool_name: str, tool_input: dict) -> str:
     elif tool_name == "manage_todos":
         action = tool_input.get("action", "")
         try:
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
             if action == "add":
                 task = tool_input.get("task", "")
                 if not task:
@@ -1243,7 +1243,7 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if csv_target == "sf_leads":
         await send_message(f"👤 Got `{filename}` — importing Salesforce leads...")
         try:
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
             result = await loop.run_in_executor(None, lead_importer.import_leads, csv_text)
         except Exception as e:
             await send_message(f"❌ Leads import failed: {e}")
@@ -1298,7 +1298,7 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if csv_target == "sf_contacts":
         await send_message(f"👥 Got `{filename}` — importing Salesforce contacts...")
         try:
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
             result = await loop.run_in_executor(None, lead_importer.import_contacts, csv_text)
         except Exception as e:
             await send_message(f"❌ Contacts import failed: {e}")
@@ -1353,7 +1353,7 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # ── Closed-Lost import path (REPLACE ALL) ──
         await send_message(f"🔄 Got `{filename}` — importing closed-lost opportunities...")
         try:
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
             result = await loop.run_in_executor(None, pipeline_tracker.import_closed_lost, csv_text)
         except Exception as e:
             await send_message(f"❌ Closed-lost import failed: {e}")
@@ -1384,7 +1384,7 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
         _csv_import_mode = "merge"  # reset in case /import_clear was set (pipeline is always replace-all anyway)
         await send_message(f"📊 Got `{filename}` — importing pipeline opportunities...")
         try:
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
             result = await loop.run_in_executor(None, pipeline_tracker.import_pipeline, csv_text)
         except Exception as e:
             await send_message(f"❌ Pipeline import failed: {e}")
@@ -1425,7 +1425,7 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await send_message(f"📥 Got `{filename}` — importing Salesforce accounts ({mode_label} mode)...")
 
     try:
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         if state_replace:
             result = await loop.run_in_executor(
                 None, csv_importer.replace_accounts_by_state, csv_text, state_replace
@@ -1700,7 +1700,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if draft_target:
             await send_message(f"📧 Searching for *{draft_target}* in unread inbox...")
             try:
-                loop = asyncio.get_event_loop()
+                loop = asyncio.get_running_loop()
                 result = await loop.run_in_executor(
                     None, email_drafter.draft_for_sender, draft_gas, draft_target
                 )
@@ -1723,7 +1723,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         else:
             await send_message("📧 Checking inbox for new emails to draft...")
         try:
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
             result = await loop.run_in_executor(None, email_drafter.process_new_emails, draft_gas)
             summary = email_drafter.format_draft_summary(result)
             if summary:
@@ -1740,7 +1740,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif user_text.lower() in ["/progress", "/kpi", "kpi", "my progress", "how am i doing"]:
         await send_message("📊 Checking today's progress...")
         try:
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
             progress = await loop.run_in_executor(None, activity_tracker.get_daily_progress)
             await send_message(progress.get("progress_text", "No activity data yet today."))
         except Exception as e:
@@ -1759,7 +1759,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 pass
         await send_message(f"💤 Checking for accounts dormant {days}+ days...")
         try:
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
             dormant = await loop.run_in_executor(
                 None, activity_tracker.get_dormant_accounts, days)
             output = activity_tracker.format_dormant_for_telegram(dormant)
@@ -1784,7 +1784,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await send_message("GAS bridge not available — cannot check unanswered emails.")
             return
         try:
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
             result = await loop.run_in_executor(
                 None, activity_tracker.get_unanswered_emails, days, gas, 30)
             output = activity_tracker.format_unanswered_for_telegram(result)
@@ -1828,7 +1828,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 pass
         await send_message(f"Building your daily call list ({max_contacts} contacts)...")
         try:
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
             result = await loop.run_in_executor(None, daily_call_list.build_daily_call_list, max_contacts)
             if not result["success"]:
                 await send_message(f"Could not build call list: {result['error']}")
@@ -1860,7 +1860,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif user_text.lower() in ["/color_leads", "color leads"]:
         await send_message("Recoloring Leads tab by confidence...")
         try:
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
             result = await loop.run_in_executor(None, sheets_writer.color_all_leads)
             if result.get("error"):
                 await send_message(f"❌ Color leads failed: {result['error']}")
@@ -1891,7 +1891,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif user_text.lower() == "/clear_leads":
         await send_message("🗑️ Clearing all SF Leads tabs...")
         try:
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
             result = await loop.run_in_executor(None, lead_importer.clear_leads_tabs)
             errors = result.get("errors", [])
             msg = (
@@ -1911,7 +1911,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif user_text.lower() == "/clear_contacts":
         await send_message("🗑️ Clearing all SF Contacts tabs...")
         try:
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
             result = await loop.run_in_executor(None, lead_importer.clear_contacts_tabs)
             errors = result.get("errors", [])
             msg = (
@@ -1933,7 +1933,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif user_text.lower() == "/territory_clear":
         await send_message("🗑️ Clearing all territory data...")
         try:
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
             result = await loop.run_in_executor(None, territory_data.clear_territory)
             await send_message(
                 f"✅ Cleared {result['districts']} district rows + {result['schools']} school rows"
@@ -1948,7 +1948,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         label = args.upper() if args else "all territory states"
         await send_message(f"🗺️ Syncing NCES territory data for {label}... this may take a few minutes.")
         try:
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
             result = await loop.run_in_executor(None, territory_data.sync_territory, states)
             if not result["success"]:
                 await send_message(f"❌ Sync failed: {result.get('error', 'Unknown error')}")
@@ -1969,7 +1969,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif user_text.lower().startswith("/territory_stats"):
         args = user_text[len("/territory_stats"):].strip()
         try:
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
             result = await loop.run_in_executor(None, territory_data.get_territory_stats, args)
             await send_message(territory_data.format_stats_for_telegram(result))
         except Exception as e:
@@ -1983,7 +1983,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
         await send_message(f"🔍 Analyzing territory gaps for {args}...")
         try:
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
             result = await loop.run_in_executor(None, territory_data.get_territory_gaps, args)
             await send_message(territory_data.format_gaps_for_telegram(result))
 
@@ -2015,7 +2015,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             import tools.territory_map as territory_map
             import tempfile
             from telegram import Bot
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
             map_path = await loop.run_in_executor(
                 None, territory_map.generate_territory_map_file, "", state_filter)
             # Send HTML file via Telegram — Steven opens in browser
@@ -2058,7 +2058,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             state_str = raw[:-4].strip()
             await send_message(f"📍 Sweeping all active accounts in {state_str} (30 mi radius)...")
             try:
-                loop = asyncio.get_event_loop()
+                loop = asyncio.get_running_loop()
                 result = await loop.run_in_executor(
                     None, proximity_engine.find_nearby_state, state_str, 30.0
                 )
@@ -2081,7 +2081,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         await send_message(f"📍 Finding districts and schools near *{account_name}* ({radius} mi)...")
         try:
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
             result = await loop.run_in_executor(
                 None, proximity_engine.find_nearby_one, account_name, radius
             )
@@ -2127,7 +2127,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         state = _last_proximity_result.get("state", "")
         ref_account = _last_proximity_result.get("account_name", "")
         try:
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
             # Build the dicts add_proximity_prospects expects
             to_add = []
             for d in selected:
@@ -2166,7 +2166,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         raw = re.sub(r"^in\s+", "", raw, flags=re.IGNORECASE)
         await send_message(f"🏛️ Mapping ESA regions for {raw}...")
         try:
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
             result = await loop.run_in_executor(
                 None, proximity_engine.find_esa_opportunities, raw
             )
@@ -2182,7 +2182,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             tab_name = lead_importer.TAB_SF_CONTACTS
         await send_message(f"🔍 Checking {tab_name} for unenriched records...")
         try:
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
             unenriched = await loop.run_in_executor(None, lead_importer.get_unenriched, tab_name, 20)
             if not unenriched:
                 await send_message(f"✅ All records in {tab_name} are already enriched!")
@@ -2218,7 +2218,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif user_text.lower() in ["/pipeline", "pipeline", "show pipeline"]:
         await send_message("Loading pipeline summary...")
         try:
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
             summary = await loop.run_in_executor(None, pipeline_tracker.get_pipeline_summary)
             tg_text = pipeline_tracker.format_pipeline_for_telegram(summary)
             await send_message(tg_text)
@@ -2284,7 +2284,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await send_message("⚠️ Outreach not connected. Use `/connect_outreach` to set up.")
             return
         try:
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
             sequences = await loop.run_in_executor(None, outreach_client.get_sequences)
             if not sequences:
                 await send_message("No sequences found in Outreach.")
@@ -2336,7 +2336,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif user_text.lower() == "/dedup_accounts":
         await send_message("🔍 Scanning Active Accounts for duplicates...")
         try:
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
             result = await loop.run_in_executor(None, csv_importer.dedup_accounts)
             removed = result.get("duplicates_removed", 0)
             dupes = result.get("duplicate_names", [])
@@ -2365,7 +2365,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
         await send_message(f"🔍 Searching for school districts in *{args}*...")
         try:
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
             result = await loop.run_in_executor(None, district_prospector.discover_districts, args)
             if not result["success"]:
                 await send_message(f"Discovery failed: {result['error']}")
@@ -2388,7 +2388,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif user_text.lower().startswith("/prospect_upward"):
         await send_message("🔍 Finding upward targets from your active school accounts...")
         try:
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
             result = await loop.run_in_executor(None, district_prospector.suggest_upward_targets)
             if not result["success"]:
                 await send_message(f"Error: {result['error']}")
@@ -2420,7 +2420,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"🏫 Finding sibling schools in your covered districts (cap: {max_per_district}/district)..."
         )
         try:
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
             result = await loop.run_in_executor(
                 None, district_prospector.suggest_intra_district_expansion, max_per_district
             )
@@ -2460,7 +2460,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 await send_message("Usage: `/prospect_approve 1,3,5` or `/prospect_approve all`")
                 return
         try:
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
             approved = await loop.run_in_executor(
                 None, district_prospector.approve_districts, indices, _last_prospect_batch
             )
@@ -2533,7 +2533,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 await send_message("Usage: `/prospect_skip 2,4` or `/prospect_skip all`")
                 return
         try:
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
             skipped = await loop.run_in_executor(
                 None, district_prospector.skip_districts, indices, _last_prospect_batch
             )
@@ -2551,7 +2551,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
         name, state = parts[0], parts[1]
         try:
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
             result = await loop.run_in_executor(None, district_prospector.add_district, name, state)
             await send_message(result["message"])
         except Exception as e:
@@ -2589,7 +2589,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                         pass
             kwargs = {"buffer_months": buffer_months, "lookback_months": lookback_months}
 
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
             result = await loop.run_in_executor(
                 None, lambda: district_prospector.suggest_closed_lost_targets(**kwargs)
             )
@@ -2633,7 +2633,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     state_filter = p.upper()
                     break
             await send_message("🔍 Analyzing customer profile and finding lookalike districts...")
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
             result = await loop.run_in_executor(
                 None, lambda: district_prospector.find_lookalike_districts(state=state_filter))
             output = district_prospector.format_lookalikes_for_telegram(result)
@@ -2670,7 +2670,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     except ValueError:
                         pass
 
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
 
             if seq_selector is None:
                 # Mode 1: Overview — list all sequences with est. no-reply counts
@@ -2719,7 +2719,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         async def _run_c4_scan():
             """Run C4 scan as a background task so it doesn't block the event loop."""
             try:
-                loop = asyncio.get_event_loop()
+                loop = asyncio.get_running_loop()
                 result = await loop.run_in_executor(None, district_prospector.suggest_cold_license_requests)
                 if result.get("error") and result.get("new_added", 0) == 0:
                     await send_message(f"⚠️ C4 scan error: {result['error']}")
@@ -2758,7 +2758,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     elif user_text.lower() in ["/fix_queue", "/migrate_queue"]:
         try:
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
             result = await loop.run_in_executor(
                 None, district_prospector.migrate_prospect_columns
             )
@@ -2777,7 +2777,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     elif user_text.lower() in ["/cleanup_queue", "/clean_queue"]:
         try:
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
             result = await loop.run_in_executor(
                 None, district_prospector.cleanup_prospect_queue
             )
@@ -2797,7 +2797,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     elif user_text.lower() in ["/c4_clear", "/clear_c4", "/clear_cold_requests"]:
         try:
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
             result = await loop.run_in_executor(
                 None, district_prospector.clear_by_strategy, "cold_license_request"
             )
@@ -2811,7 +2811,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     elif user_text.lower() == "/prospect_clear":
         try:
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
             await loop.run_in_executor(None, district_prospector.clear_queue)
             _last_prospect_batch = []
             await send_message("Prospecting queue cleared.")
@@ -2822,7 +2822,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif user_text.lower() == "/reprioritize_pending":
         try:
             await send_message("🔧 Reprioritizing pending queue rows (Session 52 migration)...")
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
             result = await loop.run_in_executor(
                 None, district_prospector.reprioritize_pending
             )
@@ -2855,7 +2855,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     elif user_text.lower() in ["/prospect_all", "prospect all", "show all prospects"]:
         try:
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
             all_prospects = await loop.run_in_executor(None, district_prospector.get_all_prospects)
             if not all_prospects:
                 await send_message("Prospecting queue is empty. Use `/prospect_discover [state]` or `/prospect_upward` to populate it.")
@@ -2868,7 +2868,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif user_text.lower() in ["/prospect", "/prospects", "prospect", "show prospects",
                                 "prospect queue", "prospecting queue"]:
         try:
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
             pending = await loop.run_in_executor(None, district_prospector.get_pending, 5)
             if not pending:
                 await send_message("No pending districts. Use `/prospect_discover [state]` or `/prospect_upward` to find some.")
@@ -2926,7 +2926,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     elif user_text.lower() in ["/todos", "/todo", "todos", "todo list", "my todos", "show todos"]:
         try:
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
             items = await loop.run_in_executor(None, todo_manager.get_all_todos, True)
             await send_message(todo_manager.format_todos_for_telegram(items))
         except Exception as e:
@@ -2947,7 +2947,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 task_text = re.sub(rf'\s*[!(]{p}[)]?\s*', '', task_text, flags=re.IGNORECASE).strip()
                 break
         try:
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
             item = await loop.run_in_executor(None, todo_manager.add_todo, task_text, priority)
             icon = {"high": "🔴", "medium": "🟡", "low": "⚪"}.get(priority, "🟡")
             await send_message(f"✅ Added #{item['ID']}: {icon} {task_text}")
@@ -2962,7 +2962,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await send_message("What did you finish? e.g. `done: Austin follow-up` or `done: #3`")
             return
         try:
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
             # Check if it's an ID reference like "#3" or "3"
             id_match = re.match(r'^#?(\d+)$', done_text.strip())
             if id_match:
@@ -2979,7 +2979,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     elif user_text.lower() in ["/todo_clear", "/clear_todos", "clear todos", "clear completed todos"]:
         try:
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
             result = await loop.run_in_executor(None, todo_manager.clear_completed)
             await send_message(f"🗑 Cleared {result['cleared']} completed items. {result['remaining']} open items remain.")
         except Exception as e:
@@ -2992,7 +2992,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await send_message("Usage: `/todo_remove #3` or `/todo_remove 3`")
             return
         try:
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
             result = await loop.run_in_executor(None, todo_manager.remove_todo, int(id_text))
             if "error" in result:
                 await send_message(f"⚠️ {result['error']}")
@@ -3006,7 +3006,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     elif user_text.lower() in ["/signals", "signals", "show signals", "hot signals"]:
         try:
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
             output = await loop.run_in_executor(None, signal_processor.format_hot_signals, 5, "", True)
             all_sigs = await loop.run_in_executor(
                 None, signal_processor.get_active_signals, "", "district", "new,surfaced")
@@ -3020,7 +3020,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif user_text.lower().startswith("/signals "):
         args = user_text[len("/signals "):].strip()
         try:
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
             if args.lower() == "all":
                 output = await loop.run_in_executor(None, signal_processor.format_hot_signals, 20, "")
             elif args.lower() == "new":
@@ -3087,7 +3087,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     f"Adding signal context to notes.")
 
             # Mark signal as acted
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
             signal_id = sig.get("ID", "")
             await loop.run_in_executor(None, signal_processor.update_signal_status, signal_id, "acted")
 
@@ -3141,7 +3141,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 await send_message("Run `/signals` first to load the signal list.")
                 return
             sig = _last_signal_batch[idx]
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
             await loop.run_in_executor(None, signal_processor.update_signal_status, sig.get("ID", ""), "expired")
             await send_message(f"Dismissed: {sig.get('District', 'Unknown')} ({sig.get('Signal Type', '')})")
         except (ValueError, IndexError):
@@ -3160,7 +3160,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             sig = _last_signal_batch[idx]
             district = sig.get("District", "Unknown")
             await send_message(f"🔍 Enriching {district}... (web research + relevance analysis)")
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
             enriched = await loop.run_in_executor(None, signal_processor.enrich_signal, sig)
             output = signal_processor.format_enriched_signal(enriched)
             await send_message(output)
@@ -3173,7 +3173,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif user_text.lower() in ["/signal_jobs", "signal jobs", "scan jobs"]:
         await send_message("💼 Scanning job postings across territory states...")
         try:
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
             job_signals = await loop.run_in_executor(
                 None, signal_processor.scan_job_postings, None, 168, 15,
                 lambda msg: None)  # suppress progress for Telegram
@@ -3199,7 +3199,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif user_text.lower() in ["/signal_bonds", "signal bonds", "scan bonds", "scan ballotpedia"]:
         await send_message("🗳 Scanning Ballotpedia for bond measures...")
         try:
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
             ballot_signals = await loop.run_in_executor(
                 None, signal_processor.scan_ballotpedia, None)
             if ballot_signals:
@@ -3226,7 +3226,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif user_text.lower() in ["/signal_board", "signal board", "scan board", "scan boarddocs"]:
         await send_message("🏛 Scanning BoardDocs agendas... This may take a few minutes.")
         try:
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
             board_signals = await loop.run_in_executor(
                 None, signal_processor.scan_board_meetings, 30, None)
             if board_signals:
@@ -3255,7 +3255,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif user_text.lower() in ["/signal_rss", "signal rss", "scan rss"]:
         await send_message("📡 Scanning RSS feeds...")
         try:
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
             rss_signals = await loop.run_in_executor(
                 None, signal_processor.process_rss_feeds, "", None)
             if rss_signals:
@@ -3290,7 +3290,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif user_text.lower() in ["/signal_leadership", "signal leadership", "scan leadership"]:
         await send_message("👔 Scanning for superintendent changes...")
         try:
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
             leadership_signals = await loop.run_in_executor(
                 None, signal_processor.scan_leadership_changes, None, None)
             if leadership_signals:
@@ -3317,7 +3317,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif user_text.lower() in ["/signal_rfp", "signal rfp", "scan rfp", "scan rfps"]:
         await send_message("📋 Scanning for CS/STEM RFP opportunities...")
         try:
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
             rfp_signals = await loop.run_in_executor(
                 None, signal_processor.scan_rfp_opportunities, None, None)
             if rfp_signals:
@@ -3342,7 +3342,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif user_text.lower() in ["/signal_legislation", "signal legislation", "scan legislation"]:
         await send_message("📜 Scanning for CS/STEM education legislation...")
         try:
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
             leg_signals = await loop.run_in_executor(
                 None, signal_processor.scan_legislative_signals, None, None)
             if leg_signals:
@@ -3368,7 +3368,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif user_text.lower() in ["/signal_grants", "signal grants", "scan grants"]:
         await send_message("💰 Scanning for CS/STEM grant-funded districts...")
         try:
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
             grant_signals = await loop.run_in_executor(
                 None, signal_processor.scan_grant_opportunities, None, None)
             if grant_signals:
@@ -3396,7 +3396,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # F2: Competitor Displacement Scanner
         await send_message("🎯 Scanning for districts using competitor platforms (Tynker, CodeHS, Replit, Khan CS, Code.org, Tinkercad)...")
         try:
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
             result = await loop.run_in_executor(
                 None, signal_processor.scan_competitor_displacement, None, None)
             signals = result.get("signals", [])
@@ -3438,7 +3438,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # F4: State CS Funding Award Scanner
         await send_message("💵 Scanning state DOEs for CS funding awards...")
         try:
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
             result = await loop.run_in_executor(
                 None, signal_processor.scan_cs_funding_awards, None, None)
             signals = result.get("signals", [])
@@ -3479,7 +3479,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif user_text.lower() in ["/signal_budget", "signal budget", "scan budget"]:
         await send_message("📊 Scanning for CS/STEM budget and procurement signals...")
         try:
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
             budget_signals = await loop.run_in_executor(
                 None, signal_processor.scan_budget_cycle_signals, None, None)
             if budget_signals:
@@ -3506,7 +3506,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif user_text.lower() in ["/signal_algebra", "signal algebra", "scan algebra"]:
         await send_message("🔢 Scanning for math/algebra curriculum targets (AI Algebra campaign)...")
         try:
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
             alg_signals = await loop.run_in_executor(
                 None, signal_processor.scan_algebra_targets, None, None)
             if alg_signals:
@@ -3531,7 +3531,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif user_text.lower() in ["/signal_cyber", "signal cyber", "scan cybersecurity"]:
         await send_message("🛡️ Scanning for CTE cybersecurity program targets (pre-launch pipeline)...")
         try:
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
             cyber_signals = await loop.run_in_executor(
                 None, signal_processor.scan_cybersecurity_targets, None, None)
             if cyber_signals:
@@ -3562,7 +3562,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 break
         await send_message("👤 Scanning for CS/CTE/STEM leaders (~$2.50, 48 Serper queries)...")
         try:
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
             role_signals = await loop.run_in_executor(
                 None, signal_processor.scan_role_targets, state_arg, None)
             if role_signals:
@@ -3597,7 +3597,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"(Serper → PDF download → Claude Sonnet extraction, ~2-5 min)"
         )
         try:
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
             result = await loop.run_in_executor(
                 None, compliance_gap_scanner.scan_compliance_gaps, state_arg, 5
             )
@@ -3618,7 +3618,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         state_arg = parts[1].strip()
         await send_message(f"🏫 Discovering private schools in {state_arg}...")
         try:
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
             result = await loop.run_in_executor(
                 None, private_schools.discover_private_schools, state_arg, 25
             )
@@ -3636,7 +3636,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"⛪ Queueing private school networks{' for ' + state_arg.upper() if state_arg else ' (all territory)'}..."
         )
         try:
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
             result = await loop.run_in_executor(
                 None, private_schools.queue_private_school_networks, state_arg
             )
@@ -3665,7 +3665,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"🛠 Queueing CTE centers{' for ' + state_arg.upper() if state_arg else ' (all territory)'}..."
         )
         try:
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
             result = await loop.run_in_executor(
                 None, cte_prospector.queue_cte_centers, state_arg
             )
@@ -3694,7 +3694,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"🏫 Queueing charter CMOs{' for ' + state_arg.upper() if state_arg else ' (all territory)'}..."
         )
         try:
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
             result = await loop.run_in_executor(
                 None, charter_prospector.queue_charter_cmos, state_arg
             )
@@ -3719,7 +3719,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         state_arg = parts[1].strip()
         await send_message(f"📋 Scanning {state_arg.upper()} for compliance gaps (F9 pilot, Signals-only)...")
         try:
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
             result = await loop.run_in_executor(
                 None, compliance_gap_scanner.scan_compliance_gaps, state_arg
             )
@@ -3741,7 +3741,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         state_arg = parts[1].strip()
         await send_message(f"🏠 Discovering homeschool co-ops in {state_arg}...")
         try:
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
             result = await loop.run_in_executor(
                 None, signal_processor.discover_homeschool_coops, state_arg, 25
             )
@@ -3802,7 +3802,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif user_text.lower() in ["/signal_scan", "signal scan", "scan signals"]:
         await send_message("📬 Starting signal scan... This may take a few minutes.")
         try:
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
             summary = await loop.run_in_executor(None, signal_processor.process_all_signals, gas)
             output = signal_processor.format_scan_summary(summary)
             await send_message(output)
@@ -3812,7 +3812,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     elif user_text.lower() in ["/signal_stats", "signal stats"]:
         try:
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
             signals = await loop.run_in_executor(
                 None, signal_processor.get_active_signals, "", "", "new,surfaced,acted")
             total = len(signals)
@@ -3846,7 +3846,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await send_message(f"📋 Searching for sequence matching \"{search_name}\"...")
         try:
             import tools.outreach_client as outreach_client
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
 
             # Find matching sequence
             sequences = await loop.run_in_executor(None, outreach_client.get_sequences)
@@ -4027,7 +4027,7 @@ async def send_morning_brief():
 
         # Show pending prospects if any
         try:
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
             pending = await loop.run_in_executor(None, district_prospector.get_pending, 5)
             if pending:
                 await send_message(
@@ -4048,7 +4048,7 @@ async def _run_daily_signal_scan():
             return
         from datetime import date, timedelta
         since = (date.today() - timedelta(days=2)).strftime("%Y-%m-%d")
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         summary = await loop.run_in_executor(
             None, signal_processor.process_new_signals, scan_gas, since)
         if summary.get("written", 0) > 0:
@@ -4067,7 +4067,7 @@ async def _run_daily_signal_scan():
                 return
             from datetime import date, timedelta
             since = (date.today() - timedelta(days=2)).strftime("%Y-%m-%d")
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
             summary = await loop.run_in_executor(
                 None, signal_processor.process_new_signals, scan_gas, since)
             if summary.get("written", 0) > 0:
@@ -4081,7 +4081,7 @@ async def _run_daily_signal_scan():
 async def _run_leadership_scan():
     """Scheduled weekly leadership scan — Mondays at 8:00 AM CST."""
     try:
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         signals = await loop.run_in_executor(
             None, signal_processor.scan_leadership_changes, None, None)
         if signals:
@@ -4108,7 +4108,7 @@ async def _run_leadership_scan():
 async def _run_rfp_scan():
     """Scheduled weekly RFP scan — Mondays at 8:15 AM CST."""
     try:
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         signals = await loop.run_in_executor(
             None, signal_processor.scan_rfp_opportunities, None, None)
         if signals:
@@ -4133,7 +4133,7 @@ async def _run_rfp_scan():
 async def _run_legislative_scan():
     """Scheduled monthly legislative scan — first Monday of month at 8:30 AM CST."""
     try:
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         signals = await loop.run_in_executor(
             None, signal_processor.scan_legislative_signals, None, None)
         if signals:
@@ -4157,7 +4157,7 @@ async def _run_legislative_scan():
 async def _run_grant_scan():
     """Scheduled monthly grant opportunity scan — first Monday of month at 8:45 AM CST."""
     try:
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         signals = await loop.run_in_executor(
             None, signal_processor.scan_grant_opportunities, None, None)
         if signals:
@@ -4180,7 +4180,7 @@ async def _run_grant_scan():
 async def _run_budget_scan():
     """Scheduled monthly budget cycle scan — first Monday of month at 9:00 AM CST."""
     try:
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         signals = await loop.run_in_executor(
             None, signal_processor.scan_budget_cycle_signals, None, None)
         if signals:
@@ -4209,7 +4209,7 @@ async def send_eod_report():
         try:
             gas = get_gas_bridge()
             if gas:
-                loop = asyncio.get_event_loop()
+                loop = asyncio.get_running_loop()
                 await loop.run_in_executor(None, activity_tracker.sync_gmail_activities, gas)
         except Exception as sync_err:
             logger.warning(f"Gmail sync before EOD failed: {sync_err}")
@@ -4242,7 +4242,7 @@ async def send_eod_report():
 
         # Suggest approved districts for overnight research
         try:
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
             approved = await loop.run_in_executor(
                 None, district_prospector.get_all_prospects, "approved"
             )
@@ -4265,14 +4265,14 @@ async def send_eod_report():
 async def send_checkin():
     # Todo-based check-in: reference open items instead of generic greeting
     try:
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         msg = await loop.run_in_executor(None, todo_manager.get_checkin_summary)
     except Exception:
         msg = "📊 Hourly check-in — anything you need, Steven?"
     # Also suggest pending prospects when research queue is idle
     try:
         if not research_queue.current_job:
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
             pending = await loop.run_in_executor(None, district_prospector.get_pending, 2)
             if pending:
                 names = [f"*{d.get('District Name', '?')}*" for d in pending]
@@ -4334,7 +4334,7 @@ async def _check_fireflies_gmail(gas):
     """
     global _fireflies_email_triggers, _fireflies_gmail_seeded
     try:
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         results = await loop.run_in_executor(
             None,
             lambda: gas.search_inbox("from:fireflies.ai", max_results=5)
@@ -4391,7 +4391,7 @@ async def _check_email_drafts(gas):
     Runs every 5 min during business hours (7 AM - 6 PM CST, weekdays).
     """
     try:
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         result = await loop.run_in_executor(None, email_drafter.process_new_emails, gas)
         summary = email_drafter.format_draft_summary(result)
         if summary:
@@ -4409,7 +4409,7 @@ async def _process_latest_fireflies_transcript(meeting_name: str):
     if not FIREFLIES_API_KEY:
         return
 
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
 
     for attempt in range(1, 6):
         try:
@@ -4520,7 +4520,7 @@ async def _run_telegram_and_scheduler():
 
     # One-time sheet cleanup: remove unused tabs + apply alternating row colors
     try:
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         await loop.run_in_executor(None, sheets_writer.cleanup_and_format_sheets)
     except Exception as e:
         logger.warning(f"Sheet cleanup/formatting failed (non-fatal): {e}")
@@ -4541,7 +4541,7 @@ async def _run_telegram_and_scheduler():
     # Seed email drafter on startup (marks existing emails as seen)
     if gas:
         try:
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
             seeded_count = await loop.run_in_executor(
                 None, email_drafter.seed_processed_emails, gas
             )

@@ -760,7 +760,7 @@ class ResearchJob:
         # Run synchronous Claude extraction in a thread pool so it doesn't block the event loop.
         # extract_from_multiple makes one blocking Claude API call per page — without run_in_executor
         # it freezes asyncio entirely, preventing heartbeats and Telegram messages from processing.
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         contacts = await loop.run_in_executor(
             None, extract_from_multiple, filtered_pages, self.district_name
         )
@@ -1170,7 +1170,7 @@ class ResearchJob:
 
         try:
             fc = FirecrawlApp(api_key=fc_key)
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
 
             # Run synchronous Firecrawl call in executor
             def _do_extract():
@@ -1269,7 +1269,7 @@ class ResearchJob:
 
         try:
             fc = FirecrawlApp(api_key=fc_key)
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
 
             # Map the site
             map_result = await loop.run_in_executor(None, fc.map, f"https://{domain}")
@@ -1526,7 +1526,7 @@ class ResearchJob:
 
             if enrichment_raw:
                 self.raw_pages.extend(enrichment_raw)
-                loop = asyncio.get_event_loop()
+                loop = asyncio.get_running_loop()
                 new_contacts = await loop.run_in_executor(
                     None, extract_from_multiple, enrichment_raw, self.district_name
                 )
@@ -1582,7 +1582,7 @@ class ResearchJob:
 
             if discovery_raw:
                 self.raw_pages.extend(discovery_raw)
-                loop = asyncio.get_event_loop()
+                loop = asyncio.get_running_loop()
                 new_contacts = await loop.run_in_executor(
                     None, extract_from_multiple, discovery_raw, self.district_name
                 )
@@ -1812,14 +1812,14 @@ class ResearchQueue:
         while not self._queue.empty():
             job = await self._queue.get()
             self._current_job = job["district_name"]
-            start_time = asyncio.get_event_loop().time()
+            start_time = asyncio.get_running_loop().time()
 
             # Heartbeat: send a "still working" ping every 60 seconds
             async def _heartbeat(district_name: str, progress_callback, start: float):
                 try:
                     while True:
                         await asyncio.sleep(60)
-                        elapsed = int((asyncio.get_event_loop().time() - start) / 60)
+                        elapsed = int((asyncio.get_running_loop().time() - start) / 60)
                         if progress_callback:
                             await progress_callback(
                                 f"⏳ Still researching *{district_name}*... ({elapsed} min elapsed)"

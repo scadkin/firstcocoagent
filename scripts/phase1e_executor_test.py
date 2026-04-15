@@ -19,7 +19,7 @@ from tools import district_prospector as dp
 SENTINEL_NAME = "ZZZ_SENTINEL_SESSION54_PHASE1E_EXECUTOR"
 
 async def main():
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
     # Exactly like main.py:3276
     result = await loop.run_in_executor(
         None,
