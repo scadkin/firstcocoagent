@@ -1272,6 +1272,11 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
         msg += f"  • {imported + active_matched + math_filtered + math_active} total (of {total} in CSV)\n"
         if dupes:
             msg += f"  • {dupes} duplicates skipped\n"
+        # HIGH-2 (S70): surface the data-integrity gap when the Assoc Active
+        # bulk append partially fails. Silent on the happy path.
+        if cross != active_matched:
+            msg += (f"  ⚠ {cross} cross-checked to active accounts but only "
+                    f"{active_matched} appended ({cross - active_matched} lost)\n")
         if errors:
             msg += f"\n⚠️ Errors: {'; '.join(errors[:3])}\n"
         msg += f"\n[View SF Leads tab]({sheet_url})"
@@ -1322,6 +1327,11 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
         msg += f"  • {imported + active_matched + math_filtered + math_active} total (of {total} in CSV)\n"
         if dupes:
             msg += f"  • {dupes} duplicates skipped\n"
+        # HIGH-2 (S70): surface the data-integrity gap when the Assoc Active
+        # bulk append partially fails. Silent on the happy path.
+        if cross != active_matched:
+            msg += (f"  ⚠ {cross} cross-checked to active accounts but only "
+                    f"{active_matched} appended ({cross - active_matched} lost)\n")
         if errors:
             msg += f"\n⚠️ Errors: {'; '.join(errors[:3])}\n"
         msg += f"\n[View SF Contacts tab]({sheet_url})"
