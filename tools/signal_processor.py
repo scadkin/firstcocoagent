@@ -5773,9 +5773,19 @@ _SIGNAL_TYPE_TAGS = {
 
 
 def format_hot_signals(limit: int = 5, state_filter: str = "",
-                       territory_only: bool = True) -> str:
-    """Format top signals for Telegram display. Territory-only by default."""
-    signals = get_active_signals(state_filter=state_filter, scope_filter="district")
+                       territory_only: bool = True,
+                       status_filter: str = "new,surfaced") -> str:
+    """Format top signals for Telegram display. Territory-only by default.
+
+    status_filter: CSV of allowed Status values. Default "new,surfaced"
+    preserves legacy behavior for every caller that doesn't pass this arg.
+    Pass "new" to show only unseen signals (HIGH-3 fix, S70).
+    """
+    signals = get_active_signals(
+        state_filter=state_filter,
+        scope_filter="district",
+        status_filter=status_filter,
+    )
 
     # Default: filter to territory states only
     if territory_only and not state_filter:

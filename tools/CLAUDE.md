@@ -225,7 +225,7 @@ signal_processor.get_active_signals(state_filter="", scope_filter="", status_fil
 signal_processor.update_signal_status(signal_id, new_status) -> bool
 signal_processor.link_signal_to_prospect(signal_id, prospect_name) -> bool
 signal_processor.write_signals(signals) -> dict  # {written, skipped}
-signal_processor.format_hot_signals(limit=5, state_filter="") -> str  # Telegram display
+signal_processor.format_hot_signals(limit=5, state_filter="", territory_only=True, status_filter="new,surfaced") -> str  # Telegram display
 signal_processor.format_signal_detail(signal, related=None) -> str
 signal_processor.format_scan_summary(summary) -> str
 signal_processor.build_signal_brief_block() -> str  # morning brief injection

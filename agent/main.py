@@ -3014,9 +3014,13 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             if args.lower() == "all":
                 output = await loop.run_in_executor(None, signal_processor.format_hot_signals, 20, "")
             elif args.lower() == "new":
-                sigs = await loop.run_in_executor(
-                    None, signal_processor.get_active_signals, "", "district", "new")
-                output = signal_processor.format_hot_signals(20, "") if sigs else "No new signals."
+                # HIGH-3 (S70): was calling format_hot_signals sync AND ignoring
+                # the "new" filter — format_hot_signals re-fetched with the
+                # default status_filter="new,surfaced", so /signals new showed
+                # surfaced signals too. Now passes status_filter="new" through
+                # and runs in the executor like every other branch.
+                output = await loop.run_in_executor(
+                    None, signal_processor.format_hot_signals, 20, "", True, "new")
             elif len(args) == 2 and args.upper().isalpha():
                 output = await loop.run_in_executor(
                     None, signal_processor.format_hot_signals, 20, args.upper())
