@@ -298,7 +298,7 @@ LIBRARY_KEYWORDS = [
 ]
 
 
-def classify_role(title):
+def _classify_role_c4(title):
     """Classify a title into a role bucket."""
     t = title.lower().strip()
     if not t:
@@ -355,7 +355,7 @@ def main():
     already_have_title = []
     for p in c4:
         title = extract_title_from_notes(p.get("Notes", ""))
-        if title and classify_role(title) != "unknown":
+        if title and _classify_role_c4(title) != "unknown":
             already_have_title.append(p)
         else:
             unknowns.append(p)
@@ -452,7 +452,7 @@ def main():
     for email, prospect in email_to_prospect.items():
         if email in all_outreach_prospects:
             title = all_outreach_prospects[email]
-            role = classify_role(title)
+            role = _classify_role_c4(title)
             if role != "unknown":
                 enriched[email] = {"title": title, "role": role, "source": "outreach_api"}
                 outreach_titles_found += 1
@@ -557,7 +557,7 @@ def main():
     for email in remaining:
         if email in sf_titles:
             title = sf_titles[email]
-            role = classify_role(title)
+            role = _classify_role_c4(title)
             if role != "unknown":
                 enriched[email] = {"title": title, "role": role, "source": "sf_crossref"}
                 sf_found += 1
@@ -641,11 +641,11 @@ def main():
         linkedin_match = re.search(r"[-–—]\s*([^-–—|]+?)(?:\s*[-–—|]|\s*at\s)", combined_text)
         if linkedin_match:
             candidate = linkedin_match.group(1).strip()
-            if len(candidate) > 3 and classify_role(candidate) != "unknown":
+            if len(candidate) > 3 and _classify_role_c4(candidate) != "unknown":
                 found_title = candidate
 
         if found_title:
-            role = classify_role(found_title)
+            role = _classify_role_c4(found_title)
             enriched[email] = {"title": found_title.title(), "role": role, "source": "serper_direct"}
             serper_direct_found += 1
         else:
@@ -708,7 +708,7 @@ def main():
     all_roles = Counter()
     for p in already_have_title:
         title = extract_title_from_notes(p.get("Notes", ""))
-        all_roles[classify_role(title)] += 1
+        all_roles[_classify_role_c4(title)] += 1
     for v in enriched.values():
         all_roles[v["role"]] += 1
     all_roles["unknown"] = still_unknown

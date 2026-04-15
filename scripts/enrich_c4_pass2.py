@@ -333,7 +333,7 @@ DISTRICT_KW = [
 LIBRARY_KW = ["librarian", "library", "media specialist"]
 
 
-def classify_role(title):
+def _classify_role_c4(title):
     t = (title or "").lower().strip()
     if not t:
         return "unknown"
@@ -794,7 +794,7 @@ def main():
     no_title = [
         p for p in c4
         if not extract_title_from_notes(p.get("Notes", ""))
-        or classify_role(extract_title_from_notes(p.get("Notes", ""))) == "unknown"
+        or _classify_role_c4(extract_title_from_notes(p.get("Notes", ""))) == "unknown"
     ]
     # Exclude ones where we already got a title from Task 1
     no_title_remaining = []
@@ -821,11 +821,11 @@ def main():
         if email in research_by_email:
             lead = research_by_email[email]
             title = lead.get("Title", "").strip()
-            if title and classify_role(title) != "unknown":
+            if title and _classify_role_c4(title) != "unknown":
                 if row_idx not in updates:
                     updates[row_idx] = {}
                 updates[row_idx]["title"] = title
-                updates[row_idx]["role"] = classify_role(title)
+                updates[row_idx]["role"] = _classify_role_c4(title)
                 title_from_research += 1
                 continue
 
@@ -834,11 +834,11 @@ def main():
         if name_key and name_key in research_by_name:
             lead = research_by_name[name_key]
             title = lead.get("Title", "").strip()
-            if title and classify_role(title) != "unknown":
+            if title and _classify_role_c4(title) != "unknown":
                 if row_idx not in updates:
                     updates[row_idx] = {}
                 updates[row_idx]["title"] = title
-                updates[row_idx]["role"] = classify_role(title)
+                updates[row_idx]["role"] = _classify_role_c4(title)
                 title_from_research += 1
                 continue
 

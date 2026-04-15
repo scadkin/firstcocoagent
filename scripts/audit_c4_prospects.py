@@ -71,7 +71,7 @@ LIBRARY_KEYWORDS = [
 ]
 
 
-def classify_role(title: str) -> str:
+def _classify_role_c4(title: str) -> str:
     """Classify a title into a role bucket."""
     t = title.lower().strip()
     if not t:
@@ -156,7 +156,7 @@ def main():
     for p in c4:
         title = extract_title_from_notes(p.get("Notes", ""))
         titles.append(title)
-        role = classify_role(title)
+        role = _classify_role_c4(title)
         role_counts[role] += 1
         if len(title_examples[role]) < 5:
             title_examples[role].append(title or "(no title)")
@@ -185,7 +185,7 @@ def main():
     cross = defaultdict(Counter)
     for p in c4:
         title = extract_title_from_notes(p.get("Notes", ""))
-        role = classify_role(title)
+        role = _classify_role_c4(title)
         entity = p.get("Deal Level", "").strip() or "(empty)"
         cross[role][entity] += 1
 
@@ -209,7 +209,7 @@ def main():
     cross_state = defaultdict(Counter)
     for p in c4:
         title = extract_title_from_notes(p.get("Notes", ""))
-        role = classify_role(title)
+        role = _classify_role_c4(title)
         state = p.get("State", "").strip() or "(empty)"
         cross_state[role][state] += 1
 
