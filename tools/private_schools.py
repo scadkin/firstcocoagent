@@ -167,6 +167,7 @@ def discover_private_schools(state: str, max_results: int = 25) -> dict:
                 json={"q": q, "num": 10},
                 timeout=15.0,
             )
+            resp.raise_for_status()
             data = resp.json()
             for item in data.get("organic", [])[:10]:
                 url = item.get("link", "")

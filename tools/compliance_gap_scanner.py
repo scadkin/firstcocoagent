@@ -143,6 +143,7 @@ def _serper_pdf_urls(state: str, max_per_query: int = 8) -> list[dict]:
                 json={"q": q, "num": max_per_query},
                 timeout=15.0,
             )
+            resp.raise_for_status()
             data = resp.json()
             for item in data.get("organic", [])[:max_per_query]:
                 url = item.get("link", "")

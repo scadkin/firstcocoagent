@@ -1330,6 +1330,7 @@ def _search_signal_context(district: str, state: str, sig_type: str,
                 json={"q": query, "num": 5},
                 timeout=15.0,
             )
+            resp.raise_for_status()
             data = resp.json()
             for item in data.get("organic", [])[:5]:
                 title = item.get("title", "")
@@ -2272,6 +2273,7 @@ def scan_leadership_changes(states=None, progress_callback=None) -> list:
                     json={"q": query, "num": 10, "tbs": "qdr:m"},
                     timeout=15.0,
                 )
+                resp.raise_for_status()
                 data = resp.json()
                 for item in data.get("organic", [])[:10]:
                     url = item.get("link", "")
@@ -2501,6 +2503,7 @@ def scan_rfp_opportunities(states=None, progress_callback=None) -> list:
                     json={"q": query, "num": 10, "tbs": "qdr:m"},
                     timeout=15.0,
                 )
+                resp.raise_for_status()
                 data = resp.json()
                 for item in data.get("organic", [])[:10]:
                     url = item.get("link", "")
@@ -2727,6 +2730,7 @@ def scan_legislative_signals(states=None, progress_callback=None) -> list:
                     json={"q": query, "num": 10, "tbs": "qdr:m"},
                     timeout=15.0,
                 )
+                resp.raise_for_status()
                 data = resp.json()
                 for item in data.get("organic", [])[:10]:
                     url = item.get("link", "")
@@ -2935,6 +2939,7 @@ def scan_grant_opportunities(states=None, progress_callback=None) -> list:
                     json={"q": query, "num": 10, "tbs": "qdr:m"},
                     timeout=15.0,
                 )
+                resp.raise_for_status()
                 data = resp.json()
                 for item in data.get("organic", [])[:10]:
                     url = item.get("link", "")
@@ -3321,6 +3326,7 @@ def discover_homeschool_coops(state: str, max_results: int = 25) -> dict:
                 json={"q": q, "num": 10},
                 timeout=15.0,
             )
+            resp.raise_for_status()
             data = resp.json()
             for item in data.get("organic", [])[:10]:
                 url = item.get("link", "")
@@ -3471,6 +3477,7 @@ def scan_cs_funding_awards(states=None, progress_callback=None) -> dict:
                     json={"q": query, "num": 10, "tbs": "qdr:y"},  # 1-year window
                     timeout=15.0,
                 )
+                resp.raise_for_status()
                 data = resp.json()
                 for item in data.get("organic", [])[:10]:
                     url = item.get("link", "")
@@ -3735,6 +3742,7 @@ def scan_competitor_displacement(states=None, progress_callback=None) -> dict:
                     json={"q": query, "num": 10},  # no tbs — full time window
                     timeout=15.0,
                 )
+                resp.raise_for_status()
                 data = resp.json()
                 for item in data.get("organic", [])[:10]:
                     url = item.get("link", "")
@@ -4074,6 +4082,7 @@ def scan_budget_cycle_signals(states=None, progress_callback=None) -> list:
                     json={"q": query, "num": 10, "tbs": "qdr:m"},
                     timeout=15.0,
                 )
+                resp.raise_for_status()
                 data = resp.json()
                 for item in data.get("organic", [])[:10]:
                     url = item.get("link", "")
@@ -4282,6 +4291,7 @@ def scan_algebra_targets(states=None, progress_callback=None) -> list:
                     json={"q": query, "num": 10, "tbs": "qdr:m"},
                     timeout=15.0,
                 )
+                resp.raise_for_status()
                 data = resp.json()
                 for item in data.get("organic", [])[:10]:
                     url = item.get("link", "")
@@ -4471,6 +4481,7 @@ def scan_cybersecurity_targets(states=None, progress_callback=None) -> list:
                     json={"q": query, "num": 10, "tbs": "qdr:y"},  # Wider window — pre-launch research
                     timeout=15.0,
                 )
+                resp.raise_for_status()
                 data = resp.json()
                 for item in data.get("organic", [])[:10]:
                     url = item.get("link", "")
@@ -4662,6 +4673,7 @@ def scan_role_targets(states=None, progress_callback=None) -> list:
                     json={"q": query, "num": 10, "tbs": "qdr:y"},  # Last year — roles persist
                     timeout=15.0,
                 )
+                resp.raise_for_status()
                 data = resp.json()
                 for item in data.get("organic", [])[:10]:
                     url = item.get("link", "")
@@ -4851,6 +4863,7 @@ def scan_csta_chapters(states=None, progress_callback=None) -> list:
                     json={"q": query, "num": 10, "tbs": "qdr:y"},
                     timeout=15.0,
                 )
+                resp.raise_for_status()
                 data = resp.json()
                 for item in data.get("organic", [])[:10]:
                     url = item.get("link", "")
