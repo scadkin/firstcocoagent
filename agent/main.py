@@ -3690,9 +3690,11 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await send_message(f"❌ Charter CMO queueing failed: {e}")
         return
 
-    elif user_text.lower().startswith(("/signal_compliance", "/scan_compliance", "compliance scan")):
+    elif user_text.lower().startswith(("/signal_compliance", "compliance scan")):
         # F9: compliance gap scanner (Signals-only pilot — CA/IL/MA)
         # Usage: /signal_compliance CA  (required state, must be in PILOT_STATES)
+        # Note: /scan_compliance is handled by the earlier branch near line 3571 —
+        # do NOT re-add it here or that branch becomes dead again (HIGH-4, S70).
         parts = user_text.strip().split(None, 1)
         if len(parts) < 2 or not parts[1].strip():
             pilot = ", ".join(sorted(compliance_gap_scanner.PILOT_STATES))
