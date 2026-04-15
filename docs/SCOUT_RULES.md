@@ -1,7 +1,38 @@
 # SCOUT — Full Rules Reference
-*Extracted from CLAUDE.md during Session 58 trim. Last updated: 2026-04-11.*
+*Extracted from CLAUDE.md during Session 58 trim. Last updated: 2026-04-14 (S66 — primary/secondary targeting clarified).*
 
-This file holds the full rule set. CLAUDE.md keeps the top 15 session-critical rules inline; everything else lives here. Read by section or grep by keyword — every rule's original bolded lead sentence is preserved verbatim from the original CLAUDE.md so grep on existing phrases still resolves.
+This file holds the full rule set. CLAUDE.md keeps the top 21 session-critical rules inline; everything else lives here. Read by section or grep by keyword — every rule's original bolded lead sentence is preserved verbatim from the original CLAUDE.md so grep on existing phrases still resolves.
+
+---
+
+## 0. Primary / Secondary Targeting (S66 clarification — load every session that touches strategy selection)
+
+**Primary lane:** US public school districts in Steven's 13 territory states (TX, CA-SoCal, IL, PA, OH, MI, CT, OK, MA, IN, NV, TN, NE). When picking an example, a baseline, a cost reference, an A/B target, or a design default, start with a public school district. Rotate across territory states for variety. Never default to diocesan or charter examples for primary-lane work.
+
+**Secondary lane:** every other school / org / governmental / commercial entity inside Steven's territory that could buy CodeCombat's K-12 coding, Computer Science, AI (AI HackStack / AI Algebra / AI Junior), educational esports (CodeCombat AI League), or HS Cybersecurity (fall 2026) curriculum — for students OR teachers. The S66 correction is that the secondary lane is NOT just "charter + CTE + diocesan + private" — that framing was an S58-S60 drift. The actual secondary lane includes:
+
+  - **Schools & districts:** charter schools + charter districts + charter networks (CMOs), private schools + private networks + academies, online schools + online school networks, diocesan central offices + Catholic school networks, IB networks, homeschool co-ops
+  - **Regional & governmental:** state Departments of Education (CS coordinators, curriculum leads), regional public entities (ESCs / BOCES / IUs / COEs / ESAs / state-specific regional service centers), state CS boards and councils
+  - **Career & technical:** CTE centers (standalone or district-embedded), career academies, early-college high schools
+  - **After-school & community:** nonprofit (Boys and Girls Clubs, YMCA, 4-H, Boy Scouts, Girl Scouts, Code.org partners), for-profit (Code Ninjas, iCode, CodeWiz, Coder School, Mathnasium-adjacent coding), hybrid (city rec programs, parks-and-rec coding clubs)
+  - **Libraries:** public libraries (many run coding clubs and summer programs), library networks, library systems
+  - **Other:** any school, company, or governmental entity that would have need for CodeCombat's K-12-focused curriculum for students or teachers
+
+**Source of truth for roles + titles + keywords** at any secondary-lane entity: Steven's **"ROLES and KEYWORDS for Searching and Scraping (Updated 4/1/26)"** Google Sheet. When building a new scanner or sequence for a secondary-lane entity type, start from that doc.
+
+**Scanner coverage as of S66:** F6 (charter CMOs), F7 (CTE centers), F8 (private + diocesan networks), F10 (homeschool co-ops, prototype) cover about half of the secondary lane. **No scanners exist for libraries, after-school nonprofits, after-school for-profits, online schools, IB networks, state DOE CS coordinators, or regional public entities as a class.** Todo tracked in `memory/project_secondary_lane_scanner_gaps.md`. Plan-mode required before building any new secondary-lane scanner (Rule 1).
+
+**Territory geography (S66 decision):** active territory is 13 US states + SoCal only. Non-US expansion (Canada / Mexico / Central America / Caribbean / South America) was considered in S66 but PARKED. Non-US prospecting work only starts if Steven explicitly flags a big-fish exception. Reference: `memory/user_territory.md`, `memory/project_secondary_lane_scanner_gaps.md`.
+
+**Behavioral rules:**
+  - When citing yield / cost / time / percentage for the primary lane, measure from PUBLIC DISTRICT Research Log rows only. Do NOT extrapolate from diocesan / charter / CTE baselines.
+  - When picking example targets, rotate across real public districts in territory states (Corona-Norco, Fort Worth ISD, Austin ISD, Naperville, Cincinnati Public Schools, Columbus City Schools, Park Ridge-Niles, Plano, Leander, Clark County, etc.).
+  - When Steven mentions a secondary-lane entity type NOT in the current F6/F7/F8/F10 coverage (libraries, after-school orgs, online schools, IB, state DOE, regional entities), treat it as IN-scope secondary-lane work, not an edge case.
+  - If you catch yourself citing a diocesan example twice in a conversation, stop and find a public district reference instead.
+
+Full rule: `memory/feedback_scout_primary_target_is_public_districts.md`.
+
+---
 
 **Related reference files:**
 - `docs/SCOUT_REFERENCE.md` — repo tree, env vars, Claude tool registry, Telegram command list

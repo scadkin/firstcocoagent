@@ -55,6 +55,20 @@ Full rationale + per-item background lives in `memory/project_s64_priority_queue
 
 ## LOAD-BEARING REFERENCES
 
+### Primary / Secondary targeting (S66 clarification)
+
+**Primary lane:** US public school districts in Steven's 13 territory states (TX, CA-SoCal, IL, PA, OH, MI, CT, OK, MA, IN, NV, TN, NE). When picking examples, baselines, cost references, A/B targets, or design defaults — start with a public school district and rotate across territory states.
+
+**Secondary lane:** every other school / org / governmental / commercial entity INSIDE Steven's territory that could buy CodeCombat's K-12 coding, CS, AI (AI HackStack / AI Algebra / AI Junior), educational esports, or HS Cybersecurity curriculum — for students OR teachers. Includes charter schools + charter networks (CMOs), private schools + networks, academies, online schools + online school networks, regional public entities of all kinds (ESCs / BOCES / IUs / COEs / ESAs / state DOEs / state CS boards), CTE centers, diocesan central offices and Catholic networks, IB networks, homeschool co-ops, after-school nonprofits (Boys and Girls Clubs / YMCA / 4-H / Scouts), after-school for-profits (Code Ninjas / iCode / CodeWiz / Coder School / Mathnasium), libraries and library networks, and any other school / company / governmental entity with K-12 coding curriculum need. Source of truth for roles + titles + keywords to search at each entity type: Steven's **"ROLES and KEYWORDS for Searching and Scraping (Updated 4/1/26)"** Google Sheet.
+
+**Do NOT narrow the secondary lane to "charter + CTE + diocesan + private"** — that was the S58-S60 drift. The full list above is the real secondary lane. Scanner coverage today only covers about half of it (F6 charter, F7 CTE, F8 private+diocesan, F10 homeschool prototype). The rest is a scanner gap tracked in `memory/project_secondary_lane_scanner_gaps.md`.
+
+**Territory geography:** 13 US states + SoCal only (see `memory/user_territory.md`). Non-US expansion (Canada / Mexico / Central America / Caribbean / South America) was considered in S66 but PARKED. Do NOT propose non-US prospecting work unless Steven explicitly flags a big-fish exception.
+
+Full rule: `memory/feedback_scout_primary_target_is_public_districts.md`.
+
+---
+
 The following institutional knowledge is still current at end of Session 61. Full context is in the named files; this section is a pointer map, not a duplicate.
 
 - **6 diocesan sequences activated** (Archdiocese of Philadelphia/Cincinnati/Detroit, Diocese of Cleveland, Archdiocese of Boston, Archdiocese of Chicago). Owner = you, schedule = "Admin Mon-Thurs Multi-Window", 5 steps cadence 5 min / 5d / 6d / 7d / 8d, clean descriptions, hyperlinked meeting link + `codecombat.com/schools`. All verified clean via `verify_sequence` in Session 59 rounds 1-4 + re-verified at Session 61 second half. Diocesan drip is actively loading contacts into these starting Tue Apr 14.
@@ -110,7 +124,7 @@ Session 59 shipped 12 failures across 3 rounds because memory files weren't load
 - Load: `feedback_never_manual_outreach_upload.md`, `feedback_outreach_sequence_order.md`, `feedback_outreach_torecipients.md`, `feedback_outreach_intervals.md`, `feedback_timezone_required_before_sequence.md`, `outreach_api_access.md`
 - Grep `tools/outreach_client.py` for `create_prospect` / `add_prospect_to_sequence` / `validate_prospect_inputs` / `find_prospect_by_email`. If missing, STOP — do not write a new one-shot. Check `docs/SCOUT_CAPABILITIES.md` and `git log --since=120days` for prior `prospect` + `load` commits first. Promote ephemeral patterns before using them (Rule 18).
 - Verify target sequence is active via the `sequences[id].attributes.enabled` check in `tools/prospect_loader._sequence_is_enabled` before writing.
-- Every contact MUST have a populated IANA timezone derived from state via `tools.timezone_lookup.state_to_timezone`. Missing tz = skip the contact, never fall back (Rule 17).
+- **Every contact MUST have BOTH a populated `state` field AND a populated IANA timezone BEFORE `create_prospect` AND before `add_prospect_to_sequence` fires.** Two failure modes this prevents: (1) **mergefield rendering** — Scout sequences use `{{state}}` in email bodies; missing state renders as blank/error, Outreach does NOT block the send on a missing mergefield, so the broken email ships and tanks that prospect's reply rate; (2) **send schedule optimization** — multi-window schedules (52 Admin, 53 Teacher) pick per-prospect local-time windows based on timezone; missing tz either mis-schedules at 3am local or falls back to CST for all prospects. Derive timezone from state via `tools.timezone_lookup.state_to_timezone`. Missing state OR missing tz = skip the contact, never fall back (Rule 17, S66 expansion).
 - Mailbox ID is 11 for all of Steven's sequences (confirmed S61 by reading existing sequenceStates on 1999/1939/1857).
 - Dedup via `find_prospect_by_email` before `create_prospect`.
 - Stagger POSTs: never burst >20 sequenceStates within a 60-second window.
