@@ -60,17 +60,26 @@ from typing import Optional
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT))
+sys.path.insert(0, str(Path(__file__).resolve().parent))  # scripts/ for _env
 
-# Scout convention: every standalone script calls load_dotenv() at import
+# Scout convention: every standalone script calls load_env_or_die at import
 # time. Production Railway injects env vars directly; local dev relies on
 # .env. Do NOT `source .env` from bash — line 7 has a single quote that
 # breaks bash parsing and silently empties OUTREACH_CLIENT_SECRET.
-try:
-    from dotenv import load_dotenv  # noqa: E402
-
-    load_dotenv(REPO_ROOT / ".env")
-except Exception:
-    pass
+# Audit theme #4 (S70): replaced silent try/except load_dotenv with the
+# shared helper so missing .env / missing vars fail loudly with a useful
+# message instead of a downstream KeyError.
+from _env import load_env_or_die  # noqa: E402
+# OUTREACH_REFRESH_TOKEN intentionally NOT required here — Scout fetches
+# the refresh token dynamically via OAuth using CLIENT_ID + CLIENT_SECRET
+# + REDIRECT_URI, so the token is not kept in .env. If it's missing at
+# runtime, tools.outreach_client surfaces a clear error on the first API
+# call; we don't need to duplicate that check here.
+load_env_or_die(required=[
+    "OUTREACH_CLIENT_ID",
+    "OUTREACH_CLIENT_SECRET",
+    "OUTREACH_REDIRECT_URI",
+])
 
 from tools.campaign_file import (  # noqa: E402
     Campaign,

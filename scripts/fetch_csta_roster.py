@@ -39,12 +39,12 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
+sys.path.insert(0, str(Path(__file__).resolve().parent))  # scripts/ for _env
 
-# Load .env
-for ln in (ROOT / ".env").read_text().splitlines():
-    if "=" in ln and not ln.startswith("#"):
-        k, _, v = ln.partition("=")
-        os.environ.setdefault(k.strip(), v.strip().strip("'\""))
+# Audit theme #4 (S70): shared .env loader replaces raw FileNotFoundError
+# on missing .env and raw KeyError on missing vars.
+from _env import load_env_or_die  # noqa: E402
+load_env_or_die(required=["SERPER_API_KEY", "ANTHROPIC_API_KEY"])
 
 import httpx  # noqa: E402
 from bs4 import BeautifulSoup  # noqa: E402
@@ -52,9 +52,7 @@ from bs4 import BeautifulSoup  # noqa: E402
 from tools.signal_processor import TERRITORY_STATES_WITH_CA, ABBR_TO_STATE_NAME, SERPER_URL  # noqa: E402
 from tools import csv_importer  # noqa: E402
 
-SERPER_KEY = os.environ.get("SERPER_API_KEY", "")
-if not SERPER_KEY:
-    sys.exit("SERPER_API_KEY not set")
+SERPER_KEY = os.environ["SERPER_API_KEY"]  # guaranteed by load_env_or_die above
 
 BROWSER_UA = (
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "

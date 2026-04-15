@@ -33,16 +33,20 @@ from googleapiclient.discovery import build
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s", datefmt="%H:%M:%S")
 logger = logging.getLogger(__name__)
 
-# Load .env
-env_path = Path(__file__).resolve().parent.parent / ".env"
-if env_path.exists():
-    for line in env_path.read_text().splitlines():
-        if "=" in line and not line.startswith("#"):
-            key, val = line.split("=", 1)
-            os.environ.setdefault(key.strip(), val.strip())
+# Audit theme #4 (S70): shared .env loader. Replaces local if-exists
+# branch that silently no-op'd on missing .env, and also fixes missing
+# quote-stripping on parsed values.
+sys.path.insert(0, str(Path(__file__).resolve().parent))  # scripts/ for _env
+from _env import load_env_or_die  # noqa: E402
+load_env_or_die(required=[
+    "SERPER_API_KEY",
+    "ANTHROPIC_API_KEY",
+    "GOOGLE_SERVICE_ACCOUNT_JSON",
+    "GOOGLE_SHEETS_ID",
+])
 
-SERPER_API_KEY = os.environ.get("SERPER_API_KEY", "")
-ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
+SERPER_API_KEY = os.environ["SERPER_API_KEY"]
+ANTHROPIC_API_KEY = os.environ["ANTHROPIC_API_KEY"]
 
 # ─────────────────────────────────────────────
 # GOOGLE SHEETS

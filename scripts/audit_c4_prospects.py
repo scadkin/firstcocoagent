@@ -17,22 +17,20 @@ from pathlib import Path
 from google.oauth2.service_account import Credentials
 from googleapiclient.discovery import build
 
-# Load .env if present
-env_path = Path(__file__).resolve().parent.parent / ".env"
-if env_path.exists():
-    for line in env_path.read_text().splitlines():
-        if "=" in line and not line.startswith("#"):
-            key, val = line.split("=", 1)
-            os.environ.setdefault(key.strip(), val.strip())
+# Audit theme #4 (S70): shared .env loader. Replaces local if-exists
+# branch that silently no-op'd on missing .env and the post-hoc env
+# checks in get_service + main. Also fixes quote-stripping: previous
+# line 26 did `val.strip()` without trimming surrounding quotes, so
+# quoted values in .env would have leaked quote characters into downstream
+# credential parsing.
+sys.path.insert(0, str(Path(__file__).resolve().parent))  # scripts/ for _env
+from _env import load_env_or_die  # noqa: E402
+load_env_or_die(required=["GOOGLE_SERVICE_ACCOUNT_JSON", "GOOGLE_SHEETS_ID"])
 
 
 def get_service():
-    creds_json = os.environ.get("GOOGLE_SERVICE_ACCOUNT_JSON", "")
-    if not creds_json:
-        print("ERROR: GOOGLE_SERVICE_ACCOUNT_JSON not set")
-        sys.exit(1)
     creds = Credentials.from_service_account_info(
-        json.loads(creds_json),
+        json.loads(os.environ["GOOGLE_SERVICE_ACCOUNT_JSON"]),
         scopes=["https://www.googleapis.com/auth/spreadsheets.readonly"],
     )
     return build("sheets", "v4", credentials=creds)
@@ -108,10 +106,7 @@ def extract_title_from_notes(notes: str) -> str:
 
 def main():
     service = get_service()
-    sheet_id = os.environ.get("GOOGLE_SHEETS_ID", "")
-    if not sheet_id:
-        print("ERROR: GOOGLE_SHEETS_ID not set")
-        sys.exit(1)
+    sheet_id = os.environ["GOOGLE_SHEETS_ID"]  # guaranteed by load_env_or_die
 
     print("Reading Prospecting Queue...")
     rows = read_tab(service, sheet_id, "'Prospecting Queue'!A:S")
