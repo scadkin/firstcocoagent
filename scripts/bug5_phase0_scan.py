@@ -33,6 +33,21 @@ dn_idx = headers.index("District Name") if "District Name" in headers else -1
 email_idx = headers.index("Email") if "Email" in headers else -1
 src_idx = headers.index("Source URL") if "Source URL" in headers else -1
 
+# HIGH-13 (S70) fail-fast: Python allows negative indexing, so a `-1` sentinel
+# would pass the downstream `*_idx < len(row)` guards and silently read the
+# LAST column of every row as if it were District Name / Email / Source URL.
+# Crash loudly instead, naming the missing column(s) so schema drift is obvious.
+_missing = [
+    name for name, idx in (("District Name", dn_idx),
+                           ("Email", email_idx),
+                           ("Source URL", src_idx)) if idx < 0
+]
+if _missing:
+    raise SystemExit(
+        f"Header missing required columns: {_missing}. Got headers={headers}. "
+        f"Refusing to run — fix the 'Leads from Research' tab schema first."
+    )
+
 # Archdiocese snapshot
 archdiocese = []
 for i, row in enumerate(values[1:], start=2):
