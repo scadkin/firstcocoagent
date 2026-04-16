@@ -77,7 +77,7 @@ echo ""
 # Use script to capture everything, running claude in the Scout directory
 # -q = quiet (no "Script started" message in terminal)
 # When claude exits, script exits, then we clean up
-script -q "$RAW_FILE" /bin/zsh -c "cd '$SCOUT_DIR' && SCOUT_SESSION_NUM=$SESSION_NUM SCOUT_RAW_TRANSCRIPT='$RAW_FILE' SCOUT_CLEAN_TRANSCRIPT='$CLEAN_FILE' claude --effort high"
+script -q "$RAW_FILE" /bin/zsh -c "cd '$SCOUT_DIR' && SCOUT_SESSION_NUM=$SESSION_NUM SCOUT_RAW_TRANSCRIPT='$RAW_FILE' SCOUT_CLEAN_TRANSCRIPT='$CLEAN_FILE' claude"
 
 echo ""
 echo "Cleaning transcript..."
