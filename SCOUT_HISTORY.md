@@ -1582,6 +1582,81 @@ Pressure-test pattern paying off again — the second draft is what I actually e
 
 ---
 
+## Session 71 (2026-04-16) — Thursday Diocesan Drip Done + C4 Status Drift Cleaned + Sequence Coverage Mapped + DRE Family Framework Evolved
+
+**Session theme:** Thursday 2026-04-16 diocesan drip executed + major audit of Queue status drift (triggered by Steven's "90% sure there's a mistake" on the 1,245+247 backlog numbers) + 24-strategy sequence coverage mapped authoritatively + Strategy #12 Dormant Re-Engage framework evolved from one sequence into a 21-sequence family spanning 4 substrategies × role × grade. Dormant v2 draft shipped to Google Doc; Steven took to claude.ai for copy dial-in at EOS.
+
+### 1. Thursday diocesan drip — landed live
+
+- `scripts/diocesan_drip.py --execute` completed for 2026-04-16 Thursday batch. 14 contacts loaded live (measured — prospects 669638-669652, sequenceStates 522473-522486). Distribution: Boston 1 / Cincinnati 4 / Detroit 2 / Philadelphia 4 / Cleveland 3.
+- Latent bug discovered: Steven's desktop Claude app had attempted the drip at 11:08 CDT earlier today and failed silently. `/tmp/outreach_tokens.json` was missing (Mac rebooted, tmp cleared). The sequence-enabled pre-check in `prospect_loader._sequence_is_enabled` fail-closed on the auth error, marking all 14 contacts as `skipped` with `error=sequence_not_enabled`. The 6 diocesan sequences were actually enabled.
+- Fix applied: copied `memory/outreach_tokens.json` → `/tmp/outreach_tokens.json` to rehydrate the module-load path, force-refreshed via `_refresh_access_token()`, verified all 6 seqs `enabled=True` via `_api_get('/sequences/{sid}')` (Rule 21 read-before-write satisfied), reset 14 `skipped` → `pending` with error cleared, re-executed. All 14 POSTed cleanly. `--verify` passed clean for all 6 sequences.
+- Tracked as project memory: `project_diocesan_drip_silent_skip_on_missing_tmp_token.md`. Recommends a pre-flight smoke test in `cmd_execute` before the batch loop — one `_api_get('/sequences/1')` call that aborts loudly if auth is broken, replacing the current silent fail-closed behavior.
+
+### 2. C4 cold_license_request Queue status drift cleanup — 1,235 rows reclassified
+
+- Steven's hunch: "I'm 90% sure there's a mistake you have made with the '1,245 cold_license_request + 247 winback March' but we can address that as we get there." Validated.
+- Starting state measured via `tools.district_prospector.get_all_prospects()`: 1,245 pending cold_license_request rows. Cross-referenced against C4 sequences 1995-1998 live sequenceStates (1,119 total prospects, 1,137 unique emails measured): **1,092 of the 1,245 pending rows (measured — 87.7%) were ALREADY in C4 sequences.** The S43 load happened but the Queue status was never back-written. Drift.
+- Backfill write #1: built `/tmp/c4_status_backfill.py` — read 3 columns, keyword-match emails vs C4 pool, single-pass batchUpdate. Updated 1,092 rows (measured) to Status=`complete` with Notes suffix `Loaded into C4 seq <id> (<name>) — S71 2026-04-16`. 21,840 cells updated (measured), 138 contiguous ranges.
+- Attempted to load the 150 "unmatched" (i.e., not in C4 sequences) into C4 variants via `prospect_loader.execute_load_plan`. Results: 139 routed (11 skipped at plan time for missing State per Rule 17). Live results: **7 processed** (measured — genuinely new adds), **86 failed with `active in another sequence`** (measured — already being outreached elsewhere, correct NOT to double-add), **46 failed with `opted_out_of_email`** (measured).
+- Backfill write #2: built `/tmp/c4_backfill_cleanup.py` — classified all 150 by outcome and wrote Queue rows with distinctive Notes markers so future sessions can filter. Result state: 1,099 complete / 143 skipped w/ reasons / 3 true pending. 150 rows updated (measured), 3,000 cells updated (measured), 115 contiguous ranges.
+- Distinctive Notes markers (for Steven's later filtering):
+  - `Loaded into C4 seq <id> (<name>) — S71 2026-04-16` → 1,099 complete
+  - `ACTIVE IN OTHER OUTREACH SEQUENCE (not C4) — S71 2026-04-16 — review in Outreach if needed` → 86 skipped (Steven plans to review these later; distinct Notes marker avoids needing a custom Outreach tag right now)
+  - `Opted out of email per Outreach — S71 2026-04-16` → 46 skipped
+  - `No State in Queue; Haiku enrichment returned UNKNOWN — S71 2026-04-16 — manual review if valuable` → 11 skipped
+- Steven's insight that reframed everything: the "1,245 cold_license_request pending" backlog was mostly drift (1,092) and conflict (86+46 not addressable). Actual net-new adds from that cohort: 7 (measured). The Queue's "898 remaining pending across other strategies" after the cleanup are all district-level stubs without emails — research-engine-dependent (parked) or CC-backend-dependent (parked). The only immediately sequenceable backlog was the 150 (now resolved).
+
+### 3. 24-strategy sequence coverage mapped accurately — `project_sequence_coverage_s71.md`
+
+- Prior CLAUDE.md / S66 / S67 framing "build sequences for the 23 active prospecting strategies" was wrong. New authoritative map: **5 of 24 strategies + diocesan have Scout-helped sequences. 18 have zero Scout-helped sequences.**
+- Scout-helped sequences (confirmed line-by-line with Steven):
+  - #7 Role/Title: Superintendent CS/AI state variants (1959-1971, 13 sequences)
+  - #9 Winback + #11 Unresponsive Re-Engage (shared): 5-Step Re-Engagement Seq 2026 cold ops (1982)
+  - #10 Cold License Request: C4 1995-1998 + !!!2026 License Request Seq April (1999)
+  - #13 Post-Conference: CUE 26' family (12 seqs: 1983-1994)
+  - #14 Webinar: Algebra Webinar April 2026 Attendees (2000) + Non-attendees (2001) only; Hour of AI, Leveraging AI, AI x Algebra NOT Scout-helped
+  - Diocesan (secondary lane, not on 24-list): 2008-2013 (6 seqs)
+- Steven confirmed via UI screenshots that Q1 D-Prosp Denison (1954-1956), Q1DPROSP Cheatham TN (1973-1975), 2026 Q1 Algebra AI Launch (1977/1979/1980), Algebra 30-day free (2005-2007), BETT/ACTE/FETC (1938-1942), !!!2026 Opp Follow up (1976) were NOT Scout-helped — he did them solo or with claude.ai.
+- Steven also corrected: Superintendent CS/AI state sequences belong under #7 Role/Title-Based, NOT #4 Territory Touching. Territory Touching (#4) remains uncovered.
+- Gaps clustered: all signal-driven strategies (#16-20, 22) have Scanners feeding the Signals tab but zero sequences to deliver against those signals. That's the structural bottleneck blocking signal-driven sales motion.
+
+### 4. Dormant Re-Engage Strategy #12 evolved from one sequence to a 21-sequence DRE family
+
+- Started: build one Dormant Re-Engage sequence per S66 plan. Shipped v1 + v2 drafts to Google Docs.
+- v1 Google Doc: `https://docs.google.com/document/d/1IdSzLxJ5AJ90cQRNj1kxe9kTz4wywPb7YFeE7DkmWiU/edit`
+- v2 Google Doc: `https://docs.google.com/document/d/164JXmN0wZ7sz_d4_4SgPINJncsxumz5zwgzzhBLBLn0/edit` — meeting link `https://hello.codecombat.com/c/steven/t/131` inserted, info dump template 43784 at Step 2, "Quick follow up" / "One more angle worth mentioning" removed, HTML anchor tags stripped for Google Doc readability (will be re-added as HTML when create_sequence ships to Outreach).
+- Steven's feedback evolved the framework: (a) substrategies for Teacher-Created / License-Quote-Demo / Library / Universal, (b) role variants (District Admin / School Admin / Teacher / IT / Curriculum / Librarian), (c) grade variants where applicable (HS / MS / Elem), (d) active-account cross-ref filter, (e) 90-day no-touch Outreach activity filter.
+- Merged License Request + Quote/Demo into one substrategy per Steven: "License request and Quote/Demo Request are the exact same thing."
+- Added Universal fallback per Steven: "We should also have a generic universal sequence for the ones where we don't have or can't find the title/role data."
+- Final DRE family: **21 sequences** = TC(9) + LQD(9) + LIB(2) + UNI(1). Full framework + naming + tag conventions documented in `project_dre_family_framework.md`.
+- Build order decided: UNI first as safety net, then TC (biggest cohort at 24,491 measured empty-TC + 3,416 measured explicit teachers), then LQD, then LIB (379 measured librarians).
+
+### 5. SF Leads segmentation — 76,468 in-territory leads analyzed ($0 measured)
+
+- Discovered during session: SF Imports sheet ID (`15pSmpfdSlgoaBFxbwquUjtO9xYSnK-4yA69mkw_lWLk`) was NOT in `.env`. Steven flagged this as crucial: "THIS IS CRUCIAL. You need to make sure you have access to all this data." Now documented in `reference_scout_sheet_ids.md`.
+- Subagent dispatched to produce role + state + cross-tab rollups from the `SF Leads` tab. Keyword-based classification only, no Haiku calls. Cost $0 (measured). Script preserved at `/tmp/sf_leads_segmentation.py`.
+- Role distribution (measured, n=76,468): admin 28,892 (37.78%) / empty-TC 24,491 (32.03%) / it 9,873 (12.91%) / curriculum 4,252 (5.56%) / teacher 3,416 (4.47%) / empty-OS 2,513 (3.29%) / other 1,528 (2.00%) / admin_support 1,106 (1.45%) / library 379 (0.50%) / counselor 17 / coach 1.
+- State distribution (measured, all 13 territory states + SoCal): TX 19,234 / CA 9,404 / IL 8,333 / PA 7,294 / OH 6,745 / MI 5,352 / MA 4,436 / IN 4,034 / OK 3,809 / TN 3,122 / CT 2,364 / NE 1,353 / NV 988. TX is 25% of universe.
+- Noteworthy: the algebra/math filter only hit 3 rows (measured) because the Scout SF Imports workbook already separates math into dedicated `SF Leads - Math` / `SF Contacts - Math` tabs. The main `SF Leads` tab is already non-math.
+- Also noteworthy: 24,491 empty-title rows where Lead Source = "teacher created account" IS the dormant teacher pool Scout has been missing. Plus 3,416 explicit teachers = ~27,907 addressable dormant teacher contacts in SF Imports (no research engine needed, no CC backend blocker).
+
+### 6. New memory files shipped
+
+- `reference_scout_sheet_ids.md` — authoritative sheet ID map
+- `project_sequence_coverage_s71.md` — 24-strategy coverage authoritative
+- `project_dre_family_framework.md` — DRE family 21-sequence framework
+- `project_diocesan_drip_silent_skip_on_missing_tmp_token.md` — latent bug tracked
+- `feedback_chart_format_preference.md` — chart-over-text-list preference
+
+### 7. Uncommitted work passed to next session
+
+- Dormant Re-Engage sequence not yet created in Outreach — Steven is dial-in copy in claude.ai; next session receives revised copy, then builds DRE family starting with UNI safety-net.
+- `GOOGLE_SHEETS_SF_IMPORTS_ID=15pSmpfdSlgoaBFxbwquUjtO9xYSnK-4yA69mkw_lWLk` should be added to `.env` next session.
+- The 3 DRE-family filter helpers need to be built: `filter_leads_against_active_accounts`, `find_prospects_with_no_touch(days=90)`, grade-level detector.
+
+---
+
 ## Session 70 (2026-04-15) — Overnight Audit Drain: 7 HIGHs + 4 Themes + CRIT-2 Verified Live
 
 **12 commits on `main`, all pushed. Largest-surface-area session since S62.**

@@ -1,11 +1,25 @@
 # SCOUT — Claude Code Reference
-*Last updated: 2026-04-15 — End of Session 70. S70 drained 7 HIGHs + 4 audit themes from `SCOUT_AUDIT_2026-04-15_0128.md` + verified CRIT-2 live in production via `/ping_gas`. 12 commits pushed. S67 sequence-build focus STILL parked — resume in S71 after confirming Thursday 2026-04-16 diocesan drip state.*
+*Last updated: 2026-04-16 — End of Session 71. Thursday diocesan drip landed live (14 contacts measured). C4 cold_license_request Queue status drift cleaned (1,092 rows marked `complete`, 143 `skipped` with distinctive Notes, 3 true pending). 24-strategy sequence coverage mapped accurately via new `project_sequence_coverage_s71.md` (5 of 24 + diocesan have Scout-helped seqs). Dormant Re-Engage Strategy #12 evolved into a 21-sequence DRE family (TC/LQD/LIB/UNI × role × grade) per Steven's S71 direction. Dormant v2 draft at Google Doc — Steven taking to claude.ai for copy dial-in. Sheet IDs for all 3 working sheets now saved to memory (SF Imports ID was missing from .env).*
 
 ---
 
 ## CURRENT STATE — update this after each session
 
 **Session-narrative history lives in `SCOUT_HISTORY.md §Session N`. Active plan detail lives in `SCOUT_PLAN.md §YOU ARE HERE`. Active priority queue lives in `memory/project_s64_priority_queue.md` (auto-loaded). This section stays ≤25 lines.**
+
+**End of Session 71, 2026-04-16 16:33 CDT — diocesan drip done, C4 status drift cleaned, DRE family framework:**
+
+- **Thursday 2026-04-16 diocesan drip — done.** 14 contacts loaded live (measured), 63/63 total plans `done`. Latent bug discovered: Steven's desktop-app attempt at 11:08 CDT had failed silently with `sequence_not_enabled` because `/tmp/outreach_tokens.json` was missing (tmp cleared on reboot). Fix: copied `memory/outreach_tokens.json` → `/tmp/...`, force-refreshed, verified all 6 seqs enabled, reset 14 `skipped` → `pending`, re-executed. Tracked as `project_diocesan_drip_silent_skip_on_missing_tmp_token.md`.
+- **C4 cold_license_request Queue status drift cleaned.** Starting state: 1,245 pending (measured). Steven's hunch "I'm 90% sure there's a mistake" validated: 1,092 rows (measured) were ALREADY in C4 seqs 1995-1998 (S43 loaded them but Queue status was never back-written). Additional audit of the 150 "unmatched" via live Outreach: 7 newly loaded (measured), 86 already in OTHER sequences (measured), 46 opted-out (measured), 11 no-state (measured), 3 empty email. Result state: 1,099 complete / 143 skipped (w/ distinctive Notes markers for filtering) / 3 true pending. Scripts ran bulk sheet batchUpdate with 21,840 cells updated (measured) + 3,000 cells updated (measured) for classification cleanup.
+- **24-strategy sequence coverage mapped accurately.** Prior CLAUDE.md framing "build sequences for the 23 strategies" was wrong — 18 of 24 have zero Scout-helped sequences. New authoritative memory: `project_sequence_coverage_s71.md`. 5 of 24 strategies + diocesan have Scout-helped sequences (#7, #9/#11 shared, #10, #13, #14). Steven confirmed line-by-line which seqs Scout helped vs he built solo.
+- **Dormant Re-Engage Strategy #12 evolved to DRE family.** Not one sequence — **21 sequences** (4 substrategies × role × grade): TC (Teacher-Created) 9 variants, LQD (License/Quote/Demo — merged) 9 variants, LIB (Library/Librarian) 2 variants, UNI (Universal fallback) 1 variant. Full framework in `project_dre_family_framework.md`. Naming convention `DRE-<SUB>-<ROLE>-<GRADE>` + tag convention documented. Build order: UNI (safety net first), TC, LQD, LIB.
+- **SF Leads role+state segmentation complete.** 76,468 leads in-territory (measured). Top buckets: admin 28,892 (measured — 37.78% measured), empty-TC 24,491 (measured — 32.03% measured), it 9,873 (measured). TX dominates at 25% of universe (measured). Full rollups in subagent output file; key insight: the empty-TC (teacher-created, empty title) cohort is THE dormant teacher pool for Strategy #12 sub-A.
+- **Sheet IDs now saved to memory.** `reference_scout_sheet_ids.md` documents Scout Master Sheet 1 (in .env), Scout SF Imports (NOT in .env — recommend adding), My Master Territory List (in .env). Steven explicitly flagged this as crucial after Scout couldn't answer "what's the sheet ID" on its own.
+- **Dormant v2 draft shipped.** Google Doc `https://docs.google.com/document/d/164JXmN0wZ7sz_d4_4SgPINJncsxumz5zwgzzhBLBLn0/edit` with meeting link `https://hello.codecombat.com/c/steven/t/131` and Outreach info dump template 43784 at Step 2. All quality checks pass. Steven taking to claude.ai for copy dial-in; next session will receive revisions, then evolved framework says to build UNI first as safety net.
+- **New memory files shipped this session:** `reference_scout_sheet_ids.md`, `project_sequence_coverage_s71.md`, `project_dre_family_framework.md`, `project_diocesan_drip_silent_skip_on_missing_tmp_token.md`, `feedback_chart_format_preference.md`.
+- **Repo state:** S71 work committed + pushed end-of-session. Working tree clean except `.DS_Store`.
+
+**S70 narrative (2026-04-15) archived to `SCOUT_HISTORY.md` — see Session 70 entry there.**
 
 **End of Session 70, 2026-04-15 14:18 CDT — overnight-audit drain continued + themes 1-4 shipped:**
 

@@ -1,70 +1,48 @@
-# Handoff — S69 EOS (2026-04-15 09:17 CDT, ctx 42% measured)
+# Session 71 handoff — paused at ctx: 40% (measured)
 
-## 🎯 S70 KICKOFF — walk Steven through the GAS redeploy for CRIT-2
+**Paused:** 2026-04-16 ~15:55 CDT Thu at the 40% pause threshold from CLAUDE.md user-scope protocol.
 
-**First action on S70 startup: walk Steven through deploying the updated `gas/Code.gs` to script.google.com.**
+## Where — clean pause point, nothing mid-sentence
 
-The placeholder-token guard (commit `65976b9`) is code-complete but sitting in git — it does NOT protect production until Steven redeploys the web app. Per `gas/CLAUDE.md §Deployment Checklist`:
+- No in-progress file edits. Clean pause.
+- Background subagent dispatched: SF Leads role+state segmentation (76,472 rows measured). Not yet returned. Output will land at `/private/tmp/claude-501/-Users-stevenadkins-Code-Scout/169cb291-fb81-4a56-9466-f51fef7e070c/tasks/ad69889f19ab37672.output` when done.
+- Steven is in claude.ai dialing in copy for the Dormant Re-Engagement sequence v2 draft.
 
-1. Open https://script.google.com → find "Scout Bridge" project → open `Code.gs`
-2. Paste the new `doPost` entry — specifically the 4-line block at the top of the `try` that checks `SECRET_TOKEN === "REPLACE_WITH_YOUR_SECRET_TOKEN_HERE" || !SECRET_TOKEN`. Either paste the whole updated file or hand-edit just `doPost`.
-3. Click **Save** (Cmd+S).
-4. Click **Deploy → Manage deployments** → pencil icon on the active deployment → **Version: New version** → **Deploy**.
-5. **URL stays the same on new version** — no Railway env update needed (per gas/CLAUDE.md gotcha).
-6. From Telegram: send `/ping_gas` and confirm "GAS bridge OK" response. If it returns the new 500 `"Server misconfigured: SECRET_TOKEN not set"` error, then `SECRET_TOKEN` in the deployed Code.gs is still the placeholder — Steven needs to substitute the real token on line 22 before redeploying.
+## What S71 accomplished (major wins)
 
-**Why Steven should care:** until redeploy, the fix is a no-op in production. A future fresh deploy that forgot to set `SECRET_TOKEN` would still silently accept any caller sending `"REPLACE_WITH_YOUR_SECRET_TOKEN_HERE"`. This is the security guard — it's worth 30 seconds of deploy friction.
+1. **Thursday 2026-04-16 diocesan drip — done.** 14 contacts loaded live (measured). All 63/63 plans `done`. Token cache issue from Steven's desktop-app attempt resolved (copy `memory/outreach_tokens.json` → `/tmp/outreach_tokens.json`, force refresh, reset 14 `skipped` → `pending`, re-execute).
+2. **C4 cold_license_request Queue cleanup — done.** 1,245 pending → 1,099 `complete` + 143 `skipped` (with distinctive Notes markers) + 3 true pending. Scout now knows which rows are:
+   - 1,092 rows `complete` — "Loaded into C4 seq <id> (<name>)"
+   - 86 rows `skipped` — "ACTIVE IN OTHER OUTREACH SEQUENCE (not C4) — S71 2026-04-16" (Steven-reviewable)
+   - 46 rows `skipped` — "Opted out of email per Outreach — S71 2026-04-16"
+   - 11 rows `skipped` — "No State in Queue; Haiku enrichment returned UNKNOWN — S71 2026-04-16"
+3. **24-strategy sequence coverage mapped accurately.** New memory file `project_sequence_coverage_s71.md` — 5 of 24 strategies + diocesan have Scout-helped sequences (#7, #9/#11 shared, #10, #13, #14). 18 don't.
+4. **Dormant Re-Engagement sequence (Strategy #12) v2 draft shipped.** Google Doc: `https://docs.google.com/document/d/164JXmN0wZ7sz_d4_4SgPINJncsxumz5zwgzzhBLBLn0/edit`. Meeting link `https://hello.codecombat.com/c/steven/t/131`. Info dump template 43784 at Step 2. All quality checks pass (word caps, distinct angles/CTAs, banned-phrase scrub, merge fields, spring seasonal). Steven taking to claude.ai for copy dial-in.
+5. **Latent bug tracked** — `project_diocesan_drip_silent_skip_on_missing_tmp_token.md` — recommends pre-flight smoke test in `cmd_execute`.
+6. **Sheet IDs saved to memory** — `reference_scout_sheet_ids.md`. Master + Territory in `.env`; SF Imports (76k+ leads) NOT in `.env` but now documented with full schema note. Steven explicitly called this out as crucial; memory prevents repeat.
 
----
+## Next session first actions
 
-# Handoff — S69 pause at 41% ctx measured (2026-04-15 09:13 CDT)
+1. **Read the subagent output** — `/private/tmp/claude-501/-Users-stevenadkins-Code-Scout/169cb291-fb81-4a56-9466-f51fef7e070c/tasks/ad69889f19ab37672.output`. Contains 76k-lead role+state segmentation rollups: role×count, state×count, role×state cross-tab, top-20 `other`-bucket raw titles. Decide with Steven if a Haiku pass on `other` is worth ~$0.50 max (estimate).
+2. **Receive Steven's revised Dormant Re-Engagement copy** from claude.ai. Expect either a new Google Doc link or pasted copy. Apply revisions. Re-run quality checks.
+3. **Pick dormant-sequence lead source** — Steven's call between: (a) CC backend teacher signup DB (blocked on his Wed 2026-04-15 SF/CC fixes), (b) Outreach-side dormant prospects queryable now, (c) Salesforce LastActivityDate-based. Scout recommendation: Option (b) — needs new helper `tools.outreach_client.find_dormant_prospects(days=90)`.
+4. **Create the sequence in Outreach disabled** via `tools.outreach_client.create_sequence` (after `validate_sequence_inputs` passes). Rule 15: Steven activates in UI.
+5. **Add SF Imports sheet ID to `.env`** as `GOOGLE_SHEETS_SF_IMPORTS_ID=15pSmpfdSlgoaBFxbwquUjtO9xYSnK-4yA69mkw_lWLk`. Update `reference_scout_sheet_ids.md` to reflect.
+6. **Commit S71 session artifacts** to git — new/updated memory files (5 files). The `/tmp/` scripts (`c4_cross_ref.py`, `c4_status_backfill.py`, `c4_backfill_150.py`, `c4_backfill_cleanup.py`, `winback_cross_ref.py`, `all_strategy_cross_ref.py`, `sf_leads_segmentation.py`) — decide per Rule 18 if any should be promoted to `scripts/`. Most are one-shot audits, so they can stay in `/tmp/` or get archived.
 
-## Where we are
-- **Overnight audit run complete** — report at `SCOUT_AUDIT_2026-04-15_0128.md` (270 verified findings; 2 CRIT, 72 HIGH, 117 MED, 75 LOW, 4 NIT).
-- **Both CRITICALs fixed** in this session, ready to commit. Nothing else from the Top 10 touched.
+## Open items not urgent
 
-## What was fixed (2 CRITICALs, atomic)
+- Tier 1 #12 sequence creation pending revised copy + lead source decision
+- 17 other uncovered strategies in priority order (see `project_sequence_coverage_s71.md` + `project_prioritization_plan_s66.md`)
+- Research engine cost redesign (parked) — blocks all research-dependent strategies (winback contacts, intra_district, cte_center, etc.)
+- Strategy #2 Usage-Based still blocked on CC backend work (Steven's Wed 2026-04-15 fixes)
 
-### CRIT-1 — `agent/main.py:1775` — `gas` NameError in `/unanswered`
-Added `gas = get_gas_bridge()` + None-guard immediately after the "Checking for unanswered..." status send. Mirrors the pattern every other `gas`-dependent branch uses. No more `NameError: name 'gas' is not defined` when `/unanswered` fires.
+## Why (session-governing context)
 
-### CRIT-2 — `gas/Code.gs:30` (doPost entry) — placeholder token guard
-Added a runtime check at the top of `doPost` that returns HTTP-500 `"Server misconfigured: SECRET_TOKEN not set"` if `SECRET_TOKEN === "REPLACE_WITH_YOUR_SECRET_TOKEN_HERE"` or empty. Prevents a new deploy from silently accepting any caller who sends the placeholder string.
+- S71 was supposed to start with the Thursday diocesan drip (scheduled S66/S70) and then kick off Tier 1 sequence build (S67 focus). Both happened. Bonus: Steven's "are these numbers right?" hunch on the "1,245 + 247 pending" framing led to a full Queue status audit that cleaned 1,235 rows and corrected the actionable-backlog understanding (150 real → 7 net-new after opt-out/active-elsewhere filtering).
+- The sequence coverage mapping (#3) happened because Steven asked "which of the 23 strategies have sequences we built" and my first answer was wrong. Memory file prevents the same mistake next time.
+- The sheet IDs memory file (#6) happened because Steven caught me asking for a sheet ID I had already used. His quote: "THIS IS CRUCIAL. You need to make sure you have access to all this data." File prevents repeat.
 
-**⚠ Deployment gotcha (per `gas/CLAUDE.md`):** gas/Code.gs changes require manual redeploy. Steven needs to: (1) paste Code.gs into script.google.com, (2) Deploy → Manage deployments → New version, (3) URL stays the same, so no Railway update needed. Just verify via `/ping_gas` after.
+## Context budget for next session
 
-## Top 10 action list — 8 items still pending
-
-In priority order from the report's "Top 10 Actions":
-
-3. **HIGH-4 (fix-now)** — `agent/main.py:3567` — dedupe `/scan_compliance` elif branches. Lines 3567 and 3689 both match `/scan_compliance`; line 3567 wins, line 3689 is dead. Different arg counts → wrong code path runs.
-4. **HIGH-3 (fix-now)** — `agent/main.py:3015` — wrap `format_hot_signals` in `run_in_executor` and pass the pre-filtered `sigs` list. Current `/signals new` blocks event loop AND ignores its own filter.
-5. **HIGH-5 (fix-now)** — `gas/Code.gs:189` — `createDraftReply` passes `""` as body positional arg; real body goes to unrecognized `options.body` key. Plain-text reply drafts ship blank. (Would bundle with CRIT-2 redeploy.)
-6. **HIGH-9 (fix-now)** — 3 divergent `classify_role` in `scripts/audit_c4_prospects.py:74`, `scripts/enrich_c4_pass2.py:336`, `scripts/enrich_c4_titles.py:301`. Rename to `_classify_role_c4` to avoid collision with `tools/role_classifier`, or delete and use tools version.
-7. **HIGH-13 (fix-now)** — `scripts/bug5_phase0_scan.py:39/71/93/94/95` — `-1` sentinel index bug. `dn_idx < len(row)` passes when `dn_idx=-1`, so `row[-1]` is silently returned. Add `dn_idx != -1 and` to guards.
-8. **HIGH-11 (investigate)** — `scripts/bug5_cleanup_lackland_test.py:40` — off-by-one in deleteDimension. **Before re-running, check the sheet for rows deleted one below the intended target** — the bug may already have corrupted the sheet in prior runs.
-9. **HIGH-8 (fix-now)** — `scripts/ab_research_engine.py:324` — cost ceiling compares only v1 cost but docstring says "combined v1+v2". Allows ~2× overspend.
-10. **HIGH-2 (fix-now)** — `agent/main.py:1307` — `cross_checked` counter extracted from SF Contacts import result but dropped from summary. Silent data-integrity gap.
-
-## Themes (higher leverage than any single fix)
-
-From the report's `## Themes` section — each collapses many findings into one fix:
-- `asyncio.get_event_loop()` → `asyncio.get_running_loop()` (deprecated in 3.10+, ~30 call sites in main.py + 5 in research_engine.py).
-- Serper HTTP status not checked before `resp.json()` in `compliance_gap_scanner`, `private_schools`, `fetch_csta_roster`, `f4_serper_replay`, `enrich_c4_pass2` (failed API calls silently produce empty results).
-- `scripts/*.py` all crash on missing `.env` / missing env vars with raw KeyError / FileNotFoundError (no helpful message).
-- `chr(65+col)` column-letter arithmetic in `enrich_c4_pass2`, `phase1_ground_truth_lackland`, `phase2b_sample_fingerprints` — silently wraps past column Z.
-- Broad `except Exception: pass` swallowing data-integrity counters.
-- One-shot scripts hardcoding timestamps (`"2026-04-"`, `DRIP_DAYS`) that will silently no-op after their window.
-
-## Next-step
-
-Per the 40% pause protocol, stopped at clean boundary (2 CRITICALs done, atomic). Waiting for Steven's direction on:
-- (a) full wrap-up (EOS) now, or
-- (b) Steven sends his EOS prompt, or
-- (c) continue one specific named HIGH item (suggest HIGH-4 or HIGH-3 next — both single-file edits in main.py).
-
-## Files changed this session
-
-- `agent/main.py` — CRIT-1 fix
-- `gas/Code.gs` — CRIT-2 fix (requires manual GAS redeploy before it takes effect)
-- `.claude/handoff.md` — this file
+S71 burned ctx on Queue audit + sequence coverage + dormant v2 draft. Productive but heavy. Next session budget: start with subagent output (cheap, pre-computed) + copy revisions + sequence creation (small API calls). Save new sequence builds for other strategies (16-20 signal-driven) for fresh-budget sessions.
