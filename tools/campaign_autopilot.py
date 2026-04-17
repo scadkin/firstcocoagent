@@ -85,6 +85,7 @@ class SequenceAutopilotResult:
     skipped_already_in_dre_cohort: int = 0
     skipped_existing_seq_state: int = 0  # already in this specific seq
     skipped_no_pool_candidates: int = 0
+    skipped_not_in_outreach: int = 0  # DRE = dormant re-engage; never create-new
     skipped_rule17: int = 0
     failed: int = 0
     cohort_remaining: int = 0  # pool rows left for this sequence's cohort
@@ -424,15 +425,20 @@ def _process_strategy(
 
             # At-add-time correctness checks (real Outreach API calls)
             prospect = find_prospect_by_email(lead.email)
-            if prospect:
-                prospect_id = prospect["prospect_id"]
-                touched = _get_prospect_touched_at(prospect_id)
-                if _is_recent_activity(touched):
-                    seq_result.skipped_recent_activity += 1
-                    continue
-                if _prospect_has_active_dre_cohort_state(prospect_id):
-                    seq_result.skipped_already_in_dre_cohort += 1
-                    continue
+            if prospect is None:
+                # DRE = dormant re-engage. A lead not yet in Outreach was
+                # never engaged — "re-engage" is a category error. Skip
+                # rather than falling through to create_prospect.
+                seq_result.skipped_not_in_outreach += 1
+                continue
+            prospect_id = prospect["prospect_id"]
+            touched = _get_prospect_touched_at(prospect_id)
+            if _is_recent_activity(touched):
+                seq_result.skipped_recent_activity += 1
+                continue
+            if _prospect_has_active_dre_cohort_state(prospect_id):
+                seq_result.skipped_already_in_dre_cohort += 1
+                continue
 
             accepted.append(lead)
             emails_claimed_this_run.add(lead.email.lower())
@@ -670,6 +676,8 @@ def format_telegram_summary(report: AutopilotReport, *, live: bool) -> str:
                 skips.append(f"{seq.skipped_recent_activity} recent_activity")
             if seq.skipped_already_in_dre_cohort:
                 skips.append(f"{seq.skipped_already_in_dre_cohort} already_in_dre_cohort")
+            if seq.skipped_not_in_outreach:
+                skips.append(f"{seq.skipped_not_in_outreach} not_in_outreach")
             if seq.skipped_rule17:
                 skips.append(f"{seq.skipped_rule17} rule17")
             if seq.failed:
