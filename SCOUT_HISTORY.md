@@ -1582,6 +1582,65 @@ Pressure-test pattern paying off again — the second draft is what I actually e
 
 ---
 
+## Session 72 (2026-04-16) — DRE Family Collapsed 21→13 + Steven's claude.ai Copy Delivered (Read-Only Session)
+
+**Session theme:** Take S71's theoretical 21-sequence DRE framework and collapse it to a data-backed sequence set by running live classification passes over the SF Leads universe. Five classification passes + two filter passes on 76,471 rows (measured) produced 13 locked sequences covering 26,137 eligible leads (measured). Session ended at context-budget ceiling with Steven's claude.ai-revised copy file landed in repo but not yet diffed / integrated / built — Phase 2 deferred cleanly to S73.
+
+### 1. Five classification passes produced the 13-sequence lock
+
+- Pass 1–5 iterated on SF Leads role + grade + substrategy classification. The S71 theoretical matrix (TC 9 × LQD 9 × LIB 2 × UNI 1 = 21 sequences) did not survive contact with the real data — several cells had <50 leads and collapsed into residuals.
+- Final lock: **13 sequences** with eligible cohorts (all measured, after active-account and 90-day no-touch filters):
+  1. INT-Universal 867 (ship first as safety net)
+  2. TC-Universal-Residual 6,957
+  3. TC-MS 5,452
+  4. TC-HS 4,892
+  5. TC-Elem 4,941
+  6. TC-Virtual 441
+  7. TC-District 442
+  8. TC-All-Grades 126
+  9. LIB 633
+  10. LQD-Universal 407
+  11. INT-Teacher 404
+  12. TC-Teacher 393
+  13. IT-ReEngage 182 (TC-IT + INT-IT merged)
+- TC substrategy dominates at **89% measured** of the DRE universe. Full derivation at `~/Desktop/DRE_Sequence_Family_Derivation_S72.md`.
+- Framework memory rewritten at `project_dre_family_framework.md` to reflect the locked 13 (replacing S71's 21).
+
+### 2. Steven's claude.ai copy file landed — not yet integrated
+
+- File: `docs/DRE_13_Sequences_Final_Copy_S72.md` (40KB / 1,086 lines measured, copied from `~/Downloads/DRE_13_Sequences_Final_Copy.md`).
+- Represents Steven's iteration pass on the S71 v2 base copy through claude.ai.
+- **Not diffed against S71 v2 base. Not integrated. Not validated against `feedback_sequence_copy_rules.md`.** Session 72 hit context-budget ceiling before Phase 2 work could start.
+- Phase 2 work = S73 first actions (listed in CLAUDE.md CURRENT STATE).
+
+### 3. Key finding that changes the add workflow
+
+- 99.83% measured of eligible DRE leads already exist in Outreach as prospects. S73 workflow is **`find_prospect_by_email` + verify state+tz + `add_prospect_to_sequence`** — NOT `create_prospect`. Only 36 measured leads need creation.
+- Rule 17 is mostly verification-not-population for DRE.
+
+### 4. New memory files + data artifacts
+
+- **Memory shipped:**
+  - `project_dre_family_framework.md` (rewrite — 13-seq locked, build order, naming/tag conventions)
+  - `project_uni_lead_source_whitelist.md` (new — 22 exact Lead Source strings qualifying for INT substrategy, case-insensitive exact match)
+  - `project_dre_cold_outreach_parked_cohort.md` (new — ~48k measured parked bought-list leads for future cold session)
+- **Reusable artifacts at /tmp (preserve across sessions):**
+  - `sf_leads_dre_pass5.py` (classification)
+  - `sf_leads_dre_filters.py` + `sf_leads_dre_filters_part2.py` (filters)
+  - `dre_outreach_touch_cache.json` (26,944 measured `touchedAt` entries — reuse to skip API calls)
+- **.env append:** `GOOGLE_SHEETS_SF_IMPORTS_ID=15pSmpfdSlgoaBFxbwquUjtO9xYSnK-4yA69mkw_lWLk`
+
+### 5. Exclusions and parks
+
+- **Do NOT touch:** 40 measured Code Ninjas rows (corporate deal, not channel), 433 measured homeschool individual-family rows (not customers).
+- **Parked for future cold-outreach session:** ~48,000 measured rows (ZenProspect/Agile/MCH/GovSpend/K12Prospects bought lists). These are legitimate in-territory targets but not dormant-re-engage appropriate. Reference: `project_dre_cold_outreach_parked_cohort.md`.
+
+### 6. Repo state
+
+- S72 work committed + pushed end-of-session. Commits `f9cc849` (S72 EOS) + `eecc54a` (transcript). Working tree clean except `.DS_Store`.
+
+---
+
 ## Session 71 (2026-04-16) — Thursday Diocesan Drip Done + C4 Status Drift Cleaned + Sequence Coverage Mapped + DRE Family Framework Evolved
 
 **Session theme:** Thursday 2026-04-16 diocesan drip executed + major audit of Queue status drift (triggered by Steven's "90% sure there's a mistake" on the 1,245+247 backlog numbers) + 24-strategy sequence coverage mapped authoritatively + Strategy #12 Dormant Re-Engage framework evolved from one sequence into a 21-sequence family spanning 4 substrategies × role × grade. Dormant v2 draft shipped to Google Doc; Steven took to claude.ai for copy dial-in at EOS.
