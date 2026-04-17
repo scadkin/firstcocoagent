@@ -389,6 +389,35 @@ def _api_patch(path: str, payload: dict) -> dict:
     return resp.json()
 
 
+def _api_delete(path: str) -> dict:
+    """Make a DELETE request to the Outreach API."""
+    url = f"{API_BASE}{path}"
+    headers = _get_headers()
+
+    resp = httpx.delete(url, headers=headers, timeout=30.0)
+    if resp.status_code == 401:
+        if _refresh_access_token():
+            headers = _get_headers()
+            resp = httpx.delete(url, headers=headers, timeout=30.0)
+
+    if resp.status_code not in (200, 204):
+        body = resp.text[:500]
+        logger.error(f"Outreach DELETE {path} HTTP {resp.status_code}: {body}")
+        raise Exception(f"Outreach API error {resp.status_code}: {body}")
+
+    return {"status": resp.status_code}
+
+
+def delete_sequence(seq_id: int | str) -> dict:
+    """Delete a sequence by ID. Cascades to the sequence's steps and sequenceTemplates
+    (but NOT to the underlying templates — those remain in the template library).
+
+    Returns: {"status": int}
+    """
+    logger.info(f"Deleting Outreach sequence ID {seq_id}")
+    return _api_delete(f"/sequences/{int(seq_id)}")
+
+
 def _api_get_all(path: str, params: dict | None = None, max_pages: int = 50) -> list:
     """
     Paginate through all results for a GET endpoint.
@@ -826,6 +855,7 @@ def validate_sequence_inputs(
     allow_no_schedule: bool = False,
     max_repetition: dict[str, int] | None = None,
     allow_phrases: list[str] | None = None,
+    forbid_body_dashes: bool = True,
 ) -> dict:
     """
     Pre-write validation for an Outreach sequence. Zero API calls.
@@ -921,13 +951,16 @@ def validate_sequence_inputs(
             failures.append(f"step {i+1} body contains banned phrases {hits!r}.")
 
     # ── 8. Em/en dash detection in bodies ─────────────────────────────
-    for i, body in enumerate(bodies):
-        dash_hits = _scan_banned_chars(body, _BANNED_BODY_CHARS)
-        if dash_hits:
-            failures.append(
-                f"step {i+1} body contains banned dash characters {dash_hits!r}. "
-                f"Use commas or periods instead."
-            )
+    # Callers can opt out via forbid_body_dashes=False when a specific
+    # campaign uses em dashes intentionally and has been reviewed.
+    if forbid_body_dashes:
+        for i, body in enumerate(bodies):
+            dash_hits = _scan_banned_chars(body, _BANNED_BODY_CHARS)
+            if dash_hits:
+                failures.append(
+                    f"step {i+1} body contains banned dash characters {dash_hits!r}. "
+                    f"Use commas or periods instead."
+                )
 
     # ── 9. codecombat.com/schools required in ≥2 steps ────────────────
     if require_cc_schools_link:
@@ -1219,6 +1252,7 @@ def create_sequence(
     verify_after_create: bool = True,
     max_repetition: dict[str, int] | None = None,
     allow_phrases: list[str] | None = None,
+    forbid_body_dashes: bool = True,
 ) -> dict:
     """
     Create a complete sequence in Outreach with email steps.
@@ -1279,6 +1313,7 @@ def create_sequence(
         allow_no_schedule=allow_no_schedule,
         max_repetition=max_repetition,
         allow_phrases=allow_phrases,
+        forbid_body_dashes=forbid_body_dashes,
     )
     if not validation["passed"]:
         logger.error(

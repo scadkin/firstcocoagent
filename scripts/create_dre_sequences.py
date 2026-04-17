@@ -57,6 +57,7 @@ load_env_or_die(required=[
 
 from tools.outreach_client import (  # noqa: E402
     create_sequence,
+    delete_sequence,
     validate_sequence_inputs,
 )
 
@@ -74,8 +75,25 @@ STATE_FILE = REPO_ROOT / "data" / "dre_2026_spring.state.json"
 TEMPLATE_ID_STEP_2 = 43784
 MEETING_LINK = "https://hello.codecombat.com/c/steven/t/131"
 SCHOOLS_URL = "https://www.codecombat.com/schools"
-STEP_1_INTERVAL_SEC = 300          # validator requires [1, 600]
-STEP_N_INTERVAL_SEC = 5 * 86_400   # 5 days for steps 2-6
+STEP_1_INTERVAL_SEC = 300  # validator requires [1, 600]
+
+# Per-step intervals: 0 / 5 / 6 / 7 / 6 / 5 days with hour+minute variance
+# so contacts added together don't compound to the same fire time, and so
+# fire-time-of-day drifts across the sequence (schedule still picks the next
+# available window; variance breaks batching). All are ≥5-day validator min.
+#   Step 2 = 5d + 3h 17m  = 443820
+#   Step 3 = 6d + 2h 23m  = 526980
+#   Step 4 = 7d + 5h 41m  = 625260
+#   Step 5 = 6d + 1h 19m  = 523140
+#   Step 6 = 5d + 4h 37m  = 448620
+STEP_INTERVALS_SEC = [
+    STEP_1_INTERVAL_SEC,
+    5 * 86_400 + 3 * 3600 + 17 * 60,
+    6 * 86_400 + 2 * 3600 + 23 * 60,
+    7 * 86_400 + 5 * 3600 + 41 * 60,
+    6 * 86_400 + 1 * 3600 + 19 * 60,
+    5 * 86_400 + 4 * 3600 + 37 * 60,
+]
 
 # Build order: INT-Universal first as safety net, then biggest TC, then grade
 # splits, specialty, non-TC. Source: DRE framework + copy file line 13-27.
@@ -117,24 +135,23 @@ def _wrap_url(match: re.Match) -> str:
     return f'<a href="{url}">{url}</a>{trailing}'
 
 
-def body_text_to_html(text: str) -> str:
+def body_text_to_html(text: str, preserve_em_dashes: bool = False) -> str:
     """
     Convert a plain-text email body to Outreach-ready HTML.
 
-    - Em dashes -> ", " (comma + space). 26 occurrences in DRE copy.
+    - Em dashes -> ", " (comma + space), UNLESS preserve_em_dashes=True.
+      S73 rev1 mechanically replaced all em dashes; S73 rev2 preserves them
+      in Step 6 after Steven flagged that some replacements broke sentences.
     - Raw URLs -> <a href="url">url</a> (click-tracked in Outreach).
     - Blank-line paragraph separators -> <br><br>.
     - Single newlines inside a paragraph -> space (collapse).
     """
-    # Em dash replace (per S73 decision — Steven's copy rule forbids them
-    # but the claude.ai rewrite reintroduced them). Handle the common
-    # ` — ` pattern with both spaces so we don't leave double spaces.
-    text = text.replace(" \u2014 ", ", ")
-    text = text.replace("\u2014 ", ", ")
-    text = text.replace(" \u2014", ", ")
-    text = text.replace("\u2014", ", ")
-    # En dash -> hyphen (same rule, less common).
-    text = text.replace("\u2013", "-")
+    if not preserve_em_dashes:
+        text = text.replace(" \u2014 ", ", ")
+        text = text.replace("\u2014 ", ", ")
+        text = text.replace(" \u2014", ", ")
+        text = text.replace("\u2014", ", ")
+        text = text.replace("\u2013", "-")
 
     # Split on one-or-more blank lines (paragraph breaks).
     paragraphs = re.split(r"\n\s*\n", text.strip())
@@ -258,33 +275,68 @@ _CC_SCHOOLS_APPEND = (
     "\n\nMore at https://www.codecombat.com/schools."
 )
 
+# S73 rev2: Step 6's role-disqualifier paragraph ("If CS and AI aren't on
+# the {{company}} roadmap..." / "If CodeCombat isn't the right fit..." /
+# etc.) gets swapped for a simple role-check. The regex below finds any
+# paragraph containing "take it from there" and swaps the entire paragraph.
+# Matches the pattern used across all 13 Step 6 closings in the copy file.
+_STEP_6_CLOSING_PARAGRAPH_RE = re.compile(
+    r"\n\n[^\n]*?take it from there\.[^\n]*",
+    re.MULTILINE,
+)
+_STEP_6_NEW_CLOSING = (
+    "\n\nIf you aren't the right person to speak to, or you've changed roles, "
+    "would you connect me with the right contact?"
+)
+
+
+def _rewrite_step_6_closing(body_text: str) -> str:
+    """Replace the multi-sentence company-roadmap disqualifier with a
+    single-line role-check per S73 rev2."""
+    if "take it from there" not in body_text:
+        # No known disqualifier pattern — append the role-check instead.
+        return body_text + _STEP_6_NEW_CLOSING
+    return _STEP_6_CLOSING_PARAGRAPH_RE.sub(_STEP_6_NEW_CLOSING, body_text, count=1)
+
 
 def build_step_dicts(display_name: str, parsed_steps: list[dict]) -> list[dict]:
     """
     Transform parsed copy steps into the shape create_sequence expects.
 
-    Step 1          -> {subject, body_html, interval_seconds=300}
-    Step 2          -> {template_id: 43784, interval_seconds=5days}
-    Steps 3/4/5     -> {subject, body_html, interval_seconds=5days}
-    Step 6          -> {subject, body_html=body+cc-schools line,
-                          interval_seconds=5days}
+    Per-step shape:
+      Step 1 -> {subject, body_html, interval=300s}
+      Step 2 -> {template_id: 43784, interval=STEP_INTERVALS_SEC[1]}
+      Step 3 -> {subject, body_html, interval=STEP_INTERVALS_SEC[2]}
+      Step 4 -> {subject, body_html+cc-schools line, interval=STEP_INTERVALS_SEC[3]}
+      Step 5 -> {subject, body_html, interval=STEP_INTERVALS_SEC[4]}
+      Step 6 -> {subject, body_html (em dashes preserved + closing swapped
+                  for role-check per S73 rev2), interval=STEP_INTERVALS_SEC[5]}
     """
     out = []
     for s in parsed_steps:
         step_num = s["_step_num"]
-        interval = STEP_1_INTERVAL_SEC if step_num == 1 else STEP_N_INTERVAL_SEC
+        interval = STEP_INTERVALS_SEC[step_num - 1]
 
         if "template_id" in s:
-            # Reused template (Step 2 in all 13).
             if step_num != 2:
                 raise ValueError(f"{display_name}: template_id on non-step-2 ({step_num})")
             out.append({"template_id": s["template_id"], "interval_seconds": interval})
             continue
 
         body_text = s["body"]
-        if step_num == 6:
+        # cc-schools now on Step 4 (S73 rev2, moved from Step 6).
+        if step_num == 4:
             body_text = body_text + _CC_SCHOOLS_APPEND
-        body_html = body_text_to_html(body_text)
+        # Step 6: swap role-disqualifier paragraph for the role-check,
+        # and preserve em dashes in the remaining sequence-specific content
+        # (S73 rev2 — Steven flagged broken sentences from rev1's mechanical
+        # em-dash-to-comma replace).
+        if step_num == 6:
+            body_text = _rewrite_step_6_closing(body_text)
+            body_html = body_text_to_html(body_text, preserve_em_dashes=True)
+        else:
+            body_html = body_text_to_html(body_text)
+
         out.append({
             "subject": s["subject"],
             "body_html": body_html,
@@ -340,6 +392,7 @@ def _dry_run_one(display_name: str, slug: str, cohort_size: int, schedule_id: in
         meeting_link=MEETING_LINK,
         require_cc_schools_link=False,  # template 43784 hosts canonical mention
         allow_phrases=["15 minutes"],   # calendar-booking CTA, not the "got 15 min?" cliche
+        forbid_body_dashes=False,       # S73 rev2: em dashes preserved in Step 6 per Steven
     )
     return r["passed"], r["failures"], r["warnings"]
 
@@ -363,6 +416,7 @@ def _create_one(display_name: str, slug: str, cohort_size: int, schedule_id: int
         require_cc_schools_link=False,
         verify_after_create=True,
         allow_phrases=["15 minutes"],
+        forbid_body_dashes=False,
     )
     return result
 
@@ -372,6 +426,9 @@ def main() -> int:
     grp = ap.add_mutually_exclusive_group(required=True)
     grp.add_argument("--dry-run", action="store_true", help="Parse + validate only, no API calls")
     grp.add_argument("--create", action="store_true", help="Create all 13 in Outreach")
+    grp.add_argument("--delete-all", action="store_true",
+                     help="DELETE every sequence ID currently in the state sidecar. "
+                          "Clears sidecar afterward. Use before a full --create re-run.")
     ap.add_argument("--only", type=int, default=None, metavar="N",
                     help="Build-order index 1..13; restricts action to that sequence")
     ap.add_argument("--resume", action="store_true",
@@ -394,6 +451,29 @@ def main() -> int:
     targets = BUILD_ORDER
     if args.only is not None:
         targets = [t for t in BUILD_ORDER if t[0] == args.only]
+
+    # ── DELETE-ALL ───────────────────────────────────────────
+    if args.delete_all:
+        created = state.get("created", {})
+        if not created:
+            logger.info("Nothing to delete — state sidecar is empty.")
+            return 0
+        for name, info in created.items():
+            seq_id = info.get("sequence_id")
+            if not seq_id:
+                continue
+            try:
+                delete_sequence(seq_id)
+                logger.info(f"  deleted: {name} (was id {seq_id})")
+            except Exception as e:
+                logger.error(f"  FAILED delete for {name} (id {seq_id}): {e}")
+                return 1
+            time.sleep(1)
+        # Clear sidecar.
+        state["created"] = {}
+        _write_state_atomic(state)
+        logger.info(f"Deleted {len(created)} sequences; cleared state sidecar.")
+        return 0
 
     # ── DRY-RUN ──────────────────────────────────────────────
     if args.dry_run:
