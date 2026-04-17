@@ -234,6 +234,52 @@ def test_hot_lead_override_allows_1_hour_interval():
 
 
 # ─────────────────────────────────────────────
+# Template reuse tests (S73 — create_sequence supports template_id on a step
+# dict to reuse existing Outreach templates instead of creating duplicates.
+# Validator must not spuriously fail a template_id-only step that carries
+# no subject/body for Scout to inspect.)
+# ─────────────────────────────────────────────
+
+def test_accepts_template_id_only_step_in_mixed_sequence():
+    """DRE Step 2 is `{template_id: 43784}` only — no body for validator to
+    inspect. Validator must accept it without tripping banned-phrase / em-dash
+    / body-empty checks."""
+    kw = _clean_kwargs()
+    # Replace step 2 with a template_id-only step (reuses external template).
+    # Clean fixture had cc-schools in step 2 body, so dropping it to a
+    # template_id removes one cc-schools hit; add it back on step 3 body so
+    # the ≥2-step rule still passes on the own-bodied steps.
+    kw["steps"][1] = {"template_id": 43784, "interval_seconds": 432000}
+    kw["steps"][2]["body_html"] = kw["steps"][2]["body_html"] + (
+        f' More at <a href="{SCHOOLS_URL}">codecombat.com/schools</a>.'
+    )
+    r = validate_sequence_inputs(**kw)
+    assert r["passed"], f"template_id-only step should pass, got failures: {r['failures']}"
+    return "accepts_template_id_only_step_in_mixed_sequence"
+
+
+def test_template_id_step_does_not_count_toward_cc_schools_tally():
+    """A template_id-only step's content is invisible to the validator. It
+    cannot contribute cc-schools hits even if the external template has the
+    link. Enforces the caller-side contract that require_cc_schools_link
+    should be set False when reusing templates that host the link."""
+    kw = _clean_kwargs()
+    # Strip cc-schools from all own-bodied steps + add a template_id-only step.
+    for s in kw["steps"]:
+        s["body_html"] = s["body_html"].replace(SCHOOLS_URL, "https://www.codecombat.com/")
+        s["body_html"] = s["body_html"].replace("codecombat.com/schools", "codecombat.com/")
+    kw["steps"][1] = {"template_id": 43784, "interval_seconds": 432000}
+    r = validate_sequence_inputs(**kw)
+    assert not r["passed"], "should still fail because own-bodied steps have 0 cc-schools hits"
+    assert any("codecombat.com/schools" in f for f in r["failures"])
+    # Now set require_cc_schools_link=False and confirm pass.
+    kw["require_cc_schools_link"] = False
+    r2 = validate_sequence_inputs(**kw)
+    assert r2["passed"], f"with override should pass, got: {r2['failures']}"
+    return "template_id_step_does_not_count_toward_cc_schools_tally"
+
+
+# ─────────────────────────────────────────────
 # Runner
 # ─────────────────────────────────────────────
 
@@ -252,6 +298,8 @@ TESTS = [
     test_skips_cc_schools_link_when_flag_disabled,
     test_requires_meeting_link_when_provided,
     test_hot_lead_override_allows_1_hour_interval,
+    test_accepts_template_id_only_step_in_mixed_sequence,
+    test_template_id_step_does_not_count_toward_cc_schools_tally,
 ]
 
 

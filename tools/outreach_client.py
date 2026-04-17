@@ -1351,24 +1351,34 @@ def create_sequence(
         else:
             interval = 300 if i == 0 else 432000
 
-        # Step 2a: Create template
-        template_payload = {
-            "data": {
-                "type": "template",
-                "attributes": {
-                    "subject": subject,
-                    "bodyHtml": body_html,
-                },
+        # Template resolution: if the step carries an existing `template_id`,
+        # reuse that template directly (no POST /templates). Pattern promoted
+        # from scripts/create_c4_sequences.py (S43) per Rule 18. Used by DRE
+        # (S73) to reuse info-dump template 43784 across 13 sequences without
+        # creating 13 duplicates.
+        reused_template_id = step.get("template_id")
+        if reused_template_id:
+            template_id = int(reused_template_id)
+            logger.info(f"  Step {i+1}: reusing existing template {template_id}")
+        else:
+            # Step 2a: Create template
+            template_payload = {
+                "data": {
+                    "type": "template",
+                    "attributes": {
+                        "subject": subject,
+                        "bodyHtml": body_html,
+                    },
+                }
             }
-        }
 
-        try:
-            template_result = _api_post("/templates", template_payload)
-            template_id = template_result.get("data", {}).get("id")
-        except Exception as e:
-            logger.error(f"  Failed to create template for step {i+1}: {e}")
-            created_steps.append({"step": i+1, "error": str(e)})
-            continue
+            try:
+                template_result = _api_post("/templates", template_payload)
+                template_id = template_result.get("data", {}).get("id")
+            except Exception as e:
+                logger.error(f"  Failed to create template for step {i+1}: {e}")
+                created_steps.append({"step": i+1, "error": str(e)})
+                continue
 
         # Step 2b: Create sequence step
         step_payload = {
