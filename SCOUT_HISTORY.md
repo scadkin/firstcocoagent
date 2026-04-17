@@ -1582,6 +1582,88 @@ Pressure-test pattern paying off again — the second draft is what I actually e
 
 ---
 
+## Session 73 (2026-04-16/17) — 13 DRE Sequences LIVE in Outreach (Rev1 → Rev2) + Throttle Profiles + Budget Reporter + S74 Auto-System Scope
+
+**Session theme:** Ship S72's 13 locked DRE sequences into Outreach, iterate through Steven's 4 copy/cadence feedbacks as rev2, apply proportional throttle with LQD front-load, and architect the strategy-agnostic budget-watch automation that must generalize across all 24 prospecting strategies.
+
+### 1. Rev1 → 13 DRE sequences created (IDs 2017-2029)
+
+- Promoted S43's `use_existing_template` pattern from `scripts/create_c4_sequences.py` into `tools/outreach_client.py::create_sequence` via a new `template_id` field on step dicts (Rule 18 debt closure — the pattern had been sitting as one-shot script for 5 months). 2 new unit tests in `scripts/test_outreach_validator.py`. Commit `3587807`.
+- New orchestrator `scripts/create_dre_sequences.py` (~510 lines). Parses locked copy file, transforms bodies (em-dash → ", ", URL → anchor-tag, paragraph → `<br><br>`), calls `create_sequence` per cohort. CLI: `--dry-run` / `--create` / `--resume` / `--only N`. State sidecar at `data/dre_2026_spring.state.json` (gitignored).
+- Added `allow_phrases` kwarg to validator + `create_sequence` so DRE's legitimate "15 minutes on my calendar: <booking link>" Step 5 CTA passes despite the default banlist targeting the "got 15 min?" cliché. Commit `c39c580`.
+- All 13 sequences 2017-2029 landed cleanly. Post-write `verify_sequence` flagged 2 false-positive warnings per sequence (template 43784's internal en-dash + "15 minutes" not plumbed through verify_sequence) — sequences themselves correct.
+
+### 2. Steven's 4 rev2 feedbacks
+
+After reviewing rev1, Steven requested:
+- **Cadence**: change 0/5/5/5/5/5 days to `0 / 5d+3h17m / 6d+2h23m / 7d+5h41m / 6d+1h19m / 5d+4h37m` — ~1 touch/week with hour+minute variance so contacts added together don't batch at identical fire times.
+- **cc-schools link**: move from Step 6 append to Step 4 append.
+- **Step 6 closing**: swap the preachy "If CS and AI aren't on the {{company}} roadmap..." paragraph (varied across sequences but all ended in "take it from there") for a single-line role-check: "If you aren't the right person to speak to, or you've changed roles, would you connect me with the right contact?"
+- **Em dashes in Step 6**: preserve (rev1's mechanical replace broke sentences per Steven). Steps 1/3/4/5 still get the em-dash-to-comma replace.
+
+Library additions for rev2:
+- `tools/outreach_client.py::delete_sequence(seq_id)` + `_api_delete` helper.
+- `validate_sequence_inputs` + `create_sequence` gain a `forbid_body_dashes` kwarg (default True). DRE passes False for Step 6 em-dash preservation.
+- `scripts/create_dre_sequences.py` gains `--delete-all` mode that walks state sidecar. Commit `f1408fb`.
+
+### 3. Delete-and-rebuild cycle
+
+First attempt: `--delete-all` returned 403 `unauthorizedOauthScope` on `sequences.delete`. Same gap pattern as `prospects.delete` + `mailboxes.read` called out in CLAUDE.md.
+
+Steven:
+(a) Deleted 2017-2029 manually in Outreach UI (~3 min work).
+(b) Granted `sequences.delete` OAuth scope same-session. Now `tools.outreach_client.delete_sequence` + `--delete-all` usable going forward. Doc + memory updates: commit `44b9af2`. `prospects.delete` + `mailboxes.read` still bundled for next re-auth.
+
+`--create` re-ran with rev2 build logic. All 13 landed clean as IDs 2030-2042. Commit `36ca9a3`.
+
+Steven activated all 13 sequences AND all step templates within each in Outreach UI. Spot-check via `/sequences/<id>` on 2030/2036/2039/2042 confirmed all `enabled=True`.
+
+### 4. Budget-weighted throttle profile (S66 plan compliance)
+
+Steven caught the framing error: DRE was being sized as if it owned the full weekly 4,250-email cap. Per `memory/project_prioritization_plan_s66.md`, Tier 1 (warm re-engage) gets 25% = ~1,063/week, equal-split 4 ways across strategies #9 (C3 winback), #10 (C4 cold license), #11 (C4 unresponsive), #12 (DRE) = **266 emails/rolling-7-days per strategy**.
+
+Math for DRE's 26,137 measured eligible leads:
+- Each active prospect emits ~1 email/week during the ~29-day sequence span.
+- Steady-state active DRE prospects capped at ~1,064 to respect 266/week.
+- Drain time at full Tier-1-DRE-share: ~26 weeks of DRE-only within Tier 1 (starves #9/#10/#11), OR ~98 weeks if DRE shares Tier 1 equally.
+
+Decision: **proportional throttle + LQD-Universal front-loaded** (LQD 407 measured is warmest — they asked for quote/demo).
+
+Two throttle profiles codified at `scripts/create_dre_sequences.py`:
+- `PHASE_A_ADDS_PER_DAY`: LQD 10/day (~50/week), all 12 others 0/day (paused). Drains LQD in ~8 weeks.
+- `PROPORTIONAL_ADDS_PER_DAY`: per-cohort-size share totaling ~264 adds/week across all 13. TC-Universal-Residual 14/day, TC-MS 11/day, TC-HS+TC-Elem 10/day each, smaller cohorts 1-2/day.
+
+Phase-a applied via `--configure-throttles phase-a` at 14:02 CDT 2026-04-17. All 13 sequences PATCHed with throttleMaxAddsPerDay / throttleCapacity (500) / maxActivations (1). Commit `c081f86`.
+
+### 5. Strategy-agnostic budget reporter
+
+Steven: "This watch and backfill automation should be adaptable for all the other sequences we will need to create and monitor for all the other 23 strategies." Also: "this shouldnt be run hourly but rather once daily at 7 am or 5pm cst."
+
+Two new memory rules captured:
+- `feedback_automation_daily_not_hourly.md` — scheduled Scout automation defaults to daily at 7am OR 5pm CST.
+- `feedback_budget_automation_must_generalize.md` — DRE automation architecture must extend to all 24 strategies via config, not code. Module names `campaign_*`, not `dre_*`.
+
+Shipped read-only reporter at `scripts/campaign_budget_status.py`. Pulls rolling-7-day mailing count per sequence via `/mailings?filter[sequence][id]=X&filter[createdAt]=FROM..TO` (only counts mailings with non-null deliveredAt). Aggregates per strategy, shows per-sequence throttle + enabled state, flags headroom, suggests paused-sequence opens. `STRATEGIES` dict is the config — DRE uses state-sidecar loader, C4 cold license seqs 1995-1998 registered, #9/#11 empty until those sequences exist. Commit `d0896a1`.
+
+Verified baseline run: Tier 1 DRE 0/266 sends in last 7 days (expected — no prospects added yet), LQD throttle=10/day, 12 others at 0/day.
+
+### 6. S74 scope parked (plan-mode required per Rule 1)
+
+Auto-system to be built in dedicated session:
+- **Daily cron** (7am or 5pm CST) wired to Scout's scheduler.
+- **Auto-rebalancer** — read reporter output, PATCH throttles as headroom opens.
+- **Auto-prospect-adder** — pull from 26,137-lead pool (S72 `/tmp/` filter artifacts; promote to `tools/lead_filters.py` + `tools/grade_level_detector.py` first), route to right sequence, Rule 17 (state + tz) enforced.
+- **Telegram notifications** on throttle changes + prospects added.
+- **Generalized config** — move `STRATEGIES` from inline dict to YAML/JSON file.
+
+Rough estimate: 8-10 hours of careful work across library + agent integration + test runs.
+
+### 7. Repo state
+
+S73 shipped 9 commits to origin/main: `3587807`, `c39c580`, `a5bc138`, `6a60b80`, `44b9af2`, `f1408fb`, `36ca9a3`, `c081f86`, `d0896a1`. Plus S73 trim commit `a5bc138` (archived S72 narrative). Final EOS commit TBD. Working tree expected clean except `.DS_Store`.
+
+---
+
 ## Session 72 (2026-04-16) — DRE Family Collapsed 21→13 + Steven's claude.ai Copy Delivered (Read-Only Session)
 
 **Session theme:** Take S71's theoretical 21-sequence DRE framework and collapse it to a data-backed sequence set by running live classification passes over the SF Leads universe. Five classification passes + two filter passes on 76,471 rows (measured) produced 13 locked sequences covering 26,137 eligible leads (measured). Session ended at context-budget ceiling with Steven's claude.ai-revised copy file landed in repo but not yet diffed / integrated / built — Phase 2 deferred cleanly to S73.
