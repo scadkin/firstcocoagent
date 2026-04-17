@@ -43,70 +43,10 @@ load_env_or_die(required=[
 ])
 
 from tools.outreach_client import _api_get_all, _api_get  # noqa: E402
+from tools.campaign_config import STRATEGIES, resolve_sequence_ids  # noqa: E402
 
 logging.basicConfig(level=logging.WARNING, format="%(asctime)s %(levelname)s: %(message)s")
 logger = logging.getLogger("budget_status")
-
-
-# ── Strategy config ──────────────────────────────────────────────────────
-#
-# Per-strategy weekly budget derives from the S66 plan:
-#   Tier 1 (warm re-engage): 1,063/week split 4 ways → 266/week each for
-#     strategies #9 (C3 winback), #10 (C4 cold license), #11 (C4
-#     unresponsive), #12 (DRE).
-#   Other tiers TBD per S66 plan table.
-#
-# `sequence_ids` is the list of Outreach sequence IDs belonging to that
-# strategy. Fetched from per-strategy state sidecars when available; manual
-# for strategies without a sidecar yet.
-
-STATE_SIDECAR_DRE = REPO_ROOT / "data" / "dre_2026_spring.state.json"
-
-
-def _load_dre_sequence_ids() -> list[int]:
-    """Pull DRE sequence IDs from the orchestrator's state sidecar."""
-    if not STATE_SIDECAR_DRE.exists():
-        return []
-    try:
-        state = json.loads(STATE_SIDECAR_DRE.read_text(encoding="utf-8"))
-    except Exception as e:
-        logger.warning(f"could not read {STATE_SIDECAR_DRE}: {e}")
-        return []
-    return [int(info["sequence_id"]) for info in state.get("created", {}).values()]
-
-
-STRATEGIES: dict[str, dict] = {
-    # Tier 1 warm re-engage (each: 266 emails/rolling-7d, per S66 split)
-    "dre": {
-        "number": 12,
-        "display": "DRE (Dormant Re-Engage)",
-        "tier": 1,
-        "weekly_budget": 266,
-        "sequence_ids_loader": _load_dre_sequence_ids,
-    },
-    "c3_winback": {
-        "number": 9,
-        "display": "C3 Closed-lost winback",
-        "tier": 1,
-        "weekly_budget": 266,
-        "sequence_ids": [],   # populate once sequences are built
-    },
-    "c4_cold_license": {
-        "number": 10,
-        "display": "C4 Cold license request",
-        "tier": 1,
-        "weekly_budget": 266,
-        "sequence_ids": [1995, 1996, 1997, 1998],  # existing C4 sequences
-    },
-    "c4_unresponsive": {
-        "number": 11,
-        "display": "C4 Unresponsive seq re-engage",
-        "tier": 1,
-        "weekly_budget": 266,
-        "sequence_ids": [],   # populate once sequences are built
-    },
-    # Tiers 2-6 strategies added as their sequences ship.
-}
 
 
 # ── Rolling-7-day mailings count per sequence ────────────────────────────
@@ -149,14 +89,6 @@ def get_sequence_meta(seq_id: int) -> dict:
 
 
 # ── Strategy-level report ────────────────────────────────────────────────
-
-def resolve_sequence_ids(strategy: dict) -> list[int]:
-    """Resolve sequence IDs for a strategy — either static list or loader."""
-    loader = strategy.get("sequence_ids_loader")
-    if loader:
-        return loader()
-    return list(strategy.get("sequence_ids", []))
-
 
 def build_strategy_report(key: str, strategy: dict) -> dict:
     seq_ids = resolve_sequence_ids(strategy)
