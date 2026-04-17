@@ -2449,3 +2449,49 @@ Session 58 was the comprehensive post-bug-sprint session. With zero Fire Drill A
 ### Archived from CLAUDE.md CURRENT STATE (Session 58)
 
 The full Session 57 "What's working after Session 57" narrative block (F4 scanner live, F2 CSTA wired, CSTA roster at 39/14, kill switches, BUG 4 playbook live, Telethon/screencapture/Railway) plus the full "What still needs to be done (Session 58)" numbered list (Priorities 1–4 + cleanup) were updated in CLAUDE.md — Priority 1-4 items are now marked complete and replaced with the Session 58 state + Session 59 cleanup priorities. The Session 57 lesson block stayed (still evergreen rules). Session 58 deliverables are now in SCOUT_PLAN.md for the detailed narrative.
+
+## Session 74 (2026-04-17) — Campaign Autopilot shipped in dry-run mode; S75 plan approved for first-live-run
+
+**Session theme:** Execute the S73 plan for the DRE auto-rebalancer + auto-prospect-adder. Ship the strategy-agnostic framework end-to-end. Land the first-live-run gate as a saved plan for S75.
+
+### 1. Campaign Autopilot — 6 build commits (all pushed to origin/main)
+
+Per the S73 scope, built strategy-agnostic framework first (DRE is the first client, not a DRE-specific one-shot):
+
+- **`49d9ad8` `tools/grade_level_detector.py`** — pure classifier primitives lifted from `/tmp/sf_leads_dre_pass3.py` + `pass4.py`. `detect_grade`, `map_grade_span`, `is_virtual`, `is_homeschool`, `homeschool_subsplit`, `is_code_ninjas`, `normalize_name`. Zero I/O. 60 unit tests including the pass3 "tweaks" (bare `unified` → District, trailing `M.S.` → MS, K-8 → Elem).
+
+- **`067c2cc` `tools/lead_filters.py`** — full 13-cohort DRE router lifted from `/tmp/sf_leads_dre_pass5.py` + `segmentation.py`. `TC_SOURCES` (2 strings), `LQD_SOURCES` (3 strings), `INT_SOURCES` (22 strings), `TerritoryIndex` NamedTuple, `build_territory_index_stateaware(svc)`, `fuzzy_match_v5`, `classify_row`, `classify_rows`, `classify_sf_leads_to_dre_buckets`. Routing order from `memory/project_dre_family_framework.md`: universal exclusions (Code Ninjas + homeschool) → librarian title → TC/LQD/INT substrategy → grade split → parked. 71 unit tests. Live parity on production SF Leads: **27,468 matched vs S72's 26,137 post-filter baseline** (delta +1,331 = missing `filter_leads_against_active_accounts` at pool build; documented as S76 debt).
+
+- **`12b48dd` `tools/campaign_config.py`** — `STRATEGIES` dict extracted from `scripts/campaign_budget_status.py`. Plain-Python module (not YAML). Adds `pool_source`, `bucket_to_sequence_name`, `throttle_profile_name`, `priority_order` TypedDict keys. Reporter output byte-identical before/after.
+
+- **`9fc18ef` `tools/campaign_pool.py`** + `scripts/build_campaign_pool.py` — `PoolLead` dataclass as strict superset of `prospect_loader.Contact` (Contact fields + `bucket` + `tz` + `source_row_id`). `StrategyPool` + `get_or_build_pool(strategy_key, force_refresh=False)` with 8-day self-heal. Atomic JSONL write + `.meta.json` sidecar. Live run produced `data/dre_pool.jsonl` with 27,467 eligible rows (1 skipped `no_email`, zero `no_state` / `no_tz_for_state` since Salesforce data is pre-normalized). 15 unit tests on round-trip + age.
+
+- **`57dc2b4` `tools/campaign_autopilot.py`** — `run_autopilot(strategy_key="all", *, dry_run, preview_only)` + `format_telegram_summary(report, *, live)` + `_get_prospect_touched_at` + `_prospect_has_active_dre_cohort_state` + `_is_recent_activity` + `_adds_last_24h`. Kill-switch check first. Per-candidate HARD correctness gates (90d freshness + dre-2026-spring cohort exclusivity) before building LoadPlans. Per-day state file `data/dre_autopilot_<date>.state.json`. Audit log JSONL at `vault/logs/campaign_autopilot.jsonl`. 60-120s jittered sleeps via `execute_load_plan`. Rule 19 enforced structurally: formatter takes `sequence_name` dict keys only; raw IDs never reach Telegram text. Live dry-run produced correct 10-lead LoadPlan w/ 2 skipped for `recent_activity`. Preview CSV mode writes `/tmp/campaign_preview.csv` without any POSTs.
+
+- **`966e421` `agent/scheduler.py`** + `agent/main.py` + `agent/CLAUDE.md` — weekday 07:00 CST tick returning `"campaign_autopilot"`. Handler `_run_campaign_autopilot()` modeled on `_run_daily_signal_scan`. Persisted `_autopilot_live_flag` at `data/campaign_autopilot_state.json`, loaded on startup (survives Railway redeploys). Slash commands `/autopilot_live`, `/autopilot_dry`, `/autopilot_status` via Rule-14 direct-dispatch pattern. `_autopilot_running` concurrency guard.
+
+- **`e1e42fc` priority-fill across cohorts** — post-ship patch after Steven flagged that per-sequence independent fill doesn't match his "LQD first, auto-backfill when drained" model. Rewrites `_process_strategy` to walk `STRATEGIES["dre"].priority_order` with a strategy-wide daily budget (`weekly_budget // 5 = 53`), draining the top cohort before spilling into the next. Outreach delivery schedule handles per-sequence send-day distribution server-side.
+
+### 2. Budget math correction (three Claude-induced miscommunications this session)
+
+Steven caught multiple times that I was framing 266/week as a shared Tier 1 pool, when in fact **each of #9/#10/#11/#12 has its own 266/week allocation** (Tier 1 total = 1,063/week). Memory: `feedback_tier1_budget_is_per_strategy.md`.
+
+### 3. Schedule-aligned timing insight
+
+During the live-run planning discussion I designed a "manual CLI trigger tonight + forward output to Telegram" path for speed. Steven's pushback prompted me to check the schedule: **schedule 51 (Hot Lead Mon-Fri) does not send weekends. Adds tonight and adds Monday 07:00 produce identical Step 1 send timing.** The manual path was plumbing overhead for zero business benefit. Memory: `feedback_schedule_aligned_add_timing.md`.
+
+### 4. S75 plan approved and saved (not yet executed)
+
+Per Steven's explicit direction to save the plan and not start the work until S75, the approved plan is at `/Users/stevenadkins/.claude/plans/snuggly-wishing-cocke.md`. Three phases:
+
+- **Phase A** — new `scripts/verify_autopilot_batch.py` runs 3-layer checks on the first 80 LQD candidates: ROUTING (Lead Source ∈ LQD_SOURCES) / HARD-SKIP (not_in_outreach + touched_within_90d + already_in_dre_cohort) / SOFT-FLAG (active-account fuzzy match + email typo TLDs + name encoding + company-is-email).
+- **Phase B** — only if Phase A clean: extend `THROTTLE_PROFILES["autopilot-55"]` in `scripts/create_dre_sequences.py`, run `--configure-throttles autopilot-55` (PATCH 55/day on all 13 DRE seqs 2030–2042), add `not_in_outreach` HARD-SKIP guard to `_process_strategy` (prevents accidental `create_prospect` on re-engage-only cohorts), flip `_autopilot_live_flag=True`.
+- **Phase C** — Monday 07:00 CST scheduled tick auto-fires the live run. No manual CLI. Steven receives `[LIVE]` Telegram summary Monday ~07:20 CDT.
+
+### 5. Session-mechanics
+
+Context stayed under the 40% pause threshold through most of the session; crossed into EOS wrap at ~36%. Auto mode on for most of the implementation; exited at Steven's request when the first-live-run plan needed explicit review. Two full plan-mode ruthless-review cycles happened during the session (autopilot build plan first, then first-live-run plan).
+
+### Archived from CLAUDE.md CURRENT STATE (Session 74)
+
+The full Session 73 narrative about the 13 DRE sequences creation (rev1 → rev2), throttle profile phase-a application, budget reporter ship, and S74 first-actions block was trimmed from CLAUDE.md CURRENT STATE and replaced with the Session 74 ship narrative above. The S73 detail lives in `SCOUT_HISTORY.md §Session 73` already — no information lost.

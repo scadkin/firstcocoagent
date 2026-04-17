@@ -1,9 +1,34 @@
 # SCOUT MASTER PLAN
-*Last updated: 2026-04-15 — End of Session 70. S70 drained 7 HIGHs + 4 audit themes from the overnight audit report (`SCOUT_AUDIT_2026-04-15_0128.md`). 12 commits pushed to `origin/main`. Sequence-build work (S67 original focus) still parked — Steven prioritized audit drain after S69 patched the 2 CRITICALs. HIGH-5 is the only remaining HIGH, deferred to bundle with the next GAS redeploy.*
+*Last updated: 2026-04-17 — End of Session 74. S74 Campaign Autopilot shipped in dry-run (7 commits pushed). Not yet live — `_autopilot_live_flag=False`. S75 plan at `~/.claude/plans/snuggly-wishing-cocke.md` is the first-live-run gate: pre-flight verify 80 LQD candidates → PATCH throttles to 55/day → flip live → Monday 07:00 auto-fires ~53 real adds to LQD-Universal.*
 
 ---
 
-## YOU ARE HERE → Session 70 (end) drained 11 audit-drain items from `SCOUT_AUDIT_2026-04-15_0128.md` in priority order: HIGH-4 (`/scan_compliance` elif dedupe), HIGH-3 (`/signals new` event-loop unblock + filter fix), HIGH-9 (scripts classify_role rename), HIGH-13 (bug5_phase0_scan fail-fast on missing columns), HIGH-11 (bug5_cleanup_lackland off-by-one + live-sheet purge of 25 Lackland leads + 2 Research Log rows, verified via `sheets_writer.get_leads()` pre-/post-run), HIGH-8 (A/B cost ceiling projection), HIGH-2 (cross_checked divergence warning), Theme #1 (`asyncio.get_event_loop` → `get_running_loop` across 108 sites measured), Theme #2 (`resp.raise_for_status()` before 15 Serper `.json()` calls measured), Theme #3 (`chr(65+col)` column-letter base-26 overflow fix in 3 scripts), Theme #4 (shared `scripts/_env.py` + `load_env_or_die` adopted by 5 active scripts). S70 also verified CRIT-2 live in production via `/ping_gas` walkthrough with Steven (new `gas/Code.gs` deployment active, placeholder-token guard returning HTTP-500 if SECRET_TOKEN=="REPLACE_WITH_YOUR_SECRET_TOKEN_HERE"). 12 commits shipped (`f255ca1`, `246978f`, `e2c7fc1`, `aac91ba`, `3544d5d`, `ece9f6a`, `210c758`, `d5a872b`, `af9b96c`, `7a31658`, `31230f7`, EOS wrap). Railway auto-redeployed on each push.
+## YOU ARE HERE → Session 74 (end) — S75 starts with the approved plan at `~/.claude/plans/snuggly-wishing-cocke.md`
+
+**What shipped in S74:** Campaign Autopilot end-to-end (6 build commits + priority-fill patch) — `tools/grade_level_detector.py`, `tools/lead_filters.py`, `tools/campaign_config.py`, `tools/campaign_pool.py`, `tools/campaign_autopilot.py`, plus `agent/scheduler.py` + `agent/main.py` wiring. All pushed. 15+60+71+15 tests green. Live dry-run produced correct 10-lead LoadPlan with 2 correctness-skips. `data/dre_pool.jsonl` built: 27,467 measured eligible DRE leads. Strategy priority-fill walks `STRATEGIES["dre"].priority_order` with 266/5 = 53 daily budget.
+
+**What's NOT yet done (deliberately — S75 scope):**
+- Pre-flight verification of first 53-lead batch via new `scripts/verify_autopilot_batch.py` (Phase A of S75 plan).
+- `not_in_outreach` HARD-SKIP guard in `tools/campaign_autopilot.py::_process_strategy`.
+- `THROTTLE_PROFILES["autopilot-55"]` extension to `scripts/create_dre_sequences.py` + PATCH via `--configure-throttles autopilot-55`.
+- Flip `_autopilot_live_flag` to True.
+- Monday 07:00 CST auto-fires live run — NO manual CLI trigger (schedule-51 Mon-Fri means adds tonight vs adds Monday = identical Step 1 send timing; `memory/feedback_schedule_aligned_add_timing.md`).
+
+**S74 commits on `origin/main`:**
+`49d9ad8` grade_level_detector, `067c2cc` lead_filters, `12b48dd` campaign_config, `9fc18ef` campaign_pool, `57dc2b4` campaign_autopilot, `966e421` scheduler+slash cmds, `e1e42fc` priority-fill.
+
+**S74 memory additions:**
+- `feedback_tier1_budget_is_per_strategy.md` — each of #9/#10/#11/#12 has OWN 266/week, not shared.
+- `feedback_schedule_aligned_add_timing.md` — adds outside scheduled tick don't change send timing when schedule is the governor.
+
+**Documented S76+ debt:**
+- `filter_leads_against_active_accounts` not wired into `campaign_pool.build_pool` (27,467 vs S72 baseline 26,137 = +1,331 rows that should have been filtered). S75 Phase A SOFT-FLAG catches per-batch; systemic fix = S76.
+- `prospect_loader.Contact.diocese_or_group` rename to `cohort_tag` — autopilot uses it for cohort bucket name now.
+- `/apply_profile` Telegram command for manual throttle switches (~week 10+, when LQD drains).
+
+---
+
+## Previous YOU ARE HERE (Session 70 — archived for continuity) drained 11 audit-drain items from `SCOUT_AUDIT_2026-04-15_0128.md` in priority order: HIGH-4 (`/scan_compliance` elif dedupe), HIGH-3 (`/signals new` event-loop unblock + filter fix), HIGH-9 (scripts classify_role rename), HIGH-13 (bug5_phase0_scan fail-fast on missing columns), HIGH-11 (bug5_cleanup_lackland off-by-one + live-sheet purge of 25 Lackland leads + 2 Research Log rows, verified via `sheets_writer.get_leads()` pre-/post-run), HIGH-8 (A/B cost ceiling projection), HIGH-2 (cross_checked divergence warning), Theme #1 (`asyncio.get_event_loop` → `get_running_loop` across 108 sites measured), Theme #2 (`resp.raise_for_status()` before 15 Serper `.json()` calls measured), Theme #3 (`chr(65+col)` column-letter base-26 overflow fix in 3 scripts), Theme #4 (shared `scripts/_env.py` + `load_env_or_die` adopted by 5 active scripts). S70 also verified CRIT-2 live in production via `/ping_gas` walkthrough with Steven (new `gas/Code.gs` deployment active, placeholder-token guard returning HTTP-500 if SECRET_TOKEN=="REPLACE_WITH_YOUR_SECRET_TOKEN_HERE"). 12 commits shipped (`f255ca1`, `246978f`, `e2c7fc1`, `aac91ba`, `3544d5d`, `ece9f6a`, `210c758`, `d5a872b`, `af9b96c`, `7a31658`, `31230f7`, EOS wrap). Railway auto-redeployed on each push.
 
 **Session 70 incident log (non-blocking but notable):**
 - During Theme #4 `.env` verification, `python scripts/fetch_csta_roster.py --help` ignored the flag and ran the real fetch, clobbering `memory/csta_roster.json` (`fetched_at` 2026-04-14 → 2026-04-15 + dropped "+ S63 hand-curation (IN, TN)" suffix from `source`). Reverted via `git checkout HEAD -- memory/csta_roster.json` before committing Theme #4. S63 hand-curation preserved.
