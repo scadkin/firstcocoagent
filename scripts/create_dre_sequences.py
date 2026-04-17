@@ -56,6 +56,7 @@ load_env_or_die(required=[
 ])
 
 from tools.outreach_client import (  # noqa: E402
+    _api_patch,
     create_sequence,
     delete_sequence,
     validate_sequence_inputs,
@@ -116,6 +117,121 @@ BUILD_ORDER: list[tuple[int, str, str, int, int, str]] = [
 ]
 
 SCHEDULE_NAMES = {51: "Hot Lead Mon-Fri", 52: "Admin Mon-Thurs", 53: "Teacher Tue-Thu"}
+
+
+# Throttle profiles — applied via PATCH /sequences/<id> after creation. Values
+# target Steven's Tier 1 DRE share: ~266 emails/week from a 4,250/week total
+# cap (S66 prioritization plan: 25% Tier 1, split 4 ways across strategies
+# #9/#10/#11/#12). See CURRENT STATE in CLAUDE.md for rationale.
+#
+# Two profiles:
+#   "phase-a"          — LQD-Universal (warmest cohort, 407 leads) at
+#                         throttleMaxAddsPerDay=10 (~50/week). All 12
+#                         others paused at throttleMaxAddsPerDay=0. Drains
+#                         LQD in ~8 weeks, reallocates to Profile B after.
+#   "proportional"     — steady-state proportional-to-cohort-size adds
+#                         across all 13 sequences. Totals ~264 adds/week
+#                         matching the Tier 1 slice.
+#
+# throttleCapacity is the Outreach "max concurrent active prospects" cap;
+# set generously (500) so throttleMaxAddsPerDay is the real governor.
+THROTTLE_CAPACITY_DEFAULT = 500
+MAX_ACTIVATIONS_DEFAULT = 1  # each prospect may be activated at most once
+
+# Per-display-name: throttleMaxAddsPerDay
+PHASE_A_ADDS_PER_DAY: dict[str, int] = {
+    "LQD-Universal":         10,   # ~50/week, drain 407 in ~8 weeks
+    "INT-Universal":          0,
+    "TC-Universal-Residual":  0,
+    "TC-MS":                  0,
+    "TC-HS":                  0,
+    "TC-Elem":                0,
+    "TC-Virtual":             0,
+    "TC-District":            0,
+    "TC-All-Grades":          0,
+    "LIB":                    0,
+    "INT-Teacher":            0,
+    "TC-Teacher":             0,
+    "IT-ReEngage":            0,
+}
+
+PROPORTIONAL_ADDS_PER_DAY: dict[str, int] = {
+    "TC-Universal-Residual": 14,
+    "TC-MS":                 11,
+    "TC-HS":                 10,
+    "TC-Elem":               10,
+    "INT-Universal":          2,
+    "LIB":                    2,
+    "TC-Virtual":             1,
+    "TC-District":            1,
+    "LQD-Universal":          1,
+    "INT-Teacher":            1,
+    "TC-Teacher":             1,
+    "IT-ReEngage":            1,
+    "TC-All-Grades":          1,
+}
+
+THROTTLE_PROFILES = {
+    "phase-a":      PHASE_A_ADDS_PER_DAY,
+    "proportional": PROPORTIONAL_ADDS_PER_DAY,
+}
+
+
+def configure_throttles(state: dict, profile_name: str) -> int:
+    """PATCH /sequences/<id> to set throttleMaxAddsPerDay / throttleCapacity
+    / maxActivations on each of the 13 DRE sequences per the chosen profile.
+
+    Returns exit code (0 success, 1 error).
+    """
+    profile = THROTTLE_PROFILES.get(profile_name)
+    if not profile:
+        logger.error(f"unknown throttle profile {profile_name!r}. "
+                     f"Choices: {sorted(THROTTLE_PROFILES.keys())}")
+        return 1
+
+    created = state.get("created", {})
+    if not created:
+        logger.error("no sequences in state sidecar — run --create first")
+        return 1
+
+    print(f"Applying throttle profile: {profile_name}")
+    print(f"{'Sequence':<24} {'adds/day':>9} {'adds/week':>10}")
+    print("-" * 47)
+
+    for display_name, adds_per_day in profile.items():
+        info = created.get(display_name)
+        if not info:
+            logger.warning(f"  {display_name}: not in state sidecar, skipping")
+            continue
+        seq_id = int(info["sequence_id"])
+        payload = {
+            "data": {
+                "type": "sequence",
+                "id": seq_id,
+                "attributes": {
+                    "throttleMaxAddsPerDay": adds_per_day,
+                    "throttleCapacity": THROTTLE_CAPACITY_DEFAULT,
+                    "maxActivations": MAX_ACTIVATIONS_DEFAULT,
+                },
+            }
+        }
+        try:
+            _api_patch(f"/sequences/{seq_id}", payload)
+        except Exception as e:
+            logger.error(f"  {display_name} (seq {seq_id}): PATCH failed: {e}")
+            return 1
+        # ~weekly-adds assumes 5 business days.
+        weekly = adds_per_day * 5
+        print(f"{display_name:<24} {adds_per_day:>9} {weekly:>10}")
+        time.sleep(0.5)
+
+    total_weekly = sum(v * 5 for v in profile.values())
+    print("-" * 47)
+    print(f"{'TOTAL':<24} {'':>9} {total_weekly:>10}")
+    print()
+    print(f"Tier 1 DRE weekly slice from S66 plan: ~266 emails/week")
+    print(f"This profile's weekly adds: {total_weekly}")
+    return 0
 
 
 # ── Body text → HTML conversion ──────────────────────────────────────────
@@ -429,6 +545,11 @@ def main() -> int:
     grp.add_argument("--delete-all", action="store_true",
                      help="DELETE every sequence ID currently in the state sidecar. "
                           "Clears sidecar afterward. Use before a full --create re-run.")
+    grp.add_argument("--configure-throttles", choices=list(THROTTLE_PROFILES.keys()),
+                     metavar="PROFILE",
+                     help="PATCH all 13 sequences with a throttle profile. "
+                          "phase-a = LQD-Universal front-load, others paused. "
+                          "proportional = steady-state proportional-to-cohort-size.")
     ap.add_argument("--only", type=int, default=None, metavar="N",
                     help="Build-order index 1..13; restricts action to that sequence")
     ap.add_argument("--resume", action="store_true",
@@ -451,6 +572,10 @@ def main() -> int:
     targets = BUILD_ORDER
     if args.only is not None:
         targets = [t for t in BUILD_ORDER if t[0] == args.only]
+
+    # ── CONFIGURE-THROTTLES ──────────────────────────────────
+    if args.configure_throttles:
+        return configure_throttles(state, args.configure_throttles)
 
     # ── DELETE-ALL ───────────────────────────────────────────
     if args.delete_all:
