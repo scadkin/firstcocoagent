@@ -171,9 +171,16 @@ PROPORTIONAL_ADDS_PER_DAY: dict[str, int] = {
     "TC-All-Grades":          1,
 }
 
+# S75 first-live-run profile — uniform 55/day ceiling across all 13 DRE
+# sequences. Campaign autopilot enforces the real governor (strategy-wide
+# 53/day budget, priority-filled across cohorts); this profile just removes
+# Outreach's own throttle as a bottleneck. 55 = 53 + 2 rounding headroom.
+AUTOPILOT_ADDS_PER_DAY: dict[str, int] = {k: 55 for k in PROPORTIONAL_ADDS_PER_DAY}
+
 THROTTLE_PROFILES = {
-    "phase-a":      PHASE_A_ADDS_PER_DAY,
-    "proportional": PROPORTIONAL_ADDS_PER_DAY,
+    "phase-a":       PHASE_A_ADDS_PER_DAY,
+    "proportional":  PROPORTIONAL_ADDS_PER_DAY,
+    "autopilot-55":  AUTOPILOT_ADDS_PER_DAY,
 }
 
 
