@@ -1,11 +1,25 @@
 # SCOUT — Claude Code Reference
-*Last updated: 2026-04-16 — End of Session 71. Thursday diocesan drip landed live (14 contacts measured). C4 cold_license_request Queue status drift cleaned (1,092 rows marked `complete`, 143 `skipped` with distinctive Notes, 3 true pending). 24-strategy sequence coverage mapped accurately via new `project_sequence_coverage_s71.md` (5 of 24 + diocesan have Scout-helped seqs). Dormant Re-Engage Strategy #12 evolved into a 21-sequence DRE family (TC/LQD/LIB/UNI × role × grade) per Steven's S71 direction. Dormant v2 draft at Google Doc — Steven taking to claude.ai for copy dial-in. Sheet IDs for all 3 working sheets now saved to memory (SF Imports ID was missing from .env).*
+*Last updated: 2026-04-16 — End of Session 72. DRE family collapsed from S71's 21 theoretical sequences to 13 data-backed sequences. 5 classification passes + 2 filter passes on 76,471 SF Leads rows produced 26,137 measured eligible leads. Steven's claude.ai-revised copy (40KB, 1,086 lines measured) saved to repo at `docs/DRE_13_Sequences_Final_Copy_S72.md` awaiting next-session Phase 2 copy-diff + sequence build. All work read-only (no prospect creates, no sequence adds).*
 
 ---
 
 ## CURRENT STATE — update this after each session
 
 **Session-narrative history lives in `SCOUT_HISTORY.md §Session N`. Active plan detail lives in `SCOUT_PLAN.md §YOU ARE HERE`. Active priority queue lives in `memory/project_s64_priority_queue.md` (auto-loaded). This section stays ≤25 lines.**
+
+**End of Session 72, 2026-04-16 20:55 CDT — DRE family locked at 13 sequences, copy delivered, ready for Phase 2:**
+
+- **13-seq DRE family LOCKED** (down from S71's 21). 5 classification passes on `SF Leads` (76,471 rows measured) collapsed the theoretical matrix to data-backed variants. Final eligible cohort 26,137 measured across 13 sequences after active-account + 90-day Outreach touch filters. TC substrategy = 89% of DRE universe. Full derivation at `~/Desktop/DRE_Sequence_Family_Derivation_S72.md`.
+- **Build order locked:** 1) INT-Universal 867 (ship first as safety net) → 2) TC-Universal-Residual 6,957 → 3) TC-MS 5,452 → 4) TC-HS 4,892 → 5) TC-Elem 4,941 → 6) TC-Virtual 441 → 7) TC-District 442 → 8) TC-All-Grades 126 → 9) LIB 633 → 10) LQD-Universal 407 → 11) INT-Teacher 404 → 12) TC-Teacher 393 → 13) IT-ReEngage 182 (TC-IT + INT-IT merged). All measured.
+- **Steven's claude.ai copy file landed.** 40KB / 1,086 lines measured at `docs/DRE_13_Sequences_Final_Copy_S72.md` (copy of `~/Downloads/DRE_13_Sequences_Final_Copy.md`). NOT yet diffed against S71 v2 base. NOT yet integrated. Session 72 hit context-budget ceiling before Phase 2 work could start — deferred cleanly to S73.
+- **S73 first actions (read this before anything else):** 1) Load `project_dre_family_framework.md` + `project_uni_lead_source_whitelist.md` + `project_dre_cold_outreach_parked_cohort.md` + `feedback_sequence_copy_rules.md` + `feedback_sequence_iteration_learnings.md` + `feedback_timezone_required_before_sequence.md`. 2) Read `docs/DRE_13_Sequences_Final_Copy_S72.md` end-to-end. 3) Extract shared base voice (tone, CTA style, signature, link placement, structural rules that apply to ALL 13). 4) Verify each of 13 sequences against `feedback_sequence_copy_rules.md` (word counts, cadence, distinct angles, banned phrases). 5) Enter plan-mode (Rule 1) for the 3 filter helpers (`filter_leads_against_active_accounts`, `find_prospects_with_no_touch`, `grade_level_detector`) + INT-Universal first build via `scripts/load_campaign.py --create --dry-run`.
+- **Key finding that changes add workflow:** 99.83% measured of eligible DRE leads already exist in Outreach. S73 workflow is `find_prospect_by_email` + verify state+tz + `add_prospect_to_sequence` — NOT `create_prospect`. Only 36 measured leads need creation. Rule 17 mostly verification-not-population.
+- **Memory files shipped this session:** `project_dre_family_framework.md` (rewrite — 13-seq locked), `project_uni_lead_source_whitelist.md` (new — 22 interest sources), `project_dre_cold_outreach_parked_cohort.md` (new — ~48k parked for future cold session).
+- **.env:** `GOOGLE_SHEETS_SF_IMPORTS_ID=15pSmpfdSlgoaBFxbwquUjtO9xYSnK-4yA69mkw_lWLk` appended.
+- **Reusable artifacts preserved at /tmp:** `sf_leads_dre_pass5.py` (classification), `sf_leads_dre_filters.py` + `sf_leads_dre_filters_part2.py` (filters), `dre_outreach_touch_cache.json` (26,944 measured `touchedAt` entries — reuse to skip API calls).
+- **Exclusions:** 40 measured Code Ninjas rows (corporate deal), 433 measured homeschool individual-family rows (not customers). Do NOT touch.
+- **Parked for future cold-outreach session:** ~48,000 measured rows (ZenProspect/Agile/MCH/GovSpend/K12Prospects bought lists). Reference: `project_dre_cold_outreach_parked_cohort.md`.
+- **Repo state:** S72 work committed + pushed end-of-session.
 
 **End of Session 71, 2026-04-16 16:33 CDT — diocesan drip done, C4 status drift cleaned, DRE family framework:**
 
