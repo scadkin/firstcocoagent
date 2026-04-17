@@ -338,66 +338,91 @@ def _process_strategy(
     result.headroom = report.get("headroom", 0)
     result.utilization_pct = report.get("utilization_pct", 0.0)
 
-    # 3. For each enabled sequence with throttle>0, compute need
+    # 3. Priority-fill: compute strategy-wide daily budget, walk sequences in
+    # priority order, fill each up to min(remaining_budget, pool_size,
+    # sequence_capacity). When a high-priority cohort's pool empties the
+    # spillover flows naturally to the next priority.
     bucket_to_seq_name = strategy.get("bucket_to_sequence_name") or {}
     seq_name_to_bucket = {v: k for k, v in bucket_to_seq_name.items()}
+    priority_order: list[str] = strategy.get("priority_order") or []
+
+    # Strategy splits weekly budget across the 5 weekday autopilot ticks.
+    # 266/5 = 53/day for DRE. Outreach's delivery schedules handle actual
+    # send distribution (Mon-Fri vs Tue-Thu vs Mon-Thu) server-side.
+    strategy_daily_budget = max(1, strategy["weekly_budget"] // 5)
+    remaining_budget = strategy_daily_budget
 
     plans_by_sequence: dict[int, list[LoadPlan]] = {}
     seq_meta_by_id: dict[int, dict] = {}
 
-    # Cohort-level dedupe across sequences: a PoolLead we pick for TC-MS should
-    # not also be candidate for INT-Teacher in the same run (shouldn't happen —
-    # one bucket per row — but we enforce by email set regardless).
+    # Index sequences from the budget report by name for O(1) lookup
+    seq_info_by_name: dict[str, dict] = {}
+    for seq_info in report.get("sequences", []):
+        seq_info_by_name[seq_info["name"]] = seq_info
+        seq_meta_by_id[int(seq_info["id"])] = seq_info
+
+    # Cohort-level dedupe: a PoolLead lives in exactly one bucket but we
+    # enforce by email set regardless.
     emails_claimed_this_run: set[str] = set()
 
-    for seq_info in report.get("sequences", []):
+    # If no priority_order configured, fall back to a sensible default —
+    # every enabled sequence with a mapped bucket, in budget-report order.
+    fill_cohorts: list[str] = priority_order or [
+        seq_name_to_bucket[s["name"]]
+        for s in report.get("sequences", [])
+        if s.get("enabled") and seq_name_to_bucket.get(s["name"])
+    ]
+
+    for cohort in fill_cohorts:
+        if remaining_budget <= 0:
+            break
+        seq_name = bucket_to_seq_name.get(cohort)
+        if not seq_name:
+            logger.warning("priority_order entry %r has no bucket mapping", cohort)
+            continue
+        seq_info = seq_info_by_name.get(seq_name)
+        if not seq_info:
+            logger.warning("priority sequence %r not in budget report", seq_name)
+            continue
+
         seq_id = int(seq_info["id"])
-        seq_name = seq_info["name"]
         throttle = seq_info.get("throttle_per_day") or 0
         enabled = seq_info.get("enabled")
-        seq_meta_by_id[seq_id] = seq_info
-
-        if not enabled or throttle <= 0:
-            continue
-        bucket = seq_name_to_bucket.get(seq_name)
-        if not bucket:
-            logger.warning(
-                "No cohort mapping for sequence %r in strategy %s — skipping",
-                seq_name, strategy_key,
-            )
-            continue
-
         adds_24h = _adds_last_24h(seq_id)
-        need = max(0, throttle - adds_24h)
 
         seq_result = SequenceAutopilotResult(
             sequence_name=seq_name,
             throttle=throttle,
             adds_last_24h=adds_24h,
-            need=need,
-            cohort_remaining=len(pool.buckets.get(bucket, [])),
+            need=0,  # set below once we know target
+            cohort_remaining=len(pool.buckets.get(cohort, [])),
         )
         result.sequences[seq_name] = seq_result
 
-        if need <= 0:
+        if not enabled:
             continue
 
-        candidates: list[PoolLead] = list(pool.buckets.get(bucket, []))
-        if not candidates:
-            seq_result.skipped_no_pool_candidates = need
+        seq_capacity = max(0, throttle - adds_24h)
+        target = min(remaining_budget, seq_capacity, seq_result.cohort_remaining)
+        seq_result.need = target
+
+        if target <= 0:
+            if seq_result.cohort_remaining <= 0:
+                seq_result.skipped_no_pool_candidates = remaining_budget
             continue
 
-        # Pull up to need*2 for skip-headroom, then stop once we have `need`.
+        # Pull candidates; apply correctness checks with 2x headroom.
+        candidates: list[PoolLead] = list(pool.buckets.get(cohort, []))
         accepted: list[PoolLead] = []
         for lead in candidates:
-            if len(accepted) >= need:
+            if len(accepted) >= target:
                 break
             if lead.email.lower() in emails_claimed_this_run:
                 continue
 
             seq_result.attempted += 1
 
-            # At-add-time correctness checks
+            # At-add-time correctness checks (real Outreach API calls)
             prospect = find_prospect_by_email(lead.email)
             if prospect:
                 prospect_id = prospect["prospect_id"]
@@ -411,6 +436,8 @@ def _process_strategy(
 
             accepted.append(lead)
             emails_claimed_this_run.add(lead.email.lower())
+
+        remaining_budget -= len(accepted)
 
         # Preview mode: record the batch but don't build LoadPlans
         if preview_only:
@@ -429,7 +456,7 @@ def _process_strategy(
 
         # Build LoadPlans
         today_iso = datetime.now(_chicago_tz()).date().isoformat()
-        tags_for_cohort = _derive_tags(bucket, accepted[0].state if accepted else "")
+        tags_for_cohort = _derive_tags(cohort, accepted[0].state if accepted else "")
         for lead in accepted:
             contact = _pool_lead_to_contact(lead)
             # Per-lead state tag (state differs row-to-row)

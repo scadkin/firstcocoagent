@@ -51,6 +51,9 @@ class StrategyConfig(TypedDict, total=False):
                                scripts/create_dre_sequences.py::THROTTLE_PROFILES
                                (or equivalent). Informational only; autopilot
                                never auto-switches profiles
+      priority_order         : cohort-name list. Autopilot priority-fills
+                               the strategy's daily budget in this order,
+                               draining the top sequence before moving on
     """
     number: int
     display: str
@@ -61,6 +64,7 @@ class StrategyConfig(TypedDict, total=False):
     pool_source: Optional[str]
     bucket_to_sequence_name: Optional[dict[str, str]]
     throttle_profile_name: Optional[str]
+    priority_order: Optional[list[str]]
 
 
 # ── Sequence-ID loaders ────────────────────────────────────────────────
@@ -114,6 +118,18 @@ STRATEGIES: dict[str, StrategyConfig] = {
             "IT-ReEngage":            "DRE 2026 Spring — IT-ReEngage",
         },
         "throttle_profile_name": "phase-a",
+        # Priority-fill order. Autopilot drains LQD-Universal (warmest, 407
+        # measured cohort) before spilling into larger TC cohorts. When LQD
+        # pool empties the next-day run flows into TC-Universal-Residual,
+        # then the TC grade splits (biggest first), then the smaller cohorts.
+        "priority_order": [
+            "LQD-Universal",           # 407 warmest — ask/quote/demo leads
+            "TC-Universal-Residual",   # 7k biggest catch-all
+            "TC-MS", "TC-HS", "TC-Elem",   # grade cohorts, largest first
+            "INT-Universal", "LIB",
+            "TC-Virtual", "TC-District",
+            "INT-Teacher", "TC-Teacher", "IT-ReEngage", "TC-All-Grades",
+        ],
     },
     # #9 C3 Closed-lost winback — Tier 1, sequences not yet built
     "c3_winback": {
