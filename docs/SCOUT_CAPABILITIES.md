@@ -9,9 +9,9 @@
 
 ## `tools/outreach_client.py` — Outreach.io JSON:API v2 client
 
-OAuth + refresh token auto-managed. Scopes: `accounts.read`, `prospects.read/write`, `sequences.read/write`, `sequenceStates.read/write/delete`, `sequenceSteps.read/write`, `sequenceTemplates.read/write`, `templates.read/write`, `users.read`, `mailings.read`, `calls.read`, `events.read`. Base URL: `https://api.outreach.io/api/v2`.
+OAuth + refresh token auto-managed. Scopes: `accounts.read`, `prospects.read/write`, `sequences.read/write/delete`, `sequenceStates.read/write/delete`, `sequenceSteps.read/write`, `sequenceTemplates.read/write`, `templates.read/write`, `users.read`, `mailings.read`, `calls.read`, `events.read`. Base URL: `https://api.outreach.io/api/v2`.
 
-**⚠ Missing scopes (add on next OAuth re-auth):** `prospects.delete` (confirmed S61 via 403 on canary cleanup), `mailboxes.read` (confirmed S61 via 403 on get_mailboxes). Work around: no-op on the failure paths, note in audit log.
+**⚠ Missing scopes (add on next OAuth re-auth):** `prospects.delete` (confirmed S61 via 403 on canary cleanup), `mailboxes.read` (confirmed S61 via 403 on get_mailboxes). Work around: no-op on the failure paths, note in audit log. **S73 update:** `sequences.delete` was 403 at 2026-04-16 22:12 CDT on DRE rev1 cleanup, Steven granted the scope same session — `tools.outreach_client.delete_sequence` now usable going forward.
 
 **Reads:**
 - `get_sequences()` — all Scout-owned sequences (139 total)
