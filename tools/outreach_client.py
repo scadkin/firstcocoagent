@@ -825,6 +825,7 @@ def validate_sequence_inputs(
     first_step_max_seconds: int = 600,    # step 1 ≤10 min after add
     allow_no_schedule: bool = False,
     max_repetition: dict[str, int] | None = None,
+    allow_phrases: list[str] | None = None,
 ) -> dict:
     """
     Pre-write validation for an Outreach sequence. Zero API calls.
@@ -904,9 +905,18 @@ def validate_sequence_inputs(
                 )
 
     # ── 7. Body banned-phrase scan ────────────────────────────────────
+    # Per-call allowlist (S73): callers can whitelist specific banned
+    # phrases when the phrase is being used in a non-cliché context. DRE
+    # uses "15 minutes on my calendar: <booking link>" across all 13
+    # sequences — legitimate calendar-booking CTA, not the "got 15 mins?"
+    # cliché the default banlist targets.
+    active_banlist = _BANNED_BODY_PHRASES
+    if allow_phrases:
+        allow_lower = {p.lower() for p in allow_phrases}
+        active_banlist = [p for p in _BANNED_BODY_PHRASES if p.lower() not in allow_lower]
     bodies = _get_step_bodies(steps)
     for i, body in enumerate(bodies):
-        hits = _scan_banned_phrases(body, _BANNED_BODY_PHRASES)
+        hits = _scan_banned_phrases(body, active_banlist)
         if hits:
             failures.append(f"step {i+1} body contains banned phrases {hits!r}.")
 
@@ -1208,6 +1218,7 @@ def create_sequence(
     min_interval_seconds: int = 432000,  # 5 days — cold default
     verify_after_create: bool = True,
     max_repetition: dict[str, int] | None = None,
+    allow_phrases: list[str] | None = None,
 ) -> dict:
     """
     Create a complete sequence in Outreach with email steps.
@@ -1267,6 +1278,7 @@ def create_sequence(
         min_interval_seconds=min_interval_seconds,
         allow_no_schedule=allow_no_schedule,
         max_repetition=max_repetition,
+        allow_phrases=allow_phrases,
     )
     if not validation["passed"]:
         logger.error(
