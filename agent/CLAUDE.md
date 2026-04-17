@@ -20,9 +20,12 @@ memory_manager.extract_memory_update(response) -> tuple  # static
 ## Scheduler (`agent/scheduler.py`)
 ```python
 scheduler = Scheduler()  # NO arguments
-event = scheduler.check()  # returns "morning_brief" | "eod_report" | "checkin" | "weekend_greeting" | "leadership_scan" | "rfp_scan" | "legislative_scan" | "grant_scan" | "budget_scan" | None
+event = scheduler.check()  # returns "morning_brief" | "eod_report" | "checkin" | "weekend_greeting" | "signal_scan" | "leadership_scan" | "rfp_scan" | "legislative_scan" | "grant_scan" | "budget_scan" | "campaign_autopilot" | None
 scheduler.mark_user_active_today()  # suppresses weekend greeting if Steven messages first
-# Weekdays: signal_scan 7:45am, leadership_scan Mon 8:00am, rfp_scan Mon 8:15am, legislative_scan 1st Mon 8:30am, grant_scan 1st Mon 8:45am, budget_scan 1st Mon 9:00am, morning_brief 9:15am, eod_report 4:30pm
+# Weekdays: campaign_autopilot 7:00am, signal_scan 7:45am, leadership_scan Mon 8:00am, rfp_scan Mon 8:15am, legislative_scan 1st Mon 8:30am, grant_scan 1st Mon 8:45am, budget_scan 1st Mon 9:00am, morning_brief 9:15am, eod_report 4:30pm
+# Campaign autopilot: daily prospect-adder per tools/campaign_autopilot.py. Defaults to dry-run.
+# Slash commands (handle_message direct dispatch): /autopilot_live, /autopilot_dry, /autopilot_status.
+# Persisted flag: data/campaign_autopilot_state.json. Kill switch: ~/.claude/state/scout-campaign-autopilot-disabled
 # Saturday: weekend_greeting at 11am (if not already active)
 # Sunday: weekend_greeting at 1pm (if not already active)
 # NO .run() method

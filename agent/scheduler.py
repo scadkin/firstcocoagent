@@ -17,6 +17,7 @@ class Scheduler:
         self._last_legislative_scan_date = None
         self._last_grant_scan_date = None
         self._last_budget_scan_date = None
+        self._last_campaign_autopilot_date = None
         self._user_active_today = False
         self._user_active_date = None
 
@@ -45,6 +46,11 @@ class Scheduler:
             return None
 
         # ── Weekday schedule (Mon-Fri) ──
+        if hour == 7 and minute == 0:
+            if self._last_campaign_autopilot_date != today:
+                self._last_campaign_autopilot_date = today
+                return "campaign_autopilot"
+
         if hour == 7 and minute == 45:
             if self._last_signal_scan_date != today:
                 self._last_signal_scan_date = today

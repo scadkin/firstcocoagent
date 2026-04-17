@@ -69,6 +69,43 @@ _fireflies_email_triggers: set = set()   # keyed by "subject[:60]|date[:16]"
 _fireflies_processed_ids: set = set()    # keyed by transcript_id
 _fireflies_gmail_seeded: bool = False    # True after first scan seeds existing emails
 
+# S74 Campaign Autopilot — persisted live-mode flag. Defaults False on every
+# fresh install; Steven flips via /autopilot_live. Survives bot restarts so
+# Railway redeploys don't silently revert to dry-run. Kill switch file at
+# ~/.claude/state/scout-campaign-autopilot-disabled overrides regardless.
+_autopilot_live_flag: bool = False
+_autopilot_running: bool = False
+
+
+def _autopilot_state_path():
+    from pathlib import Path
+    return Path(__file__).resolve().parent.parent / "data" / "campaign_autopilot_state.json"
+
+
+def _load_autopilot_flag() -> None:
+    """Read persisted live-mode flag into the in-memory global."""
+    import json
+    global _autopilot_live_flag
+    p = _autopilot_state_path()
+    if not p.exists():
+        return
+    try:
+        state = json.loads(p.read_text(encoding="utf-8"))
+        _autopilot_live_flag = bool(state.get("live_mode", False))
+    except Exception as e:
+        logger.warning(f"Could not load autopilot state: {e}")
+
+
+def _save_autopilot_flag(live: bool) -> None:
+    """Persist the live-mode flag."""
+    import json
+    p = _autopilot_state_path()
+    p.parent.mkdir(parents=True, exist_ok=True)
+    p.write_text(json.dumps({"live_mode": bool(live)}), encoding="utf-8")
+
+
+_load_autopilot_flag()
+
 # Phase 6E: Prospecting queue — last shown batch for approve/skip indexing
 _last_prospect_batch: list[dict] = []
 # C5: Last proximity results for "add nearby" command
@@ -1512,7 +1549,7 @@ def _parse_draft(draft_text: str) -> tuple:
 # ── Telegram message handler ───────────────────────────────────────────────────
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    global conversation_history, _pending_draft, _last_prospect_batch, _pending_approve_force, _csv_import_mode, _csv_import_state, _pipeline_import_mode, _closed_lost_import_mode, _pending_csv_intent, _leads_import_mode, _last_proximity_result, _last_signal_batch, _last_reengagement_sequences
+    global conversation_history, _pending_draft, _last_prospect_batch, _pending_approve_force, _csv_import_mode, _csv_import_state, _pipeline_import_mode, _closed_lost_import_mode, _pending_csv_intent, _leads_import_mode, _last_proximity_result, _last_signal_batch, _last_reengagement_sequences, _autopilot_live_flag
 
     if str(update.effective_chat.id) != str(TELEGRAM_CHAT_ID):
         return
@@ -1553,6 +1590,31 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
         else:
             user_text = "Ask Steven which file he wants to update. Once he answers, immediately call get_file_content to fetch it, summarize it, then ask what changes he wants."
+
+    elif user_text.lower().strip() in ("/autopilot_live", "/autopilot_dry",
+                                       "/autopilot_status"):
+        cmd = user_text.lower().strip()
+        if cmd == "/autopilot_live":
+            _autopilot_live_flag = True
+            _save_autopilot_flag(True)
+            await send_message(
+                "🤖 Campaign Autopilot: LIVE mode enabled.\n"
+                "Next 07:00 CST tick will POST real prospects.\n"
+                "To revert: send /autopilot_dry or touch "
+                "~/.claude/state/scout-campaign-autopilot-disabled"
+            )
+        elif cmd == "/autopilot_dry":
+            _autopilot_live_flag = False
+            _save_autopilot_flag(False)
+            await send_message("🤖 Campaign Autopilot: dry-run mode (no real POSTs).")
+        else:  # /autopilot_status
+            from pathlib import Path as _P
+            kill = _P("~/.claude/state/scout-campaign-autopilot-disabled").expanduser()
+            status = "DISABLED (kill switch)" if kill.exists() else (
+                "LIVE" if _autopilot_live_flag else "DRY-RUN")
+            await send_message(f"🤖 Campaign Autopilot mode: {status}")
+        _ack_sent = True
+        return
 
     elif user_text.lower() in ["/grade_draft", "grade draft", "grade that draft", "rate that draft"]:
         user_text = (
@@ -4200,6 +4262,45 @@ async def _run_budget_scan():
         logger.error(f"Monthly budget scan failed: {e}")
 
 
+async def _run_campaign_autopilot():
+    """S74 Campaign Autopilot — daily 07:00 CST weekday prospect-adder.
+
+    Reads the persisted live-mode flag; dry-run by default. Any exception is
+    surfaced to Telegram with a brief traceback summary so a silent failure
+    at 07:00 still shows up in Steven's morning brief window.
+    """
+    global _autopilot_running
+    if _autopilot_running:
+        logger.warning("Campaign autopilot already running — skipping duplicate tick")
+        return
+    _autopilot_running = True
+    try:
+        from tools.campaign_autopilot import run_autopilot, format_telegram_summary
+
+        loop = asyncio.get_running_loop()
+        # run_autopilot is synchronous (Outreach + Sheets calls); offload.
+        report = await loop.run_in_executor(
+            None,
+            partial(run_autopilot, "all", dry_run=not _autopilot_live_flag),
+        )
+        msg = format_telegram_summary(report, live=_autopilot_live_flag)
+        await send_message(msg)
+    except Exception as e:
+        import traceback as tb
+        summary = tb.format_exception_only(type(e), e)[-1].strip()
+        logger.error(f"Campaign autopilot failed: {e}", exc_info=True)
+        try:
+            await send_message(
+                "🤖 Campaign Autopilot — ERROR\n"
+                f"{summary}\n"
+                "(Full traceback in Scout logs; no prospects POSTed this run.)"
+            )
+        except Exception as notify_err:
+            logger.error(f"Could not notify Telegram of autopilot failure: {notify_err}")
+    finally:
+        _autopilot_running = False
+
+
 async def send_eod_report():
     try:
         with open("prompts/eod_report.md", "r") as f:
@@ -4581,6 +4682,8 @@ async def _run_telegram_and_scheduler():
                 asyncio.create_task(_run_grant_scan())
             elif sched_event == "budget_scan":
                 asyncio.create_task(_run_budget_scan())
+            elif sched_event == "campaign_autopilot":
+                asyncio.create_task(_run_campaign_autopilot())
             if gas and FIREFLIES_API_KEY:
                 asyncio.create_task(_check_precall_briefs(gas))
                 now_ts = time.time()
