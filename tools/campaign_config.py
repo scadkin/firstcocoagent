@@ -153,17 +153,31 @@ STRATEGIES: dict[str, StrategyConfig] = {
         "bucket_to_sequence_name": None,
         "throttle_profile_name": None,
     },
-    # #11 C4 Unresponsive seq re-engage — Tier 1, sequences not yet built
+    # #11 Unresponsive seq re-engage — RETIRED S75 (2026-04-18).
+    # Decision: subsumed by #12 DRE. Any contact who completed a Scout
+    # sequence without replying AND is >90d dormant is already routed into
+    # DRE's pool by their original Lead Source. The <90d gap is too soon
+    # to re-engage anyway. 266/wk budget held for future redirection to
+    # a Tier 2 or Tier 3 strategy that has zero coverage today.
     "c4_unresponsive": {
         "number": 11,
-        "display": "C4 Unresponsive seq re-engage",
+        "display": "C4 Unresponsive seq re-engage (RETIRED — merged into DRE)",
         "tier": 1,
-        "weekly_budget": 266,
+        "weekly_budget": 0,  # reclaimed; hold 266/wk unallocated until Steven redirects
+        "retired": True,
+        "retired_at": "2026-04-18",
+        "retired_reason": "subsumed by #12 DRE; budget held for redirection",
         "sequence_ids": [],
         "pool_source": None,
         "bucket_to_sequence_name": None,
         "throttle_profile_name": None,
     },
+}
+
+# Unallocated weekly email budget (reclaimed from retired strategies).
+# Redirect to a Tier 2 or Tier 3 strategy once Steven picks the target.
+UNALLOCATED_BUDGET: dict[str, int] = {
+    "from_c4_unresponsive_retirement": 266,  # 2026-04-18, S75
 }
 
 
